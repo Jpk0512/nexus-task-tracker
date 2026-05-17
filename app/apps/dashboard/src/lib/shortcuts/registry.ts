@@ -209,6 +209,15 @@ export const SHORTCUTS: ShortcutSpec[] = [
 		description:
 			"Raycast-style ring of recently-visited entities — faster than the full palette.",
 	},
+	// ─── Iter-10 Round G delighters ────────────────────────────────────────
+	{
+		keys: "mod+l",
+		label: "Open personal lens",
+		scope: "global",
+		action: "nav.lens",
+		description:
+			"Things-style Today/Upcoming/Someday lens over the user's task slice (codex delighter #2).",
+	},
 	// ─── Route-scoped ──────────────────────────────────────────────────────
 	{
 		keys: "c",

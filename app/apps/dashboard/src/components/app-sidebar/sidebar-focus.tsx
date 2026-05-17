@@ -7,7 +7,7 @@ import {
 	SidebarMenuButton,
 	SidebarMenuItem,
 } from "@ui/components/ui/sidebar";
-import { LayersIcon, MessagesSquareIcon } from "lucide-react";
+import { LayersIcon, MessagesSquareIcon, SunIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useUser } from "../user-provider";
@@ -17,6 +17,7 @@ export function SidebarFocus() {
 	const pathname = usePathname();
 
 	const isMyTasksActive = pathname === `${user.basePath}/views/my-tasks`;
+	const isLensActive = pathname.startsWith(`${user.basePath}/lens`);
 	const isChatActive = pathname.startsWith(`${user.basePath}/chat`);
 
 	return (
@@ -28,6 +29,17 @@ export function SidebarFocus() {
 							<Link href={`${user.basePath}/views/my-tasks`}>
 								<LayersIcon />
 								<span>My Tasks</span>
+							</Link>
+						</SidebarMenuButton>
+					</SidebarMenuItem>
+					{/* Codex delighter #2 — Things-style personal lens. Sits directly
+						  under "My Tasks" so the personal-overview cluster stays
+						  contiguous. */}
+					<SidebarMenuItem>
+						<SidebarMenuButton asChild isActive={isLensActive}>
+							<Link href={`${user.basePath}/lens`}>
+								<SunIcon />
+								<span>Lens</span>
 							</Link>
 						</SidebarMenuButton>
 					</SidebarMenuItem>
