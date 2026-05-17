@@ -28,7 +28,7 @@ import {
 	DropdownMenuTrigger,
 } from "@ui/components/ui/dropdown-menu";
 import { cn } from "@ui/lib/utils";
-import { EllipsisIcon, GripVerticalIcon, PlusIcon } from "lucide-react";
+import { EllipsisIcon, GripVerticalIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { StatusIcon } from "@/components/status-icon";
