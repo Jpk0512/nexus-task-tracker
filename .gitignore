@@ -1,0 +1,69 @@
+# === mimrai .gitignore ===
+
+# OS / editor
+.DS_Store
+**/.DS_Store
+.vscode/
+.idea/
+.zed/
+*.swp
+*~
+
+# Python
+**/__pycache__/
+**/*.pyc
+*.pyo
+
+# Node / Bun / Turbo / Next.js
+**/node_modules/
+**/.next/
+**/dist/
+**/build/
+**/.turbo/
+**/.alchemy/
+**/out/
+
+# Logs
+*.log
+**/logs/
+
+# Env / secrets (ignore all .env*; keep examples/templates)
+.env
+.env.*
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.sample
+!**/.env.template
+
+# Runtime memory / DBs / scout artifacts
+.memory/project.db
+.memory/STATE.md
+.memory/scout-reports/
+.memory/files/progress.md
+.memory/files/session_state.md
+.memory/files/open_decisions.md
+.memory/files/verification_state.md
+.memory/files/hook_heartbeat.jsonl
+.memory/files/router_decisions.jsonl
+*.db
+*.sqlite
+*.sqlite3
+*.sqlite-journal
+
+# Claude / Nexus runtime
+.claude/scheduled_tasks.lock
+.claude/worktrees/
+.claude/hooks/__pycache__/
+
+# Docker volume mounts (runtime state)
+pgdata/
+redis-data/
+supabase-stack/volumes/db/data/
+supabase-stack/volumes/storage/
+
+# Arize tmp traces
+**/.arize-tmp-traces/
+
+# App-specific
+app/TEST_PROMPTS.md
