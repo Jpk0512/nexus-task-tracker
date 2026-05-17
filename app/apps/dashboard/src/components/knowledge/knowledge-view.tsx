@@ -8,6 +8,8 @@ import {
 	BookOpenIcon,
 	BrainIcon,
 	CalendarIcon,
+	EyeIcon,
+	EyeOffIcon,
 	FileTextIcon,
 	FolderIcon,
 	FolderOpenIcon,
@@ -146,6 +148,11 @@ export function KnowledgeView() {
 	const [newPath, setNewPath] = useState("");
 	const [showNew, setShowNew] = useState(false);
 	const [browseAll, setBrowseAll] = useState(false);
+	// "Manage categories" toggle — when off (default), empty groups are hidden
+	// to reduce sidebar clutter (per iter-10 visual-baseline). When on, all
+	// reserved categories render even when empty so the user can discover
+	// where new notes will land.
+	const [showAllCategories, setShowAllCategories] = useState(false);
 	const newPathInputRef = useRef<HTMLInputElement | null>(null);
 
 	const listQuery = useQuery(
@@ -476,29 +483,80 @@ export function KnowledgeView() {
 							Vault is empty. Use the panel on the right to start.
 						</div>
 					) : (
-						[...GROUPS, OTHER_GROUP].map((g) => {
-							const items = groupedNotes.get(g.key) ?? [];
-							if (g.key === "other" && items.length === 0) return null;
-							const open = groupOpenDefault(g);
-							// Remount when the computed default changes (browse-toggle,
-							// search, active-note change) so Radix re-reads defaultOpen.
-							const remountKey = `${g.key}:${open ? "1" : "0"}:${hasSearchActive ? "s" : ""}:${browseAll ? "b" : ""}`;
+						(() => {
+							const renderedGroups = [...GROUPS, OTHER_GROUP].map((g) => {
+								const items = groupedNotes.get(g.key) ?? [];
+								// "Other" — always hide when empty (legacy behaviour).
+								if (g.key === "other" && items.length === 0) return null;
+								// Reserved categories — hide when empty unless the user has
+								// toggled "Manage categories" or an active search/browse-all
+								// pushed the panel into discovery mode.
+								if (
+									items.length === 0 &&
+									!showAllCategories &&
+									!browseAll &&
+									!hasSearchActive
+								) {
+									return null;
+								}
+								const open = groupOpenDefault(g);
+								// Remount when the computed default changes (browse-toggle,
+								// search, active-note change) so Radix re-reads defaultOpen.
+								const remountKey = `${g.key}:${open ? "1" : "0"}:${hasSearchActive ? "s" : ""}:${browseAll ? "b" : ""}`;
+								return (
+									<NoteGroup
+										key={remountKey}
+										icon={g.icon}
+										title={g.title}
+										count={items.length}
+										notes={items}
+										selectedId={selectedId}
+										defaultOpen={open}
+										onSelect={setSelectedId}
+										onPromote={handlePromote}
+										onDelete={handleDelete}
+										onOpenInVault={handleCopyPath}
+									/>
+								);
+							});
+							const hiddenCount = [...GROUPS, OTHER_GROUP].filter((g) => {
+								if (g.key === "other") return false;
+								const items = groupedNotes.get(g.key) ?? [];
+								return items.length === 0;
+							}).length;
 							return (
-								<NoteGroup
-									key={remountKey}
-									icon={g.icon}
-									title={g.title}
-									count={items.length}
-									notes={items}
-									selectedId={selectedId}
-									defaultOpen={open}
-									onSelect={setSelectedId}
-									onPromote={handlePromote}
-									onDelete={handleDelete}
-									onOpenInVault={handleCopyPath}
-								/>
+								<>
+									{renderedGroups}
+									{/* "Manage categories" — reveals reserved categories that
+									    have no notes yet so the user can still find them.
+									    Hidden in search/browse-all mode where everything is
+									    already visible. */}
+									{!hasSearchActive && !browseAll && hiddenCount > 0 && (
+										<button
+											type="button"
+											onClick={() => setShowAllCategories((v) => !v)}
+											className="flex w-full items-center gap-2 px-3 py-2 text-left text-[11px] text-muted-foreground tracking-[0.02em] transition-colors hover:bg-accent/40 hover:text-foreground"
+											title={
+												showAllCategories
+													? "Hide empty categories"
+													: "Show all reserved categories"
+											}
+										>
+											{showAllCategories ? (
+												<EyeOffIcon className="size-3" />
+											) : (
+												<EyeIcon className="size-3" />
+											)}
+											<span>
+												{showAllCategories
+													? "Hide empty categories"
+													: `Manage categories (${hiddenCount} hidden)`}
+											</span>
+										</button>
+									)}
+								</>
 							);
-						})
+						})()
 					)}
 				</div>
 			</aside>

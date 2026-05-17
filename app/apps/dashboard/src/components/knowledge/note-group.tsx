@@ -121,9 +121,13 @@ function NoteRow({
 						type="button"
 						onClick={() => onSelect(note.id)}
 						className={cn(
-							"group flex w-full items-center gap-2 px-9 py-1 text-left text-[13px] tracking-[-0.005em] transition-colors",
+							// Lavender brand active-state mirrors settings-sidebar (iter 3):
+							// left-border + bg-brand/10 tint. Inactive rows keep a
+							// transparent left-border so the row width doesn't shift on
+							// selection.
+							"group flex w-full items-center gap-2 border-l-2 border-transparent px-[34px] py-1 text-left text-[13px] tracking-[-0.005em] transition-colors",
 							active
-								? "bg-accent font-[510] text-accent-foreground"
+								? "border-l-brand bg-brand/10 font-[510] text-brand"
 								: "font-[400] text-foreground hover:bg-accent/40",
 						)}
 						title={note.relativePath}
