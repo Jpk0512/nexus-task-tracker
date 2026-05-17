@@ -1,0 +1,25 @@
+.memory/project.db
+.memory/scout-reports/
+.memory/files/progress.md
+.memory/files/session_state.md
+.memory/files/open_decisions.md
+.memory/files/verification_state.md
+.memory/files/hook_heartbeat.jsonl
+.memory/STATE.md
+.claude/hooks/.env
+
+# Python cache
+**/__pycache__/
+**/*.pyc
+*.pyo
+
+# Editor
+.DS_Store
+.vscode/
+.idea/
+
+# Generated (not template)
+docs/agents/TEAM.md
+docs/ARCHITECTURE.md
+CLAUDE.md
+nexus-config.json

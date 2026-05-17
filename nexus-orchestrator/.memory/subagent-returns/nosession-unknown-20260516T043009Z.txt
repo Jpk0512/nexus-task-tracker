@@ -1,0 +1,44 @@
+---
+
+```json
+{
+  "status": "complete",
+  "completion_marker": "## NEXUS:DONE",
+  "files_changed": [
+    ".claude/hooks/router_core.py",
+    ".claude/hooks/router.py",
+    ".claude/hooks/tests/test_router.py",
+    ".claude/hooks/.env.template"
+  ],
+  "verification_result": "python3 -m py_compile .claude/hooks/router_core.py && echo router_core: OK\nrouter_core: OK\npython3 -m py_compile .claude/hooks/router.py && echo router: OK\nrouter: OK\n\nuv run pytest .claude/hooks/tests/test_router.py -v\n11 passed in 0.51s\n  test_router_script_exists PASSED\n  test_router_core_build_persona_enum PASSED\n  test_emits_prefill_above_threshold PASSED\n  test_falls_through_below_threshold PASSED\n  test_malformed_qwen_json_falls_through PASSED\n  test_lmstudio_down_falls_through PASSED\n  test_shadow_mode_uses_different_tag PASSED\n  test_heartbeat_emitted PASSED\n  test_decision_log_appended PASSED\n  test_meta_persona_no_routing_chip PASSED\n  test_build_persona_enum_excludes_pro_includes_meta PASSED",
+  "acceptance_met": [
+    {"criterion": "python3 -m py_compile router_core.py passes", "met": true, "evidence": "router_core: OK"},
+    {"criterion": "python3 -m py_compile router.py passes", "met": true, "evidence": "router: OK"},
+    {"criterion": "ROUTER_MODEL constant replaces QWEN_MODEL; defaults to granite-4.1-3b-instruct", "met": true, "evidence": "ROUTER_MODEL = os.environ.get('_HOOK_ROUTER_MODEL', 'granite-4.1-3b-instruct')"},
+    {"criterion": "QWEN_TIMEOUT env-var configurable, defaults to 10.0", "met": true, "evidence": "QWEN_TIMEOUT = float(os.environ.get('_HOOK_ROUTER_TIMEOUT', '10.0'))"},
+    {"criterion": "build_persona_enum() excludes -pro stems and includes 'meta'", "met": true, "evidence": "test_build_persona_enum_excludes_pro_includes_meta PASSED; runtime enum: ['atlas', 'forge', 'forge-ui', ..., 'scout', 'meta'], pro_variants=[]"},
+    {"criterion": "_read_persona_descriptions() excludes -pro stems, injects meta first, caps at 100 chars", "met": true, "evidence": "meta line is first in descriptions block; 100-char cap applied; -pro stems filtered"},
+    {"criterion": "_build_system_prompt() has grouped skills, fractional confidence instruction, few-shot examples", "met": true, "evidence": "CONFIDENCE line reads 'fractional 0.0-1.0. Use 0.95 when obvious, 0.70-0.85 when uncertain. Never output an integer.'; 4 few-shot JSON examples present; skills grouped by prefix"},
+    {"criterion": "Prompt ≤35 lines", "met": false, "evidence": "45 lines — see notes: real agents dir has 16 non-pro personas; structural minimum is ~45. Criterion conflict with content requirements."},
+    {"criterion": "router.py treats persona=='meta' as fallthrough, logs decision='meta', no routing chip", "met": true, "evidence": "test_meta_persona_no_routing_chip PASSED — stdout empty, router_decisions.jsonl decision='meta'"},
+    {"criterion": "Test: meta response exits 0 with no routing chip", "met": true, "evidence": "test_meta_persona_no_routing_chip PASSED"}
+  ],
+  "blockers": [],
+  "decisions_needed": [
+    "Criterion 7 says ≤35 prompt lines but the real agents dir produces 16 non-pro personas. With grouped skills and few-shot examples, minimum is ~45 lines. Either raise the cap to 50 or reduce it by removing nexus-orchestrator, forge (alias), pipeline (alias), quill (alias) from the routing personas. Currently no action taken — those aliases are real agent files."
+  ],
+  "db_log_cmds": [],
+  "notes": "The 'Nexus-dispatched only' stripping required handling two forms: 'Nexus-dispatched only ...' (forge-ui, forge-wire, quill-ts, quill-py, pipeline-*) and '(Nexus-dispatched only' (hermes, atlas, palette, scout, lens). Both are now stripped. The call_qwen() signature gained an optional skills_dir parameter so the real HTTP path can resolve skills without hardcoding. All 9 pre-existing tests plus 2 new ones (STUB 10 meta, STUB 11 pro-filter) pass."
+}
+```
+
+## NEXUS:DONE
+
+**Files changed:**
+
+- `/Users/john.keeney/.superset/worktrees/a0e8fad9-a180-414e-83ad-8db59dc88355/arize-orchestrator-eval/.claude/hooks/router_core.py` — full rewrite with `ROUTER_MODEL`, `QWEN_TIMEOUT` env-var overrides; new `_read_persona_descriptions()`, `_read_skill_names()`, `_build_system_prompt()`; updated `build_persona_enum()` with `-pro` filter + `meta` append
+- `/Users/john.keeney/.superset/worktrees/a0e8fad9-a180-414e-83ad-8db59dc88355/arize-orchestrator-eval/.claude/hooks/router.py` — `meta` persona early-exit block inserted before `_shadow_personas()` call
+- `/Users/john.keeney/.superset/worktrees/a0e8fad9-a180-414e-83ad-8db59dc88355/arize-orchestrator-eval/.claude/hooks/tests/test_router.py` — added STUB 10 (`test_meta_persona_no_routing_chip`) and STUB 11 (`test_build_persona_enum_excludes_pro_includes_meta`)
+- `/Users/john.keeney/.superset/worktrees/a0e8fad9-a180-414e-83ad-8db59dc88355/arize-orchestrator-eval/.claude/hooks/.env.template` — created with `_HOOK_ROUTER_MODEL` and `_HOOK_ROUTER_TIMEOUT` exports
+
+**One criterion flagged:** The ≤35-line prompt cap cannot be met with the real 16-persona agent directory. The current prompt is 45 lines — all content is load-bearing (persona names, grouped skills, 4 few-shot examples). If Nexus wants to hit 35, the alias personas (`forge`, `pipeline`, `quill`) that duplicate the specific variants (`forge-ui`/`forge-wire`, `pipeline-data`/`pipeline-async`, `quill-ts`/`quill-py`) plus `nexus-orchestrator` could be excluded from routing, trimming 4 persona lines.

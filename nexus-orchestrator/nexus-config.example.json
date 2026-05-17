@@ -1,0 +1,59 @@
+{
+  "_comment": "Copy this file to nexus-config.json and fill in your project details. Run ./install.sh to apply.",
+  "project": {
+    "name": "my-project",
+    "description": "Describe what your project does",
+    "dev_port": 3000
+  },
+  "tech_stack": {
+    "languages": ["TypeScript", "Python"],
+    "frontend": "Next.js 15 / TypeScript",
+    "backend": "FastAPI / Python 3.12",
+    "database": "PostgreSQL 16",
+    "testing": {
+      "frontend": ["vitest", "react-testing-library"],
+      "backend": ["pytest", "httpx"]
+    },
+    "verification": {
+      "type_check": "rtk tsc",
+      "lint": "rtk lint",
+      "python_lint": "uv run ruff check",
+      "test_frontend": "rtk vitest run",
+      "test_backend": "uv run pytest"
+    }
+  },
+  "personas": [
+    {
+      "name": "forge",
+      "role": "TypeScript implementer",
+      "description": "TypeScript / Next.js implementer for app/ tree",
+      "owns": ["app/"],
+      "do_not_touch": ["ingestion/", "models/"],
+      "stack": ["Next.js 15", "TypeScript 5", "Tailwind CSS 4", "Vitest"],
+      "verification": ["rtk tsc", "rtk lint"],
+      "model": "sonnet",
+      "effort": "high"
+    },
+    {
+      "name": "pipeline",
+      "role": "Python implementer",
+      "description": "Python / data pipeline implementer for ingestion/ tree",
+      "owns": ["ingestion/"],
+      "do_not_touch": ["app/", "models/"],
+      "stack": ["Python 3.12", "FastAPI", "SQLAlchemy", "pytest"],
+      "verification": ["uv run ruff check", "uv run pytest"],
+      "model": "sonnet",
+      "effort": "high"
+    }
+  ],
+  "paths": {
+    "docs": "docs/",
+    "agents_doc": "docs/agents/",
+    "source_roots": ["app/", "ingestion/"],
+    "tests": "tests/"
+  },
+  "hooks": {
+    "gated_source_paths": "app/,ingestion/,src/",
+    "context_reset_at": 10
+  }
+}

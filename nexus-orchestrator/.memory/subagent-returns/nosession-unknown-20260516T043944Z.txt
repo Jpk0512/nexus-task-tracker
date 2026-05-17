@@ -1,0 +1,424 @@
+<analysis>
+Let me chronologically analyze this conversation to capture all critical technical details.
+
+## Session Overview
+
+The user (John Keeney) is working on the `arize-orchestrator-eval` branch of the `ai-interaction-dash` project. The session has two main focus areas:
+1. Reviewing and improving the Nexus Orchestrator portable template (`nexus-orchestrator-template copy/`)
+2. Evaluating and fixing the Qwen/LM Studio router prompt for intent classification
+
+## Part 1: Template Review and Fixes
+
+### Initial Request
+The user wanted to:
+- Review the install script for hardcoded paths
+- Verify embedding (LM Studio/sqlite-vec/Qwen) connections
+- Verify hooks are correct (CC added a new requirement)
+- Include the `grill-me-with-docs` skill from elevenlabs-eval-dash
+- Create a new/improved `nexus-install` skill with a full install flow
+
+### Key discoveries via file reading:
+- **`install.sh`**: Clean, uses `$SCRIPT_DIR` relative paths — no hardcoded paths ✅
+- **`router_core.py` (CRITICAL BUG)**: Static `SYSTEM_PROMPT` had hardcoded ai-interaction-dash personas (forge-ui, forge-wire, pipeline-data, etc.) and skill names — any project installing the template would get the wrong Qwen routing personas
+- **`log.py`**: Has LM Studio embedding code at `:1234/v1/embeddings` with `nomic-embed-text-v1.5` (768-dim → sqlite-vec via M001 migration) — identical between template and elevenlabs
+- **`router_core.py`**: Also calls `:1234/v1/chat/completions` with `qwen3.5-0.8b-intent-classification` for intent classification
+- **`validate-install.sh`**: Missing LM Studio ping and sqlite-vec import checks
+- **`grill-me-with-docs`**: Not in template, lives at `/Users/john.keeney/elevenlabs-eval-dash/.claude/skills/grill-me-with-docs/` with SKILL.md + templates/CONTEXT-FORMAT.md + templates/ADR-FORMAT.md
+- **`nexus-install` skill**: 709 lines, existed entirely only on this branch (not in main), was purely Q&A driven, missing handoff dir detection, grill-me integration, Docker mandatory setup, LM Studio verification, sequential port assignment
+
+### User clarifications via AskUserQuestion:
+- LM Studio (not Ollama) for embeddings
+- CC hook requirement: "something about a hookname is required now?" (CC docs confirmed `hookName` is NOT required, not in schema)
+- Install skill: assumes install.sh already run; safe for existing projects
+- Docker: Full Docker setup + mandatory checks
+- Qwen system prompt: Auto-pull from agent frontmatter (description: field)
+- Agent catalog: Curated catalog + stack detection
+
+### Pipeline agent changes (Tasks A-E):
+
+**Task A: `router_core.py` — dynamic SYSTEM_PROMPT**
+Deleted static SYSTEM_PROMPT. Added functions:
+```python
+def _parse_frontmatter_field(content: str, field: str) -> str | None:
+    fm_match = re.search(r'^---\s*\n(.*?)\n---', content, re.DOTALL | re.MULTILINE)
+    if not fm_match: return None
+    fm = fm_match.group(1)
+    field_match = re.search(rf'^{re.escape(field)}:\s*"?([^"\n]+)"?', fm, re.MULTILINE)
+    return field_match.group(1).strip() if field_match else None
+
+def _read_persona_descriptions(agents_dir: str) -> str:
+    # Reads .md files from agents_dir, skips _-prefixed and DOMAIN-AGENT-TEMPLATE
+    # Returns formatted "- name: description" lines
+
+def _read_skill_names(skills_dir: str) -> list[str]:
+    # Returns sorted list of skill subdir names
+
+def _build_system_prompt(agents_dir: str, skills_dir: str) -> str:
+    # Builds dynamic system prompt at call time
+```
+Updated `call_qwen()` to accept optional `skills_dir` param and call `_build_system_prompt()` at runtime.
+
+**Task B: `validate-install.sh`** — Added LM Studio curl check and sqlite-vec import check, updated hook count threshold to 20.
+
+**Task C: `grill-me-with-docs`** — Copied SKILL.md + templates/ into template.
+
+**Task D: `install.sh`** — Added EXISTING_NEXUS detection block with 10-second abort window suggesting `Skill nexus-install` instead.
+
+### Forge agent: Rewrote `nexus-install` skill (709 → 866 lines)
+10-phase install flow:
+- Phase 0: Announce (print phase list header)
+- Phase 1: Safety scan — FRESH vs MERGE mode
+- Phase 2: System verification (LM Studio, sqlite-vec, Docker mandatory gate)
+- Phase 3: Handoff check → `docs/handoff/` exists → read those; else invoke `Skill grill-me-with-docs`
+- Phase 4: Stack configuration interview
+- Phase 5: Docker setup (MANDATORY) — sequential port scan from :5178, generate docker-compose.yml
+- Phase 6: Curated agent + skills catalog (stack-signal keyed)
+- Phase 7: Generate — agent personas with embedded ROUTER NOTE comment, nexus-config.json, CLAUDE.md with LM Studio model names
+- Phase 8: Memory init + M001 migration
+- Phase 9: Run validate-install.sh
+- Phase 10: What's Next with LM Studio model names
+
+Key detail: The generated agent template includes:
+```
+<!-- ROUTER NOTE: The description: field above is read at runtime by router_core.py
+     to build the Qwen routing prompt. Keep it accurate and specific. -->
+```
+
+**Pre-existing bug noted**: `build_persona_enum()` doesn't exclude `DOMAIN-AGENT-TEMPLATE.md` from the JSON schema enum (not introduced by our changes).
+
+## Part 2: Router Prompt Evaluation + Granite 4.1 Switch
+
+### User's request
+- Nexus was picking hermes too often
+- Evaluate the prompt (user pasted 7-issue analysis)
+- Consider switching to Granite 4.1
+- Review recent routing to see if switch is warranted
+
+### Data analysis results:
+
+**Arize project routing (6 decisions in arize-orchestrator-eval worktree):**
+- forge-wire: 2 (33%), hermes: 2 (33%), quill-ts: 1 (17%), quill-py: 1 (17%)
+- 5/6 fallthrough (83%), 1 shadow
+
+**Main ai-interaction-dash project routing (17 decisions):**
+- hermes: 15/17 = 88% ← catastrophic over-selection
+- forge-ui: 1 (6%), pipeline-data: 1 (6%)
+- ALL 17 are "prefill" (because user lowered THRESHOLD_LLM to 0.70)
+- Confidence: 0.82 × 9, 0.87 × 7, 0.78 × 1
+
+**LM Studio models currently loaded:**
+- `qwen3.5-0.8b-intent-classification` (current router)
+- `granite-4.0-h-tiny-mlx`
+- `text-embedding-nomic-embed-text-v1.5`
+- `llama-3.2-3b-instruct`
+- etc.
+
+### The 7 issues from user's pasted analysis (all confirmed valid):
+1. No "meta" persona — hermes acts as catch-all for discussion/ops prompts
+2. No few-shot examples — small models need 3-5 examples for calibration
+3. -pro variants in enum — small model can't distinguish "needs Opus" from prompt
+4. Skill list is wall of text — model misses items near end of long flat lists
+5. Persona description length uneven — hermes has long vague description
+6. Reorder by frequency
+7. System prompt too long
+
+**Additional issue identified**: confidence clusters at 0.82 (integer `82` output) — model has only two modes: 82 (below old 0.85 threshold) and 87 (above). The CONFIDENCE instruction needs to say "fractional 0.0-1.0, never output an integer."
+
+### Granite 4.1 3B decision
+User confirmed: "we can do granite 4.1 3b"
+- Not currently loaded in LM Studio (only `granite-4.0-h-tiny-mlx` is loaded)
+- 3B is appropriate size: fast enough, better accuracy than 0.8B
+- Default timeout needs increase from 5.0s to 10.0s
+
+### Pipeline agent applied all 7 fixes to worktree's `.claude/hooks/router_core.py`:
+
+**Key changes:**
+```python
+# Model now env-var configurable
+ROUTER_MODEL = os.environ.get("_HOOK_ROUTER_MODEL", "granite-4.1-3b-instruct")
+QWEN_TIMEOUT = float(os.environ.get("_HOOK_ROUTER_TIMEOUT", "10.0"))
+```
+
+**`build_persona_enum()` updated:**
+- Filters `-pro` suffix stems
+- Appends `"meta"` to returned list
+
+**`_read_persona_descriptions()` updated:**
+- Filters `-pro` suffix stems
+- Injects hardcoded meta line FIRST: `"- meta: questions, status checks, clarifications, ops decisions where Nexus should answer directly — NOT a dispatch"`
+- Caps description at 100 chars
+
+**`_build_system_prompt()` rewritten with:**
+- Grouped skills by persona prefix heuristic
+- CONFIDENCE instruction: `"fractional 0.0-1.0. Use 0.95 when obvious, 0.70-0.85 when uncertain. Never output an integer."`
+- 4 few-shot examples (meta, scout, lens, meta-complex)
+- Total: ~45 lines (not ≤35 as specified — load-bearing content with 16 non-pro personas)
+
+**`router.py` updated:**
+```python
+# meta = Nexus handles the request directly; suppress routing chip
+if persona == "meta":
+    _append_jsonl(files_dir / "router_decisions.jsonl", {
+        "timestamp": now_iso, "qwen_persona": "meta",
+        "qwen_confidence": confidence, "decision": "meta",
+        "latency_ms": latency_ms,
+    })
+    sys.exit(0)
+```
+
+**Tests added:** `test_meta_persona_no_routing_chip` and `test_build_persona_enum_excludes_pro_includes_meta` — all 11 tests pass.
+
+**`.claude/hooks/.env.template`** created with:
+```bash
+export _HOOK_ROUTER_MODEL="${_HOOK_ROUTER_MODEL:-granite-4.1-3b-instruct}"
+export _HOOK_ROUTER_TIMEOUT="${_HOOK_ROUTER_TIMEOUT:-10.0}"
+```
+
+### User correction
+"no i changed it to .70 in the router prompt. check on the claude-code project in arize"
+
+User changed THRESHOLD_LLM to 0.70 in the MAIN project's router.py (not the template). Confirmed in main project file with comment: `# Threshold lowered 0.85 → 0.70 on 2026-05-14`.
+
+The worktree template copy still has THRESHOLD_LLM = 0.85.
+
+### Arize trace check
+- Space: `john.keeney4` (ID: `U3BhY2U6NDMyMDY6cnhPaA==`)
+- Claude Code project ID: `TW9kZWw6Nzg3NTQ4MTkyMzpPOUdM`
+- Exported 50 spans, 4 unique traces, 2 sessions
+- Traces are from elevenlabs-eval-dash session (grill-me-with-docs review + router.py check)
+- Turn 3 shows user testing router: "i just had to fix an issue with router.py. i saved it but want to make sure its live."
+- All 50 spans: status OK, model: claude-sonnet-4-6
+- No errors in Arize
+
+### Current state at interruption
+Was attempting to fix THRESHOLD_LLM from 0.85 to 0.70 in the worktree's router.py using a python3 inline script. The `bash -n` check failed with a syntax error because bash was trying to check a Python file (router.py is Python, not bash — the check was wrongly applied). The actual python3 edit had already succeeded (the script printed "Updated threshold to 0.70 in worktree router.py").
+
+The THRESHOLD_LLM fix WAS applied to the file, but the verification step (`bash -n`) was wrong (bash can't syntax-check Python). Need to use `python3 -m py_compile` instead.
+
+## Key files modified in this session
+
+1. `nexus-orchestrator-template copy/.claude/hooks/router_core.py` — dynamic SYSTEM_PROMPT (template work) AND 7 prompt fixes + Granite model switch (main router work)
+2. `nexus-orchestrator-template copy/.claude/hooks/router.py` — meta persona handling
+3. `nexus-orchestrator-template copy/scripts/validate-install.sh` — LM Studio + sqlite-vec checks
+4. `nexus-orchestrator-template copy/install.sh` — existing project detection
+5. `nexus-orchestrator-template copy/.claude/skills/grill-me-with-docs/` — added (copied)
+6. `nexus-orchestrator-template copy/.claude/skills/nexus-install/SKILL.md` — full rewrite (866 lines)
+7. `nexus-orchestrator-template copy/.claude/hooks/.env.template` — new, with ROUTER_MODEL and ROUTER_TIMEOUT
+8. `.claude/hooks/router_core.py` (worktree hooks, not template) — 7 prompt fixes
+9. `.claude/hooks/router.py` (worktree hooks) — meta handling + THRESHOLD_LLM 0.70
+10. `.claude/hooks/tests/test_router.py` (worktree) — 2 new tests
+
+## Pending items
+- THRESHOLD_LLM fix in worktree router.py was applied but verification failed (wrong check type)
+- The 7 prompt fixes are on arize-orchestrator-eval branch but main branch still has old router
+- Granite 4.1 3B not yet loaded in LM Studio
+- `build_persona_enum()` pre-existing bug: doesn't exclude DOMAIN-AGENT-TEMPLATE.md from JSON schema enum
+</analysis>
+
+<summary>
+1. Primary Request and Intent:
+   The user (John Keeney, working on `arize-orchestrator-eval` branch of `ai-interaction-dash`) had two major work streams this session:
+
+   **Stream 1 — Nexus Orchestrator Template Review:**
+   - Review `install.sh` for hardcoded paths (verified clean)
+   - Verify LM Studio embedding + sqlite-vec (Qwen) connections in the template
+   - Verify hooks are correct (CC recently added a new hook requirement — confirmed `hookName` is NOT required per CC docs)
+   - Add the `grill-me-with-docs` skill (from `/Users/john.keeney/elevenlabs-eval-dash/.claude/skills/grill-me-with-docs/`) into the template
+   - Create a comprehensive new `nexus-install` skill with: handoff dir detection, grill-me integration, mandatory Docker setup with sequential port assignment starting :5178, agent+skills catalog, full project customization
+   - Make install safe for existing projects (skill handles merge mode; script warns)
+   - Compare current skill to what's in main (nexus-install was 100% new on this branch — didn't exist in main)
+
+   **Stream 2 — Router Prompt Evaluation + Model Switch:**
+   - Hermes was being picked too often; evaluate the prompt for issues
+   - Review actual Arize routing data to confirm the problem
+   - Apply 7 specific prompt fixes provided in user's pasted analysis
+   - Consider switching from `qwen3.5-0.8b-intent-classification` to Granite 4.1 3B
+   - User confirmed: "we can do granite 4.1 3b"
+   - User also changed `THRESHOLD_LLM` from 0.85 to 0.70 in the main project's `router.py` manually
+   - Check the "claude-code" project in Arize for recent trace data
+
+2. Key Technical Concepts:
+   - **Nexus Orchestrator**: Multi-agent orchestration system with Nexus as orchestrator, specialist personas (forge, pipeline, atlas, hermes, scout, lens, quill), SQLite memory, 23 enforcement hooks
+   - **LM Studio**: Local LLM server at `http://127.0.0.1:1234` providing OpenAI-compatible API for both chat completions (Qwen router) and embeddings (nomic-embed-text)
+   - **Qwen 3.5-0.8B**: Intent classification model used for routing user prompts to specialist personas
+   - **Granite 4.1 3B**: Planned replacement model (IBM, Apache 2.0, better calibration than 0.8B)
+   - **sqlite-vec**: Python package for vector search; M001 migration creates `vec_memory` virtual table with `float[768]` embeddings
+   - **nomic-embed-text-v1.5**: Embedding model via LM Studio, generates 768-dim vectors for semantic memory
+   - **router_core.py**: Dynamic persona routing library — now generates SYSTEM_PROMPT at runtime from agent frontmatter `description:` fields
+   - **THRESHOLD_LLM**: Confidence threshold for prefill vs fallthrough — was 0.85, user lowered to 0.70 in main project
+   - **meta persona**: New routing category for discussion/ops/status prompts that Nexus handles directly (no dispatch)
+   - **-pro variants**: Escalation variants (forge-ui-pro, etc.) that should NOT be in the classifier enum — Nexus decides escalation based on stall count, not Qwen
+   - **Confidence clustering**: Qwen outputs integer `82` or `87` (normalized to 0.82/0.87), creating binary mode behavior — fixed by "Never output an integer" instruction in prompt
+   - **grill-me-with-docs**: Domain discovery interview skill that creates CONTEXT.md and ADRs by relentlessly interviewing the user
+   - **Arize**: LLM observability platform; Claude Code traces sent to `claude-code` project (ID: `TW9kZWw6Nzg3NTQ4MTkyMzpPOUdM`), space `john.keeney4` (ID: `U3BhY2U6NDMyMDY6cnhPaA==`)
+   - **nexus-install skill**: Post-install configuration agent run via `Skill nexus-install` after `install.sh` has been run
+
+3. Files and Code Sections:
+
+   - **`nexus-orchestrator-template copy/.claude/hooks/router_core.py`** (TEMPLATE version)
+     - Critical portability bug fixed: removed hardcoded ai-interaction-dash SYSTEM_PROMPT
+     - Added 4 new functions for dynamic prompt generation:
+     ```python
+     def _parse_frontmatter_field(content: str, field: str) -> str | None:
+         fm_match = re.search(r'^---\s*\n(.*?)\n---', content, re.DOTALL | re.MULTILINE)
+         if not fm_match: return None
+         fm = fm_match.group(1)
+         field_match = re.search(rf'^{re.escape(field)}:\s*"?([^"\n]+)"?', fm, re.MULTILINE)
+         return field_match.group(1).strip() if field_match else None
+
+     def _read_persona_descriptions(agents_dir: str) -> str:
+         # Reads *.md from agents_dir, skips _-prefixed, DOMAIN-AGENT-TEMPLATE, and -pro stems
+         # Caps each description at 100 chars
+         # Prepends hardcoded meta line first
+
+     def _read_skill_names(skills_dir: str) -> list[str]:
+         # Returns sorted list of skill subdirectory names
+
+     def _build_system_prompt(agents_dir: str, skills_dir: str) -> str:
+         # Dynamic prompt at runtime; used in call_qwen()
+     ```
+
+   - **`.claude/hooks/router_core.py`** (WORKTREE/production version — main project hooks)
+     - All 7 prompt fixes applied
+     - ROUTER_MODEL replaces QWEN_MODEL:
+     ```python
+     ROUTER_MODEL = os.environ.get("_HOOK_ROUTER_MODEL", "granite-4.1-3b-instruct")
+     QWEN_TIMEOUT = float(os.environ.get("_HOOK_ROUTER_TIMEOUT", "10.0"))
+     ```
+     - `build_persona_enum()` updated: filters `-pro` stems AND appends `"meta"`
+     - `_read_persona_descriptions()`: filters `-pro`, injects meta first, caps at 100 chars
+     - `_build_system_prompt()` rewrites with grouped skills (prefix heuristic), fractional confidence instruction, 4 few-shot examples:
+     ```
+     CONFIDENCE: fractional 0.0-1.0. Use 0.95 when obvious, 0.70-0.85 when uncertain. Never output an integer.
+
+     EXAMPLES (calibrate from these):
+     {"persona":"meta","difficulty":"trivial","confidence":0.95,...}  // "what's next?"
+     {"persona":"scout","difficulty":"simple","confidence":0.88,...}  // "this build is failing"
+     {"persona":"lens","difficulty":"trivial","confidence":0.90,...}  // "validate the last change"
+     {"persona":"meta","difficulty":"complex","confidence":0.90,...}  // "ship all open tasks"
+     ```
+
+   - **`.claude/hooks/router.py`** (WORKTREE/production)
+     - THRESHOLD_LLM changed from 0.85 to 0.70 (with comment block)
+     - meta persona early-exit added before `_shadow_personas()` call:
+     ```python
+     if persona == "meta":
+         _append_jsonl(files_dir / "router_decisions.jsonl", {
+             "timestamp": now_iso, "qwen_persona": "meta",
+             "qwen_confidence": confidence, "decision": "meta",
+             "latency_ms": latency_ms,
+         })
+         sys.exit(0)
+     ```
+
+   - **`nexus-orchestrator-template copy/.claude/hooks/router.py`** (TEMPLATE version)
+     - THRESHOLD_LLM update attempted: python3 inline edit printed "Updated threshold to 0.70" but `bash -n` verification incorrectly applied to a Python file and failed with syntax error — the write itself succeeded; needs `python3 -m py_compile` to verify
+
+   - **`nexus-orchestrator-template copy/scripts/validate-install.sh`**
+     - Added LM Studio check: `curl -sf --max-time 3 "http://127.0.0.1:1234/v1/models"` (warn, non-fatal)
+     - Added sqlite-vec check: `python3 -c "import sqlite_vec"` (warn if missing)
+     - Updated hook count threshold from 16 to 20
+
+   - **`nexus-orchestrator-template copy/install.sh`**
+     - Added EXISTING_NEXUS detection (checks `nexus-config.json` or `nexus-orchestrator.md`):
+     ```bash
+     EXISTING_NEXUS=0
+     if [[ -f "$TARGET/nexus-config.json" ]] || [[ -f "$TARGET/.claude/agents/nexus-orchestrator.md" ]]; then
+       EXISTING_NEXUS=1
+     fi
+     ```
+     - If detected: 10-second abort window with message to use `Skill nexus-install` instead
+
+   - **`nexus-orchestrator-template copy/.claude/skills/grill-me-with-docs/`** (NEW — copied from elevenlabs)
+     - `SKILL.md` — relentless domain interview skill
+     - `templates/CONTEXT-FORMAT.md` — CONTEXT.md format guide
+     - `templates/ADR-FORMAT.md` — ADR format guide
+
+   - **`nexus-orchestrator-template copy/.claude/skills/nexus-install/SKILL.md`** (REWRITTEN — 709 → 866 lines)
+     - 10-phase install flow with Docker mandatory (sequential ports from :5178)
+     - Handoff detection: checks `docs/handoff/` before invoking grill-me
+     - Generated agent persona template includes `<!-- ROUTER NOTE -->` comment
+     - MERGE mode for existing projects
+     - LM Studio model names in CLAUDE.md template and What's Next
+     - Port scan: `for port in 5178 5179 5180 5181 5182 5183 5184 5185; do nc -z localhost $port...`
+
+   - **`nexus-orchestrator-template copy/.claude/hooks/.env.template`** (NEW)
+     ```bash
+     export _HOOK_ROUTER_MODEL="${_HOOK_ROUTER_MODEL:-granite-4.1-3b-instruct}"
+     export _HOOK_ROUTER_TIMEOUT="${_HOOK_ROUTER_TIMEOUT:-10.0}"
+     ```
+
+   - **`.claude/hooks/tests/test_router.py`** (WORKTREE)
+     - Added `test_meta_persona_no_routing_chip` (STUB 10)
+     - Added `test_build_persona_enum_excludes_pro_includes_meta` (STUB 11)
+     - All 11 tests pass
+
+   - **`/Users/john.keeney/ai-interaction-dash/.claude/hooks/router.py`** (MAIN PROJECT on main branch)
+     - User manually changed THRESHOLD_LLM to 0.70 with comment:
+     ```python
+     # Threshold lowered 0.85 → 0.70 on 2026-05-14 — captures the 70-82% confidence
+     # band that Qwen outputs for correct-but-not-obvious routing decisions.
+     THRESHOLD_LLM = 0.70
+     ```
+
+4. Errors and fixes:
+   - **SocratiCode gate blocking bash**: First Bash command blocked because SocratiCode hadn't been called yet. Fixed by running `mcp__plugin_socraticode_socraticode__codebase_search` first.
+   - **Space in directory name**: `nexus-orchestrator-template copy/` caused issues with some path operations in the worktree. Used absolute paths (`REPO_ROOT` variable) to work around.
+   - **`bash -n` applied to Python file**: When verifying the THRESHOLD_LLM update in `router.py` (a Python file), ran `bash -n` which correctly failed because it's not a bash script. Should use `python3 -m py_compile`. The actual Python edit had already succeeded.
+   - **`ax` CLI upgrade needed**: `ax spans export` failed with datetime comparison error. Fixed by running `uv tool install --force --reinstall arize-ax-cli` to get version 0.20.0.
+   - **Arize `ax spans export` requires `--space`**: Project name alone didn't work; needed to resolve space ID to `U3BhY2U6NDMyMDY6cnhPaA==` and use project base64 ID `TW9kZWw6Nzg3NTQ4MTkyMzpPOUdM`.
+   - **User correction on LM Studio**: When asked about Qwen/Ollama, user said "its not ollama its lmstudio. you dont sound like you understand the nexus orchestrator setup which is concerning. please read @nexus-orchestrator-template-copy" — prompted re-reading of key files.
+   - **Prompt ≤35 lines criterion unmet**: Pipeline agent couldn't meet ≤35-line target with 16 non-pro personas; flagged in NEXUS:NEEDS-DECISION. Result is ~45 lines — all content is load-bearing. No action taken.
+
+5. Problem Solving:
+   - **Hermes over-selection**: Confirmed 88% hermes in main project (15/17 decisions all being prefilled after threshold drop to 0.70). Root cause: long vague hermes description acts as catch-all + no meta persona + no few-shot examples + -pro variants inflating enum. Fixed via 7 prompt issues applied to worktree router_core.py.
+   - **Confidence clustering at 0.82**: Model always outputs integer `82` or `87`. Fixed by adding "Never output an integer" to CONFIDENCE instruction and adding few-shot examples with fractional values.
+   - **Zero prefills (before threshold change)**: At 0.85 threshold, 0.82 confidence always fell through making router decorative. Threshold change to 0.70 fixed this but exposed the broken prompt.
+   - **Template portability**: router_core.py had hardcoded ai-interaction-dash personas — any new project would get wrong routing. Fixed with dynamic `_build_system_prompt()`.
+   - **Pre-existing bug noted (unfixed)**: `build_persona_enum()` doesn't exclude `DOMAIN-AGENT-TEMPLATE.md` from the JSON schema enum — it could be picked as a routing target.
+
+6. All user messages:
+   - "the orchestrator system that we bundled up with an install script so we can use it for other projects is the task i want to focus on. i want to review the install script to make sure everything is correct with the script (no hard-coded paths that wont work with the new project). i want to make sure the connection for embedding and with sql vector add on and qwen is correct. i want to verify all the hooks are correct cc added a new requirement recently. i also want to make sure there is a specific skill included which is located at /Users/john.keeney/elevenlabs-eval-dash/.claude/skills/grill-me-with-docs. Then i want to create an install skill for the agent to help install it in the new directory. it should layout everything to check and verify. it should make it mandatory for the agent to setup docker for the project etc. i want to give it guidance on how to populate the skills and agents. the path should be to extract the contents from the nexus-orchestrator into the directory then run the skills to interview about the project. there may or may not be a handoff directory in docs. if there is then it read them and take it from there. if not just run the skill from scratch. after the grill-me skill runs it should then go through a deep process and present a list of skills and agents the project will need and ill add some or correct it. there should be instructions for what should be included in an agent persona, qwen prompts etc. it should fully customize it to the project. for docker the port of the web abb should go sequential and have tags to whats in docker already i think we are onv :5178. do you have any other questions? interview me first if your not confident we have a shared understanding of the task. also compare the current skill to whats in main since ive been working out of there"
+   - [AskUserQuestion response on LM Studio]: "its not ollama its lmstudio. you dont sound like you understand the nexus orchestrator setup which is concerning. please read @nexus-orchestrator-template-copy"
+   - [AskUserQuestion response on hookName]: "something about a hookname is required now?"
+   - [AskUserQuestion response on install skill scope]: "assume install.sh was already run. the plan would be to drop directory in project, run install which extracts everything then call the skill to finish setup. i need you to ensure it is safe for existing projects. if its an existing project i will not run the script unless you can make the script project friendly. id just take the skill out and run the skill for install"
+   - [AskUserQuestion response on Docker scope]: "Full Docker setup + mandatory checks"
+   - [AskUserQuestion response on Qwen prompt source]: Selected "Auto-pull from agent frontmatter (Recommended)"
+   - [AskUserQuestion response on agent catalog source]: Selected "Curated catalog + stack detection (Recommended)"
+   - "lets evaluate the prompt and the model. nexus says its picking hermes alot more than everyone else and its not correct. can we evaluate the prompt. i am also considering switchign to granite 4 whats your thoughts on that? can you review the recent routing and see if its warranted to switch. here is what it said [pasted 7-issue analysis with fixes for Issues 1-7]"
+   - "we can do granite 4.1 3b"
+   - "no i changed it to .70 in the router prompt. check on the claude-code project in arize"
+
+7. Pending Tasks:
+   - **Fix THRESHOLD_LLM in worktree template `router.py`**: The python3 inline edit succeeded (printed "Updated threshold to 0.70") but verification with `bash -n` incorrectly failed (it's a Python file). Need to verify with `python3 -m py_compile .claude/hooks/router.py` and confirm the 0.70 value is in place.
+   - **Verify updated router_core.py with new prompt is correct**: 7 fixes are applied to worktree; the test suite passes (11/11) but the prompt changes should be reviewed to confirm grouped skills work correctly.
+   - **Granite 4.1 3B not yet loaded**: User said "we can do granite 4.1 3b" but the model isn't in LM Studio yet (only `granite-4.0-h-tiny-mlx` and `qwen3.5-0.8b-intent-classification` are loaded). The model name in the default is `granite-4.1-3b-instruct` — needs confirmation once loaded.
+   - **Main project still on broken prompt**: The 7 prompt fixes are on `arize-orchestrator-eval` branch. Main branch still uses old hardcoded router_core.py. Fixes don't deploy until branch merges.
+   - **Pre-existing bug**: `build_persona_enum()` includes `DOMAIN-AGENT-TEMPLATE.md` in schema enum — needs one-line fix: add `and p.stem != "DOMAIN-AGENT-TEMPLATE"` to comprehension.
+   - **nexus-install skill + grill-me-with-docs are in template copy only**: These changes (866-line skill, grill-me copied) are in `nexus-orchestrator-template copy/` on the arize branch.
+
+8. Current Work:
+   Was fixing the `THRESHOLD_LLM = 0.85` in the worktree's router.py to match the main project's manually-set 0.70. Used a python3 inline script to perform the edit:
+   ```python
+   path = '$WORKTREE/.claude/hooks/router.py'
+   content = open(path).read()
+   old = 'THRESHOLD_LLM = 0.85'
+   new = '''# Threshold lowered 0.85 → 0.70 on 2026-05-14 — captures the 70-82% confidence
+   # band that Qwen outputs for correct-but-not-obvious routing decisions.
+   # Override via .memory/files/route_thresholds.toml [router].THRESHOLD_LLM if
+   # per-project tuning is needed.
+   THRESHOLD_LLM = 0.70'''
+   content = content.replace(old, new)
+   open(path, 'w').write(content)
+   ```
+   The script printed "Updated threshold to 0.70 in worktree router.py" confirming the write succeeded. But then `bash -n` was incorrectly run on a Python file and reported a syntax error. The edit itself was successful; the verification method was wrong.
+
+   The Arize check was also done: confirmed hermes over-selection is severe (88% of 17 decisions in main project), all being prefilled since threshold dropped to 0.70, traces in Arize are OK with no errors, and the session being traced was the one where the user tested router.py changes.
+
+9. Optional Next Step:
+   Verify the THRESHOLD_LLM fix in the worktree `router.py` actually landed correctly using the right tool:
+
+   From the most recent exchange — user said: "no i changed it to .70 in the router prompt. check on the claude-code project in arize"
+
+   The inline Python edit printed success ("Updated threshold to 0.70 in worktree router.py") and the Arize check is complete. The immediate next step is to run `python3 -m py_compile .claude/hooks/router.py` (with absolute path) to confirm the worktree router.py is valid Python with the new threshold, then confirm the value is 0.70. After that, summarize the full state to the user: (1) threshold synced, (2) 7 prompt fixes on this branch ready to merge, (3) Granite 4.1 3B needs to be loaded in LM Studio and the model ID confirmed, (4) until this branch merges, main is still routing hermes for 88% of requests.
+</summary>

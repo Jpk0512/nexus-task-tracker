@@ -1,0 +1,64 @@
+# Architecture
+
+<!-- Fill in after running `Skill nexus-install` -->
+<!-- See nexus-config.json for the generated values to use here -->
+
+## Stack
+
+<!-- Generated from nexus-config.json — run: python3 scripts/generate-project.py --config nexus-config.json -->
+
+| Layer | Technology | Notes |
+|---|---|---|
+| Frontend | [e.g., Next.js 15 App Router] | [e.g., deployed on Vercel] |
+| Backend | [e.g., FastAPI] | [e.g., runs in Docker] |
+| Database | [e.g., PostgreSQL + DuckDB] | [e.g., Postgres for writes, DuckDB for analytics] |
+| Queue | [e.g., Redis + Dramatiq] | [e.g., async ingestion jobs] |
+| Testing | [e.g., vitest + pytest] | [e.g., vitest for TS, pytest for Python] |
+
+## Services
+
+<!-- List your services here — one entry per deployable unit -->
+
+| Service | Runs as | Source | Port |
+|---|---|---|---|
+| [service-name] | [Docker container / process / serverless] | [source directory] | [port] |
+
+## Data Flow
+
+<!-- Describe how data moves through your system -->
+
+```
+[External Source] → [Ingestion Layer] → [Database] → [API Layer] → [Frontend]
+```
+
+Fill in:
+1. Where data originates (user input, external APIs, scheduled jobs)
+2. How data is ingested or transformed
+3. Where data is stored
+4. How the API layer reads and serves data
+5. How the frontend consumes it
+
+## Persona Boundaries
+
+<!-- Generated from nexus-config.json — see docs/agents/TEAM.md -->
+
+| Persona | Owns | May not touch |
+|---|---|---|
+| [persona] | [owned_dirs] | [forbidden_dirs] |
+
+**Single Writer Rule (Constitution Article VI):** [describe which persona/service is the sole database writer and which consumes read-only]
+
+## Key Decisions
+
+See `.memory/project.db` decision log:
+
+```bash
+python3 .memory/log.py decision list
+```
+
+Decisions are logged when architectural choices are made. Each decision includes:
+- Context (why the choice was needed)
+- Decision (what was chosen)
+- Rationale (why this option over alternatives)
+- Alternatives considered
+- Consequences
