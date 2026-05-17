@@ -61,10 +61,10 @@ type TabDef = {
 	icon: typeof KanbanIcon;
 };
 
-// Order intentionally mirrors Linear's project subnav: project context
-// (Overview) first, then primary work surface (Board, Docs), then capture
-// (Todos), then resources (Library), then async signal (Updates), then saved
-// views, then people.
+// Order per designer-meta §4 (iter-10 Round E):
+//   Overview / Board / Todos / Docs / Members / Updates / Knowledge / Library / Views
+// — context → work surface → capture → reference → people → async signal →
+// reusable assets → user-saved configurations.
 const TABS: TabDef[] = [
 	{
 		id: "overview",
@@ -79,28 +79,22 @@ const TABS: TabDef[] = [
 		icon: KanbanIcon,
 	},
 	{
-		id: "docs",
-		label: "Docs",
-		href: (team, p) => `/team/${team}/projects/${p}/docs`,
-		icon: FileTextIcon,
-	},
-	{
 		id: "todos",
 		label: "Todos",
 		href: (team, p) => `/team/${team}/projects/${p}/todos`,
 		icon: ListChecksIcon,
 	},
 	{
-		id: "library",
-		label: "Library",
-		href: (team, p) => `/team/${team}/projects/${p}/library`,
-		icon: BookOpenIcon,
+		id: "docs",
+		label: "Docs",
+		href: (team, p) => `/team/${team}/projects/${p}/docs`,
+		icon: FileTextIcon,
 	},
 	{
-		id: "knowledge",
-		label: "Knowledge",
-		href: (team, p) => `/team/${team}/projects/${p}/knowledge`,
-		icon: BrainIcon,
+		id: "members",
+		label: "Members",
+		href: (team, p) => `/team/${team}/projects/${p}/members`,
+		icon: UsersIcon,
 	},
 	{
 		id: "updates",
@@ -109,16 +103,22 @@ const TABS: TabDef[] = [
 		icon: RadioIcon,
 	},
 	{
+		id: "knowledge",
+		label: "Knowledge",
+		href: (team, p) => `/team/${team}/projects/${p}/knowledge`,
+		icon: BrainIcon,
+	},
+	{
+		id: "library",
+		label: "Library",
+		href: (team, p) => `/team/${team}/projects/${p}/library`,
+		icon: BookOpenIcon,
+	},
+	{
 		id: "views",
 		label: "Views",
 		href: (team, p) => `/team/${team}/projects/${p}/views`,
 		icon: LayoutIcon,
-	},
-	{
-		id: "members",
-		label: "Members",
-		href: (team, p) => `/team/${team}/projects/${p}/members`,
-		icon: UsersIcon,
 	},
 ];
 
@@ -130,8 +130,12 @@ type Props = {
 
 /**
  * Linear-style sub-nav for a project page.
- * 13px Inter weight 510, ink-subtle when inactive, ink + 2px lavender
- * bottom underline when active. No pills, no chips — pure underline.
+ *
+ * Renders directly below the 48px ProjectBreadcrumb (iter-10 Round E) and
+ * sticks to `top-12` so the tab strip remains visible while the surface
+ * scrolls. Active tab gets the lavender brand token — 2px underline + bold +
+ * `text-brand` — per the iter-3 brand audit. Inactive tabs read as muted ink
+ * with a hover bump to `text-foreground`.
  *
  * When `activeTab` is omitted, the component derives it from the current
  * pathname so the layout can mount this once for every project sub-route.
@@ -144,7 +148,7 @@ export function ProjectTabs({ projectId, activeTab }: Props) {
 	return (
 		<nav
 			aria-label="Project sections"
-			className="flex items-center gap-0 border-border border-b bg-background px-6"
+			className="sticky top-12 z-10 flex items-center gap-0 border-border border-b bg-background px-6"
 		>
 			{TABS.map((tab) => {
 				const Icon = tab.icon;
@@ -156,10 +160,10 @@ export function ProjectTabs({ projectId, activeTab }: Props) {
 						aria-current={isActive ? "page" : undefined}
 						className={cn(
 							// Linear's 13px Inter 510, slight negative tracking.
-							"-mb-px inline-flex items-center gap-1.5 border-b-2 px-3 py-2.5 font-[510] text-[13px] tracking-[-0.006em] transition-colors",
+							"-mb-px inline-flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-[13px] tracking-[-0.006em] transition-colors",
 							isActive
-								? "border-primary text-foreground"
-								: "border-transparent text-muted-foreground hover:text-foreground",
+								? "border-brand font-semibold text-brand"
+								: "border-transparent font-[510] text-muted-foreground hover:text-foreground",
 						)}
 					>
 						<Icon className="size-3.5" />
