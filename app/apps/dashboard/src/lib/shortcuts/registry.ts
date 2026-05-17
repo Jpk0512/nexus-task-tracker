@@ -183,6 +183,15 @@ export const SHORTCUTS: ShortcutSpec[] = [
 		scope: "row",
 		action: "row.escape",
 	},
+	// ─── Quick-capture (Home) ──────────────────────────────────────────────
+	{
+		keys: "mod+n",
+		label: "Focus quick-capture",
+		scope: "global",
+		action: "capture.focus",
+		description:
+			"Focus the natural-language quick-capture bar on the Home page.",
+	},
 	// ─── Route-scoped ──────────────────────────────────────────────────────
 	{
 		keys: "c",

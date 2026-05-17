@@ -17,6 +17,7 @@ import {
 	resetHomeConfig,
 	saveHomeConfig,
 } from "./home-config";
+import { QuickCapture } from "./quick-capture";
 import { StaleCommitmentDigest } from "./stale-commitment-digest";
 import { UpNextCard } from "./up-next-card";
 
@@ -109,15 +110,21 @@ export const HomeShell = () => {
 
 	return (
 		<div className="flex animate-blur-in flex-col gap-4 p-6">
-			{/* Configurator gear — top-right, above all cards */}
-			<div className="-mb-2 flex justify-end">
+			{/* Quick-capture bar + configurator gear share the top row. The bar
+			 *  is always rendered (it's the primary CTA on Home and doesn't make
+			 *  sense to hide); the gear sits flush right.
+			 */}
+			<div className="flex items-start gap-2">
+				<div className="flex-1">
+					<QuickCapture />
+				</div>
 				<button
 					type="button"
 					onClick={() => setOpen(true)}
 					title="Customize home"
 					aria-label="Customize home"
 					className={cn(
-						"inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors",
+						"inline-flex size-9 shrink-0 items-center justify-center rounded-[12px] border border-border bg-card text-muted-foreground transition-colors",
 						"hover:bg-accent hover:text-foreground",
 					)}
 				>
