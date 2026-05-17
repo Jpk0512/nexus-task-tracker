@@ -7,6 +7,7 @@ import { useHotkeys } from "react-hotkeys-hook";
 import { useShortcut } from "@/hooks/use-shortcuts";
 import { findActionById } from "./global-search/actions-catalogue";
 import { GlobalSearchDialog } from "./global-search/global-search-dialog";
+import { QuickOpenRing } from "./global-search/quick-open-ring";
 import {
 	loadLastCommand,
 	recordCommand,
@@ -22,6 +23,7 @@ export const NavSearch = ({
 	className?: string;
 }) => {
 	const [open, setOpen] = useState(false);
+	const [quickOpen, setQuickOpen] = useState(false);
 	const user = useUser();
 	const dispatch = useActionDispatcher(user?.basePath ?? "");
 
@@ -52,6 +54,11 @@ export const NavSearch = ({
 		recordCommand(target);
 	});
 
+	// ─── Cmd+O — quick-open ring (codex delighter #9) ──────────────────────
+	useShortcut("palette.quick-open", () => {
+		setQuickOpen(true);
+	});
+
 	return (
 		<>
 			<button
@@ -74,6 +81,7 @@ export const NavSearch = ({
 				</Kbd>
 			</button>
 			<GlobalSearchDialog open={open} onOpenChange={setOpen} />
+			<QuickOpenRing open={quickOpen} onOpenChange={setQuickOpen} />
 		</>
 	);
 };

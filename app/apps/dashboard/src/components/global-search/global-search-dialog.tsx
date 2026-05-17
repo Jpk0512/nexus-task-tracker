@@ -74,7 +74,15 @@ function persistRecent(item: GlobalSearchItem): void {
 	if (typeof window === "undefined") return;
 	try {
 		const prior = loadRecent().filter((x) => x.id !== item.id);
-		const next = [item, ...prior].slice(0, RECENT_MAX);
+		// Stamp the entry with a `visitedAt` so the Cmd+O quick-open ring
+		// (codex delighter #9) can render a relative time. We intentionally
+		// widen the storage shape only here — readers tolerate a missing
+		// timestamp.
+		const stamped = {
+			...item,
+			visitedAt: new Date().toISOString(),
+		} as GlobalSearchItem & { visitedAt?: string };
+		const next = [stamped, ...prior].slice(0, RECENT_MAX);
 		window.localStorage.setItem(RECENT_KEY, JSON.stringify(next));
 	} catch {
 		// Quota / privacy mode — recent items are a nicety, not a contract.

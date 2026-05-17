@@ -201,6 +201,14 @@ export const SHORTCUTS: ShortcutSpec[] = [
 		description:
 			"Re-fire the most-recent command-style palette invocation (Linear-style).",
 	},
+	{
+		keys: "mod+o",
+		label: "Quick open recent",
+		scope: "global",
+		action: "palette.quick-open",
+		description:
+			"Raycast-style ring of recently-visited entities — faster than the full palette.",
+	},
 	// ─── Route-scoped ──────────────────────────────────────────────────────
 	{
 		keys: "c",
