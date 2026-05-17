@@ -1431,6 +1431,8 @@ export const projects = pgTable(
 		// Falls back to team.prefix when null.
 		prefix: text("prefix"),
 		archived: boolean("archived").default(false).notNull(),
+		// iter-10 Round F: pinned-to-top flag (replaces localStorage hook).
+		pinned: boolean("pinned").default(false).notNull(),
 		teamId: text("team_id").notNull(),
 		userId: text("user_id").notNull(),
 		leadId: text("lead_id"),
@@ -1699,6 +1701,8 @@ export const milestones = pgTable(
 		color: text("color"),
 		teamId: text("team_id").notNull(),
 		projectId: text("project_id").notNull(),
+		// iter-10 Round F: optional owner agent (codex amendment #2).
+		ownerAgentId: text("owner_agent_id"),
 		createdAt: timestamp("created_at", {
 			withTimezone: true,
 			mode: "string",
@@ -1720,6 +1724,11 @@ export const milestones = pgTable(
 			foreignColumns: [projects.id],
 			name: "milestones_project_id_fkey",
 		}).onDelete("cascade"),
+		foreignKey({
+			columns: [table.ownerAgentId],
+			foreignColumns: [agents.id],
+			name: "milestones_owner_agent_id_fkey",
+		}).onDelete("set null"),
 	],
 );
 
@@ -2524,6 +2533,71 @@ export const libraryEntryProjects = pgTable(
 			columns: [table.projectId],
 			foreignColumns: [projects.id],
 			name: "library_entry_projects_project_id_fkey",
+		}).onDelete("cascade"),
+	],
+);
+
+// ── iter-10 Round F backlinks ─────────────────────────────────────────────
+//
+// Task ↔ library skill (kind='skill' filter applied at write-time in tRPC).
+// Document subscriptions (per-user follow). Both cascade on parent delete.
+
+export const taskSkills = pgTable(
+	"task_skills",
+	{
+		taskId: text("task_id").notNull(),
+		skillId: text("skill_id").notNull(),
+		createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
+			.defaultNow()
+			.notNull(),
+	},
+	(table) => [
+		primaryKey({
+			columns: [table.taskId, table.skillId],
+			name: "task_skills_pkey",
+		}),
+		index("task_skills_task_id_index").on(table.taskId),
+		index("task_skills_skill_id_index").on(table.skillId),
+		foreignKey({
+			columns: [table.taskId],
+			foreignColumns: [tasks.id],
+			name: "task_skills_task_id_fkey",
+		}).onDelete("cascade"),
+		foreignKey({
+			columns: [table.skillId],
+			foreignColumns: [libraryEntries.id],
+			name: "task_skills_skill_id_fkey",
+		}).onDelete("cascade"),
+	],
+);
+
+export const documentSubscriptions = pgTable(
+	"document_subscriptions",
+	{
+		userId: text("user_id").notNull(),
+		documentId: text("document_id").notNull(),
+		subscribedAt: timestamp("subscribed_at", {
+			withTimezone: true,
+			mode: "string",
+		})
+			.defaultNow()
+			.notNull(),
+	},
+	(table) => [
+		primaryKey({
+			columns: [table.userId, table.documentId],
+			name: "document_subscriptions_pkey",
+		}),
+		index("document_subscriptions_document_id_index").on(table.documentId),
+		foreignKey({
+			columns: [table.userId],
+			foreignColumns: [users.id],
+			name: "document_subscriptions_user_id_fkey",
+		}).onDelete("cascade"),
+		foreignKey({
+			columns: [table.documentId],
+			foreignColumns: [documents.id],
+			name: "document_subscriptions_document_id_fkey",
 		}).onDelete("cascade"),
 	],
 );

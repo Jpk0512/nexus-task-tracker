@@ -37,6 +37,10 @@ const promptProducts = pgTable("prompt_products", {
 const prompts = pgTable("prompts", {
 	id: text("id").primaryKey(),
 	productId: text("product_id").notNull(),
+	// iter-10 Round F: optional FK to projects (codex amendment #2 — picks FK
+	// over JSONB array on projects). SET NULL on project delete so the prompt
+	// survives an aggressive cleanup.
+	projectId: text("project_id"),
 	name: text("name").notNull(),
 	slug: text("slug").notNull(),
 	content: text("content").notNull(),
