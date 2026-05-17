@@ -9,13 +9,17 @@ import { protectedProcedure, router } from "@api/trpc/init";
 import { db } from "@mimir/db/client";
 import {
 	documents,
+	documentsOnTasks,
 	inbox,
 	intakes,
+	knowledgeNotesOnTasks,
 	projects,
+	tasks as tasksTable,
+	taskSkills,
 	todoAttachments,
 	todos,
 } from "@mimir/db/schema";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 
 const entityTypeSchema = z.enum([
@@ -196,11 +200,88 @@ async function listForTodo(
 	};
 }
 
-// Knowledge notes, library entries and prompts are stored in separate inline
-// tables (see knowledge / library / prompts routers). They don't have FK
-// references in any join table today, so we return an empty payload — the UI
-// renders nothing rather than a broken state.
-async function listForKnowledgeLibraryOrPrompt(): Promise<ReferencesPayload> {
+// Knowledge notes and library skills now have join-table adjacency via
+// knowledge_notes_on_tasks + task_skills (iter-10 Round F). Surface the
+// tasks pointing at them so detail pages show real backlinks instead of an
+// empty state.
+async function listForKnowledge(
+	teamId: string,
+	noteId: string,
+): Promise<ReferencesPayload> {
+	const rows = await db
+		.select({
+			id: tasksTable.id,
+			permalinkId: tasksTable.permalinkId,
+			title: tasksTable.title,
+			projectId: tasksTable.projectId,
+			statusId: tasksTable.statusId,
+			projectName: projects.name,
+			linkedAt: knowledgeNotesOnTasks.createdAt,
+		})
+		.from(knowledgeNotesOnTasks)
+		.innerJoin(tasksTable, eq(knowledgeNotesOnTasks.taskId, tasksTable.id))
+		.leftJoin(projects, eq(projects.id, tasksTable.projectId))
+		.where(
+			and(
+				eq(knowledgeNotesOnTasks.noteId, noteId),
+				eq(tasksTable.teamId, teamId),
+			),
+		)
+		.orderBy(desc(knowledgeNotesOnTasks.createdAt))
+		.limit(50);
+
+	return {
+		...EMPTY,
+		tasks: rows.map((r) => ({
+			id: r.id,
+			permalinkId: r.permalinkId,
+			title: r.title,
+			projectId: r.projectId,
+			projectName: r.projectName ?? null,
+			statusId: r.statusId,
+		})),
+	};
+}
+
+async function listForLibrary(
+	teamId: string,
+	skillId: string,
+): Promise<ReferencesPayload> {
+	const rows = await db
+		.select({
+			id: tasksTable.id,
+			permalinkId: tasksTable.permalinkId,
+			title: tasksTable.title,
+			projectId: tasksTable.projectId,
+			statusId: tasksTable.statusId,
+			projectName: projects.name,
+		})
+		.from(taskSkills)
+		.innerJoin(tasksTable, eq(taskSkills.taskId, tasksTable.id))
+		.leftJoin(projects, eq(projects.id, tasksTable.projectId))
+		.where(
+			and(eq(taskSkills.skillId, skillId), eq(tasksTable.teamId, teamId)),
+		)
+		.orderBy(desc(taskSkills.createdAt))
+		.limit(50);
+
+	return {
+		...EMPTY,
+		tasks: rows.map((r) => ({
+			id: r.id,
+			permalinkId: r.permalinkId,
+			title: r.title,
+			projectId: r.projectId,
+			projectName: r.projectName ?? null,
+			statusId: r.statusId,
+		})),
+	};
+}
+
+// Prompts have a forward FK to projects (set at write-time) but no
+// reverse-direction join from another entity today. Empty payload keeps
+// the UI happy until a use case emerges.
+async function listForPrompt(): Promise<ReferencesPayload> {
 	return EMPTY;
 }
 
@@ -225,9 +306,11 @@ export const referencesRouter = router({
 					case "todo":
 						return await listForTodo(teamId, input.entityId);
 					case "knowledge":
+						return await listForKnowledge(teamId, input.entityId);
 					case "library":
+						return await listForLibrary(teamId, input.entityId);
 					case "prompt":
-						return await listForKnowledgeLibraryOrPrompt();
+						return await listForPrompt();
 					default:
 						return EMPTY;
 				}

@@ -2537,6 +2537,69 @@ export const libraryEntryProjects = pgTable(
 	],
 );
 
+// ── iter-4 task<->doc / task<->knowledge join tables ─────────────────────
+//
+// These were created via psql migrations and previously declared inline in
+// routers/tasks.ts; mirrored here so cross-router code (references.ts) can
+// type-safely import them.
+
+export const documentsOnTasks = pgTable(
+	"documents_on_tasks",
+	{
+		id: text("id").primaryKey().notNull(),
+		taskId: text("task_id").notNull(),
+		documentId: text("document_id").notNull(),
+		createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
+			.defaultNow()
+			.notNull(),
+		createdBy: text("created_by"),
+	},
+	(table) => [
+		unique("documents_on_tasks_task_id_document_id_key").on(
+			table.taskId,
+			table.documentId,
+		),
+		index("docs_on_tasks_task_idx").on(table.taskId),
+		index("docs_on_tasks_doc_idx").on(table.documentId),
+		foreignKey({
+			columns: [table.taskId],
+			foreignColumns: [tasks.id],
+			name: "documents_on_tasks_task_id_fkey",
+		}).onDelete("cascade"),
+		foreignKey({
+			columns: [table.documentId],
+			foreignColumns: [documents.id],
+			name: "documents_on_tasks_document_id_fkey",
+		}).onDelete("cascade"),
+	],
+);
+
+export const knowledgeNotesOnTasks = pgTable(
+	"knowledge_notes_on_tasks",
+	{
+		id: text("id").primaryKey().notNull(),
+		taskId: text("task_id").notNull(),
+		noteId: text("note_id").notNull(),
+		createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
+			.defaultNow()
+			.notNull(),
+		createdBy: text("created_by"),
+	},
+	(table) => [
+		unique("knowledge_notes_on_tasks_task_id_note_id_key").on(
+			table.taskId,
+			table.noteId,
+		),
+		index("notes_on_tasks_task_idx").on(table.taskId),
+		index("notes_on_tasks_note_idx").on(table.noteId),
+		foreignKey({
+			columns: [table.taskId],
+			foreignColumns: [tasks.id],
+			name: "knowledge_notes_on_tasks_task_id_fkey",
+		}).onDelete("cascade"),
+	],
+);
+
 // ── iter-10 Round F backlinks ─────────────────────────────────────────────
 //
 // Task ↔ library skill (kind='skill' filter applied at write-time in tRPC).
