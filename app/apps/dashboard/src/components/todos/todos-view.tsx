@@ -68,8 +68,17 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { toast } from "sonner";
 import { JkHint } from "@/components/jk-hint";
+import { BulkOpsBar, useBindBulkSelection } from "@/components/tasks/bulk-ops-bar";
+import {
+	TaskToolbar,
+	type TaskGroupBy,
+	useToolbarGroupBy,
+} from "@/components/tasks/task-toolbar";
 import { useJkNavigation } from "@/hooks/use-jk-navigation";
+import { useOptimisticAction } from "@/hooks/use-optimistic-action";
+import { useShortcut } from "@/hooks/use-shortcuts";
 import { useTaskParams } from "@/hooks/use-task-params";
+import { useTaskSelection } from "@/stores/task-selection";
 import { trpc } from "@/utils/trpc";
 import { useTodoSortableHandler } from "./todo-dnd-provider";
 
@@ -155,7 +164,9 @@ function TodoRow({
 	onLinkProject,
 	onLinkDoc,
 	onPromote,
+	onToggleSelect,
 	isFocused = false,
+	isSelected = false,
 }: {
 	todo: Todo;
 	projects: Project[];
@@ -168,7 +179,9 @@ function TodoRow({
 	onLinkProject: (projectId: string | null) => void;
 	onLinkDoc: (docId: string, title: string) => void;
 	onPromote: () => void;
+	onToggleSelect?: (extend: boolean) => void;
 	isFocused?: boolean;
+	isSelected?: boolean;
 }) {
 	const {
 		attributes,
@@ -194,10 +207,21 @@ function TodoRow({
 						ref={setNodeRef}
 						style={style}
 						data-jk-row={todo.id}
+						data-selected={isSelected || undefined}
+						onClick={(e) => {
+							// Shift+click is the mouse-equivalent of the shift+x range
+							// shortcut — extends selection from the last anchor to here.
+							if (e.shiftKey && onToggleSelect) {
+								e.preventDefault();
+								onToggleSelect(true);
+							}
+						}}
 						className={`group flex items-start gap-2 rounded-md border px-2 py-1.5 transition hover:border-border hover:bg-accent/30 ${
 							isFocused
 								? "border-violet-400/70 ring-2 ring-violet-400/40"
-								: "border-transparent"
+								: isSelected
+									? "border-primary/50 bg-primary/[0.04]"
+									: "border-transparent"
 						} ${todo.checked ? "opacity-60" : ""}`}
 					>
 						<button
@@ -1051,6 +1075,89 @@ export function TodosView() {
 		});
 	};
 
+	// ── Toolbar state ────────────────────────────────────────────────────────
+	// Grouping persists via the codex-amendment-3 URL > localStorage > default
+	// chain. Todos doesn't expose grouping in the URL (we don't want deep-link
+	// noise for a low-stakes preference), so we go straight to localStorage.
+	const [groupBy, persistGroupBy] = useToolbarGroupBy("todos", null, "none");
+	const [todosGroupBy, setTodosGroupBy] = useState<TaskGroupBy>(groupBy);
+	useEffect(() => {
+		setTodosGroupBy(groupBy);
+	}, [groupBy]);
+	const handleGroupByChange = (value: TaskGroupBy) => {
+		setTodosGroupBy(value);
+		persistGroupBy(value);
+	};
+
+	// ── Bulk selection ───────────────────────────────────────────────────────
+	// Bind the surface so the shared bulk-ops bar can fire mutations against
+	// the right entity set + so `escape` clears selection on this page only.
+	const visibleIds = useMemo(
+		() => activeTodos.map((t) => t.id),
+		[activeTodos],
+	);
+	useBindBulkSelection({ surface: "todos", orderedIds: visibleIds });
+	const selectedSet = useTaskSelection((s) => s.selected);
+	const toggleSelection = useTaskSelection((s) => s.toggle);
+	const rangeSelection = useTaskSelection((s) => s.rangeTo);
+	const clearSelection = useTaskSelection((s) => s.clear);
+
+	// ── Row shortcuts (codex amendment #4 registry) ──────────────────────────
+	// Tied to the focused id from useJkNavigation — `j`/`k` already move the
+	// focus ring; here we wire the toggle/range/escape/done bindings on top.
+	const focusedId = jk.focusedId ?? null;
+	useShortcut(
+		"row.toggle",
+		() => {
+			if (focusedId) toggleSelection(focusedId);
+		},
+		{ enabled: !!focusedId },
+	);
+	useShortcut(
+		"row.range",
+		() => {
+			if (focusedId) rangeSelection(focusedId);
+		},
+		{ enabled: !!focusedId },
+	);
+	useShortcut("row.escape", () => {
+		clearSelection();
+	});
+
+	// Mark-done via the optimistic-undo toast (codex amendment #6). The row
+	// checkbox keeps its raw onCheck path for the click case; this hook powers
+	// the surface-wide "press `e` to complete focused row" gesture below.
+	const todoQueryKey = trpc.todos.get.queryKey();
+	const markDoneOptimistic = useOptimisticAction({
+		action: "todo.complete",
+		optimisticUpdate: (todo: Todo) => {
+			const snapshot = qc.getQueriesData({ queryKey: todoQueryKey });
+			qc.setQueriesData({ queryKey: todoQueryKey }, (old: any) => {
+				if (!Array.isArray(old)) return old;
+				return old.map((t: Todo) =>
+					t.id === todo.id
+						? { ...t, checked: true, checkedAt: new Date().toISOString() }
+						: t,
+				);
+			});
+			return snapshot;
+		},
+		mutateFn: (todo: Todo) => checkMut.mutateAsync({ id: todo.id } as any),
+		rollback: (snapshot) => {
+			for (const [k, v] of snapshot as any) qc.setQueryData(k, v);
+		},
+		toastLabel: "Marked done",
+	});
+	useShortcut(
+		"row.edit",
+		() => {
+			if (!focusedId) return;
+			const t = allTodos.find((x) => x.id === focusedId);
+			if (t && !t.checked) markDoneOptimistic.run(t);
+		},
+		{ enabled: !!focusedId },
+	);
+
 	return (
 		<div className="flex h-full flex-col">
 			<header className="border-border border-b px-6 py-3">
@@ -1073,6 +1180,15 @@ export function TodosView() {
 					</div>
 				</div>
 			</header>
+			<TaskToolbar
+				routeKey="todos"
+				groupBy={todosGroupBy}
+				onGroupByChange={handleGroupByChange}
+				groupByOptions={["none", "project", "label"]}
+				viewModes={["list", "compact"]}
+				onCreate={() => composerRef.current?.focus()}
+				createLabel="New todo"
+			/>
 			<div className="grow overflow-y-auto px-4 py-4">
 				{/* Always-visible top composer */}
 				<div className="mb-2">
@@ -1147,7 +1263,11 @@ export function TodosView() {
 								onLinkProject={(pid) => onLinkProject(t.id, pid)}
 								onLinkDoc={(did, title) => onLinkDoc(t.id, did, title)}
 								onPromote={() => onPromote(t)}
+								onToggleSelect={(extend) =>
+									extend ? rangeSelection(t.id) : toggleSelection(t.id)
+								}
 								isFocused={jk.isFocused(t.id)}
+								isSelected={selectedSet.has(t.id)}
 							/>
 						))}
 					</div>
@@ -1173,6 +1293,7 @@ export function TodosView() {
 					onClose={() => setOpenTodoId(null)}
 				/>
 			)}
+			<BulkOpsBar surface="todos" noun="todo" />
 		</div>
 	);
 }

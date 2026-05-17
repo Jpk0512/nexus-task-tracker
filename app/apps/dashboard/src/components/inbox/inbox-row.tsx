@@ -29,9 +29,13 @@ const formatRelative = (date: Date) => {
 export const InboxRow = ({
 	item,
 	isFocused = false,
+	isSelected: isBulkSelected = false,
+	onToggleSelect,
 }: {
 	item: Inbox;
 	isFocused?: boolean;
+	isSelected?: boolean;
+	onToggleSelect?: (extend: boolean) => void;
 }) => {
 	const { params, setParams } = useInboxFilterParams();
 	const isSelected = params.selectedInboxId === item.id;
@@ -46,14 +50,26 @@ export const InboxRow = ({
 		<button
 			type="button"
 			data-jk-row={item.id}
-			onClick={() => setParams({ selectedInboxId: item.id })}
+			data-selected={isBulkSelected || undefined}
+			onClick={(e) => {
+				// Shift+click: bulk-select extends from the last anchor. Plain
+				// click still opens the inbox detail in the right pane.
+				if (e.shiftKey && onToggleSelect) {
+					e.preventDefault();
+					onToggleSelect(true);
+					return;
+				}
+				setParams({ selectedInboxId: item.id });
+			}}
 			className={cn(
 				"group relative flex w-full items-start gap-2.5 rounded-md border px-3 py-2 text-left transition-colors",
 				"hover:bg-white/[0.04] dark:hover:bg-white/[0.04]",
 				isSelected && "bg-white/[0.06] dark:bg-white/[0.06]",
 				isFocused
 					? "border-violet-400/70 ring-2 ring-violet-400/40"
-					: "border-transparent",
+					: isBulkSelected
+						? "border-primary/50 bg-primary/[0.04]"
+						: "border-transparent",
 			)}
 		>
 			{/* Unread dot — Linear uses a small accent dot on the left edge */}

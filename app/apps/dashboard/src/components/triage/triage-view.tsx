@@ -15,10 +15,20 @@ import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { JkHint } from "@/components/jk-hint";
+import { BulkOpsBar, useBindBulkSelection } from "@/components/tasks/bulk-ops-bar";
+import {
+	TaskToolbar,
+	type TaskGroupBy,
+	useToolbarGroupBy,
+} from "@/components/tasks/task-toolbar";
 import { useUser } from "@/components/user-provider";
 import { useProjects, useStatuses, useTeamMembers } from "@/hooks/use-data";
 import { invalidateTasksCache } from "@/hooks/use-data-cache-helpers";
 import { useJkNavigation } from "@/hooks/use-jk-navigation";
+import { useOptimisticAction } from "@/hooks/use-optimistic-action";
+import { useShortcut } from "@/hooks/use-shortcuts";
+import { useTaskParams } from "@/hooks/use-task-params";
+import { useTaskSelection } from "@/stores/task-selection";
 import { trpc } from "@/utils/trpc";
 import { TriageCard, type TriageTask } from "./triage-card";
 
@@ -50,6 +60,8 @@ function DroppableColumn({
 	teamPrefix,
 	focusedId,
 	isLoading = false,
+	selectedSet,
+	onToggleSelect,
 }: {
 	columnId: ColumnKey;
 	title: string;
@@ -59,6 +71,8 @@ function DroppableColumn({
 	teamPrefix?: string | null;
 	focusedId?: string | null;
 	isLoading?: boolean;
+	selectedSet?: Set<string>;
+	onToggleSelect?: (taskId: string, extend: boolean) => void;
 }) {
 	const { setNodeRef, isOver } = useDroppable({ id: columnId });
 	return (
@@ -121,6 +135,10 @@ function DroppableColumn({
 								team={team}
 								teamPrefix={teamPrefix}
 								isFocused={focusedId === t.id}
+								isSelected={selectedSet?.has(t.id) ?? false}
+								onToggleSelect={(extend) =>
+									onToggleSelect?.(t.id, extend)
+								}
 							/>
 						</li>
 					))}
@@ -452,6 +470,117 @@ export function TriageView() {
 		});
 	};
 
+	// ── Toolbar: groupBy goes through codex-3 URL > localStorage > default
+	const [persistedGroupBy, persistGroupBy] = useToolbarGroupBy(
+		"triage",
+		null,
+		"none",
+	);
+	const [groupBy, setGroupBy] = useState<TaskGroupBy>(persistedGroupBy);
+	useEffect(() => setGroupBy(persistedGroupBy), [persistedGroupBy]);
+	const handleGroupByChange = (value: TaskGroupBy) => {
+		setGroupBy(value);
+		persistGroupBy(value);
+	};
+	const { setParams: setTaskParams } = useTaskParams();
+
+	// ── Bulk selection: triage uses the flat scoped list for shift+x ranges
+	const orderedIds = useMemo(
+		() => [...scopedNow, ...scopedNext, ...scopedLater].map((t) => t.id),
+		[scopedNow, scopedNext, scopedLater],
+	);
+	useBindBulkSelection({ surface: "triage", orderedIds });
+	const selectedSet = useTaskSelection((s) => s.selected);
+	const toggleSelection = useTaskSelection((s) => s.toggle);
+	const rangeSelection = useTaskSelection((s) => s.rangeTo);
+	const clearSelection = useTaskSelection((s) => s.clear);
+
+	const focusedId = jk.focusedId ?? null;
+	useShortcut(
+		"row.toggle",
+		() => focusedId && toggleSelection(focusedId),
+		{ enabled: !!focusedId },
+	);
+	useShortcut(
+		"row.range",
+		() => focusedId && rangeSelection(focusedId),
+		{ enabled: !!focusedId },
+	);
+	useShortcut("row.escape", () => clearSelection());
+
+	// Triage column moves — 1/2/3 routes the focused card. Already exists in
+	// registry under route:'/triage'. Each shortcut routes to a column move
+	// via the same path drag-drop uses (setPendingMoves + updateTask.mutate),
+	// so optimistic + rollback semantics are identical.
+	const moveFocusedToColumn = (col: ColumnKey) => {
+		if (!focusedId) return;
+		const task = taskByIdMap.get(focusedId);
+		if (!task) return;
+		const targetType = COLUMN_TARGET_TYPE[col];
+		const targetStatusId = statusByType[targetType];
+		if (!targetStatusId) {
+			toast.error("No matching status configured", { id: "triage-move" });
+			return;
+		}
+		// No-op early-outs mirror handleDragEnd.
+		if (task.status?.type === targetType) return;
+		if (col === "now" && task.status?.type === "review") return;
+		setPendingMoves((prev) => ({ ...prev, [task.id]: col }));
+		updateTask.mutate({ id: task.id, statusId: targetStatusId } as any, {
+			onSuccess: () =>
+				toast.success(`Moved to ${columnTitle(col)}`, {
+					id: "triage-move",
+					duration: 1500,
+				}),
+		});
+	};
+	useShortcut("triage.move.now", () => moveFocusedToColumn("now"), {
+		enabled: !!focusedId,
+	});
+	useShortcut("triage.move.next", () => moveFocusedToColumn("next"), {
+		enabled: !!focusedId,
+	});
+	useShortcut("triage.move.later", () => moveFocusedToColumn("later"), {
+		enabled: !!focusedId,
+	});
+
+	// Optimistic-undo mark-done on the focused row (codex amendment #6) wired
+	// to the row `e` shortcut.
+	const doneStatusId = useMemo(() => {
+		for (const s of statusList as Array<{ id: string; type: string }>) {
+			if (s.type === "done") return s.id;
+		}
+		return undefined;
+	}, [statusList]);
+	const markDoneOptimistic = useOptimisticAction({
+		action: "task.complete",
+		optimisticUpdate: (task: TriageTask) => {
+			setPendingMoves((prev) => ({ ...prev, [task.id]: "later" })); // hide from active columns
+			return task;
+		},
+		mutateFn: (task: TriageTask) => {
+			if (!doneStatusId) return Promise.reject(new Error("No done status"));
+			return updateTask.mutateAsync({ id: task.id, statusId: doneStatusId } as any);
+		},
+		rollback: (task) => {
+			setPendingMoves((prev) => {
+				const next = { ...prev };
+				delete next[task.id];
+				return next;
+			});
+		},
+		toastLabel: "Marked done",
+	});
+	useShortcut(
+		"row.edit",
+		() => {
+			if (!focusedId) return;
+			const t = taskByIdMap.get(focusedId);
+			if (t && t.status?.type !== "done") markDoneOptimistic.run(t);
+		},
+		{ enabled: !!focusedId },
+	);
+
 	return (
 		<div className="flex h-full flex-col">
 			<header className="border-border border-b px-6 py-3">
@@ -479,6 +608,21 @@ export function TriageView() {
 					/>
 				)}
 			</header>
+			<TaskToolbar
+				routeKey="triage"
+				size="sm"
+				groupBy={groupBy}
+				onGroupByChange={handleGroupByChange}
+				groupByOptions={["none", "project", "priority", "due"]}
+				viewModes={["list", "compact", "cards"]}
+				viewMode="cards"
+				onViewModeChange={() => {
+					/* Triage is column-locked; the picker is presentational here so the
+					   chrome matches sibling tabs. Switching layouts is a future iter. */
+				}}
+				onCreate={() => setTaskParams({ createTask: true })}
+				createLabel="New task"
+			/>
 			<DndContext sensors={sensors} onDragEnd={handleDragEnd}>
 				<div className="grid grow grid-cols-1 gap-3 overflow-hidden px-6 py-4 md:grid-cols-3">
 					<DroppableColumn
@@ -490,6 +634,10 @@ export function TriageView() {
 						teamPrefix={teamPrefix}
 						focusedId={jk.focusedId}
 						isLoading={isInitialLoading && scopedNow.length === 0}
+						selectedSet={selectedSet}
+						onToggleSelect={(taskId, extend) =>
+							extend ? rangeSelection(taskId) : toggleSelection(taskId)
+						}
 					/>
 					<DroppableColumn
 						columnId="next"
@@ -500,6 +648,10 @@ export function TriageView() {
 						teamPrefix={teamPrefix}
 						focusedId={jk.focusedId}
 						isLoading={isInitialLoading && scopedNext.length === 0}
+						selectedSet={selectedSet}
+						onToggleSelect={(taskId, extend) =>
+							extend ? rangeSelection(taskId) : toggleSelection(taskId)
+						}
 					/>
 					<DroppableColumn
 						columnId="later"
@@ -510,9 +662,14 @@ export function TriageView() {
 						teamPrefix={teamPrefix}
 						focusedId={jk.focusedId}
 						isLoading={isInitialLoading && scopedLater.length === 0}
+						selectedSet={selectedSet}
+						onToggleSelect={(taskId, extend) =>
+							extend ? rangeSelection(taskId) : toggleSelection(taskId)
+						}
 					/>
 				</div>
 			</DndContext>
+			<BulkOpsBar surface="triage" noun="task" />
 		</div>
 	);
 }

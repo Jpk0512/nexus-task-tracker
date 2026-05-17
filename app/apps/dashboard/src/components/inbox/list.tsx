@@ -9,7 +9,15 @@ import {
 } from "date-fns";
 import { useMemo } from "react";
 import { JkHint } from "@/components/jk-hint";
+import { BulkOpsBar, useBindBulkSelection } from "@/components/tasks/bulk-ops-bar";
+import {
+	TaskToolbar,
+	type TaskGroupBy,
+	useToolbarGroupBy,
+} from "@/components/tasks/task-toolbar";
 import { useJkNavigation } from "@/hooks/use-jk-navigation";
+import { useShortcut } from "@/hooks/use-shortcuts";
+import { useTaskSelection } from "@/stores/task-selection";
 import {
 	EmptyState,
 	EmptyStateDescription,
@@ -68,6 +76,40 @@ export const InboxList = ({ className }: { className?: string }) => {
 		},
 	});
 
+	// ── Toolbar grouping (codex amendment #3 precedence). Inbox uses
+	// date-bucket grouping by default since the list is chronological. The
+	// user can flip to project/label via the toolbar.
+	const [persistedGroupBy, persistGroupBy] = useToolbarGroupBy(
+		"inbox",
+		null,
+		"due",
+	);
+	// Inbox doesn't currently re-bucket on group-by change — the rows below are
+	// always date-grouped. The selector is presentational + persistent so the
+	// preference survives reloads ready for a future iteration.
+	const handleGroupByChange = (value: TaskGroupBy) => {
+		persistGroupBy(value);
+	};
+
+	// ── Bulk selection ──────────────────────────────────────────────────────
+	useBindBulkSelection({ surface: "inbox", orderedIds: jkIds });
+	const selectedSet = useTaskSelection((s) => s.selected);
+	const toggleSelection = useTaskSelection((s) => s.toggle);
+	const rangeSelection = useTaskSelection((s) => s.rangeTo);
+	const clearSelection = useTaskSelection((s) => s.clear);
+	const focusedId = jk.focusedId ?? null;
+	useShortcut(
+		"row.toggle",
+		() => focusedId && toggleSelection(focusedId),
+		{ enabled: !!focusedId },
+	);
+	useShortcut(
+		"row.range",
+		() => focusedId && rangeSelection(focusedId),
+		{ enabled: !!focusedId },
+	);
+	useShortcut("row.escape", () => clearSelection());
+
 	const grouped = useMemo(() => {
 		const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
 		const buckets: Record<DateGroupKey, Inbox[]> = {
@@ -92,6 +134,14 @@ export const InboxList = ({ className }: { className?: string }) => {
 				className,
 			)}
 		>
+			<TaskToolbar
+				routeKey="inbox"
+				size="sm"
+				groupBy={persistedGroupBy}
+				onGroupByChange={handleGroupByChange}
+				groupByOptions={["due", "project", "label", "none"]}
+				viewModes={["list", "compact"]}
+			/>
 			<div className="flex items-center justify-between gap-2 border-b px-3 py-2 dark:border-white/[0.06]">
 				<InboxFilters />
 				<JkHint />
@@ -158,6 +208,12 @@ export const InboxList = ({ className }: { className?: string }) => {
 											key={item.id}
 											item={item}
 											isFocused={jk.isFocused(item.id)}
+											isSelected={selectedSet.has(item.id)}
+											onToggleSelect={(extend) =>
+												extend
+													? rangeSelection(item.id)
+													: toggleSelection(item.id)
+											}
 										/>
 									))}
 								</div>
@@ -166,6 +222,7 @@ export const InboxList = ({ className }: { className?: string }) => {
 					})}
 				</div>
 			</div>
+			<BulkOpsBar surface="inbox" noun="item" />
 		</div>
 	);
 };

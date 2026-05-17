@@ -122,12 +122,16 @@ export function TriageCard({
 	teamPrefix,
 	isDragging,
 	isFocused = false,
+	isSelected = false,
+	onToggleSelect,
 }: {
 	task: TriageTask;
 	team: string;
 	teamPrefix?: string | null;
 	isDragging?: boolean;
 	isFocused?: boolean;
+	isSelected?: boolean;
+	onToggleSelect?: (extend: boolean) => void;
 }) {
 	const {
 		attributes,
@@ -154,14 +158,27 @@ export function TriageCard({
 			ref={setNodeRef}
 			style={style}
 			data-jk-row={task.id}
+			data-selected={isSelected || undefined}
 			{...attributes}
 			{...listeners}
+			onClickCapture={(e) => {
+				// Shift+click is the mouse equivalent of `shift+x` for ranges.
+				// Use capture phase so we beat the dnd-kit drag listener attaching
+				// below — without this the click is consumed before our handler.
+				if (e.shiftKey && onToggleSelect) {
+					e.preventDefault();
+					e.stopPropagation();
+					onToggleSelect(true);
+				}
+			}}
 			className={cn(
 				"group rounded-md border bg-transparent transition",
 				"hover:border-border hover:bg-accent/40",
 				isFocused
 					? "border-violet-400/70 ring-2 ring-violet-400/40"
-					: "border-transparent",
+					: isSelected
+						? "border-primary/50 bg-primary/[0.04]"
+						: "border-transparent",
 				dragging && "z-50 cursor-grabbing opacity-50 shadow-md",
 				!dragging && "cursor-grab",
 			)}
