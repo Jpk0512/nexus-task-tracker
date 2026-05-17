@@ -1,10 +1,4 @@
-import { ActiveProjectsRail } from "@/components/home/active-projects-rail";
-import { ActivityFeed } from "@/components/home/activity-feed";
-import { AgendaCard } from "@/components/home/agenda-card";
-import { EndOfDayRecap } from "@/components/home/end-of-day-recap";
-import { GreetingCard } from "@/components/home/greeting-card";
-import { StaleCommitmentDigest } from "@/components/home/stale-commitment-digest";
-import { UpNextCard } from "@/components/home/up-next-card";
+import { HomeShell } from "@/components/home/home-shell";
 
 type Props = {
 	searchParams: Promise<{
@@ -15,30 +9,22 @@ type Props = {
 /**
  * Home — iter-10 redesign.
  *
- * Layout (1280px desktop):
- *   row 1: GreetingCard (time-of-day + day brief)
- *   row 2: AgendaCard (due today / overdue) | UpNextCard (Triage Now slice)
- *   row 3: ActiveProjectsRail (horizontal scroll)
- *   row 4: StaleCommitmentDigest (cron-style nag) | EndOfDayRecap (granola)
- *   row 5: ActivityFeed (last 10 events)
+ * Server component is intentionally thin: the configurator (localStorage,
+ * drag-reorder, gear icon) lives in `HomeShell`, a client component. Keeping
+ * the route a server component preserves the existing render flow (auth,
+ * teamLayout chrome) while letting the shell own all configurable state.
  *
- * All cards become configurable in commit 4 (DashboardConfigModal). Quick-
- * capture bar lands in commit 6.
+ * Cards (server-paint defaults, fully configurable in the modal):
+ *   - GreetingCard (time-of-day + day brief)         [on]
+ *   - AgendaCard (due today / overdue)               [on]
+ *   - UpNextCard (Triage Now slice)                  [on]
+ *   - ActiveProjectsRail (horizontal scroll)         [on]
+ *   - StaleCommitmentDigest (cron-style nag)         [off]
+ *   - EndOfDayRecap (granola-style)                  [off]
+ *   - ActivityFeed (last 10 events)                  [off]
+ *
+ * Quick-capture bar lands in commit 6.
  */
 export default async function Page({ searchParams: _searchParams }: Props) {
-	return (
-		<div className="flex animate-blur-in flex-col gap-4 p-6">
-			<GreetingCard />
-			<div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-				<AgendaCard />
-				<UpNextCard />
-			</div>
-			<ActiveProjectsRail />
-			<div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-				<StaleCommitmentDigest />
-				<EndOfDayRecap />
-			</div>
-			<ActivityFeed />
-		</div>
-	);
+	return <HomeShell />;
 }
