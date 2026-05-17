@@ -1,3 +1,5 @@
+> Archived 2026-05-17 — legacy Supabase stack (iter 3-7). Superseded by single-container pgvector postgres in app/docker-compose.local.yaml. See [docs/STATE_OF_NEXUS.md](../../../STATE_OF_NEXUS.md).
+
 <div align="center">
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)

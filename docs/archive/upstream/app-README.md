@@ -1,3 +1,5 @@
+> Archived 2026-05-17 — upstream marketing readme from github.com/mimrai-org/mimrai. Superseded by root README.md. See [docs/STATE_OF_NEXUS.md](../../STATE_OF_NEXUS.md).
+
 ![hero](github.png)
 
 <h1 align="center"><b>Mimrai</b></h1>

@@ -1,3 +1,5 @@
+> Archived 2026-05-17 — original orchestrator-template (nexus-install scaffolding). Superseded by .claude/agents/ + .claude/skills/ in repo root. See [docs/STATE_OF_NEXUS.md](../../../STATE_OF_NEXUS.md).
+
 # Nexus Orchestrator Template
 
 A portable, project-agnostic Claude Code orchestrator system. Drop into any project to get:

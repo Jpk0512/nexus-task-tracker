@@ -1,3 +1,5 @@
+> Archived 2026-05-17 — upstream agent guide (referenced @mimir/db; never updated for local-dev stubs). Superseded by docs/agents/. See [docs/STATE_OF_NEXUS.md](../../STATE_OF_NEXUS.md).
+
 # AGENTS.md - Mimrai Project Specifications
 
 > This document provides comprehensive guidance for AI agents working with the Mimrai codebase.

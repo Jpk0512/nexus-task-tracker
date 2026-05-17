@@ -1,3 +1,5 @@
+> Archived 2026-05-17 — original orchestrator-template setup guide. Superseded by .claude/agents/ + .claude/skills/ in repo root. See [docs/STATE_OF_NEXUS.md](../../../STATE_OF_NEXUS.md).
+
 # Nexus Orchestrator — Setup Guide
 
 ## What you get
