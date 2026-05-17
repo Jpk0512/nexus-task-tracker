@@ -139,3 +139,25 @@
 .tiptap .bubble-menu {
 	@apply flex gap-2;
 }
+
+/* Iter10 — reduced-motion respect (both system + user override).
+   When `data-reduced-motion="reduce"` is set on the BlockEditor wrapper,
+   short-circuit every transition inside the editor (callout icon hover,
+   slash-menu open, bubble-menu pop, task-list checkbox tick). */
+[data-block-editor][data-reduced-motion="reduce"] *,
+[data-block-editor][data-reduced-motion="reduce"] *::before,
+[data-block-editor][data-reduced-motion="reduce"] *::after {
+	transition-duration: 0.001ms !important;
+	animation-duration: 0.001ms !important;
+	animation-iteration-count: 1 !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.tiptap *,
+	.tiptap *::before,
+	.tiptap *::after {
+		transition-duration: 0.001ms !important;
+		animation-duration: 0.001ms !important;
+		animation-iteration-count: 1 !important;
+	}
+}

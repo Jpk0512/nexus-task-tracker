@@ -3,6 +3,7 @@
 import { getApiUrl } from "@mimir/utils/envs";
 import FileHandler from "@tiptap/extension-file-handler";
 import Image from "@tiptap/extension-image";
+import Link from "@tiptap/extension-link";
 import { ListKit } from "@tiptap/extension-list";
 import Mention from "@tiptap/extension-mention";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -10,6 +11,7 @@ import { TableKit } from "@tiptap/extension-table";
 import { Markdown } from "@tiptap/markdown";
 import { mergeAttributes } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import { Callout } from "./callout";
 import { CommentMark } from "./comment-mark";
 import { DocumentMentionExtension } from "./mentions/document-mention";
 import { KnowledgeMentionExtension } from "./mentions/knowledge-mention";
@@ -45,7 +47,18 @@ const extensions = ({
 	}),
 	Markdown,
 	TableKit,
+	// ListKit ships TaskList + TaskItem (used by the slash-menu "Task list" item).
 	ListKit,
+	// Iter10 — Notion-style callouts (4 variants, see ./callout.tsx).
+	Callout,
+	// Explicit Link extension so we can dispatch hover events to LinkPreview
+	// without StarterKit's auto-link rules getting in the way. `openOnClick`
+	// is off — Cmd+click handled by the bubble-menu LinkItem.
+	Link.configure({
+		openOnClick: false,
+		autolink: true,
+		HTMLAttributes: { class: "tiptap-link", rel: "noopener noreferrer" },
+	}),
 	// Custom mention node extensions for rendering mentions as React components
 	UserMentionExtension,
 	TaskMentionExtension,
