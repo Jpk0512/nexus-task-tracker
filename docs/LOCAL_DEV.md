@@ -8,65 +8,49 @@ Nexus is normally deployed across Supabase (cloud) + Vercel + Fly.io with paid i
 |---|---|
 | **Dashboard** | http://localhost:5179 (redirects to `/team/local-dev`) |
 | Nexus API | http://localhost:3003 |
-| Supabase Kong gateway | http://localhost:8000 |
-| Supabase Studio (basic auth) | http://localhost:8000/ — user `supabase`, password from `supabase-stack/.env` |
 
-## Containers
+## Containers (4 services)
 
-```
-supabase-stack/   (docker compose project: supabase)
-  ├─ supabase-db          (postgres 15 with pgvector + pg_graphql)
-  ├─ supabase-kong        (API gateway, port 8000)
-  ├─ supabase-auth        (GoTrue)
-  ├─ supabase-rest        (PostgREST)
-  ├─ supabase-realtime
-  ├─ supabase-storage
-  ├─ supabase-meta
-  ├─ supabase-studio
-  ├─ supabase-vector
-  ├─ supabase-analytics
-  ├─ supabase-pooler
-  ├─ supabase-imgproxy
-  └─ supabase-edge-functions
+| Container | Image | Host port |
+|---|---|---|
+| nexus-postgres | pgvector/pgvector:pg16 | 55432 |
+| nexus-redis | redis:7-alpine | 56379 |
+| nexus-api | (built locally) | 3003 |
+| nexus-dashboard | (built locally) | 5179 |
 
-app/   (docker compose project: app)
-  ├─ mimrai-redis         (local Redis)
-  ├─ mimrai-api           (Hono + tRPC, port 3003)
-  └─ mimrai-dashboard     (Next.js 16, port 5179)
-```
+Bring up: `cd app && docker compose -f docker-compose.local.yaml up -d`
 
-The mimrai api/dashboard attach to **both** networks (`app_default` for redis, `supabase_default` for db + kong). The mimrai api uses Supabase's postgres directly via Drizzle (`DATABASE_URL=postgresql://postgres:...@db:5432/postgres`), and the admin Supabase client points at kong (`SUPABASE_URL=http://kong:8000`).
+> Note: Supabase was adopted in iter 3 (13-service stack) but rolled back in iter 7 to single-container pgvector. The legacy stack is preserved at `docs/archive/upstream/supabase-stack/` for reference.
 
 ## Quick start
 
 ```bash
-# 1) Bring up Supabase stack first
-cd supabase-stack
-docker compose -p supabase up -d
-# wait ~60s for all containers to report healthy
+cd app
 
-# 2) Bring up mimrai stack
-cd ../app
-docker tag node:20-alpine local-mimrai/node:20-alpine        # one-time
+# One-time image tag (the local Dockerfiles use `local-mimrai/node:20-alpine` as their base):
+docker tag node:20-alpine local-mimrai/node:20-alpine
+
+# Bring up the 4-service stack:
 docker compose -f docker-compose.local.yaml up -d --build
 
-# 3) Push schema + seed default user (one-time, after first start)
-docker exec supabase-db psql -U postgres -d postgres -c "CREATE EXTENSION IF NOT EXISTS vector;"
-docker run --rm --network supabase_default \
-  -e DATABASE_URL='postgresql://postgres:your-super-secret-and-long-postgres-password@db:5432/postgres' \
+# Push schema + seed the default user (one-time, after first start). The
+# postgres container has DB=mimrai/user=mimrai/password=mimrai (see
+# docker-compose.local.yaml) on host port 55432:
+docker run --rm --network app_default \
+  -e DATABASE_URL='postgresql://mimrai:mimrai@postgres:5432/mimrai' \
   -e MIMRAI_LOCAL_DEV=1 \
   -w /app/packages/db \
   app-api \
   /usr/local/bin/bun x drizzle-kit push --force
 
-docker run --rm --network supabase_default \
-  -e DATABASE_URL='postgresql://postgres:your-super-secret-and-long-postgres-password@db:5432/postgres' \
+docker run --rm --network app_default \
+  -e DATABASE_URL='postgresql://mimrai:mimrai@postgres:5432/mimrai' \
   -e MIMRAI_LOCAL_DEV=1 \
   -w /app/packages/db \
   app-api \
   /usr/local/bin/bun run src/seed-local-dev.ts
 
-# 4) Open http://localhost:5179 — you'll land directly on /team/local-dev
+# Open http://localhost:5179 — you'll land directly on /team/local-dev
 ```
 
 ## Seeded identity
@@ -121,5 +105,4 @@ All gated on `MIMRAI_LOCAL_DEV=1` — drop that flag and code paths revert to up
 
 ```bash
 docker compose -f app/docker-compose.local.yaml down -v
-docker compose -p supabase -f supabase-stack/docker-compose.yml down -v
 ```

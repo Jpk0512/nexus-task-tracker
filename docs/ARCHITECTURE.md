@@ -11,7 +11,7 @@ Nexus is an open-source, Linear-style minimalist task and project tracker. Sourc
 - Monorepo: Turborepo
 - Frontend: Next.js + React + Tailwind + Shadcn UI
 - API: TRPC server in `app/apps/api`
-- Database: Supabase (Postgres) + Drizzle ORM (`app/packages/db`)
+- Database: Postgres (pgvector/pgvector:pg16, single container) + Drizzle ORM (`app/packages/db`). Briefly adopted full Supabase stack in iter 3, rolled back in iter 7 — only Postgres + pgvector were needed.
 - Cache: Redis (local container)
 - Lint: Biome
 
@@ -22,8 +22,8 @@ Nexus is an open-source, Linear-style minimalist task and project tracker. Sourc
 - `app/apps/api` — TRPC backend
 - `app/apps/desktop` — Tauri/desktop client (not used in local dev)
 - `app/packages/*` — shared workspace packages
-- `app/supabase/` — schema, migrations, seed
-- `.claude/`, `.memory/`, `docs/`, `nexus-orchestrator/` — Nexus orchestration scaffolding
+- `app/scripts/init-db/` — pgvector extension init; `app/packages/db/` — Drizzle schema, migrations, seed (see `seed-local-dev.ts`)
+- `.claude/`, `.memory/`, `docs/` — Nexus orchestration scaffolding (the original template tree was archived to `docs/archive/templates/nexus-orchestrator/`)
 
 ## External Services (stubbed in local dev)
 
