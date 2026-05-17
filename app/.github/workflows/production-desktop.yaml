@@ -1,0 +1,40 @@
+name: dekstop
+permissions:
+  contents: write
+on:
+  push:
+    branches:
+      - main
+      - desktop
+    paths:
+      - apps/desktop/**
+jobs:
+  release:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v1
+
+      - name: Install Node.js
+        uses: actions/setup-node@v1
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: |
+          cd apps/desktop
+          npm i
+      - name: Build Desktop Application
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd apps/desktop
+          npm run publish
+
+
+      

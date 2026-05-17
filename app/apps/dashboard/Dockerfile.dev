@@ -1,0 +1,32 @@
+# Local-dev image for the mimrai dashboard. Uses node:20-alpine (already
+# cached on this host) and installs bun via its official install script.
+
+FROM local-mimrai/node:20-alpine AS base
+ENV PATH=/root/.bun/bin:$PATH
+RUN apk add --no-cache bash curl unzip libc6-compat \
+    && curl -fsSL https://bun.sh/install | bash \
+    && ln -s /root/.bun/bin/bun /usr/local/bin/bun \
+    && ln -s /root/.bun/bin/bunx /usr/local/bin/bunx \
+    && bun --version
+
+FROM base AS turbo-cli
+RUN bun add -g turbo
+
+FROM turbo-cli AS builder
+WORKDIR /app
+COPY . .
+RUN turbo prune @mimir/dashboard --docker
+
+FROM base AS installer
+WORKDIR /app
+COPY --from=builder /app/out/json/ .
+RUN bun install
+
+FROM installer AS runner
+WORKDIR /app
+COPY --from=builder /app/out/full/ .
+
+WORKDIR /app/apps/dashboard
+ENV NODE_ENV=development
+EXPOSE 3000
+CMD ["bun", "x", "next", "dev", "--port=3000", "--hostname=0.0.0.0"]

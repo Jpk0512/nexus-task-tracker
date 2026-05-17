@@ -1,0 +1,71 @@
+# Dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# Testing
+/coverage
+
+# Build outputs
+/.next/
+/out/
+/build/
+/dist/
+.vinxi
+.output
+.react-router/
+.tanstack/
+.nitro/
+
+# Deployment
+.vercel
+.netlify
+.wrangler
+.alchemy
+
+# Environment & local files
+.env*
+!.env.example
+.DS_Store
+*.pem
+*.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+*.log*
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Stale tsc-emitted .js siblings of .tsx/.ts sources. Should never exist
+# under src/ — if they appear, somebody ran `tsc` without --noEmit at the
+# wrong scope. Root tsconfig.json now has noEmit:true to prevent regression.
+# Keep this rule so accidental emits don't get committed.
+/src/**/*.js
+/src/**/*.js.map
+/src/**/*.d.ts
+
+# IDE
+.vscode/*
+!.vscode/extensions.json
+.idea
+
+# Other
+dev-dist
+
+.wrangler
+.dev.vars*
+
+.open-next
+
+# Sentry Config File
+.env.sentry-build-plugin

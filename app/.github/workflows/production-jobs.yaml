@@ -1,0 +1,29 @@
+name: jobs
+permissions:
+  contents: read
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - packages/jobs/**
+      - "packages/email/**"
+      - "packages/db/**"
+jobs:
+  deploy:
+    name: 🚀 Deploy to Trigger
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency: fly-production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+      - name: Install dependencies
+        run: bun install
+      - name: Deploy Jobs
+        working-directory: packages/jobs
+        env:
+          TRIGGER_ACCESS_TOKEN: ${{ secrets.TRIGGER_ACCESS_TOKEN }}
+        run: bunx trigger.dev@4.3.3 deploy

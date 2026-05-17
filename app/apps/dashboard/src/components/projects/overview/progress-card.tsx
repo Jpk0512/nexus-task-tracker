@@ -1,0 +1,70 @@
+import { useQuery } from "@tanstack/react-query";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+} from "@ui/components/ui/card";
+import { AssigneeAvatar } from "@/components/asignee-avatar";
+import { Progress } from "@/components/projects/list";
+import { trpc } from "@/utils/trpc";
+
+export const ProjectProgressCard = ({ projectId }: { projectId: string }) => {
+	const { data } = useQuery(
+		trpc.projects.getProgress.queryOptions({ id: projectId }),
+	);
+
+	return (
+		<div className="space-y-2">
+			<div className="space-y-1">
+				<div className="flex justify-between">
+					<CardDescription>Overall Project Progress</CardDescription>
+				</div>
+				<div className="flex justify-start gap-2 text-xs">
+					<div className="flex gap-2 rounded-xs py-0.5">
+						<span className="text-muted-foreground">Total</span>
+						<span>
+							{(data?.overall?.inProgress ?? 0) +
+								(data?.overall?.completed ?? 0)}
+						</span>
+					</div>
+					<div className="flex gap-2 rounded-xs py-0.5">
+						<span className="text-muted-foreground">Completed</span>
+						<span>{data?.overall?.completed ?? 0}</span>
+					</div>
+				</div>
+				<div>
+					<Progress
+						completed={data?.overall?.completed ?? 0}
+						inProgress={data?.overall?.inProgress ?? 0}
+					/>
+				</div>
+			</div>
+			<div>
+				<ul className="mt-4 space-y-2">
+					{data?.members.map((member) => {
+						const total =
+							member.progress.completed + member.progress.inProgress;
+						const percentage = total
+							? Math.round((member.progress.completed / total) * 100)
+							: 0;
+
+						return (
+							<li key={member.id} className="flex items-center gap-4">
+								<AssigneeAvatar {...member} />
+								<Progress
+									completed={member.progress.completed}
+									inProgress={member.progress.inProgress}
+									color={member.color}
+								/>
+								{/* <span className="w-auto text-muted-foreground text-xs">
+									{percentage}% of {total}
+								</span> */}
+							</li>
+						);
+					})}
+				</ul>
+			</div>
+		</div>
+	);
+};

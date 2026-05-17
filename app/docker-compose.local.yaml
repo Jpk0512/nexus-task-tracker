@@ -1,0 +1,118 @@
+# Local-dev stack for mimrai. Wired to a sibling Supabase self-host stack
+# (../supabase-stack/docker-compose.yml, project: supabase) for postgres,
+# auth, storage, realtime, etc. Bring that stack up first:
+#
+#   cd ../supabase-stack && docker compose -p supabase up -d
+#
+# Then this stack:
+#   docker compose -f docker-compose.local.yaml up -d --build
+#
+# See /Users/john.keeney/mimrai/docs/LOCAL_DEV.md for the full flow.
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: mimrai-postgres
+    environment:
+      POSTGRES_USER: mimrai
+      POSTGRES_PASSWORD: mimrai
+      POSTGRES_DB: mimrai
+    ports:
+      - "55432:5432"
+    volumes:
+      - mimrai-pg-data:/var/lib/postgresql/data
+      - ./scripts/init-db:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mimrai -d mimrai"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: mimrai-redis
+    ports:
+      - "56379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile.local
+    container_name: mimrai-api
+    env_file:
+      - .env.local
+    environment:
+      NODE_ENV: development
+      PORT: "3003"
+      # Local pgvector postgres (back to single-container, dropped supabase
+      # since mimrai only needed Postgres + pgvector — 12 other supabase
+      # services were dead weight under the 7.75GB Docker VM).
+      DATABASE_URL: postgresql://mimrai:mimrai@postgres:5432/mimrai
+      REDIS_URL: redis://redis:6379
+      MIMRAI_LOCAL_DEV: "1"
+      ALLOWED_API_ORIGINS: http://localhost:5179
+      # Real supabase URL + keys (kong gateway inside supabase network).
+      SUPABASE_URL: http://kong:8000
+      SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE
+      SUPABASE_SERVICE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJzZXJ2aWNlX3JvbGUiLAogICAgImlzcyI6ICJzdXBhYmFzZS1kZW1vIiwKICAgICJpYXQiOiAxNjQxNzY5MjAwLAogICAgImV4cCI6IDE3OTk1MzU2MDAKfQ.DaYlNEoUrrEn2Ig7tqibS-PHK5vgusbcbo7X36XVt4Q
+      SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJzZXJ2aWNlX3JvbGUiLAogICAgImlzcyI6ICJzdXBhYmFzZS1kZW1vIiwKICAgICJpYXQiOiAxNjQxNzY5MjAwLAogICAgImV4cCI6IDE3OTk1MzU2MDAKfQ.DaYlNEoUrrEn2Ig7tqibS-PHK5vgusbcbo7X36XVt4Q
+      # Library — read+write into host-mounted skill/agent dirs, guarded by allowed-root.
+      # Switched from a single $HOME mount to four narrowly-scoped mounts to
+      # avoid the virtiofs triple-registration storm we hit during compose
+      # churn (see docs/SKILL_LIBRARY_DESIGN.md crash post-mortem).
+      LIBRARY_ALLOWED_ROOT: /host
+    ports:
+      - "3003:3003"
+    volumes:
+      - /Users/john.keeney/mimrai/.claude:/host/mimrai-claude
+      - /Users/john.keeney/ai-interaction-dash/.claude:/host/aid-claude
+      - /Users/john.keeney/elevenlabs-eval-dash/.claude:/host/eed-claude
+      - /Users/john.keeney/mimrai/nexus-orchestrator:/host/nexus
+      # Knowledge — the user's Obsidian-compatible vault. Read-write.
+      - /Users/john.keeney/mimrai-knowledge:/host/knowledge
+    networks:
+      - default
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: apps/dashboard/Dockerfile.dev
+    container_name: mimrai-dashboard
+    env_file:
+      - .env.local
+    environment:
+      NODE_ENV: development
+      PORT: "3000"
+      NEXT_PUBLIC_APP_URL: http://localhost:5179
+      NEXT_PUBLIC_SERVER_URL: http://localhost:3003
+      NEXT_PUBLIC_SUPABASE_URL: http://localhost:8000
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE
+      NEXT_PUBLIC_MIMRAI_LOCAL_DEV: "1"
+      MIMRAI_LOCAL_DEV: "1"
+      MIMRAI_SSR_SERVER_URL: http://api:3003
+    ports:
+      - "5179:3000"
+    depends_on:
+      api:
+        condition: service_started
+    restart: unless-stopped
+
+networks:
+  default:
+    name: app_default
+
+volumes:
+  mimrai-pg-data:

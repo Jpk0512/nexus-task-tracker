@@ -1,0 +1,141 @@
+@reference "../../../index.css";
+
+.ProseMirror-focused {
+	@apply outline-none;
+}
+
+.tiptap {
+	@apply text-sm leading-relaxed;
+	@apply font-sans space-y-4!;
+
+	h1 {
+		@apply text-xl font-medium;
+		margin-bottom: 1rem;
+	}
+
+	h2 {
+		@apply text-lg font-medium;
+		margin-bottom: 0.5rem;
+	}
+
+	h3 {
+		@apply text-base font-medium;
+		margin-bottom: 0.5rem;
+	}
+
+	a {
+		@apply underline;
+	}
+
+	p {
+		@apply mb-1;
+	}
+
+	hr {
+		@apply my-4;
+	}
+
+	p.is-empty::before {
+		color: #404040;
+		content: attr(data-placeholder);
+		float: left;
+		height: 0;
+		pointer-events: none;
+	}
+
+	ul {
+		list-style: disc;
+		margin-left: 1rem;
+
+		&[data-type="taskList"] {
+			list-style: none;
+
+			li {
+				@apply flex items-center gap-2 mb-1;
+				/* label {
+					@apply flex items-center gap-1 cursor-pointer;
+					input[type="checkbox"] {
+						@apply size-0 absolute opacity-0;
+					}
+					& > span {
+						@apply block size-4 border rounded bg-input;
+
+						::before {
+							@apply block size-2 bg-primary rounded absolute left-1 top-1 opacity-0 transition-opacity;
+							content: "";
+						}
+					}
+				} */
+			}
+		}
+	}
+
+	ol {
+		list-style: decimal;
+		margin-left: 1rem;
+	}
+
+	pre {
+		@apply border rounded-sm break-words max-w-xl p-4 my-8 bg-card;
+
+		code {
+			background: none;
+			color: inherit;
+			font-family: monospace;
+			line-height: 1.4;
+			font-size: 0.875em;
+			padding: 0;
+			border: 0;
+		}
+	}
+
+	blockquote {
+		@apply border-l-2 border-primary pl-4 ml-2 my-8 text-muted-foreground;
+	}
+
+	img {
+		display: block;
+		height: auto;
+		margin: 1.5rem 0;
+		max-width: 100%;
+
+		&.ProseMirror-selectednode {
+			outline: 3px solid var(--purple);
+		}
+	}
+
+	table {
+		@apply w-full border-collapse my-8;
+
+		th,
+		td {
+			@apply border p-2 text-left;
+		}
+	}
+
+	code {
+		@apply font-sans border bg-muted px-1 rounded;
+	}
+}
+
+.editor-xl {
+	.tiptap {
+		@apply text-base;
+
+		h1 {
+			@apply text-2xl;
+		}
+
+		h2 {
+			@apply text-xl;
+		}
+
+		h3 {
+			@apply text-lg;
+		}
+	}
+}
+
+.tiptap .bubble-menu {
+	@apply flex gap-2;
+}

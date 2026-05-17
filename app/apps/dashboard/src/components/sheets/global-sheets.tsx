@@ -1,0 +1,54 @@
+import { CreateTaskDialog } from "../create-task-dialog";
+import { GlobalShortcuts } from "../global-shortcuts";
+import { AgentCreateSheet } from "./agent-create-sheet";
+import { AgentMemoryDialog } from "./agent-memory-dialog";
+import { AgentUpdateSheet } from "./agent-update-sheet";
+import { IntegrationInstallSheet } from "./integration-install-sheet";
+import { LabelCreateSheet } from "./label-create-sheet";
+import { LabelUpdateSheet } from "./label-update-sheet";
+import { McpServerCreateSheet } from "./mcp-server-create-sheet";
+import { McpServerUpdateSheet } from "./mcp-server-update-sheet";
+import { MemberUpdateSheet } from "./member-update-sheet";
+import { PlanSelectSheet } from "./plan-select-sheet";
+import { ProjectCreateSheet } from "./project-create-sheet";
+import { ProjectHealthUpdateDialog } from "./project-health-update-dialog";
+import { ProjectUpdateSheet } from "./project-update-sheet";
+import { ShareableCreateSheet } from "./shareable-create-sheet.tsx";
+import { StatusCreateSheet } from "./status-create-sheet";
+import { StatusUpdateSheet } from "./status-update-sheet ";
+import { TaskDependencyDialog } from "./task-dependency-dialog";
+import { TaskUpdateSheet } from "./task-update-sheet";
+import { TaskViewCreateSheet } from "./task-view-create-sheet";
+import { TaskViewUpdateSheet } from "./task-view-update-sheet";
+import { TeamCreateSheet } from "./team-create-sheet";
+
+export const GlobalSheets = () => {
+	return (
+		<>
+			<GlobalShortcuts />
+			<CreateTaskDialog />
+			<MemberUpdateSheet />
+			<StatusCreateSheet />
+			<StatusUpdateSheet />
+			<LabelCreateSheet />
+			<LabelUpdateSheet />
+			<McpServerCreateSheet />
+			<McpServerUpdateSheet />
+			<AgentCreateSheet />
+			<AgentMemoryDialog />
+			<AgentUpdateSheet />
+			<TaskUpdateSheet />
+			<TeamCreateSheet />
+			<IntegrationInstallSheet />
+			<ProjectCreateSheet />
+			<ProjectUpdateSheet />
+			<ProjectHealthUpdateDialog />
+			<ShareableCreateSheet />
+			<PlanSelectSheet />
+			<TaskViewCreateSheet />
+			<TaskViewUpdateSheet />
+			{/* <TasksSuggestions /> */}
+			<TaskDependencyDialog />
+		</>
+	);
+};

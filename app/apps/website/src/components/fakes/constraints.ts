@@ -1,0 +1,1 @@
+export const DEFAULT_CONSTRAINT = 100;

@@ -1,0 +1,23 @@
+{
+	"extends": "@mimir/tsconfig/base.json",
+	"include": [
+		"./src/*.ts",
+		"../../apps/api/src/ai/types.ts",
+		"../integration/src/registry.ts",
+		"../jobs/src/jobs/notifications/send-notification-job.ts"
+	],
+	"compilerOptions": {
+		"baseUrl": ".",
+		"verbatimModuleSyntax": true,
+		"module": "esnext",
+		"moduleResolution": "bundler",
+		"types": ["@types/bun"],
+
+		"paths": {
+			"@api/*": ["../../apps/api/src/*"],
+			"@integration/*": ["../integration/src/*"],
+			"@notifications/*": ["../notifications/src/*"],
+			"@jobs/*": ["../jobs/src/*"]
+		}
+	}
+}

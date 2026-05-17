@@ -1,0 +1,238 @@
+import { buildAppContext } from "@api/ai/agents/config/shared";
+import {
+	createTaskAssistantAgent,
+	createTaskAssistantAgentForUser,
+	type TaskAssistantContext,
+} from "@api/ai/agents/task-assistant";
+import type { UIChatMessage } from "@api/ai/types";
+import { getUserContext } from "@api/ai/utils/get-user-context";
+import { db } from "@mimir/db/client";
+import { getChatById, saveChatMessage } from "@mimir/db/queries/chats";
+import { createTaskComment } from "@mimir/db/queries/tasks";
+import { getMimirUser } from "@mimir/db/queries/users";
+import {
+	activities,
+	labels,
+	labelsOnTasks,
+	milestones,
+	projects,
+	statuses,
+	tasks,
+	users,
+} from "@mimir/db/schema";
+import type { UIMessage } from "ai";
+import { and, asc, eq, or } from "drizzle-orm";
+
+export const handleTaskComment = async ({
+	taskId,
+	teamId,
+	userId,
+	commentId,
+	comment,
+}: {
+	taskId: string;
+	teamId: string;
+	userId: string;
+	commentId: string;
+	comment: string;
+}) => {
+	const systemUser = await getMimirUser({
+		teamId,
+	});
+
+	if (!systemUser) {
+		throw new Error("System user not found");
+	}
+
+	// check if the comment has a mention of the system user
+	if (!comment.includes(`@${systemUser.name}`)) {
+		return;
+	}
+
+	const chatId = `task-${taskId}-thread`;
+
+	const [userContext, chat] = await Promise.all([
+		getUserContext({
+			userId: userId,
+			teamId: teamId,
+		}),
+		getChatById(chatId, teamId),
+	]);
+	const previousMessages = chat ? chat.messages : [];
+	const allMessages = [...previousMessages];
+	const userMessage: UIChatMessage = {
+		id: commentId,
+		role: "user",
+		parts: [
+			{
+				type: "text",
+				text: comment,
+			},
+		],
+	};
+
+	const [task] = await db
+		.select({
+			id: tasks.id,
+			title: tasks.title,
+			description: tasks.description,
+			priority: tasks.priority,
+			statusId: tasks.statusId,
+			assigneeId: tasks.assigneeId,
+			projectId: tasks.projectId,
+			milestoneId: tasks.milestoneId,
+			dueDate: tasks.dueDate,
+			statusName: statuses.name,
+			assigneeName: users.name,
+			projectName: projects.name,
+			milestoneName: milestones.name,
+		})
+		.from(tasks)
+		.leftJoin(statuses, eq(tasks.statusId, statuses.id))
+		.leftJoin(users, eq(tasks.assigneeId, users.id))
+		.leftJoin(projects, eq(tasks.projectId, projects.id))
+		.leftJoin(milestones, eq(tasks.milestoneId, milestones.id))
+		.where(and(eq(tasks.id, taskId), eq(tasks.teamId, teamId)))
+		.limit(1);
+
+	if (!task) {
+		throw new Error("Task not found");
+	}
+
+	// Fetch task labels
+	const taskLabels = await db
+		.select({
+			id: labels.id,
+			name: labels.name,
+		})
+		.from(labelsOnTasks)
+		.innerJoin(labels, eq(labelsOnTasks.labelId, labels.id))
+		.where(eq(labelsOnTasks.taskId, taskId));
+
+	const unsavedMessages: {
+		message: UIChatMessage;
+		createdAt: string;
+	}[] = [];
+
+	const taskComments = await db
+		.select()
+		.from(activities)
+		.where(
+			and(
+				or(eq(activities.groupId, commentId), eq(activities.groupId, taskId)),
+				eq(activities.teamId, teamId),
+				eq(activities.type, "task_comment"),
+			),
+		)
+		.orderBy(asc(activities.createdAt))
+		.limit(10);
+
+	for (const oldComment of taskComments) {
+		if (allMessages.find((m) => m.id === oldComment.id)) {
+			continue;
+		}
+
+		if (!oldComment.metadata?.comment) {
+			continue;
+		}
+
+		const message: UIChatMessage = {
+			id: oldComment.id,
+			role: "user",
+			parts: [{ type: "text", text: oldComment.metadata?.comment }],
+		};
+
+		unsavedMessages.push({
+			message,
+			createdAt: oldComment.createdAt!,
+		});
+	}
+
+	unsavedMessages.push({
+		message: userMessage,
+		createdAt: new Date().toISOString(),
+	});
+
+	await Promise.all(
+		unsavedMessages.map(({ message, createdAt }) =>
+			saveChatMessage({
+				chatId: chatId,
+				userId: userId,
+				message: message,
+				role: "user",
+				createdAt: createdAt,
+			}),
+		),
+	);
+
+	// Build recent comments for context
+	const recentCommentsForContext = taskComments
+		.filter((c) => c.metadata?.comment)
+		.slice(-10)
+		.map((c) => ({
+			author: c.userId ?? "Unknown",
+			content: c.metadata?.comment as string,
+			createdAt: c.createdAt ?? new Date().toISOString(),
+		}));
+
+	const baseContext = buildAppContext(
+		{
+			...userContext,
+			integrationType: "web",
+		},
+		chatId,
+	);
+
+	// Create task assistant with user's available integrations auto-injected
+	const { agent, enabledIntegrations } = await createTaskAssistantAgentForUser({
+		userId,
+		teamId,
+	});
+
+	// Build TaskAssistantContext with task details and available integrations
+	const taskAssistantContext: TaskAssistantContext = {
+		...baseContext,
+		task: {
+			id: task.id,
+			title: task.title,
+			description: task.description ?? undefined,
+			status: task.statusName ?? undefined,
+			statusId: task.statusId ?? undefined,
+			priority: task.priority ?? undefined,
+			assignee: task.assigneeName ?? undefined,
+			assigneeId: task.assigneeId ?? undefined,
+			project: task.projectName ?? undefined,
+			projectId: task.projectId ?? undefined,
+			milestone: task.milestoneName ?? undefined,
+			milestoneId: task.milestoneId ?? undefined,
+			dueDate: task.dueDate ?? undefined,
+			labels: taskLabels,
+		},
+		recentComments: recentCommentsForContext,
+		availableIntegrations: enabledIntegrations,
+	};
+
+	const response = await agent.generate({
+		message: userMessage,
+		context: taskAssistantContext,
+	});
+
+	const body =
+		response.parts[response.parts.length - 1]?.type === "text"
+			? (
+					response.parts[
+						response.parts.length - 1
+					] as UIMessage["parts"][number] & {
+						type: "text";
+					}
+				).text
+			: "Sorry, I could not process your message.";
+
+	await createTaskComment({
+		taskId,
+		comment: body,
+		replyTo: commentId,
+		userId: systemUser.id,
+		teamId,
+	});
+};

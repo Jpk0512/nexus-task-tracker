@@ -1,0 +1,14 @@
+{
+	"extends": "@mimir/tsconfig/base.json",
+	"compilerOptions": {
+		"noEmit": true
+	},
+	"include": [],
+	"exclude": [
+		"**/node_modules",
+		"**/.next",
+		"**/.turbo",
+		"**/dist",
+		"**/.alchemy"
+	]
+}

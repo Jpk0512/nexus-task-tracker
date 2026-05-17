@@ -1,0 +1,38 @@
+node_modules
+**/node_modules
+.turbo
+**/.turbo
+dist
+**/dist
+.next
+**/.next
+.env
+.env.local
+.env.*.local
+*.log
+.DS_Store
+github.png
+.zed
+.agents
+.github
+
+# Stale tsc-emitted .js siblings of .tsx/.ts sources. Root tsconfig.json
+# has noEmit:true to prevent regression but be defensive at the COPY-layer
+# too — never copy host-side stray .js into the container, otherwise
+# Next.js's `pageExtensions` default (["tsx","ts","jsx","js"]) resolves
+# layout.js before layout.tsx and breaks the build.
+apps/dashboard/src/**/*.js
+apps/dashboard/src/**/*.js.map
+apps/dashboard/src/**/*.d.ts
+apps/api/src/**/*.js
+apps/api/src/**/*.js.map
+apps/api/src/**/*.d.ts
+apps/website/src/**/*.js
+apps/website/src/**/*.js.map
+apps/website/src/**/*.d.ts
+packages/**/src/**/*.js
+packages/**/src/**/*.js.map
+packages/**/src/**/*.d.ts
+apps/dashboard/next.config.js
+apps/api/next.config.js
+apps/website/next.config.js

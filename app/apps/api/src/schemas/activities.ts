@@ -1,0 +1,47 @@
+import { activityStatusEnum, activityTypeEnum } from "@mimir/db/schema";
+import z from "zod";
+
+export const getActivitiesSchema = z.object({
+	groupId: z.string().optional(),
+	cursor: z.string().optional(),
+	pageSize: z.number().min(1).max(100).optional(),
+	priority: z.tuple([z.number(), z.number()]).optional(),
+	status: z.array(z.enum(activityStatusEnum.enumValues).optional()).optional(),
+	nStatus: z.array(z.enum(activityStatusEnum.enumValues).optional()).optional(),
+	type: z.array(z.enum(activityTypeEnum.enumValues)).optional(),
+	search: z.string().optional(),
+	ids: z.array(z.string()).optional(),
+	onlyForUser: z.boolean().optional(),
+});
+
+export const deleteActivitySchema = z.object({
+	id: z.string(),
+});
+
+export const bulkUpdateActivitiesSchema = z.object({
+	ids: z.array(z.string()).min(1),
+	status: z.enum(activityStatusEnum.enumValues),
+});
+
+export const getActivitiesCountSchema = z.object({
+	status: z.array(z.enum(activityStatusEnum.enumValues).optional()).optional(),
+});
+
+export const createActivityReactionSchema = z.object({
+	activityId: z.string(),
+	reaction: z.string().min(1).max(10), // emoji or short text
+});
+
+export const deleteActivityReactionSchema = z.object({
+	activityId: z.string(),
+	reaction: z.string().min(1).max(10),
+});
+
+export const toggleActivityReactionSchema = z.object({
+	activityId: z.string(),
+	reaction: z.string().min(1).max(10),
+});
+
+export const getActivityReactionsSchema = z.object({
+	activityId: z.string(),
+});

@@ -1,0 +1,35 @@
+# Local-dev image for the mimrai API. Uses node:20-alpine (already cached
+# on this host) so we don't depend on pulling oven/bun. Bun is installed
+# inside the container via its official install script.
+#
+# DO NOT use in production — apps/api/Dockerfile is the canonical upstream one.
+
+FROM local-mimrai/node:20-alpine AS base
+ENV PATH=/root/.bun/bin:$PATH
+RUN apk add --no-cache bash curl unzip libc6-compat \
+    && curl -fsSL https://bun.sh/install | bash \
+    && ln -s /root/.bun/bin/bun /usr/local/bin/bun \
+    && ln -s /root/.bun/bin/bunx /usr/local/bin/bunx \
+    && bun --version
+
+FROM base AS turbo-cli
+RUN bun add -g turbo
+
+FROM turbo-cli AS builder
+WORKDIR /app
+COPY . .
+RUN turbo prune @mimir/api --docker
+
+FROM base AS installer
+WORKDIR /app
+COPY --from=builder /app/out/json/ .
+RUN bun install
+
+FROM installer AS runner
+WORKDIR /app
+COPY --from=builder /app/out/full/ .
+
+WORKDIR /app/apps/api
+ENV NODE_ENV=development
+EXPOSE 3003
+CMD ["bun", "run", "src/index.ts"]

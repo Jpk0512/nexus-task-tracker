@@ -1,0 +1,265 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+.scrollbar-hide::-webkit-scrollbar {
+	display: none;
+}
+
+.scrollbar-hide {
+	-ms-overflow-style: none;
+	scrollbar-width: none;
+}
+
+@theme {
+	--font-sans:
+		"Inter", "Inter Variable", ui-sans-serif, system-ui, -apple-system,
+		BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif,
+		"Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
+		"Noto Color Emoji";
+	--font-mono:
+		"JetBrains Mono", "Geist Mono", ui-monospace, "SF Mono", Menlo, Monaco,
+		Consolas, "Liberation Mono", "Courier New", monospace;
+	/* font-header now used for display headings — same Inter stack, just a
+	   semantic alias kept so existing `font-header` Tailwind classes get the
+	   right look (Linear Display feel). */
+	--font-header: var(--font-sans);
+
+	/* Linear's signature weight is 510 — between regular and medium.
+	   Tailwind doesn't ship this by default; exposing it explicitly. */
+	--font-weight-signature: 510;
+
+	--color-success: #27a644;
+}
+
+html,
+body {
+	color-scheme: dark;
+	/* Linear's typeface identity. cv01 = single-story 'a', ss03 = tighter
+	   numeric/letter alternates. Without these, Inter looks generic. */
+	font-feature-settings: "cv01", "ss03";
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+
+	@apply selection:bg-primary/30 selection:text-foreground;
+}
+
+:root {
+	/* 8px corners on buttons/inputs; cards lift to 12px via rounded-lg. */
+	--radius: 0.5rem;
+
+	/* Linear is dark-native. Light tokens kept for any edge case (e.g. PDF
+	   print, photo crop) but the html element is forced into .dark below. */
+	--background: #ffffff;
+	--foreground: #010102;
+	--card: #f7f8f8;
+	--card-foreground: #010102;
+	--popover: #ffffff;
+	--popover-foreground: #010102;
+	--primary: #5e6ad2;
+	--primary-foreground: #ffffff;
+	--secondary: #f3f4f5;
+	--secondary-foreground: #010102;
+	--muted: #f5f6f7;
+	--muted-foreground: #62666d;
+	--accent: #f5f6f7;
+	--accent-foreground: #010102;
+	--destructive: #c8312b;
+	--border: #e6e6e6;
+	--input: #d0d6e0;
+	--ring: #5e6ad2;
+
+	--chart-1: #5e6ad2;
+	--chart-2: #27a644;
+	--chart-3: #e9c46a;
+	--chart-4: #f4a261;
+	--chart-5: #e76f51;
+
+	--sidebar: #ffffff;
+	--sidebar-foreground: #010102;
+	--sidebar-primary: #5e6ad2;
+	--sidebar-primary-foreground: #ffffff;
+	--sidebar-accent: #f5f6f7;
+	--sidebar-accent-foreground: #010102;
+	--sidebar-border: #e6e6e6;
+	--sidebar-ring: #5e6ad2;
+}
+
+.dark {
+	/* Linear's canonical tokens, sourced from DESIGN.md. */
+
+	/* Canvas — pitch-black with imperceptible blue tint. NOT #000000. */
+	--background: #08090a;
+	--foreground: #f7f8f8;
+
+	/* surface-1 — feature cards, pricing cards, panel default. */
+	--card: #0f1011;
+	--card-foreground: #f7f8f8;
+
+	/* surface-2 — dropdowns, popovers, modal content. */
+	--popover: #141516;
+	--popover-foreground: #f7f8f8;
+
+	/* Lavender accent — the only chromatic color in the system. */
+	--primary: #5e6ad2;
+	--primary-foreground: #ffffff;
+
+	/* surface-1 for buttons that aren't primary. */
+	--secondary: #0f1011;
+	--secondary-foreground: #f7f8f8;
+
+	/* surface-2 for muted backgrounds; ink-subtle for muted text. */
+	--muted: #141516;
+	--muted-foreground: #8a8f98;
+
+	/* Hover/selected surface lift to surface-3. */
+	--accent: #18191a;
+	--accent-foreground: #f7f8f8;
+
+	--destructive: #eb5757;
+
+	/* hairline — 1px hairline borders. */
+	--border: #23252a;
+	--input: #23252a;
+
+	/* Focus ring — slightly tinted lavender at half opacity (applied via /50 in components). */
+	--ring: #5e69d1;
+
+	--chart-1: #5e6ad2;
+	--chart-2: #27a644;
+	--chart-3: #e9c46a;
+	--chart-4: #f4a261;
+	--chart-5: #e76f51;
+
+	/* Sidebar sits on canvas — same #08090a — so it visually fuses with the
+	   page edge, exactly like Linear. */
+	--sidebar: #08090a;
+	--sidebar-foreground: #8a8f98;
+	--sidebar-primary: #5e6ad2;
+	--sidebar-primary-foreground: #ffffff;
+	--sidebar-accent: #18191a;
+	--sidebar-accent-foreground: #f7f8f8;
+	--sidebar-border: #18191a;
+	--sidebar-ring: #5e69d1;
+}
+
+@theme inline {
+	--radius-sm: calc(var(--radius) - 2px);
+	--radius-md: var(--radius);
+	--radius-lg: calc(var(--radius) + 4px);
+	--radius-xl: calc(var(--radius) + 8px);
+	--color-background: var(--background);
+	--color-foreground: var(--foreground);
+	--color-card: var(--card);
+	--color-card-foreground: var(--card-foreground);
+	--color-popover: var(--popover);
+	--color-popover-foreground: var(--popover-foreground);
+	--color-primary: var(--primary);
+	--color-primary-foreground: var(--primary-foreground);
+	--color-secondary: var(--secondary);
+	--color-secondary-foreground: var(--secondary-foreground);
+	--color-muted: var(--muted);
+	--color-muted-foreground: var(--muted-foreground);
+	--color-accent: var(--accent);
+	--color-accent-foreground: var(--accent-foreground);
+	--color-destructive: var(--destructive);
+	--color-border: var(--border);
+	--color-input: var(--input);
+	--color-ring: var(--ring);
+	--color-chart-1: var(--chart-1);
+	--color-chart-2: var(--chart-2);
+	--color-chart-3: var(--chart-3);
+	--color-chart-4: var(--chart-4);
+	--color-chart-5: var(--chart-5);
+	--color-sidebar: var(--sidebar);
+	--color-sidebar-foreground: var(--sidebar-foreground);
+	--color-sidebar-primary: var(--sidebar-primary);
+	--color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+	--color-sidebar-accent: var(--sidebar-accent);
+	--color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+	--color-sidebar-border: var(--sidebar-border);
+	--color-sidebar-ring: var(--sidebar-ring);
+	--animate-spin-around: spin-around 0.8s linear infinite;
+	@keyframes spin-around {
+		0% {
+			transform: rotate(-90deg);
+		}
+		100% {
+			transform: rotate(270deg);
+		}
+	}
+}
+
+@layer base {
+	* {
+		@apply border-border outline-ring/50;
+	}
+	body {
+		@apply bg-background text-foreground;
+		font-family: var(--font-sans);
+	}
+
+	/* Aggressive negative tracking on display sizes (Linear spec). */
+	h1 {
+		letter-spacing: -0.032em;
+	}
+	h2 {
+		letter-spacing: -0.022em;
+	}
+	h3 {
+		letter-spacing: -0.012em;
+	}
+}
+
+.border-draw {
+	border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
+	border-width: 3px;
+	border-style: solid;
+}
+
+.collapsible-chevron {
+	cursor: pointer;
+}
+
+.collapsible-chevron::after {
+	content: "";
+	display: inline-block;
+	@apply size-1.5 ml-2;
+	border-right: 1px solid currentColor;
+	border-bottom: 1px solid currentColor;
+	transform: rotate(-45deg);
+	transition: transform 150ms ease-out;
+}
+
+.collapsible-chevron[data-state="open"]::after {
+	transform: rotate(45deg);
+}
+
+.CollapsibleContent {
+	overflow: hidden;
+}
+.CollapsibleContent[data-state="open"] {
+	animation: slideDown 150ms ease-out;
+}
+.CollapsibleContent[data-state="closed"] {
+	animation: slideUp 150ms ease-out;
+}
+
+@keyframes slideDown {
+	from {
+		height: 0;
+	}
+	to {
+		height: var(--radix-collapsible-content-height);
+	}
+}
+
+@keyframes slideUp {
+	from {
+		height: var(--radix-collapsible-content-height);
+	}
+	to {
+		height: 0;
+	}
+}

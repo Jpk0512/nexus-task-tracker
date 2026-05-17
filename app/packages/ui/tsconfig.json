@@ -1,0 +1,12 @@
+{
+	"extends": "@mimir/tsconfig/react-library.json",
+	"compilerOptions": {
+		"baseUrl": ".",
+		"paths": {
+			"@/*": ["./src/*"],
+			"@ui/*": ["./src/*"]
+		}
+	},
+	"include": ["src/**/*.ts", "src/**/*.tsx"],
+	"exclude": ["**/node_modules", "**/.*/"]
+}
