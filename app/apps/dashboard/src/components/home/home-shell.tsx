@@ -4,6 +4,7 @@ import { cn } from "@ui/lib/utils";
 import { SettingsIcon } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { WeeklyRollover } from "@/components/lens/weekly-rollover";
 import { ActiveProjectsRail } from "./active-projects-rail";
 import { ActivityFeed } from "./activity-feed";
 import { AgendaCard } from "./agenda-card";
@@ -110,6 +111,11 @@ export const HomeShell = () => {
 
 	return (
 		<div className="flex animate-blur-in flex-col gap-4 p-6">
+			{/* Weekly rollover banner (codex delighter #3) — self-managed: only
+				 renders Monday-of-a-new-ISO-week before the user dismisses, no-ops
+				 the rest of the week. Mounted at the top so it's the first thing
+				 seen on home. */}
+			<WeeklyRollover />
 			{/* Quick-capture bar + configurator gear share the top row. The bar
 			 *  is always rendered (it's the primary CTA on Home and doesn't make
 			 *  sense to hide); the gear sits flush right.
