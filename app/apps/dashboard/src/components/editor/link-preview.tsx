@@ -31,7 +31,9 @@ type HoverState = {
  * Match internal URL patterns against the team-scoped routes our app uses.
  * Returns `null` for plain external URLs.
  */
-function classifyHref(href: string):
+function classifyHref(
+	href: string,
+):
 	| { kind: "document"; id: string }
 	| { kind: "library"; id: string }
 	| { kind: "prompt"; productSlug: string; promptSlug: string }
@@ -84,9 +86,7 @@ function LinkPreviewCard({ state }: { state: NonNullable<HoverState> }) {
 	// Position above the link with a small gap, fall back below if it would
 	// overflow the viewport top.
 	const above = state.rect.top > 200;
-	const top = above
-		? state.rect.top - 8
-		: state.rect.bottom + 8;
+	const top = above ? state.rect.top - 8 : state.rect.bottom + 8;
 	const left = Math.max(8, state.rect.left);
 	const transform = above ? "translateY(-100%)" : "none";
 
@@ -140,7 +140,14 @@ function LinkPreviewCard({ state }: { state: NonNullable<HoverState> }) {
 		);
 	}
 
-	return <InternalLinkPreviewCard classified={classified} top={top} left={left} transform={transform} />;
+	return (
+		<InternalLinkPreviewCard
+			classified={classified}
+			top={top}
+			left={left}
+			transform={transform}
+		/>
+	);
 }
 
 function InternalLinkPreviewCard({
@@ -161,18 +168,22 @@ function InternalLinkPreviewCard({
 	// repeat-hover on the same link is instant after the first fetch.
 	const docQuery = useQuery({
 		...trpc.documents.getById.queryOptions(
-			classified.kind === "document" ? { id: classified.id } : (undefined as any),
+			classified.kind === "document"
+				? { id: classified.id }
+				: (undefined as any),
 		),
 		enabled: classified.kind === "document",
 	});
 	const libQuery = useQuery({
 		...trpc.library.getById.queryOptions(
-			classified.kind === "library" ? { id: classified.id } : (undefined as any),
+			classified.kind === "library"
+				? { id: classified.id }
+				: (undefined as any),
 		),
 		enabled: classified.kind === "library",
 	});
 
-	let chipLabel: string = "Internal";
+	let chipLabel = "Internal";
 	let chipTone = "text-[var(--brand,theme(colors.violet.500))]";
 	let title = "";
 	let excerpt = "";
@@ -188,7 +199,11 @@ function InternalLinkPreviewCard({
 		chipLabel = "Library";
 		chipTone = "text-emerald-500";
 		const entry = libQuery.data as
-			| { name?: string | null; description?: string | null; body?: string | null }
+			| {
+					name?: string | null;
+					description?: string | null;
+					body?: string | null;
+			  }
 			| undefined;
 		title = entry?.name ?? (libQuery.isLoading ? "Loading…" : "Library entry");
 		excerpt = entry?.description ?? stripMarkdown(entry?.body ?? "");

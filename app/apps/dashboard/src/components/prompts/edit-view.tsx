@@ -31,6 +31,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { BacklinksPanel } from "@/components/backlinks/backlinks-panel";
+import { BlockEditor } from "@/components/editor/block-editor";
 import { trpc } from "@/utils/trpc";
 
 type Props = { productSlug: string; promptSlug: string; team: string };
@@ -286,12 +287,20 @@ export function PromptEditView({ productSlug, promptSlug, team }: Props) {
 					<div className="text-muted-foreground text-xs uppercase tracking-wider">
 						Notes
 					</div>
-					<textarea
-						value={notes}
-						onChange={(e) => setNotes(e.target.value)}
-						placeholder="Context, usage tips, when to reach for this…"
-						className="h-32 resize-y rounded-md border border-border bg-card/40 p-3 text-sm outline-none"
-					/>
+					{/*
+					 * Notes is prose — context / when-to-reach-for guidance. The prompt
+					 * `content` field above stays a plain textarea because the
+					 * variable-extraction regex (`/\{\{(\w+)\}\}/g`) runs on raw text
+					 * and Tiptap would wrap braces in spans on render. Iter10 brief
+					 * targets the body editor specifically.
+					 */}
+					<div className="min-h-32 resize-y rounded-md border border-border bg-card/40 px-3 py-2">
+						<BlockEditor
+							value={notes}
+							onChange={(value) => setNotes(value)}
+							placeholder="Context, usage tips, when to reach for this…"
+						/>
+					</div>
 				</div>
 
 				<aside className="flex min-w-0 flex-col gap-3 overflow-y-auto rounded-md border border-border bg-card/40 p-3">

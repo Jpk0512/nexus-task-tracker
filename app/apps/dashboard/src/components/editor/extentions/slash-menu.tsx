@@ -456,7 +456,7 @@ const SlashMenuList = forwardRef<
 				return [
 					<div
 						key={`hdr-${cat}`}
-						className="px-3 pt-2 pb-1 font-medium text-muted-foreground text-[10px] uppercase tracking-wider"
+						className="px-3 pt-2 pb-1 font-medium text-[10px] text-muted-foreground uppercase tracking-wider"
 					>
 						{cat}
 					</div>,
@@ -581,8 +581,7 @@ export const SlashCommand = Extension.create({
 
 								if (items.length === 0) {
 									const empty = document.createElement("div");
-									empty.className =
-										"px-3 py-2 text-muted-foreground text-sm";
+									empty.className = "px-3 py-2 text-muted-foreground text-sm";
 									empty.textContent = "No matches";
 									wrap.appendChild(empty);
 									root.appendChild(wrap);

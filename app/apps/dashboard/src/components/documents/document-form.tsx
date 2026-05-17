@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import type z from "zod";
-import { Editor } from "@/components/editor";
+import { BlockEditor } from "@/components/editor/block-editor";
 import { LabelInput } from "@/components/forms/task-form/label-input";
 import { ResourceIconPicker } from "@/components/resource-icon/resource-icon-picker";
 import { useUser } from "@/components/user-provider";
@@ -182,7 +182,7 @@ export const DocumentForm = ({
 								render={({ field }) => (
 									<FormItem>
 										<FormControl>
-											<Editor
+											<BlockEditor
 												className="editor-xl [&_.tiptap]:min-h-[300px]"
 												placeholder="Write document content..."
 												value={field.value ?? ""}

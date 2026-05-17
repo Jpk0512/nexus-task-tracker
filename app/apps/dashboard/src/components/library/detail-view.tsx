@@ -24,7 +24,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { BacklinksPanel } from "@/components/backlinks/backlinks-panel";
-import { Editor } from "@/components/editor";
+import { BlockEditor } from "@/components/editor/block-editor";
 import { trpc } from "@/utils/trpc";
 import { kindColor } from "./kind-color";
 
@@ -371,7 +371,7 @@ export function LibraryDetailView({ entryId }: Props) {
 							</section>
 						)}
 						<section className="prose prose-sm dark:prose-invert max-w-none">
-							<Editor value={entry.body ?? ""} readOnly={true} />
+							<BlockEditor value={entry.body ?? ""} readOnly={true} />
 						</section>
 					</>
 				) : (
@@ -392,13 +392,25 @@ export function LibraryDetailView({ entryId }: Props) {
 							<div className="mb-1 text-muted-foreground text-xs uppercase tracking-wider">
 								Body (markdown)
 							</div>
-							<textarea
-								value={bodyDraft}
-								onChange={(e) => setBodyDraft(e.target.value)}
-								readOnly={!editing}
-								spellCheck={false}
-								className="h-[480px] w-full resize-y rounded-md border border-border bg-card/40 p-3 font-mono text-xs"
-							/>
+							{editing ? (
+								// BlockEditor is markdown-backed (tiptap-markdown plugin) so
+								// the YAML-tab save path that reads `bodyDraft` keeps working
+								// without any persistence-layer change.
+								<div className="min-h-[480px] rounded-md border border-border bg-card/40 px-3 py-2">
+									<BlockEditor
+										value={bodyDraft}
+										onChange={(value) => setBodyDraft(value)}
+										placeholder="Body (markdown)…"
+									/>
+								</div>
+							) : (
+								<textarea
+									value={bodyDraft}
+									readOnly
+									spellCheck={false}
+									className="h-[480px] w-full resize-y rounded-md border border-border bg-card/40 p-3 font-mono text-xs"
+								/>
+							)}
 						</div>
 					</div>
 				)}

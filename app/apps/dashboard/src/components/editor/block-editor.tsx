@@ -16,8 +16,8 @@
 //      icons, slash-menu fade, bubble-menu pop). Honour `prefers-reduced-
 //      motion: reduce` AND the user's Motion preference (motion/react).
 
-import dynamic from "next/dynamic";
 import { useReducedMotion } from "motion/react";
+import dynamic from "next/dynamic";
 import type { ComponentProps } from "react";
 import { LinkPreviewOverlay } from "./link-preview";
 
@@ -35,6 +35,7 @@ const LazyEditor = dynamic(
 		loading: () => (
 			<div
 				className="min-h-[180px] animate-pulse rounded-md bg-muted/40"
+				role="status"
 				aria-label="Loading editor"
 			/>
 		),
@@ -46,7 +47,10 @@ export type BlockEditorProps = ComponentProps<EditorImpl>;
 export function BlockEditor(props: BlockEditorProps) {
 	const reduced = useReducedMotion();
 	return (
-		<div data-block-editor data-reduced-motion={reduced ? "reduce" : "no-preference"}>
+		<div
+			data-block-editor
+			data-reduced-motion={reduced ? "reduce" : "no-preference"}
+		>
 			<LazyEditor {...props} />
 			<LinkPreviewOverlay />
 		</div>

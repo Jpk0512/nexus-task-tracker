@@ -16,7 +16,12 @@ import {
 	NodeViewWrapper,
 	ReactNodeViewRenderer,
 } from "@tiptap/react";
-import { InfoIcon, LightbulbIcon, QuoteIcon, TriangleAlertIcon } from "lucide-react";
+import {
+	InfoIcon,
+	LightbulbIcon,
+	QuoteIcon,
+	TriangleAlertIcon,
+} from "lucide-react";
 
 export type CalloutVariant = "info" | "warn" | "tip" | "quote";
 
@@ -71,7 +76,8 @@ function CalloutView(props: {
 					// Don't steal focus from the editor caret.
 					e.preventDefault();
 					const order: CalloutVariant[] = ["info", "warn", "tip", "quote"];
-					const next = order[(order.indexOf(variant) + 1) % order.length] ?? "info";
+					const next =
+						order[(order.indexOf(variant) + 1) % order.length] ?? "info";
 					props.updateAttributes({ variant: next });
 				}}
 				className={`mt-0.5 shrink-0 ${config.iconClass}`}
