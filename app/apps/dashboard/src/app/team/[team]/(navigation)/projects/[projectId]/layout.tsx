@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { BreadcrumbSetter } from "@/components/breadcrumbs";
+import { ProjectBreadcrumb } from "@/components/projects/project-breadcrumb";
 import { ProjectTabs } from "@/components/projects/project-tabs";
 import { trpcClient } from "@/utils/trpc";
 
@@ -9,7 +10,7 @@ type Props = {
 };
 
 export default async function ProjectLayout({ children, params }: Props) {
-	const { projectId } = await params;
+	const { projectId, team } = await params;
 
 	const project = await trpcClient.projects.getById.query({
 		id: projectId,
@@ -18,6 +19,8 @@ export default async function ProjectLayout({ children, params }: Props) {
 	if (!project) {
 		return notFound();
 	}
+
+	const backHref = `/team/${team}/projects`;
 
 	return (
 		<div className="flex h-full min-h-0 flex-col overflow-x-auto">
@@ -29,6 +32,7 @@ export default async function ProjectLayout({ children, params }: Props) {
 					},
 				]}
 			/>
+			<ProjectBreadcrumb projectName={project.name} backHref={backHref} />
 			<ProjectTabs projectId={project.id} />
 			<div className="min-h-0 grow">{children}</div>
 		</div>
