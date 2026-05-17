@@ -9,6 +9,7 @@ import {
 import { formatDistanceToNowStrict } from "date-fns";
 import { ClockIcon, Share2Icon, UserIcon } from "lucide-react";
 import { toast } from "sonner";
+import { IS_SINGLE_USER_MODE } from "@/lib/single-user-mode";
 
 /**
  * Linear-style properties strip rendered above the document body.
@@ -16,6 +17,11 @@ import { toast } from "sonner";
  *
  * Keeps the API surface narrow so it can be slotted into the existing
  * `DocumentForm` without prop-drilling concerns.
+ *
+ * In single-user mode (iter-10, codex amendment #1) the owner chip and
+ * Share button are hidden — there is only one actor and the link-share
+ * affordance has no recipient. The "edited X ago" chip stays because
+ * that information is useful in any posture.
  */
 export function DocumentProperties({
 	creatorName,
@@ -35,9 +41,15 @@ export function DocumentProperties({
 		}
 	};
 
+	// In single-user mode, drop the entire strip when only the "edited"
+	// chip would remain and nothing more — otherwise the row becomes a
+	// near-empty divider that looks like a bug. We keep the strip when an
+	// updatedAt timestamp exists because it carries useful signal.
+	if (IS_SINGLE_USER_MODE && !updated) return null;
+
 	return (
 		<div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b px-4 py-2 text-muted-foreground text-xs">
-			{creatorName ? (
+			{!IS_SINGLE_USER_MODE && creatorName ? (
 				<span className="inline-flex items-center gap-1.5">
 					<UserIcon className="size-3.5" />
 					{creatorName}
@@ -54,18 +66,20 @@ export function DocumentProperties({
 					<TooltipContent>{updated.toLocaleString()}</TooltipContent>
 				</Tooltip>
 			) : null}
-			<div className="ml-auto">
-				<Button
-					type="button"
-					variant="ghost"
-					size="sm"
-					className="h-6 px-2 text-xs"
-					onClick={handleShare}
-				>
-					<Share2Icon className="size-3.5" />
-					Share
-				</Button>
-			</div>
+			{!IS_SINGLE_USER_MODE && (
+				<div className="ml-auto">
+					<Button
+						type="button"
+						variant="ghost"
+						size="sm"
+						className="h-6 px-2 text-xs"
+						onClick={handleShare}
+					>
+						<Share2Icon className="size-3.5" />
+						Share
+					</Button>
+				</div>
+			)}
 		</div>
 	);
 }
