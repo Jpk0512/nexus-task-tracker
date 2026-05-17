@@ -1,4 +1,4 @@
-# Local-dev image for the mimrai API. Uses node:20-alpine (already cached
+# Local-dev image for the Nexus API. Uses node:20-alpine (already cached
 # on this host) so we don't depend on pulling oven/bun. Bun is installed
 # inside the container via its official install script.
 #

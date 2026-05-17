@@ -2361,7 +2361,7 @@ export const todoAttachments = pgTable(
 
 // ── Skill / Agent / Orchestration Library ────────────────────────────────
 //
-// Disk is source of truth. mimrai's DB is a denormalized index over .md
+// Disk is source of truth. Nexus's DB is a denormalized index over .md
 // files (with YAML frontmatter) that live under bind-mounted source
 // directories. See docs/SKILL_LIBRARY_DESIGN.md for the brainstorm.
 

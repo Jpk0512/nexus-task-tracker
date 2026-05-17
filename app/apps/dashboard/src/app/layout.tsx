@@ -25,8 +25,8 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-	title: "Mimrai - App",
-	description: "Mimrai - Your AI Task Management Assistant",
+	title: "Nexus - App",
+	description: "Nexus - Your AI Task Management Assistant",
 };
 
 export default async function RootLayout({
@@ -39,7 +39,7 @@ export default async function RootLayout({
 	return (
 		<html lang="en" className="dark" suppressHydrationWarning>
 			<Head>
-				<meta name="apple-mobile-web-app-title" content="Mimrai" />
+				<meta name="apple-mobile-web-app-title" content="Nexus" />
 			</Head>
 			<body
 				className={`${inter.variable} ${mono.variable} flex min-h-screen flex-col bg-background antialiased`}
@@ -49,7 +49,7 @@ export default async function RootLayout({
 					{/*
 					  Linear-style toast configuration: top-right, compact, no big
 					  drop-shadow, slim border. Sonner defaults to bottom-right with
-					  a heavy shadow which fights Mimrai's panel system and looks
+					  a heavy shadow which fights Nexus's panel system and looks
 					  un-Linear. `closeButton` shows a small X on hover (Linear parity).
 					*/}
 					<Toaster

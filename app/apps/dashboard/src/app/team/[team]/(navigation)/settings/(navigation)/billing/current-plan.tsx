@@ -54,7 +54,7 @@ export const CurrentPlan = () => {
 		return (
 			<Card>
 				<CardHeader>
-					<CardDescription>Select a plan continue using Mimrai</CardDescription>
+					<CardDescription>Select a plan continue using Nexus</CardDescription>
 				</CardHeader>
 				<CardContent>
 					<PlanList />

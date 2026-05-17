@@ -1,4 +1,4 @@
--- Mimrai local-dev DB init. Runs once on first postgres start.
+-- Nexus local-dev DB init. Runs once on first postgres start.
 CREATE EXTENSION IF NOT EXISTS vector;
 -- unaccent is used by tasks.fts / documents.fts search via
 -- websearch_to_tsquery('english', unaccent(...)). Without it,

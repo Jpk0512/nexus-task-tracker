@@ -56,7 +56,7 @@ function RecurringPageContent() {
 						</h2>
 						<p className="max-w-sm text-balance text-[12.5px] text-muted-foreground">
 							Capture work that repeats — standups, weekly reviews, monthly
-							reports. Mimrai will spawn a fresh task on every cadence so
+							reports. Nexus will spawn a fresh task on every cadence so
 							nothing slips.
 						</p>
 						<Button

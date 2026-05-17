@@ -69,7 +69,7 @@ export const ShortcutsOverlay = ({
 						Keyboard shortcuts
 					</DialogTitle>
 					<DialogDescription>
-						The fastest way to move around Mimrai.
+						The fastest way to move around Nexus.
 					</DialogDescription>
 				</DialogHeader>
 				<div className="flex flex-col gap-4 px-5 py-4">

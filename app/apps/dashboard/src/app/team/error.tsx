@@ -29,7 +29,7 @@ export default function ErrorPage({
 			</h2>
 			<p className="mt-2 text-center text-muted-foreground">
 				{isAuthenticationError
-					? "This things happens. Please sign in again to continue enjoying MIMRAI"
+					? "This things happens. Please sign in again to continue enjoying Nexus"
 					: "An unexpected error occurred. Please try reloading the page."}
 			</p>
 			<Button

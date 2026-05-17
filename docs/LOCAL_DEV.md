@@ -1,13 +1,13 @@
-# mimrai — Local Dev Setup
+# Nexus — Local Dev Setup
 
-Mimrai is normally deployed across Supabase (cloud) + Vercel + Fly.io with paid integrations. For local use this project runs a **self-hosted Supabase stack** plus a stripped-down mimrai stack. Sign-in is bypassed — a single seeded user/team is hard-wired and you land directly on the dashboard.
+Nexus is normally deployed across Supabase (cloud) + Vercel + Fly.io with paid integrations. For local use this project runs a **self-hosted Supabase stack** plus a stripped-down Nexus stack. Sign-in is bypassed — a single seeded user/team is hard-wired and you land directly on the dashboard.
 
 ## URLs
 
 | Surface | URL |
 |---|---|
 | **Dashboard** | http://localhost:5179 (redirects to `/team/local-dev`) |
-| Mimrai API | http://localhost:3003 |
+| Nexus API | http://localhost:3003 |
 | Supabase Kong gateway | http://localhost:8000 |
 | Supabase Studio (basic auth) | http://localhost:8000/ — user `supabase`, password from `supabase-stack/.env` |
 

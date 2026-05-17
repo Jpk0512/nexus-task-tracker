@@ -6,7 +6,7 @@
 // Idempotent — uses file_sha to skip unchanged files; entries whose file no
 // longer exists under the source are deleted.
 //
-// Disk is the source of truth. Mimrai DB is a denormalized index.
+// Disk is the source of truth. Nexus DB is a denormalized index.
 //
 // Run with the standard one-off pattern:
 //

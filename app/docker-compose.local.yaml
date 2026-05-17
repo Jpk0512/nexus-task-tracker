@@ -1,4 +1,4 @@
-# Local-dev stack for mimrai. Wired to a sibling Supabase self-host stack
+# Local-dev stack for Nexus. Wired to a sibling Supabase self-host stack
 # (../supabase-stack/docker-compose.yml, project: supabase) for postgres,
 # auth, storage, realtime, etc. Bring that stack up first:
 #
@@ -12,7 +12,7 @@
 services:
   postgres:
     image: pgvector/pgvector:pg16
-    container_name: mimrai-postgres
+    container_name: nexus-postgres
     environment:
       POSTGRES_USER: mimrai
       POSTGRES_PASSWORD: mimrai
@@ -31,7 +31,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: mimrai-redis
+    container_name: nexus-redis
     ports:
       - "56379:6379"
     healthcheck:
@@ -45,14 +45,14 @@ services:
     build:
       context: .
       dockerfile: apps/api/Dockerfile.local
-    container_name: mimrai-api
+    container_name: nexus-api
     env_file:
       - .env.local
     environment:
       NODE_ENV: development
       PORT: "3003"
       # Local pgvector postgres (back to single-container, dropped supabase
-      # since mimrai only needed Postgres + pgvector — 12 other supabase
+      # since Nexus only needed Postgres + pgvector — 12 other supabase
       # services were dead weight under the 7.75GB Docker VM).
       DATABASE_URL: postgresql://mimrai:mimrai@postgres:5432/mimrai
       REDIS_URL: redis://redis:6379
@@ -90,7 +90,7 @@ services:
     build:
       context: .
       dockerfile: apps/dashboard/Dockerfile.dev
-    container_name: mimrai-dashboard
+    container_name: nexus-dashboard
     env_file:
       - .env.local
     environment:

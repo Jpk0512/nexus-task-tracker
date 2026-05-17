@@ -1,4 +1,4 @@
-# Local-dev image for the mimrai dashboard. Uses node:20-alpine (already
+# Local-dev image for the Nexus dashboard. Uses node:20-alpine (already
 # cached on this host) and installs bun via its official install script.
 
 FROM local-mimrai/node:20-alpine AS base

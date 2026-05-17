@@ -1,5 +1,5 @@
 // Import the user's two real coding projects (ai-interaction-dash +
-// elevenlabs-eval-dash) into mimrai: tasks parsed from their TASKS.md /
+// elevenlabs-eval-dash) into Nexus: tasks parsed from their TASKS.md /
 // plan.md / user-stories.md, and docs lifted from their on-disk markdown
 // files (mermaid in those docs renders automatically via the Tiptap node).
 //

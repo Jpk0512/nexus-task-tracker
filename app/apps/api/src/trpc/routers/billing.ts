@@ -126,7 +126,7 @@ export const billingRouter = router({
 							currency: "usd",
 							unit_amount: input.amountCents,
 							product_data: {
-								name: "Mimrai Credits",
+								name: "Nexus Credits",
 							},
 						},
 					},

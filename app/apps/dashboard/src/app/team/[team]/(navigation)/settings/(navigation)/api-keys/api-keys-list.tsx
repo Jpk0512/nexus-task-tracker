@@ -197,7 +197,7 @@ export function ApiKeysList() {
 											see it again!
 										</AlertTitle>
 										<AlertDescription>
-											Store it securely, as it provides access to your Mimrai
+											Store it securely, as it provides access to your Nexus
 											account.
 										</AlertDescription>
 									</Alert>
@@ -228,7 +228,7 @@ export function ApiKeysList() {
 											{JSON.stringify(
 												{
 													servers: {
-														mimrai: {
+														nexus: {
 															url: `${process.env.NEXT_PUBLIC_SERVER_URL}/mcp`,
 															type: "http",
 															headers: {
@@ -250,7 +250,7 @@ export function ApiKeysList() {
 													JSON.stringify(
 														{
 															servers: {
-																mimrai: {
+																nexus: {
 																	url: `${process.env.NEXT_PUBLIC_SERVER_URL}/mcp`,
 																	type: "http",
 																	headers: {
@@ -290,7 +290,7 @@ export function ApiKeysList() {
 									<DialogTitle>Create API Key</DialogTitle>
 									<DialogDescription>
 										Create a new API key to connect MCP clients like VS Code,
-										Cursor, or other AI assistants to your Mimrai account.
+										Cursor, or other AI assistants to your Nexus account.
 									</DialogDescription>
 								</DialogHeader>
 								<Form {...form}>
@@ -375,7 +375,7 @@ export function ApiKeysList() {
 						<h3 className="mb-2 font-medium">No API Keys</h3>
 						<p className="mb-4 max-w-sm text-center text-muted-foreground text-sm">
 							Create an API key to connect MCP clients like VS Code or Cursor to
-							your Mimrai tasks.
+							your Nexus tasks.
 						</p>
 						<Button onClick={() => setIsCreateOpen(true)}>
 							<Plus className="mr-2 size-4" />
@@ -491,7 +491,7 @@ export function ApiKeysList() {
 				</CardHeader>
 				<CardContent className="space-y-3 text-sm">
 					<p className="text-muted-foreground">
-						To connect an MCP client to your Mimrai account:
+						To connect an MCP client to your Nexus account:
 					</p>
 					<ol className="list-inside list-decimal space-y-2 text-muted-foreground">
 						<li>Create an API key above</li>
@@ -521,7 +521,7 @@ export function ApiKeysList() {
 							{JSON.stringify(
 								{
 									servers: {
-										mimrai: {
+										nexus: {
 											url: `${process.env.NEXT_PUBLIC_SERVER_URL}/mcp`,
 											type: "http",
 											headers: {

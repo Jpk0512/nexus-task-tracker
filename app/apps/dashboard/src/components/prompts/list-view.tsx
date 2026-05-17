@@ -98,7 +98,7 @@ const SAMPLE_ROTATIONS: Record<string, string[]> = {
 	],
 	name: ["Alex", "Jordan", "Sam", "Lee", "Robin", "Priya"],
 	company: ["Acme", "Globex", "Initech", "Umbrella", "Hooli"],
-	project: ["Mimrai", "Orchard", "Polaris", "Helios", "Atlas"],
+	project: ["Nexus", "Orchard", "Polaris", "Helios", "Atlas"],
 	team: ["Platform", "Growth", "DX", "Infra", "AI Labs"],
 	count: ["3", "5", "12", "1", "8"],
 	url: [

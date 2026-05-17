@@ -1,4 +1,4 @@
-# Mimrai — next-feature design brief
+# Nexus — next-feature design brief
 
 Four things to build, in this order: **Todos → Knowledge → Prompt Library → MCP**. The first three are user-facing pages in the dashboard; the fourth wraps them all in an MCP server so Claude can drive them as your personal assistant.
 
@@ -37,7 +37,7 @@ todo_attachments
 ### Behavior (the part that matters)
 
 - **Header has a `+` icon.** Click it → small inline text input opens right in the header. Type, hit Enter → todo created at top, input clears for the next one. Esc closes. Same muscle memory as Linear's `C`.
-- **Drag handle on the left** of each row (using the `dnd-kit` library mimrai already uses for the kanban). Drag to reorder. Order persists.
+- **Drag handle on the left** of each row (using the `dnd-kit` library Nexus already uses for the kanban). Drag to reorder. Order persists.
 - **Checkbox checks it off** → row gets line-through, content fades to muted color, **row animates down to the bottom of the list**. Unchecked items naturally float back to the top because checked items live in a "done" zone.
 - **Click the row body** → modal opens showing attachments. If an attachment is a `note`, the modal renders its inline markdown (with our mermaid + slash-menu editor). If it's a `doc_link`, the modal shows the doc preview inline (not a download — actual rendered content, like the Library detail page).
 - **Tag chips** inline on each row. Click `+ tag` to add. Filter the whole list by tag from the header.
@@ -55,7 +55,7 @@ todo_attachments
 
 ## 2. Knowledge (Obsidian-vault-backed)
 
-Brain center. **Same directory Obsidian uses** so you can edit from either side. Markdown files on disk, indexed by mimrai, editable in both apps.
+Brain center. **Same directory Obsidian uses** so you can edit from either side. Markdown files on disk, indexed by Nexus, editable in both apps.
 
 ### Vault location
 
@@ -211,7 +211,7 @@ Standalone stdio MCP server wraps the existing tRPC procedures. Drops into `~/.c
 ```json
 {
   "mcpServers": {
-    "mimrai": {
+    "nexus": {
       "command": "node",
       "args": ["/Users/john.keeney/mimrai/mcp-server/dist/index.js"],
       "env": {

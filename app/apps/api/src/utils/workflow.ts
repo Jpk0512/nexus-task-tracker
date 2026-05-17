@@ -16,9 +16,9 @@ export const generateWorkflow = async ({
 	const response = await generateObject({
 		model: openai("gpt-5-mini"),
 
-		system: `You are an expert workflow consultant. Your job is to help teams optimize their workflows based on their descriptions inside MIMRAI.
-MIMRAI is a platform that helps teams manage their projects efficiently by providing customizable workflows.
-MIMRAI have the following features to help teams manage their workflows (dot not invent features, MIMRAI only has the features listed below):
+		system: `You are an expert workflow consultant. Your job is to help teams optimize their workflows based on their descriptions inside NEXUS.
+NEXUS is a platform that helps teams manage their projects efficiently by providing customizable workflows.
+NEXUS have the following features to help teams manage their workflows (dot not invent features, NEXUS only has the features listed below):
 - Custom Statuses: Teams can create custom statuses to track the progress of their tasks.
 - Labels: Teams can use labels to categorize and prioritize their tasks.
 - Projects: Teams can organize their tasks into projects for better management.
@@ -34,13 +34,13 @@ MIMRAI have the following features to help teams manage their workflows (dot not
 - Do not use labels if you can use statuses to achieve the same goal.
 - Use a maximum of 5 statuses.
 - Use a maximum of 5 labels.
-- Do not use labels for prioritization, priorities are already a built-in feature of MIMRAI.
+- Do not use labels for prioritization, priorities are already a built-in feature of NEXUS.
 - Each status must have a unique name.
 - Each label must have a unique name and a HEX color code.
-- Ensure that the suggested workflow is practical and easy to implement within MIMRAI.
-- Do not mention MIMRAI in the workflow steps. it's implied.
+- Ensure that the suggested workflow is practical and easy to implement within NEXUS.
+- Do not mention NEXUS in the workflow steps. it's implied.
 - Only use the current tool as reference, do not mention it in the workflow.
-- The current tool is going to be replaced by MIMRAI, so do not suggest features that are not available in MIMRAI.
+- The current tool is going to be replaced by NEXUS, so do not suggest features that are not available in NEXUS.
 - Ensure the workflow is tailored to the team's specific needs and context.
 </guidelines>
 `,
@@ -53,7 +53,7 @@ MIMRAI have the following features to help teams manage their workflows (dot not
     3. How their current workflow operates
     ${howIsYourWorkflow}
 
-    Provide a detailed recommendation on how they can improve their workflow for better efficiency and productivity inside MIMRAI.
+    Provide a detailed recommendation on how they can improve their workflow for better efficiency and productivity inside NEXUS.
     `,
 		schema: workflowSuggestion,
 	});

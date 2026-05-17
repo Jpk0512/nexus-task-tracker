@@ -1,6 +1,6 @@
 # Skill / Agent Library — Design Brainstorm
 
-A Linear-flavored, Notion-tinted library for all the skills, agents, and orchestration configs scattered across the user's coding projects. Lives inside mimrai. Source of truth is on disk; mimrai is a curated read+edit surface on top.
+A Linear-flavored, Notion-tinted library for all the skills, agents, and orchestration configs scattered across the user's coding projects. Lives inside Nexus. Source of truth is on disk; Nexus is a curated read+edit surface on top.
 
 ---
 
@@ -21,7 +21,7 @@ All of it is markdown files with YAML frontmatter — same shape Claude Code alr
 
 ## 2. Domain model
 
-Four new tables, all in `public` (same Postgres mimrai already uses):
+Four new tables, all in `public` (same Postgres Nexus already uses):
 
 ```
 library_sources
@@ -48,7 +48,7 @@ library_entries
   file_sha          text not null               -- sha256 of full file, for change detection
   read_only         boolean default false       -- some library entries (e.g. shipped plugins) shouldn't be writable
   last_seen_at      timestamp                   -- updated on every scan
-  last_edited_at    timestamp                   -- updated on every save from mimrai
+  last_edited_at    timestamp                   -- updated on every save from Nexus
   last_edited_by    text fk -> users
   created_at        timestamp default now()
   updated_at        timestamp default now()
@@ -67,9 +67,9 @@ library_entry_projects                          -- "used in project X" links
   primary key (entry_id, project_id)
 ```
 
-Why four tables instead of stuffing tags + project links into JSON columns on `library_entries`: filters need indexed FK joins to be fast, and we'll have ~100–300 entries × N tags/projects each. Trivial scale either way, but the FK design lets us reuse mimrai's projects/labels patterns and add `where` clauses without parsing JSON.
+Why four tables instead of stuffing tags + project links into JSON columns on `library_entries`: filters need indexed FK joins to be fast, and we'll have ~100–300 entries × N tags/projects each. Trivial scale either way, but the FK design lets us reuse Nexus's projects/labels patterns and add `where` clauses without parsing JSON.
 
-**Disk is source of truth.** Mimrai's DB is a denormalized index over disk. When a scan runs, we reconcile by `(source_id, relative_path)` and update by sha. When the user saves from mimrai, we write disk first, then DB.
+**Disk is source of truth.** Nexus's DB is a denormalized index over disk. When a scan runs, we reconcile by `(source_id, relative_path)` and update by sha. When the user saves from Nexus, we write disk first, then DB.
 
 ---
 
@@ -142,7 +142,7 @@ Four filter chips (kind / source / project / tag), search box, sort, list/grid t
 └────────────────────────────────────────────────────────────────────┘
 ```
 
-- **Rendered** tab: frontmatter as a small key/value table, body rendered through mimrai's TipTap (with our Mermaid extension already in place — Mermaid in skill docs renders inline).
+- **Rendered** tab: frontmatter as a small key/value table, body rendered through Nexus's TipTap (with our Mermaid extension already in place — Mermaid in skill docs renders inline).
 - **YAML** tab: full file in a CodeMirror panel, YAML frontmatter + markdown body in one editable text buffer. No mode-split — that's how the file lives on disk and it's how editor people expect it.
 - **Edit** flips both tabs to writable. Save writes disk first, then DB. Cancel discards.
 - "Open ↗" copies the absolute path to the clipboard so the user can paste into `cursor /path` or `code /path`.
@@ -152,7 +152,7 @@ Four filter chips (kind / source / project / tag), search box, sort, list/grid t
 ## 7. Tags + project links
 
 - **Tags** are free-form, lowercased, autocomplete from existing tags. Inline edit on detail view + bulk-tag from list view multi-select.
-- **Project links** point at mimrai's existing `projects` table — the same projects the kanban already knows about. Adding a link surfaces the skill on the project's detail page later (potential future: a "Skills used here" rail).
+- **Project links** point at Nexus's existing `projects` table — the same projects the kanban already knows about. Adding a link surfaces the skill on the project's detail page later (potential future: a "Skills used here" rail).
 - Both editable inline. Both filterable from the list.
 
 ---
@@ -232,7 +232,7 @@ Five thin slices, each shippable on its own:
 |---|---|---|
 | **A** | Schema + scan CLI | See entries listed via `psql` or a `/library` debug endpoint |
 | **B** | List page + filters + detail (Rendered tab read-only) | Browse the whole library in one place |
-| **C** | YAML tab + Edit mode + save-to-disk | Edit any skill/agent from mimrai |
+| **C** | YAML tab + Edit mode + save-to-disk | Edit any skill/agent from Nexus |
 | **D** | Tags + project links (inline) | Tag skills, cross-link to projects |
 | **E** | Settings: add/remove sources, scan button | Curate the library |
 
@@ -258,7 +258,7 @@ Strong recommendation: **Option 1**. We can lock down with a `LIBRARY_ALLOWED_RO
 2. **Orchestration coverage** — beyond the nexus-orchestrator-template files, do you want me to index the `nexus-config.json` files too (parsed as orchestration entries)? I'd say yes.
 3. **File watcher** — chokidar in the api container watching host bind-mounts works on macOS but with FS-poll latency (~2s). Acceptable, or stick with manual scan for v1?
 4. **Tag taxonomy** — fully free-form (with autocomplete) is the default. Want to seed any (`nexus`, `setup`, `qa`, `eval`)?
-5. **Linking to current task / project from a skill** — should the skill detail page show "currently being applied in task X" if you use mimrai's mentions? Cool but probably v1.1.
+5. **Linking to current task / project from a skill** — should the skill detail page show "currently being applied in task X" if you use Nexus's mentions? Cool but probably v1.1.
 
 ---
 

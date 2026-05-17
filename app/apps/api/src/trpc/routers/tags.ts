@@ -1,6 +1,6 @@
 // Tags — unified read-only view across the four disjoint tag stores.
 //
-// Mimrai's tag taxonomy is fragmented across:
+// Nexus's tag taxonomy is fragmented across:
 //   - labels                   (team-scoped, has a color)
 //   - todos.tags[]             (free text per row)
 //   - library_entry_tags       (separate join table, free text)

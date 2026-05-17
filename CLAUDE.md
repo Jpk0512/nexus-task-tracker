@@ -1,4 +1,4 @@
-# mimrai — Agent Directives
+# Nexus — Agent Directives
 
 ## Nexus Protocol
 
@@ -14,7 +14,7 @@ detail lives in the **`nexus-protocol`** skill.
 
 ## App Layout
 
-The mimrai application lives at `app/` (downloaded from github.com/mimrai-org/mimrai, no git remote). It is a Bun + Turbo monorepo.
+The Nexus application lives at `app/` (downloaded from github.com/mimrai-org/mimrai, no git remote). It is a Bun + Turbo monorepo.
 
 - `app/apps/{dashboard,website,api,desktop}` — Next.js + API surfaces
 - `app/packages/{billing,email,events,embedding,jobs,cache,notifications,...}` — external-service wrappers (most are stubbed for local dev)

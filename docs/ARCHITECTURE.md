@@ -2,7 +2,7 @@
 
 ## Overview
 
-Mimrai is an open-source, Linear-style minimalist task and project tracker. Source lives under `app/` (downloaded from github.com/mimrai-org/mimrai, with no upstream git connection).
+Nexus is an open-source, Linear-style minimalist task and project tracker. Source lives under `app/` (downloaded from github.com/mimrai-org/mimrai, with no upstream git connection).
 
 ## Tech Stack
 
@@ -42,4 +42,4 @@ Mimrai is an open-source, Linear-style minimalist task and project tracker. Sour
 - **forge** — Frontend engineer
 
 ---
-*Generated for the mimrai project on the Nexus orchestrator template.*
+*Generated for the Nexus project on the Nexus orchestrator template.*

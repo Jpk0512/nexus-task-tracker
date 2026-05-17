@@ -41,7 +41,7 @@ export function AppSidebar() {
 								hidden: !open,
 							})}
 						>
-							MIMRAI
+							NEXUS
 						</span> */}
 					</div>
 					<SidebarTrigger

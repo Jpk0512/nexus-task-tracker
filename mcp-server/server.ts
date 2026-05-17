@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-// mimrai-mcp — expose todos, tasks, projects, knowledge, and prompts to Claude
+// nexus-mcp — expose todos, tasks, projects, knowledge, and prompts to Claude
 // over MCP stdio. Direct pg client; no API hop.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -26,7 +26,7 @@ const pool = new pg.Pool({ connectionString: DATABASE_URL });
 
 // Re-use server log channel via stderr (stdout is reserved for MCP transport).
 function log(msg: string) {
-	process.stderr.write(`[mimrai-mcp] ${msg}\n`);
+	process.stderr.write(`[nexus-mcp] ${msg}\n`);
 }
 
 // ── path safety for the knowledge vault ──────────────────────────────────
@@ -422,7 +422,7 @@ async function walk(dir: string): Promise<string[]> {
 
 // ── MCP server bootstrap ─────────────────────────────────────────────────
 const server = new Server(
-	{ name: "mimrai", version: "0.1.0" },
+	{ name: "nexus", version: "0.1.0" },
 	{ capabilities: { tools: {} } },
 );
 
@@ -455,7 +455,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 async function main() {
 	log(
-		`mimrai-mcp starting | team=${TEAM_ID} user=${USER_ID} vault=${KNOWLEDGE_ROOT}`,
+		`nexus-mcp starting | team=${TEAM_ID} user=${USER_ID} vault=${KNOWLEDGE_ROOT}`,
 	);
 	const transport = new StdioServerTransport();
 	await server.connect(transport);
