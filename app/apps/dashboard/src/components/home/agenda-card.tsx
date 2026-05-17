@@ -13,6 +13,7 @@ import { useOptimisticAction } from "@/hooks/use-optimistic-action";
 import { trpc } from "@/utils/trpc";
 import { Priority } from "../tasks-view/properties/priority";
 import { HomeCard, HomeCardEmpty } from "./home-card";
+import { RowActionButton, RowActionLink, RowActionStrip } from "./row-actions";
 
 /**
  * "My Agenda" — tasks the current user owns that are due today or overdue.
@@ -245,73 +246,28 @@ function AgendaRow({
 					) : null}
 				</span>
 			</Link>
-			{/* Hover affordances — absolute so they overlay the trailing meta. */}
-			<div
-				className={cn(
-					"absolute top-1/2 right-1.5 flex -translate-y-1/2 items-center gap-0.5 rounded-md border border-border bg-background/95 px-1 py-0.5 opacity-0 shadow-sm transition-opacity",
-					"group-hover:opacity-100 focus-within:opacity-100",
-				)}
-				onClick={(e) => e.stopPropagation()}
-				onKeyDown={(e) => e.stopPropagation()}
-			>
-				<RowAction
+			{/* Hover affordances — fade in on row hover or keyboard focus. */}
+			<RowActionStrip>
+				<RowActionButton
 					title="Mark done"
 					onClick={() => doneAction.run(undefined)}
 					disabled={!doneStatusId}
 				>
 					<CheckIcon className="size-3.5" />
-				</RowAction>
-				<RowAction
+				</RowActionButton>
+				<RowActionButton
 					title="Defer 1 day"
 					onClick={() => deferAction.run(undefined)}
 				>
 					<ClockIcon className="size-3.5" />
-				</RowAction>
-				<Link
+				</RowActionButton>
+				<RowActionLink
 					href={`${basePath}/projects/${task.projectId}/${task.id}`}
-					title="Open"
-					aria-label="Open"
-					className={cn(
-						"inline-flex size-6 items-center justify-center rounded text-muted-foreground transition-colors",
-						"hover:bg-accent hover:text-foreground",
-					)}
+					title="Open task"
 				>
 					<ExternalLinkIcon className="size-3.5" />
-				</Link>
-			</div>
+				</RowActionLink>
+			</RowActionStrip>
 		</div>
-	);
-}
-
-function RowAction({
-	title,
-	onClick,
-	disabled,
-	children,
-}: {
-	title: string;
-	onClick: () => void;
-	disabled?: boolean;
-	children: React.ReactNode;
-}) {
-	return (
-		<button
-			type="button"
-			title={title}
-			aria-label={title}
-			disabled={disabled}
-			onClick={(e) => {
-				e.stopPropagation();
-				e.preventDefault();
-				if (!disabled) onClick();
-			}}
-			className={cn(
-				"inline-flex size-6 items-center justify-center rounded text-muted-foreground transition-colors",
-				"hover:bg-accent hover:text-foreground",
-				disabled && "cursor-not-allowed opacity-40",
-			)}
-		>
-			{children}
-		</button>
 	);
 }

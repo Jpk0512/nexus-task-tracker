@@ -2,7 +2,7 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@ui/lib/utils";
-import { CheckIcon, ExternalLinkIcon, PlayIcon } from "lucide-react";
+import { CheckIcon, ExternalLinkIcon } from "lucide-react";
 import Link from "next/link";
 import { useMemo } from "react";
 import { StatusIcon } from "@/components/status-icon";
@@ -12,6 +12,7 @@ import { useOptimisticAction } from "@/hooks/use-optimistic-action";
 import { trpc } from "@/utils/trpc";
 import { Priority } from "../tasks-view/properties/priority";
 import { HomeCard, HomeCardEmpty } from "./home-card";
+import { RowActionButton, RowActionLink, RowActionStrip } from "./row-actions";
 
 /**
  * "Up next" — the Triage Now column (in_progress / review) surfaced on Home
@@ -184,49 +185,21 @@ function UpNextRow({
 					{task.priority ? <Priority value={task.priority} /> : null}
 				</span>
 			</Link>
-			<div
-				className={cn(
-					"absolute top-1/2 right-1.5 flex -translate-y-1/2 items-center gap-0.5 rounded-md border border-border bg-background/95 px-1 py-0.5 opacity-0 shadow-sm transition-opacity",
-					"group-hover:opacity-100 focus-within:opacity-100",
-				)}
-				onClick={(e) => e.stopPropagation()}
-				onKeyDown={(e) => e.stopPropagation()}
-			>
-				<Link
+			<RowActionStrip>
+				<RowActionLink
 					href={`${basePath}/projects/${task.projectId}/${task.id}`}
-					title="Open"
-					aria-label="Open"
-					className={cn(
-						"inline-flex size-6 items-center justify-center rounded text-muted-foreground transition-colors",
-						"hover:bg-accent hover:text-foreground",
-					)}
+					title="Open task"
 				>
 					<ExternalLinkIcon className="size-3.5" />
-				</Link>
-				<button
-					type="button"
+				</RowActionLink>
+				<RowActionButton
 					title="Mark done"
-					aria-label="Mark done"
+					onClick={() => doneAction.run(undefined)}
 					disabled={!doneStatusId}
-					onClick={(e) => {
-						e.stopPropagation();
-						e.preventDefault();
-						if (doneStatusId) doneAction.run(undefined);
-					}}
-					className={cn(
-						"inline-flex size-6 items-center justify-center rounded text-muted-foreground transition-colors",
-						"hover:bg-accent hover:text-foreground",
-						!doneStatusId && "cursor-not-allowed opacity-40",
-					)}
 				>
 					<CheckIcon className="size-3.5" />
-				</button>
-			</div>
-			{/* PlayIcon used in legend for clarity; only shown on the empty/header
-			 *  surfaces — referenced here so the import is not dead. */}
-			<span className="sr-only">
-				<PlayIcon className="size-3.5" />
-			</span>
+				</RowActionButton>
+			</RowActionStrip>
 		</div>
 	);
 }

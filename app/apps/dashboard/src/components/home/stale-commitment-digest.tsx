@@ -16,6 +16,7 @@ import { useUser } from "@/components/user-provider";
 import { type EnrichedTask, useStatuses, useTasks } from "@/hooks/use-data";
 import { useOptimisticAction } from "@/hooks/use-optimistic-action";
 import { trpc } from "@/utils/trpc";
+import { RowActionButton, RowActionStrip } from "./row-actions";
 
 /**
  * Stale-commitment digest (codex delighter #5, Cron-style).
@@ -225,61 +226,22 @@ function StaleRow({
 					{days != null ? `${days}d idle` : ""}
 				</span>
 			</Link>
-			<div
-				className={cn(
-					"absolute top-1/2 right-1.5 flex -translate-y-1/2 items-center gap-0.5 rounded-md border border-border bg-background/95 px-1 py-0.5 opacity-0 shadow-sm transition-opacity",
-					"group-hover:opacity-100 focus-within:opacity-100",
-				)}
-				onClick={(e) => e.stopPropagation()}
-				onKeyDown={(e) => e.stopPropagation()}
-			>
-				<StaleButton title="Recommit" onClick={() => recommitAction.run(undefined)}>
+			<RowActionStrip>
+				<RowActionButton title="Recommit" onClick={() => recommitAction.run(undefined)}>
 					<RefreshCwIcon className="size-3.5" />
-				</StaleButton>
-				<StaleButton title="Snooze 30d" onClick={() => snoozeAction.run(undefined)}>
+				</RowActionButton>
+				<RowActionButton title="Snooze 30d" onClick={() => snoozeAction.run(undefined)}>
 					<ClockIcon className="size-3.5" />
-				</StaleButton>
-				<StaleButton
+				</RowActionButton>
+				<RowActionButton
 					title="Archive"
 					onClick={() => archiveAction.run(undefined)}
 					disabled={!doneStatusId}
 				>
 					<ArchiveIcon className="size-3.5" />
-				</StaleButton>
-			</div>
+				</RowActionButton>
+			</RowActionStrip>
 		</div>
 	);
 }
 
-function StaleButton({
-	title,
-	onClick,
-	disabled,
-	children,
-}: {
-	title: string;
-	onClick: () => void;
-	disabled?: boolean;
-	children: React.ReactNode;
-}) {
-	return (
-		<button
-			type="button"
-			title={title}
-			aria-label={title}
-			disabled={disabled}
-			onClick={(e) => {
-				e.stopPropagation();
-				e.preventDefault();
-				if (!disabled) onClick();
-			}}
-			className={cn(
-				"inline-flex size-6 items-center justify-center rounded text-muted-foreground transition-colors",
-				"hover:bg-accent hover:text-foreground",
-				disabled && "cursor-not-allowed opacity-40",
-			)}
-		>
-			{children}
-		</button>
-	);
-}
