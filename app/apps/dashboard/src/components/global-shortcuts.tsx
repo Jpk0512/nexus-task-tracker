@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useUndoLastOptimistic } from "@/hooks/use-optimistic-action";
 import { useTaskParams } from "@/hooks/use-task-params";
 import { ProjectSwitcher } from "./project-switcher";
 import { ShortcutsOverlay } from "./shortcuts-overlay";
@@ -20,6 +21,10 @@ export const GlobalShortcuts = () => {
 	const { setParams } = useTaskParams();
 	const [shortcutsOpen, setShortcutsOpen] = useState(false);
 	const [projectSwitcherOpen, setProjectSwitcherOpen] = useState(false);
+
+	// Wire Cmd+Z → revert the most-recent optimistic action (iter-10 codex
+	// amendment #6). The hook is a no-op when the undo stack is empty.
+	useUndoLastOptimistic();
 
 	useEffect(() => {
 		const isEditableTarget = (target: EventTarget | null): boolean => {
