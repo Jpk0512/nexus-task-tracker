@@ -1,24 +1,21 @@
 "use client";
 
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
+import { queryClient, trpc } from "@/utils/trpc";
 
 /**
- * Client-side pin state for the projects grid (iter-10 Round E, Task 5).
+ * Pin state for the projects grid (iter-10 Round F — server-backed).
  *
- * The eventual home for this state is a `projects.pinned BOOLEAN` column +
- * tRPC mutation — that migration is deferred to iter-8 alongside the backlinks
- * schema work. Until then we surface the visual state via localStorage so the
- * card UI works end-to-end and a future swap to a server-backed mutation is a
- * one-file change inside `useOptimisticAction`.
+ * Server is source of truth: `projects.pinned BOOLEAN` via tRPC
+ * `projects.setPinned` / `projects.listPinned`. localStorage is retained
+ * as an OFFLINE FALLBACK so the UI still works when the API is
+ * unreachable; once the network returns the server state wins.
  *
- * Storage shape: an `Array<string>` of project ids, JSON-encoded. Reading is
- * fault-tolerant — quota errors, private-mode, and malformed payloads all
- * collapse to "no pins". Writes are best-effort for the same reason; we never
- * surface a toast for a localStorage write failure because the user-visible
- * outcome (pin doesn't survive reload) is already obvious.
+ * Storage shape: an `Array<string>` of project ids, JSON-encoded.
  *
- * Cross-tab sync: a `storage` event listener keeps multiple tabs in sync so
- * pinning a project in one tab updates every other tab without a refresh.
+ * Cross-tab sync: the `storage` event listener keeps multiple tabs in
+ * sync without requiring a server round-trip on every read.
  */
 
 const STORAGE_KEY = "nexus.projects.pinned";
@@ -43,10 +40,7 @@ function readPinnedSet(): Set<string> {
 function writePinnedSet(set: Set<string>): void {
 	if (typeof window === "undefined") return;
 	try {
-		window.localStorage.setItem(
-			STORAGE_KEY,
-			JSON.stringify(Array.from(set)),
-		);
+		window.localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(set)));
 	} catch {
 		// ignore quota / private-mode failures — UI state already updated
 	}
@@ -62,6 +56,9 @@ export interface UsePinnedProjectsApi {
 }
 
 export function usePinnedProjects(): UsePinnedProjectsApi {
+	// Start from localStorage so the first paint matches the previous
+	// session immediately. The server hydration step below will overwrite
+	// this if the server has a different view.
 	const [pinned, setPinned] = useState<Set<string>>(() => new Set());
 
 	useEffect(() => {
@@ -75,15 +72,55 @@ export function usePinnedProjects(): UsePinnedProjectsApi {
 		return () => window.removeEventListener("storage", onStorage);
 	}, []);
 
-	const toggle = useCallback((id: string) => {
-		setPinned((prev) => {
-			const next = new Set(prev);
-			if (next.has(id)) next.delete(id);
-			else next.add(id);
-			writePinnedSet(next);
-			return next;
-		});
-	}, []);
+	// Server-of-truth hydration. Drops the result into both state and
+	// localStorage so the offline fallback stays current.
+	const listQuery = useQuery(
+		trpc.projects.listPinned.queryOptions(undefined, {
+			staleTime: 30_000,
+		}),
+	);
+
+	useEffect(() => {
+		if (!listQuery.data) return;
+		const set = new Set(listQuery.data);
+		writePinnedSet(set);
+		setPinned(set);
+	}, [listQuery.data]);
+
+	const setPinnedMutation = useMutation(
+		trpc.projects.setPinned.mutationOptions({
+			onSettled: () => {
+				queryClient.invalidateQueries({
+					queryKey: trpc.projects.listPinned.queryKey(),
+				});
+				queryClient.invalidateQueries({
+					queryKey: trpc.projects.get.pathKey(),
+				});
+			},
+		}),
+	);
+
+	const toggle = useCallback(
+		(id: string) => {
+			// Optimistic: flip locally + persist so the UI feels instant; the
+			// mutation reconciles in the background. On failure the next
+			// listPinned refetch will roll us back to server truth.
+			setPinned((prev) => {
+				const next = new Set(prev);
+				const willPin = !next.has(id);
+				if (willPin) next.add(id);
+				else next.delete(id);
+				writePinnedSet(next);
+				setPinnedMutation
+					.mutateAsync({ projectId: id, pinned: willPin })
+					.catch(() => {
+						// Quiet failure — the next refetch will reconcile.
+					});
+				return next;
+			});
+		},
+		[setPinnedMutation],
+	);
 
 	const isPinned = useCallback((id: string) => pinned.has(id), [pinned]);
 

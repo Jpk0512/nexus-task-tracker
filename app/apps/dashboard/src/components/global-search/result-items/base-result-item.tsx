@@ -31,7 +31,7 @@ export const BaseResultItem = ({
 	children,
 	item,
 }: BaseResultItemProps) => {
-	const { setPreview, onSelectItem } = useGlobalSearch();
+	const { setPreview, onSelectItem, linkMode, onLinkPick } = useGlobalSearch();
 	const itemRef = useRef<HTMLDivElement>(null);
 	const isSelectedRef = useRef(false);
 
@@ -77,6 +77,14 @@ export const BaseResultItem = ({
 			ref={itemRef}
 			className="group flex w-full cursor-pointer items-center rounded-sm px-4 py-2 text-sm transition-colors duration-200 hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/30"
 			onSelect={() => {
+				// iter-10 Round F: link-mode intercepts the navigate path.
+				// onSelectItem (recent-items) still fires so muscle memory
+				// of "I just used X" is preserved.
+				if (linkMode && item && onLinkPick) {
+					onSelectItem?.(item);
+					onLinkPick(item);
+					return;
+				}
 				if (item) onSelectItem?.(item);
 				onSelect();
 			}}

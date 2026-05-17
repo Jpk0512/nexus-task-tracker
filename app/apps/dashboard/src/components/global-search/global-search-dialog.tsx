@@ -20,7 +20,11 @@ import { useDebounceValue } from "usehooks-ts";
 import { useUser } from "@/components/user-provider";
 import { trpc } from "@/utils/trpc";
 import { ACTIONS, findActionById } from "./actions-catalogue";
-import { GlobalSearchProvider, useGlobalSearch } from "./global-search-context";
+import {
+	GlobalSearchProvider,
+	type PaletteLinkMode,
+	useGlobalSearch,
+} from "./global-search-context";
 import {
 	isCommandItem,
 	loadLastCommand,
@@ -229,6 +233,31 @@ export type GlobalSearchDialogProps = {
 		type?: string[];
 	};
 	defaultState?: GlobalSearchItem[];
+	/**
+	 * iter-10 Round F: when set, the palette acts as an entity picker for a
+	 * backlinks sidebar. Result-items fire `onLinkPick` instead of navigating.
+	 */
+	linkMode?: PaletteLinkMode | null;
+	onLinkPick?: (item: GlobalSearchItem) => void;
+};
+
+// Maps the link-mode entity scope to the type filter the global-search
+// endpoint understands. Skills + agents don't have first-class result items
+// today, so we widen to library/all (the result list still surfaces them).
+const LINK_MODE_TYPE_FILTER: Record<PaletteLinkMode["entity"], string[]> = {
+	prompts: ["prompt"],
+	agents: ["library"],
+	knowledge: ["knowledge", "document"],
+	skills: ["library"],
+	documents: ["document"],
+};
+
+const LINK_MODE_DEFAULT_TAB: Record<PaletteLinkMode["entity"], TabId> = {
+	prompts: "prompts",
+	agents: "all",
+	knowledge: "documents",
+	skills: "all",
+	documents: "documents",
 };
 
 export const GlobalSearchDialog = ({
@@ -237,12 +266,22 @@ export const GlobalSearchDialog = ({
 	onSelect,
 	defaultValues,
 	defaultState = defaultSearchState,
+	linkMode = null,
+	onLinkPick,
 }: GlobalSearchDialogProps) => {
 	const user = useUser();
 	const [search, setSearch] = useState(defaultValues?.search || "");
-	const [activeTab, setActiveTab] = useState<TabId>("all");
+	const [activeTab, setActiveTab] = useState<TabId>(
+		linkMode ? LINK_MODE_DEFAULT_TAB[linkMode.entity] : "all",
+	);
 	const [recent, setRecent] = useState<GlobalSearchItem[]>([]);
 	const [debouncedSearch] = useDebounceValue(search, 300);
+
+	// Reset the tab whenever link-mode changes so the picker always opens
+	// on the right scope.
+	useEffect(() => {
+		if (linkMode) setActiveTab(LINK_MODE_DEFAULT_TAB[linkMode.entity]);
+	}, [linkMode]);
 
 	// Refresh recent items each time the dialog opens. localStorage is the
 	// source of truth — multiple tabs would otherwise see stale lists.
@@ -264,14 +303,17 @@ export const GlobalSearchDialog = ({
 	}, [parsed.mode, activeTab]);
 
 	// Resolve the effective type-filter from active tab + caller defaults.
+	// In link mode the caller's scope wins so the picker doesn't show
+	// out-of-scope entities (e.g. tasks while linking prompts to a project).
 	const effectiveTypes = useMemo(() => {
+		if (linkMode) return LINK_MODE_TYPE_FILTER[linkMode.entity];
 		const tabDef = TAB_DEFS.find((t) => t.id === activeTab);
 		if (defaultValues?.type) return defaultValues.type;
 		if (!tabDef || !tabDef.types) return undefined;
 		// Drop the synthetic '__action__' marker — server doesn't know it.
 		const filtered = tabDef.types.filter((t) => t !== "__action__");
 		return filtered.length > 0 ? filtered : undefined;
-	}, [activeTab, defaultValues?.type]);
+	}, [activeTab, defaultValues?.type, linkMode]);
 
 	// Skip the network round-trip in action-only mode. The Actions catalogue
 	// is local and small; querying server search for `/new task` would waste
@@ -431,6 +473,8 @@ export const GlobalSearchDialog = ({
 					onOpenChange={handleItemOpenChange}
 					onSelectItem={recordRecent}
 					basePath={user?.basePath || ""}
+					linkMode={linkMode}
+					onLinkPick={onLinkPick}
 				>
 					<GlobalSearchContent
 						search={search}
@@ -440,6 +484,7 @@ export const GlobalSearchDialog = ({
 						setActiveTab={setActiveTab}
 						recent={recent}
 						parsedQuery={parsed.query}
+						linkMode={linkMode}
 					/>
 				</GlobalSearchProvider>
 			</DialogContent>
@@ -455,6 +500,7 @@ const GlobalSearchContent = ({
 	setActiveTab,
 	recent,
 	parsedQuery,
+	linkMode,
 }: {
 	search: string;
 	setSearch: (search: string) => void;
@@ -463,6 +509,7 @@ const GlobalSearchContent = ({
 	setActiveTab: (tab: TabId) => void;
 	recent: GlobalSearchItem[];
 	parsedQuery: string;
+	linkMode: PaletteLinkMode | null;
 }) => {
 	const { preview } = useGlobalSearch();
 	const hasPreview = preview !== null;
@@ -497,12 +544,21 @@ const GlobalSearchContent = ({
 						);
 					})}
 				</div>
+				{linkMode && (
+					<div className="mb-2 rounded-md border border-brand/30 bg-brand/5 px-3 py-2 text-[12px] text-brand">
+						Picking {linkMode.entity} to link to this {linkMode.sourceType}
+					</div>
+				)}
 				<Command shouldFilter={false} className="h-full bg-transparent">
 					<CommandInput
 						value={search}
 						onValueChange={setSearch}
 						containerClassName="h-11"
-						placeholder='Search… (try "> settings" or "/ new task")'
+						placeholder={
+							linkMode
+								? `Search ${linkMode.entity} to link…`
+								: 'Search… (try "> settings" or "/ new task")'
+						}
 					/>
 					<CommandList className="max-h-[calc(100vh-18rem)] overflow-y-auto">
 						{showRecent && (

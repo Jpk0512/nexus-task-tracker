@@ -8,6 +8,22 @@ import {
 } from "react";
 import type { GlobalSearchItem } from "./types";
 
+/**
+ * Link-mode descriptor — iter-10 Round F.
+ *
+ * When set, the palette is acting as an entity picker for a backlinks
+ * sidebar (project / task / note detail). Result-items honour
+ * `onLinkPick` instead of navigating away, and the dialog title shifts
+ * to explain the operation.
+ */
+export type PaletteLinkMode = {
+	/** Entity kind the picker should constrain to. */
+	entity: "prompts" | "agents" | "knowledge" | "skills" | "documents";
+	/** Where the link originates from. Mostly informational for the UI. */
+	sourceType: "project" | "task" | "note" | "agent";
+	sourceId: string;
+};
+
 type GlobalSearchContextValue = {
 	onOpenChange: (open: boolean) => void;
 	/**
@@ -23,6 +39,13 @@ type GlobalSearchContextValue = {
 	basePath: string;
 	preview: ReactNode | null;
 	setPreview: (preview: ReactNode | null) => void;
+	/**
+	 * iter-10 Round F: when in link mode, selection fires this handler
+	 * instead of navigating. Result-items branch on `linkMode != null` to
+	 * decide which behaviour to apply.
+	 */
+	linkMode: PaletteLinkMode | null;
+	onLinkPick?: (item: GlobalSearchItem) => void;
 };
 
 const GlobalSearchContext = createContext<GlobalSearchContextValue | null>(
@@ -34,11 +57,15 @@ export const GlobalSearchProvider = ({
 	onOpenChange,
 	basePath,
 	onSelectItem,
+	linkMode = null,
+	onLinkPick,
 }: {
 	children: React.ReactNode;
 	onOpenChange: (open: boolean) => void;
 	onSelectItem?: (item: GlobalSearchItem) => void;
 	basePath: string;
+	linkMode?: PaletteLinkMode | null;
+	onLinkPick?: (item: GlobalSearchItem) => void;
 }) => {
 	const [preview, setPreview] = useState<ReactNode | null>(null);
 
@@ -49,8 +76,10 @@ export const GlobalSearchProvider = ({
 			basePath,
 			preview,
 			setPreview,
+			linkMode,
+			onLinkPick,
 		}),
-		[onOpenChange, onSelectItem, basePath, preview],
+		[onOpenChange, onSelectItem, basePath, preview, linkMode, onLinkPick],
 	);
 
 	return (
