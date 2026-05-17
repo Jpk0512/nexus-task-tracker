@@ -218,6 +218,14 @@ export const SHORTCUTS: ShortcutSpec[] = [
 		description:
 			"Things-style Today/Upcoming/Someday lens over the user's task slice (codex delighter #2).",
 	},
+	{
+		keys: "mod+shift+f",
+		label: "Toggle focus session",
+		scope: "global",
+		action: "focus.toggle",
+		description:
+			"Open or close the bottom-right 25-minute focus widget (codex delighter #10).",
+	},
 	// ─── Route-scoped ──────────────────────────────────────────────────────
 	{
 		keys: "c",
