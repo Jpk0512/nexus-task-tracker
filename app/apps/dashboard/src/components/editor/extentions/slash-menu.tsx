@@ -19,13 +19,27 @@ import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
 import tippy, { type Instance as TippyInstance } from "tippy.js";
 import { EntityPicker, type PickedEntity } from "./entity-picker";
 
+type SlashCategory = "Basic" | "Media" | "Code" | "Links" | "Advanced";
+
 type SlashItem = {
 	title: string;
 	subtitle: string;
 	icon: string;
 	keywords: string[];
+	/** Group header in the menu (Basic / Media / Code / Links / Advanced). */
+	category: SlashCategory;
+	/** Optional keyboard hint (e.g. "##", "*", "[]") shown on the right. */
+	shortcut?: string;
 	command: (args: { editor: Editor; range: Range }) => void;
 };
+
+const CATEGORY_ORDER: SlashCategory[] = [
+	"Basic",
+	"Media",
+	"Code",
+	"Links",
+	"Advanced",
+];
 
 /**
  * Open a nested entity-picker popover anchored at the slash range. Inserts
@@ -153,6 +167,7 @@ const ITEMS: SlashItem[] = [
 		subtitle: "Link a task (EL-69) inline",
 		icon: "☑",
 		keywords: ["task", "issue", "link", "el", "ticket"],
+		category: "Links",
 		command: ({ editor, range }) =>
 			openEntityPicker({ editor, range, kind: "task" }),
 	},
@@ -161,6 +176,7 @@ const ITEMS: SlashItem[] = [
 		subtitle: "Link a document inline",
 		icon: "📄",
 		keywords: ["doc", "document", "link", "page"],
+		category: "Links",
 		command: ({ editor, range }) =>
 			openEntityPicker({ editor, range, kind: "document" }),
 	},
@@ -169,6 +185,7 @@ const ITEMS: SlashItem[] = [
 		subtitle: "Link a knowledge-vault note inline",
 		icon: "🧠",
 		keywords: ["note", "knowledge", "vault", "obsidian"],
+		category: "Links",
 		command: ({ editor, range }) =>
 			openEntityPicker({ editor, range, kind: "knowledge" }),
 	},
@@ -177,6 +194,7 @@ const ITEMS: SlashItem[] = [
 		subtitle: "Link a saved prompt inline",
 		icon: "💬",
 		keywords: ["prompt", "ai", "template"],
+		category: "Links",
 		command: ({ editor, range }) =>
 			openEntityPicker({ editor, range, kind: "prompt" }),
 	},
@@ -186,6 +204,7 @@ const ITEMS: SlashItem[] = [
 		subtitle: "Insert a Mermaid flowchart / sequence / etc.",
 		icon: "🌳",
 		keywords: ["mermaid", "diagram", "flowchart", "sequence"],
+		category: "Media",
 		command: ({ editor, range }) => {
 			editor
 				.chain()
@@ -209,6 +228,8 @@ const ITEMS: SlashItem[] = [
 		subtitle: "Fenced code (pick the language inline)",
 		icon: "⌘",
 		keywords: ["code", "block", "snippet"],
+		category: "Code",
+		shortcut: "```",
 		command: ({ editor, range }) => {
 			editor.chain().focus().deleteRange(range).setCodeBlock().run();
 		},
@@ -218,6 +239,8 @@ const ITEMS: SlashItem[] = [
 		subtitle: "Section title",
 		icon: "H1",
 		keywords: ["h1", "heading1", "title"],
+		category: "Basic",
+		shortcut: "#",
 		command: ({ editor, range }) => {
 			editor
 				.chain()
@@ -232,6 +255,8 @@ const ITEMS: SlashItem[] = [
 		subtitle: "Subsection",
 		icon: "H2",
 		keywords: ["h2", "heading2"],
+		category: "Basic",
+		shortcut: "##",
 		command: ({ editor, range }) => {
 			editor
 				.chain()
@@ -246,6 +271,8 @@ const ITEMS: SlashItem[] = [
 		subtitle: "Sub-subsection",
 		icon: "H3",
 		keywords: ["h3", "heading3"],
+		category: "Basic",
+		shortcut: "###",
 		command: ({ editor, range }) => {
 			editor
 				.chain()
@@ -260,6 +287,8 @@ const ITEMS: SlashItem[] = [
 		subtitle: "Unordered list",
 		icon: "•",
 		keywords: ["bullet", "list", "ul"],
+		category: "Basic",
+		shortcut: "*",
 		command: ({ editor, range }) => {
 			editor.chain().focus().deleteRange(range).toggleBulletList().run();
 		},
@@ -269,6 +298,8 @@ const ITEMS: SlashItem[] = [
 		subtitle: "Ordered list",
 		icon: "1.",
 		keywords: ["numbered", "ordered", "list", "ol"],
+		category: "Basic",
+		shortcut: "1.",
 		command: ({ editor, range }) => {
 			editor.chain().focus().deleteRange(range).toggleOrderedList().run();
 		},
@@ -278,6 +309,8 @@ const ITEMS: SlashItem[] = [
 		subtitle: "Blockquote",
 		icon: "❝",
 		keywords: ["quote", "blockquote"],
+		category: "Basic",
+		shortcut: ">",
 		command: ({ editor, range }) => {
 			editor.chain().focus().deleteRange(range).setBlockquote().run();
 		},
@@ -287,8 +320,85 @@ const ITEMS: SlashItem[] = [
 		subtitle: "Horizontal rule",
 		icon: "—",
 		keywords: ["divider", "hr", "rule", "horizontal"],
+		category: "Media",
+		shortcut: "---",
 		command: ({ editor, range }) => {
 			editor.chain().focus().deleteRange(range).setHorizontalRule().run();
+		},
+	},
+	{
+		title: "Task list",
+		subtitle: "Checkboxes for action items",
+		icon: "☐",
+		keywords: ["task", "todo", "checkbox", "check", "list"],
+		category: "Basic",
+		shortcut: "[]",
+		command: ({ editor, range }) => {
+			editor.chain().focus().deleteRange(range).toggleTaskList().run();
+		},
+	},
+	// ── Callouts (iter10) ───────────────────────────────────────────────────
+	// Notion-style coloured asides. 4 variants — picked here so the user can
+	// type "/info" / "/warn" / "/tip" / "/quote" and get the right one in one
+	// shot rather than inserting then cycling.
+	{
+		title: "Callout — Info",
+		subtitle: "Lavender aside for general context",
+		icon: "ⓘ",
+		keywords: ["callout", "info", "note", "aside"],
+		category: "Advanced",
+		command: ({ editor, range }) => {
+			editor
+				.chain()
+				.focus()
+				.deleteRange(range)
+				.setCallout({ variant: "info" })
+				.run();
+		},
+	},
+	{
+		title: "Callout — Warning",
+		subtitle: "Amber aside for cautions / risks",
+		icon: "⚠",
+		keywords: ["callout", "warn", "warning", "caution", "danger"],
+		category: "Advanced",
+		command: ({ editor, range }) => {
+			editor
+				.chain()
+				.focus()
+				.deleteRange(range)
+				.setCallout({ variant: "warn" })
+				.run();
+		},
+	},
+	{
+		title: "Callout — Tip",
+		subtitle: "Emerald aside for advice / pointers",
+		icon: "💡",
+		keywords: ["callout", "tip", "hint", "advice"],
+		category: "Advanced",
+		command: ({ editor, range }) => {
+			editor
+				.chain()
+				.focus()
+				.deleteRange(range)
+				.setCallout({ variant: "tip" })
+				.run();
+		},
+	},
+	{
+		title: "Callout — Quote",
+		subtitle: "Muted aside framed as a pull-quote",
+		icon: "❝",
+		keywords: ["callout", "quote", "pull"],
+		category: "Advanced",
+		command: ({ editor, range }) => {
+			editor
+				.chain()
+				.focus()
+				.deleteRange(range)
+				.setCallout({ variant: "quote" })
+				.run();
 		},
 	},
 ];
@@ -330,35 +440,74 @@ const SlashMenuList = forwardRef<
 		);
 	}
 
+	// Group by category so the menu has visible section headers (Basic /
+	// Media / Code / Links / Advanced) — matches Notion's slash menu.
+	const grouped = groupByCategory(items);
+
+	// Build a flat index → button-data map so arrow keys / Enter still work
+	// on the un-grouped sequence the parent state machine drives.
+	let flatIndex = -1;
+
 	return (
-		<div className="max-h-72 w-72 overflow-auto rounded-md border border-border bg-popover py-1 shadow">
-			{items.map((it, i) => (
-				<button
-					key={it.title}
-					type="button"
-					onMouseDown={(e) => {
-						e.preventDefault();
-						command(it);
-					}}
-					onMouseEnter={() => setSelected(i)}
-					className={`flex w-full items-start gap-3 px-3 py-1.5 text-left ${
-						i === selected ? "bg-accent text-accent-foreground" : ""
-					}`}
-				>
-					<span className="w-6 shrink-0 font-mono text-muted-foreground text-xs">
-						{it.icon}
-					</span>
-					<span className="min-w-0">
-						<span className="block font-medium text-sm">{it.title}</span>
-						<span className="block text-muted-foreground text-xs">
-							{it.subtitle}
-						</span>
-					</span>
-				</button>
-			))}
+		<div className="max-h-80 w-80 overflow-auto rounded-md border border-border bg-popover py-1 shadow">
+			{CATEGORY_ORDER.flatMap((cat) => {
+				const group = grouped.get(cat);
+				if (!group || group.length === 0) return [];
+				return [
+					<div
+						key={`hdr-${cat}`}
+						className="px-3 pt-2 pb-1 font-medium text-muted-foreground text-[10px] uppercase tracking-wider"
+					>
+						{cat}
+					</div>,
+					...group.map((it) => {
+						flatIndex += 1;
+						const i = flatIndex;
+						return (
+							<button
+								key={it.title}
+								type="button"
+								onMouseDown={(e) => {
+									e.preventDefault();
+									command(it);
+								}}
+								onMouseEnter={() => setSelected(i)}
+								className={`flex w-full items-start gap-3 px-3 py-1.5 text-left ${
+									i === selected ? "bg-accent text-accent-foreground" : ""
+								}`}
+							>
+								<span className="w-6 shrink-0 font-mono text-muted-foreground text-xs">
+									{it.icon}
+								</span>
+								<span className="min-w-0 grow">
+									<span className="block font-medium text-sm">{it.title}</span>
+									<span className="block text-muted-foreground text-xs">
+										{it.subtitle}
+									</span>
+								</span>
+								{it.shortcut && (
+									<kbd className="ml-2 shrink-0 self-center rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+										{it.shortcut}
+									</kbd>
+								)}
+							</button>
+						);
+					}),
+				];
+			})}
 		</div>
 	);
 });
+
+function groupByCategory(items: SlashItem[]): Map<SlashCategory, SlashItem[]> {
+	const m = new Map<SlashCategory, SlashItem[]>();
+	for (const it of items) {
+		const arr = m.get(it.category) ?? [];
+		arr.push(it);
+		m.set(it.category, arr);
+	}
+	return m;
+}
 
 function filterItems(query: string): SlashItem[] {
 	if (!query) return ITEMS;
@@ -428,26 +577,58 @@ export const SlashCommand = Extension.create({
 								root.innerHTML = "";
 								const wrap = document.createElement("div");
 								wrap.className =
-									"max-h-72 w-72 overflow-auto rounded-md border border-border bg-popover py-1 shadow";
-								items.forEach((it, i) => {
-									const btn = document.createElement("button");
-									btn.type = "button";
-									btn.className = `flex w-full items-start gap-3 px-3 py-1.5 text-left ${
-										i === selected ? "bg-accent text-accent-foreground" : ""
-									}`;
-									btn.onmousedown = (e) => {
-										e.preventDefault();
-										lastCommand?.(it);
-									};
-									btn.innerHTML = `
-										<span class="w-6 shrink-0 font-mono text-muted-foreground text-xs">${it.icon}</span>
-										<span class="min-w-0">
-											<span class="block font-medium text-sm">${it.title}</span>
-											<span class="block text-muted-foreground text-xs">${it.subtitle}</span>
-										</span>
-									`;
-									wrap.appendChild(btn);
-								});
+									"max-h-80 w-80 overflow-auto rounded-md border border-border bg-popover py-1 shadow";
+
+								if (items.length === 0) {
+									const empty = document.createElement("div");
+									empty.className =
+										"px-3 py-2 text-muted-foreground text-sm";
+									empty.textContent = "No matches";
+									wrap.appendChild(empty);
+									root.appendChild(wrap);
+									return;
+								}
+
+								// Reproduce the grouped-by-category layout from the React
+								// `SlashMenuList`. Flat index is consumed by arrow keys.
+								const grouped = groupByCategory(items);
+								let flat = -1;
+								for (const cat of CATEGORY_ORDER) {
+									const group = grouped.get(cat);
+									if (!group || group.length === 0) continue;
+									const hdr = document.createElement("div");
+									hdr.className =
+										"px-3 pt-2 pb-1 font-medium text-muted-foreground text-[10px] uppercase tracking-wider";
+									hdr.textContent = cat;
+									wrap.appendChild(hdr);
+									for (const it of group) {
+										flat += 1;
+										const i = flat;
+										const btn = document.createElement("button");
+										btn.type = "button";
+										btn.className = `flex w-full items-start gap-3 px-3 py-1.5 text-left ${
+											i === selected ? "bg-accent text-accent-foreground" : ""
+										}`;
+										btn.onmousedown = (e) => {
+											e.preventDefault();
+											lastCommand?.(it);
+										};
+										// `it.shortcut` is sanitised at source (string literal in
+										// ITEMS); no untrusted input flows into innerHTML here.
+										const kbd = it.shortcut
+											? `<kbd class="ml-2 shrink-0 self-center rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">${it.shortcut}</kbd>`
+											: "";
+										btn.innerHTML = `
+											<span class="w-6 shrink-0 font-mono text-muted-foreground text-xs">${it.icon}</span>
+											<span class="min-w-0 grow">
+												<span class="block font-medium text-sm">${it.title}</span>
+												<span class="block text-muted-foreground text-xs">${it.subtitle}</span>
+											</span>
+											${kbd}
+										`;
+										wrap.appendChild(btn);
+									}
+								}
 								root.appendChild(wrap);
 							};
 							component.renderList = renderList;
