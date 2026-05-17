@@ -2,6 +2,7 @@ import { CommandItem } from "@ui/components/ui/command";
 import { ChevronRight, type LucideIcon } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { useGlobalSearch } from "../global-search-context";
+import type { GlobalSearchItem } from "../types";
 
 export type BaseResultItemProps = {
 	onSelect: () => void;
@@ -10,6 +11,15 @@ export type BaseResultItemProps = {
 	iconColor?: string;
 	title: string;
 	children?: React.ReactNode;
+	/**
+	 * Optional underlying search item. When the consuming result-item passes
+	 * this through, BaseResultItem notifies the GlobalSearch context's
+	 * `onSelectItem` callback on every selection (keyboard + mouse), so the
+	 * palette can record the entity in its recent-items list. Result items
+	 * that haven't been updated yet simply skip the notification — backwards
+	 * compatible.
+	 */
+	item?: GlobalSearchItem;
 };
 
 export const BaseResultItem = ({
@@ -19,8 +29,9 @@ export const BaseResultItem = ({
 	iconColor,
 	title,
 	children,
+	item,
 }: BaseResultItemProps) => {
-	const { setPreview } = useGlobalSearch();
+	const { setPreview, onSelectItem } = useGlobalSearch();
 	const itemRef = useRef<HTMLDivElement>(null);
 	const isSelectedRef = useRef(false);
 
@@ -65,7 +76,10 @@ export const BaseResultItem = ({
 		<CommandItem
 			ref={itemRef}
 			className="group flex w-full cursor-pointer items-center rounded-sm px-4 py-2 text-sm transition-colors duration-200 hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/30"
-			onSelect={onSelect}
+			onSelect={() => {
+				if (item) onSelectItem?.(item);
+				onSelect();
+			}}
 		>
 			<Icon
 				className="mr-2 size-4 text-muted-foreground"

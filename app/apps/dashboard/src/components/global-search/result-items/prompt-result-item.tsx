@@ -26,6 +26,7 @@ export const PromptResultItem = ({ item }: ResultItemProps) => {
 			onSelect={handleSelect}
 			icon={MessageSquareTextIcon}
 			title={item.title}
+			item={item}
 		>
 			<div className="flex min-w-0 flex-1 items-center gap-2">
 				<span className="truncate">{item.title}</span>

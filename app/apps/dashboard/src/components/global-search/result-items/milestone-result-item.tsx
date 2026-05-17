@@ -19,6 +19,7 @@ export const MilestoneResultItem = ({ item }: ResultItemProps) => {
 			icon={TargetIcon}
 			iconColor={item.color}
 			title={item.title}
+			item={item}
 		/>
 	);
 };

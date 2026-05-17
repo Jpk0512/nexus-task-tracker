@@ -15,13 +15,116 @@ import {
 } from "@ui/components/ui/dialog";
 import { cn } from "@ui/lib/utils";
 import { ArrowDownIcon, ArrowUpIcon, CornerDownLeftIcon } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useDebounceValue } from "usehooks-ts";
 import { useUser } from "@/components/user-provider";
 import { trpc } from "@/utils/trpc";
 import { GlobalSearchProvider, useGlobalSearch } from "./global-search-context";
 import { SearchResultItem } from "./search-result-item";
 import type { GlobalSearchItem } from "./types";
+
+// ─── Tabs (codex amendment #4 / designer-crosscutting §1) ────────────────
+//
+// Tabs scope the palette without forcing a prefix; the user can also drive
+// the same filter via the reserved prefix scheme:
+//   `> …` → Navigation (force tab=settings until you type, then nav results)
+//   `/ …` → Actions (commands, not entities)
+//   plain → entity search across the current tab
+//
+// We keep the "All" tab as the default so muscle-memory (Cmd+K → type → Enter)
+// still works.
+const TAB_DEFS = [
+	{ id: "all", label: "All", types: null }, // null = no filter
+	{ id: "tasks", label: "Tasks", types: ["task"] },
+	{ id: "documents", label: "Documents", types: ["document", "knowledge"] },
+	{ id: "prompts", label: "Prompts", types: ["prompt"] },
+	{ id: "projects", label: "Projects", types: ["project", "milestone"] },
+	{ id: "settings", label: "Settings", types: ["navigation"] },
+	{ id: "actions", label: "Actions", types: ["__action__"] }, // synthetic
+] as const;
+
+type TabId = (typeof TAB_DEFS)[number]["id"];
+
+// ─── Recent items (last 5 visited entities, persisted) ───────────────────
+// Persisted to `nexus.palette.recent`. We keep the storage small (5 entries,
+// stringified) and refresh whenever an item is selected.
+const RECENT_KEY = "nexus.palette.recent";
+const RECENT_MAX = 5;
+
+function loadRecent(): GlobalSearchItem[] {
+	if (typeof window === "undefined") return [];
+	try {
+		const raw = window.localStorage.getItem(RECENT_KEY);
+		if (!raw) return [];
+		const parsed = JSON.parse(raw);
+		return Array.isArray(parsed) ? parsed.slice(0, RECENT_MAX) : [];
+	} catch {
+		return [];
+	}
+}
+
+function persistRecent(item: GlobalSearchItem): void {
+	if (typeof window === "undefined") return;
+	try {
+		const prior = loadRecent().filter((x) => x.id !== item.id);
+		const next = [item, ...prior].slice(0, RECENT_MAX);
+		window.localStorage.setItem(RECENT_KEY, JSON.stringify(next));
+	} catch {
+		// Quota / privacy mode — recent items are a nicety, not a contract.
+	}
+}
+
+// ─── Actions catalogue ───────────────────────────────────────────────────
+// Static for now — the palette surfaces these when the user types a `/` prefix
+// or switches to the Actions tab. Each action gets `id: 'action:*'` so the
+// existing ActionResultItem renderer picks them up.
+const ACTIONS: GlobalSearchItem[] = [
+	{
+		id: "action:new-task",
+		type: "task",
+		title: "/new task",
+		teamId: "",
+	},
+	{
+		id: "action:new-document",
+		type: "document",
+		title: "/new doc",
+		teamId: "",
+	},
+	{
+		id: "action:new-project",
+		type: "project",
+		title: "/new project",
+		teamId: "",
+	},
+	{
+		id: "action:toggle-sidebar",
+		type: "navigation",
+		title: "/toggle sidebar",
+		teamId: "",
+	},
+	{
+		id: "action:go-settings-labels",
+		type: "navigation",
+		title: "/go to settings/labels",
+		teamId: "",
+		href: "/settings/labels",
+	},
+	{
+		id: "action:go-settings-shortcuts",
+		type: "navigation",
+		title: "/go to settings/shortcuts",
+		teamId: "",
+		href: "/settings/shortcuts",
+	},
+	{
+		id: "action:open-inbox",
+		type: "navigation",
+		title: "/open inbox",
+		teamId: "",
+		href: "/inbox",
+	},
+];
 
 const defaultSearchState: GlobalSearchItem[] = [
 	{
@@ -133,6 +236,24 @@ const SECTION_LABELS: Record<string, string> = {
 	navigation: "Navigation",
 };
 
+/**
+ * Parse the search input for reserved prefixes (`>` → navigation, `/` → action).
+ * Returns the stripped query plus the inferred mode.
+ */
+function parsePrefix(raw: string): {
+	mode: "default" | "navigation" | "action";
+	query: string;
+} {
+	const trimmed = raw.trimStart();
+	if (trimmed.startsWith(">")) {
+		return { mode: "navigation", query: trimmed.slice(1).trim() };
+	}
+	if (trimmed.startsWith("/")) {
+		return { mode: "action", query: trimmed.slice(1).trim() };
+	}
+	return { mode: "default", query: trimmed };
+}
+
 export type GlobalSearchDialogProps = {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
@@ -153,19 +274,56 @@ export const GlobalSearchDialog = ({
 }: GlobalSearchDialogProps) => {
 	const user = useUser();
 	const [search, setSearch] = useState(defaultValues?.search || "");
+	const [activeTab, setActiveTab] = useState<TabId>("all");
+	const [recent, setRecent] = useState<GlobalSearchItem[]>([]);
 	const [debouncedSearch] = useDebounceValue(search, 300);
 
-	const { data } = useQuery(
-		trpc.globalSearch.search.queryOptions({
-			search: debouncedSearch,
-			type: defaultValues?.type,
+	// Refresh recent items each time the dialog opens. localStorage is the
+	// source of truth — multiple tabs would otherwise see stale lists.
+	useEffect(() => {
+		if (open) {
+			setRecent(loadRecent());
+		}
+	}, [open]);
+
+	// Reserved prefix → tab inference. `>` forces Settings (navigation entries
+	// land there); `/` forces Actions.
+	const parsed = useMemo(() => parsePrefix(debouncedSearch), [debouncedSearch]);
+	useEffect(() => {
+		if (parsed.mode === "navigation" && activeTab !== "settings") {
+			setActiveTab("settings");
+		} else if (parsed.mode === "action" && activeTab !== "actions") {
+			setActiveTab("actions");
+		}
+	}, [parsed.mode, activeTab]);
+
+	// Resolve the effective type-filter from active tab + caller defaults.
+	const effectiveTypes = useMemo(() => {
+		const tabDef = TAB_DEFS.find((t) => t.id === activeTab);
+		if (defaultValues?.type) return defaultValues.type;
+		if (!tabDef || !tabDef.types) return undefined;
+		// Drop the synthetic '__action__' marker — server doesn't know it.
+		const filtered = tabDef.types.filter((t) => t !== "__action__");
+		return filtered.length > 0 ? filtered : undefined;
+	}, [activeTab, defaultValues?.type]);
+
+	// Skip the network round-trip in action-only mode. The Actions catalogue
+	// is local and small; querying server search for `/new task` would waste
+	// the request and burn latency.
+	const isActionsOnly = activeTab === "actions";
+
+	const { data } = useQuery({
+		...trpc.globalSearch.search.queryOptions({
+			search: parsed.query,
+			type: effectiveTypes,
 		}),
-	);
+		enabled: !isActionsOnly,
+	});
 
 	const groupedData = useMemo(() => {
 		const dataToGroup = data as GlobalSearchItem[] | undefined;
 		const showEmptyState =
-			defaultState && defaultState.length > 0 && debouncedSearch.length === 0;
+			defaultState && defaultState.length > 0 && parsed.query.length === 0;
 
 		const grouped =
 			dataToGroup?.reduce(
@@ -201,15 +359,28 @@ export const GlobalSearchDialog = ({
 				// include default state items that match the search
 				const shouldInclude = item.title
 					.toLowerCase()
-					.includes(debouncedSearch.toLowerCase());
+					.includes(parsed.query.toLowerCase());
 				if (shouldInclude) grouped[item.type]?.push(item);
 			}
 		}
 
 		return grouped;
-	}, [data, debouncedSearch, defaultState]);
+	}, [data, parsed.query, defaultState]);
+
+	// Actions tab / action-prefix mode → render the local ACTIONS catalogue
+	// (filtered by the parsed query) instead of server results.
+	const actionMatches = useMemo(() => {
+		const q = parsed.query.toLowerCase();
+		if (!q) return ACTIONS;
+		return ACTIONS.filter((a) => a.title.toLowerCase().includes(q));
+	}, [parsed.query]);
 
 	const orderedEntries = useMemo(() => {
+		if (isActionsOnly || parsed.mode === "action") {
+			return [["action", actionMatches]] as ReadonlyArray<
+				readonly [string, GlobalSearchItem[]]
+			>;
+		}
 		const known = SECTION_ORDER.filter((key) => groupedData[key]).map(
 			(key) => [key, groupedData[key]!] as const,
 		);
@@ -217,14 +388,25 @@ export const GlobalSearchDialog = ({
 			([key]) => !(SECTION_ORDER as readonly string[]).includes(key),
 		);
 		return [...known, ...unknown];
-	}, [groupedData]);
+	}, [groupedData, isActionsOnly, parsed.mode, actionMatches]);
 
 	const handleOpenChange = (isOpen: boolean) => {
 		if (!isOpen) {
 			setSearch("");
+			setActiveTab("all");
 		}
 		onOpenChange(isOpen);
 	};
+
+	// Wrap the existing onSelect (or default close) with the recent-items
+	// persistence side-effect so every successful pick gets recorded.
+	const recordRecent = useCallback((item: GlobalSearchItem) => {
+		if (item.id.startsWith("action:") || item.id.startsWith("navigate:")) {
+			// Actions / nav rows aren't entities — don't pollute the recent list.
+			return;
+		}
+		persistRecent(item);
+	}, []);
 
 	const handleItemOpenChange = useCallback(
 		onSelect
@@ -248,12 +430,17 @@ export const GlobalSearchDialog = ({
 				</DialogHeader>
 				<GlobalSearchProvider
 					onOpenChange={handleItemOpenChange}
+					onSelectItem={recordRecent}
 					basePath={user?.basePath || ""}
 				>
 					<GlobalSearchContent
 						search={search}
 						setSearch={setSearch}
 						orderedEntries={orderedEntries}
+						activeTab={activeTab}
+						setActiveTab={setActiveTab}
+						recent={recent}
+						parsedQuery={parsed.query}
 					/>
 				</GlobalSearchProvider>
 			</DialogContent>
@@ -265,13 +452,23 @@ const GlobalSearchContent = ({
 	search,
 	setSearch,
 	orderedEntries,
+	activeTab,
+	setActiveTab,
+	recent,
+	parsedQuery,
 }: {
 	search: string;
 	setSearch: (search: string) => void;
 	orderedEntries: ReadonlyArray<readonly [string, GlobalSearchItem[]]>;
+	activeTab: TabId;
+	setActiveTab: (tab: TabId) => void;
+	recent: GlobalSearchItem[];
+	parsedQuery: string;
 }) => {
 	const { preview } = useGlobalSearch();
 	const hasPreview = preview !== null;
+
+	const showRecent = recent.length > 0 && parsedQuery.length === 0;
 
 	return (
 		<div className="flex h-full" data-has-preview={hasPreview}>
@@ -281,14 +478,44 @@ const GlobalSearchContent = ({
 					hasPreview && "border-border border-r",
 				)}
 			>
+				<div className="-mt-1 mb-2 flex items-center gap-1 overflow-x-auto pb-1">
+					{TAB_DEFS.map((tab) => {
+						const active = activeTab === tab.id;
+						return (
+							<button
+								key={tab.id}
+								type="button"
+								onClick={() => setActiveTab(tab.id)}
+								className={cn(
+									"shrink-0 rounded-md px-2.5 py-1 text-[11.5px] tracking-[-0.005em] transition-colors",
+									active
+										? "bg-foreground/[0.08] font-[510] text-foreground"
+										: "text-muted-foreground hover:text-foreground",
+								)}
+							>
+								{tab.label}
+							</button>
+						);
+					})}
+				</div>
 				<Command shouldFilter={false} className="h-full bg-transparent">
 					<CommandInput
 						value={search}
 						onValueChange={setSearch}
 						containerClassName="h-11"
-						placeholder="Search..."
+						placeholder='Search… (try "> settings" or "/ new task")'
 					/>
-					<CommandList className="max-h-[calc(100vh-16rem)] overflow-y-auto">
+					<CommandList className="max-h-[calc(100vh-18rem)] overflow-y-auto">
+						{showRecent && (
+							<CommandGroup
+								heading="Recent"
+								className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:pt-3 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-[0.04em]"
+							>
+								{recent.map((item) => (
+									<SearchResultItem key={`recent-${item.id}`} item={item} />
+								))}
+							</CommandGroup>
+						)}
 						{orderedEntries.map(([type, items]) => {
 							if (!items || items.length === 0) {
 								return null;
@@ -296,7 +523,10 @@ const GlobalSearchContent = ({
 							return (
 								<CommandGroup
 									key={type}
-									heading={SECTION_LABELS[type] ?? type}
+									heading={
+										SECTION_LABELS[type] ??
+										(type === "action" ? "Actions" : type)
+									}
 									className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:pt-3 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-[0.04em]"
 								>
 									{items?.map((item) => (
@@ -308,7 +538,10 @@ const GlobalSearchContent = ({
 					</CommandList>
 				</Command>
 				<DialogFooter className="mt-auto flex justify-between px-2 pt-2">
-					<div />
+					<div className="text-[11px] text-muted-foreground">
+						<span className="font-mono">&gt;</span> nav ·{" "}
+						<span className="font-mono">/</span> actions · tab to switch
+					</div>
 					<div className="flex items-center gap-4 text-muted-foreground">
 						<ArrowDownIcon className="size-4" />
 						<ArrowUpIcon className="size-4" />

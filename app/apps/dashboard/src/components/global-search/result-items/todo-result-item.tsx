@@ -24,6 +24,7 @@ export const TodoResultItem = ({ item }: ResultItemProps) => {
 			onSelect={handleSelect}
 			icon={CheckSquareIcon}
 			title={item.title}
+			item={item}
 		>
 			<span className="line-clamp-1 min-w-0 flex-1">{item.title}</span>
 		</BaseResultItem>

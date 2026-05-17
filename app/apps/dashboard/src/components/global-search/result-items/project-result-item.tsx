@@ -23,6 +23,7 @@ export const ProjectResultItem = ({ item }: ResultItemProps) => {
 			preview={<ProjectResultPreview item={item} />}
 			iconColor={item.color}
 			title={item.title}
+			item={item}
 		/>
 	);
 };

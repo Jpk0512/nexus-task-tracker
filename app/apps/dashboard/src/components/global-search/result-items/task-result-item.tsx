@@ -23,6 +23,7 @@ export const TaskResultItem = ({ item }: ResultItemProps) => {
 			preview={<TaskResultPreview item={item} />}
 			iconColor={item.color}
 			title={item.title}
+			item={item}
 		/>
 	);
 };
