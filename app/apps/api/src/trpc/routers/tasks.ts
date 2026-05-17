@@ -19,6 +19,7 @@ import {
 import { protectedProcedure, router } from "@api/trpc/init";
 import { buildSmartCompletePrompt } from "@api/utils/smart-complete";
 import { db } from "@mimir/db/client";
+import { TRPCError } from "@trpc/server";
 import {
 	bulkDeleteTask,
 	bulkUpdateTask,
@@ -85,6 +86,31 @@ const knowledgeNotesRef = pgTable("knowledge_notes", {
 	relativePath: text("relative_path").notNull(),
 	name: text("name").notNull(),
 	parentDir: text("parent_dir"),
+	lastEditedAt: timestamp("last_edited_at", {
+		withTimezone: true,
+		mode: "string",
+	}),
+});
+
+// iter-10 Round F: task <-> library-skill join. Skills live in
+// library_entries with kind='skill'; we enforce that filter at write-time.
+const taskSkills = pgTable("task_skills", {
+	taskId: text("task_id").notNull(),
+	skillId: text("skill_id").notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
+		.notNull()
+		.defaultNow(),
+});
+
+const libraryEntriesRef = pgTable("library_entries", {
+	id: text("id").primaryKey(),
+	sourceId: text("source_id").notNull(),
+	kind: text("kind").notNull(),
+	name: text("name").notNull(),
+	description: text("description"),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" })
+		.notNull()
+		.defaultNow(),
 });
 
 export const tasksRouter = router({
@@ -463,6 +489,133 @@ export const tasksRouter = router({
 				)
 				.where(eq(knowledgeNotesOnTasks.taskId, input.taskId))
 				.orderBy(desc(knowledgeNotesOnTasks.createdAt));
+			return rows;
+		}),
+
+	// ── iter-10 Round F: backlink procedures ────────────────────────────────
+	// Brief-named aliases for the existing attach/detach/getLinked procs
+	// above. Two names converge on the same join table; keep both so iter-7
+	// callers (TaskLinkedContent) and iter-10 callers (sidebar) both compile
+	// without churning the older surface.
+
+	linkKnowledge: protectedProcedure
+		.input(z.object({ taskId: z.string(), noteId: z.string() }))
+		.mutation(async ({ ctx, input }) => {
+			const [row] = await db
+				.insert(knowledgeNotesOnTasks)
+				.values({
+					id: randomUUID(),
+					taskId: input.taskId,
+					noteId: input.noteId,
+					createdBy: ctx.user.id,
+				})
+				.onConflictDoNothing({
+					target: [knowledgeNotesOnTasks.taskId, knowledgeNotesOnTasks.noteId],
+				})
+				.returning();
+			return row ?? null;
+		}),
+
+	unlinkKnowledge: protectedProcedure
+		.input(z.object({ taskId: z.string(), noteId: z.string() }))
+		.mutation(async ({ input }) => {
+			await db
+				.delete(knowledgeNotesOnTasks)
+				.where(
+					and(
+						eq(knowledgeNotesOnTasks.taskId, input.taskId),
+						eq(knowledgeNotesOnTasks.noteId, input.noteId),
+					),
+				);
+			return { ok: true };
+		}),
+
+	// Relevance ranking per codex amendment #5: link-recency first, then
+	// note-recency. Page cap at 50; UI surfaces "Show more" beyond that.
+	listKnowledge: protectedProcedure
+		.input(z.object({ taskId: z.string(), limit: z.number().int().min(1).max(50).default(50) }))
+		.query(async ({ input }) => {
+			const rows = await db
+				.select({
+					id: knowledgeNotesRef.id,
+					name: knowledgeNotesRef.name,
+					relativePath: knowledgeNotesRef.relativePath,
+					parentDir: knowledgeNotesRef.parentDir,
+					vaultId: knowledgeNotesRef.vaultId,
+					lastEditedAt: knowledgeNotesRef.lastEditedAt,
+					linkedAt: knowledgeNotesOnTasks.createdAt,
+				})
+				.from(knowledgeNotesOnTasks)
+				.innerJoin(
+					knowledgeNotesRef,
+					eq(knowledgeNotesOnTasks.noteId, knowledgeNotesRef.id),
+				)
+				.where(eq(knowledgeNotesOnTasks.taskId, input.taskId))
+				.orderBy(
+					desc(knowledgeNotesOnTasks.createdAt),
+					desc(knowledgeNotesRef.lastEditedAt),
+				)
+				.limit(input.limit);
+			return rows;
+		}),
+
+	// ── Task <-> Skill (library_entries WHERE kind='skill') ────────────────
+
+	linkSkill: protectedProcedure
+		.input(z.object({ taskId: z.string(), skillId: z.string() }))
+		.mutation(async ({ input }) => {
+			// Validate kind before insert so the join is semantically clean.
+			const [skill] = await db
+				.select({ id: libraryEntriesRef.id, kind: libraryEntriesRef.kind })
+				.from(libraryEntriesRef)
+				.where(eq(libraryEntriesRef.id, input.skillId))
+				.limit(1);
+			if (!skill) throw new TRPCError({ code: "NOT_FOUND" });
+			if (skill.kind !== "skill") {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: `library entry kind is "${skill.kind}", expected "skill"`,
+				});
+			}
+			await db
+				.insert(taskSkills)
+				.values({ taskId: input.taskId, skillId: input.skillId })
+				.onConflictDoNothing({
+					target: [taskSkills.taskId, taskSkills.skillId],
+				});
+			return { ok: true };
+		}),
+
+	unlinkSkill: protectedProcedure
+		.input(z.object({ taskId: z.string(), skillId: z.string() }))
+		.mutation(async ({ input }) => {
+			await db
+				.delete(taskSkills)
+				.where(
+					and(
+						eq(taskSkills.taskId, input.taskId),
+						eq(taskSkills.skillId, input.skillId),
+					),
+				);
+			return { ok: true };
+		}),
+
+	listSkills: protectedProcedure
+		.input(z.object({ taskId: z.string(), limit: z.number().int().min(1).max(50).default(50) }))
+		.query(async ({ input }) => {
+			const rows = await db
+				.select({
+					id: libraryEntriesRef.id,
+					name: libraryEntriesRef.name,
+					description: libraryEntriesRef.description,
+					updatedAt: libraryEntriesRef.updatedAt,
+					linkedAt: taskSkills.createdAt,
+				})
+				.from(taskSkills)
+				.innerJoin(libraryEntriesRef, eq(taskSkills.skillId, libraryEntriesRef.id))
+				.where(eq(taskSkills.taskId, input.taskId))
+				.orderBy(desc(taskSkills.createdAt), desc(libraryEntriesRef.updatedAt))
+				.limit(input.limit);
 			return rows;
 		}),
 });

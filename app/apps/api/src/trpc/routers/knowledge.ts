@@ -15,7 +15,7 @@ import { dirname, join, relative, resolve, sep } from "node:path";
 import { protectedProcedure, router } from "@api/trpc/init";
 import { db } from "@mimir/db/client";
 import { TRPCError } from "@trpc/server";
-import { and, asc, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { boolean, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 import { z } from "zod/v3";
 
@@ -58,6 +58,28 @@ const knowledgeNotes = pgTable("knowledge_notes", {
 	createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
 		.notNull()
 		.defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" })
+		.notNull()
+		.defaultNow(),
+});
+
+// Local refs for the reverse-direction backlinks query (iter-10 Round F).
+// Mirror only the columns we read.
+const knowledgeNotesOnTasksRef = pgTable("knowledge_notes_on_tasks", {
+	id: text("id").primaryKey(),
+	taskId: text("task_id").notNull(),
+	noteId: text("note_id").notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
+		.notNull()
+		.defaultNow(),
+});
+
+const tasksRef = pgTable("tasks", {
+	id: text("id").primaryKey(),
+	title: text("title").notNull(),
+	permalinkId: text("permalink_id").notNull(),
+	teamId: text("team_id").notNull(),
+	projectId: text("project_id"),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" })
 		.notNull()
 		.defaultNow(),
@@ -553,5 +575,40 @@ export const knowledgeRouter = router({
 				results.push({ label: v.label, ...r });
 			}
 			return { results };
+		}),
+
+	// iter-10 Round F: reverse backlink — every task that links this note.
+	// Relevance per codex amendment #5: link-recency, then task-recency.
+	listLinkedTasks: protectedProcedure
+		.input(
+			z.object({
+				noteId: z.string(),
+				limit: z.number().int().min(1).max(50).default(50),
+			}),
+		)
+		.query(async ({ input, ctx }) => {
+			const rows = await db
+				.select({
+					id: tasksRef.id,
+					title: tasksRef.title,
+					permalinkId: tasksRef.permalinkId,
+					projectId: tasksRef.projectId,
+					updatedAt: tasksRef.updatedAt,
+					linkedAt: knowledgeNotesOnTasksRef.createdAt,
+				})
+				.from(knowledgeNotesOnTasksRef)
+				.innerJoin(tasksRef, eq(knowledgeNotesOnTasksRef.taskId, tasksRef.id))
+				.where(
+					and(
+						eq(knowledgeNotesOnTasksRef.noteId, input.noteId),
+						eq(tasksRef.teamId, ctx.user.teamId!),
+					),
+				)
+				.orderBy(
+					desc(knowledgeNotesOnTasksRef.createdAt),
+					desc(tasksRef.updatedAt),
+				)
+				.limit(input.limit);
+			return rows;
 		}),
 });
