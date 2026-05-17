@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { BreadcrumbSetter } from "@/components/breadcrumbs";
 import { ProjectBreadcrumb } from "@/components/projects/project-breadcrumb";
+import { ProjectRelationshipsSidebar } from "@/components/projects/project-relationships-sidebar";
 import { ProjectTabs } from "@/components/projects/project-tabs";
 import { trpcClient } from "@/utils/trpc";
 
@@ -34,7 +35,10 @@ export default async function ProjectLayout({ children, params }: Props) {
 			/>
 			<ProjectBreadcrumb projectName={project.name} backHref={backHref} />
 			<ProjectTabs projectId={project.id} />
-			<div className="min-h-0 grow">{children}</div>
+			<div className="flex min-h-0 grow">
+				<div className="min-w-0 grow">{children}</div>
+				<ProjectRelationshipsSidebar projectId={project.id} />
+			</div>
 		</div>
 	);
 }
