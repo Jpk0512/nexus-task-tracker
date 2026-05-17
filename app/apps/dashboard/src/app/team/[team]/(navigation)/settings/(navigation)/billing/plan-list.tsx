@@ -1,4 +1,5 @@
 import { Button } from "@mimir/ui/button";
+import { Label } from "@mimir/ui/label";
 import { Switch } from "@mimir/ui/switch";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Badge } from "@ui/components/ui/badge";
@@ -82,16 +83,21 @@ export const PlanList = () => {
 
 						<div className="mt-4 flex items-center">
 							<Switch
+								id={`billing-cycle-${plan.slug}`}
 								checked={billingType === "yearly"}
 								onCheckedChange={(checked) =>
 									setBillingType(checked ? "yearly" : "monthly")
 								}
+								aria-label="Toggle billing cycle"
 							/>
-							<span className="ml-2">
+							<Label
+								htmlFor={`billing-cycle-${plan.slug}`}
+								className="ml-2 font-normal"
+							>
 								{billingType === "monthly"
 									? "Monthly Billing"
 									: "Yearly Billing"}
-							</span>
+							</Label>
 						</div>
 
 						<div className="mt-8 font-mono text-muted-foreground text-sm uppercase">

@@ -127,6 +127,7 @@ export default function TagsSettingsPage() {
 						onChange={(e) => setSearch(e.target.value)}
 						placeholder="Filter tags…"
 						className="h-8 pl-7"
+						aria-label="Filter tags"
 					/>
 				</div>
 			</CardHeader>

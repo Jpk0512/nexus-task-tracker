@@ -166,6 +166,7 @@ export const ConnectRepositoryInput = ({
 						value={search}
 						onChange={(e) => setSearch(e.target.value)}
 						onClick={() => setShowPopover(true)}
+						aria-label="Connect a repository"
 					/>
 				</PopoverAnchor>
 				<PopoverContent
@@ -242,7 +243,7 @@ export const BranchesInput = ({
 			</PopoverTrigger>
 			<PopoverContent>
 				<Command>
-					<CommandInput />
+					<CommandInput placeholder="Search branches…" aria-label="Search branches" />
 					<CommandGroup>
 						{branches?.map((branch) => (
 							<CommandItem

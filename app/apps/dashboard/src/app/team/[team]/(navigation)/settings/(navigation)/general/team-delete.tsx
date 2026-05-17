@@ -10,6 +10,7 @@ import {
 	CardTitle,
 } from "@ui/components/ui/card";
 import { Input } from "@ui/components/ui/input";
+import { Label } from "@ui/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useUser } from "@/components/user-provider";
@@ -48,8 +49,10 @@ export const TeamDelete = () => {
 			</CardHeader>
 			<CardContent>
 				<div className="space-y-4">
-					<div className="space-y-1">
+					<div className="space-y-2">
+						<Label htmlFor="team-delete-confirm">Confirm team name</Label>
 						<Input
+							id="team-delete-confirm"
 							placeholder="Type team name to confirm"
 							value={teamName}
 							onChange={(e) => setTeamName(e.target.value)}

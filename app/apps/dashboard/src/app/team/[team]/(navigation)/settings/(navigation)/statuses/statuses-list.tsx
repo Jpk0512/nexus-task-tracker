@@ -19,6 +19,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@ui/components/ui/button";
 import { DataSelectInput } from "@ui/components/ui/data-select-input";
+import { Label } from "@ui/components/ui/label";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -251,8 +252,12 @@ export const StatusesList = () => {
 
 	return (
 		<div className="text-sm">
-			<div className="mb-2 flex items-center">
+			<div className="mb-2 flex items-center gap-2">
+				<Label htmlFor="statuses-project-filter" className="font-medium text-xs">
+					Project
+				</Label>
 				<DataSelectInput
+					id="statuses-project-filter"
 					size="sm"
 					className="w-64"
 					queryOptions={trpc.projects.get.queryOptions(
@@ -268,6 +273,7 @@ export const StatusesList = () => {
 					renderItem={(item) => item.name}
 					placeholder="All projects"
 					clearable
+					aria-label="Filter statuses by project"
 				/>
 			</div>
 

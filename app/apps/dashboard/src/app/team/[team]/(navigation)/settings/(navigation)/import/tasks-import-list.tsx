@@ -69,14 +69,21 @@ export const TasksImportList = () => {
 			<CardHeader>
 				<div className="flex items-center justify-between">
 					<CardTitle>Import Tasks</CardTitle>
-					<input
-						className="flex items-center justify-center border px-2 py-1 transition-colors placeholder:text-center hover:bg-accent"
-						type="file"
-						accept=".csv"
-						disabled={loading}
-						onChange={handleFileUpload}
-						placeholder="Upload CSV file"
-					/>
+					<label
+						htmlFor="tasks-import-file"
+						className="text-muted-foreground text-xs"
+					>
+						<span className="sr-only">Upload CSV file</span>
+						<input
+							id="tasks-import-file"
+							className="flex items-center justify-center border px-2 py-1 transition-colors placeholder:text-center hover:bg-accent"
+							type="file"
+							accept=".csv"
+							disabled={loading}
+							onChange={handleFileUpload}
+							aria-label="Upload CSV file"
+						/>
+					</label>
 				</div>
 			</CardHeader>
 			<CardContent>
