@@ -12,6 +12,10 @@ import {
 	updateAgentSchema,
 } from "@api/schemas/agents";
 import { protectedProcedure, router } from "@api/trpc/init";
+import { db } from "@mimir/db/client";
+import { and, desc, eq } from "drizzle-orm";
+import { pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { z } from "zod/v3";
 import {
 	deleteAgentMemory,
 	getAgentMemories,
@@ -33,6 +37,17 @@ import {
 	HIDDEN_AGENT_INTEGRATIONS,
 } from "@mimir/utils/agents";
 import type { Tool } from "ai";
+
+// iter-10 Round F: local ref to read milestones.owner_agent_id.
+const milestonesRef = pgTable("milestones", {
+	id: text("id").primaryKey(),
+	name: text("name").notNull(),
+	projectId: text("project_id").notNull(),
+	teamId: text("team_id").notNull(),
+	ownerAgentId: text("owner_agent_id"),
+	dueDate: timestamp("due_date", { withTimezone: true, mode: "string" }),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" }),
+});
 
 export const agentsRouter = router({
 	get: protectedProcedure
@@ -219,5 +234,35 @@ export const agentsRouter = router({
 				...input,
 				teamId: ctx.user.teamId!,
 			});
+		}),
+
+	// iter-10 Round F: milestones this agent owns.
+	// Relevance: due-date ascending nulls last, then most-recent edit.
+	listOwnedMilestones: protectedProcedure
+		.input(
+			z.object({
+				agentId: z.string(),
+				limit: z.number().int().min(1).max(50).default(50),
+			}),
+		)
+		.query(async ({ ctx, input }) => {
+			const rows = await db
+				.select({
+					id: milestonesRef.id,
+					name: milestonesRef.name,
+					projectId: milestonesRef.projectId,
+					dueDate: milestonesRef.dueDate,
+					updatedAt: milestonesRef.updatedAt,
+				})
+				.from(milestonesRef)
+				.where(
+					and(
+						eq(milestonesRef.ownerAgentId, input.agentId),
+						eq(milestonesRef.teamId, ctx.user.teamId!),
+					),
+				)
+				.orderBy(desc(milestonesRef.updatedAt))
+				.limit(input.limit);
+			return rows;
 		}),
 });

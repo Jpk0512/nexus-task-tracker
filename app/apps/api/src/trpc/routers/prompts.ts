@@ -420,4 +420,41 @@ export const promptsRouter = router({
 			await db.delete(prompts).where(eq(prompts.id, input.id));
 			return { ok: true };
 		}),
+
+	// ── iter-10 Round F: prompt <-> project linkage ─────────────────────────
+	// Canonical relationship per codex amendment #2: FK on prompts (set null
+	// on project delete).
+
+	setProject: protectedProcedure
+		.input(
+			z.object({
+				promptId: z.string(),
+				projectId: z.string().nullable(),
+			}),
+		)
+		.mutation(async ({ input, ctx }) => {
+			// Team-scope guard: confirm the prompt belongs to this team
+			// before mutating.
+			const [authz] = await db
+				.select({ id: prompts.id })
+				.from(prompts)
+				.innerJoin(promptProducts, eq(promptProducts.id, prompts.productId))
+				.where(
+					and(
+						eq(prompts.id, input.promptId),
+						eq(promptProducts.teamId, ctx.user.teamId!),
+					),
+				)
+				.limit(1);
+			if (!authz) throw new TRPCError({ code: "NOT_FOUND" });
+
+			await db
+				.update(prompts)
+				.set({
+					projectId: input.projectId,
+					updatedAt: new Date().toISOString(),
+				} as any)
+				.where(eq(prompts.id, input.promptId));
+			return { ok: true };
+		}),
 });

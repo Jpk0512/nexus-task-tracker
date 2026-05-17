@@ -22,8 +22,29 @@ import {
 	librarySources,
 } from "@mimir/db/schema";
 import { TRPCError } from "@trpc/server";
-import { and, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import { pgTable, text, timestamp } from "drizzle-orm/pg-core";
 import { z } from "zod/v3";
+
+// iter-10 Round F: local refs for the reverse backlink (task <- skill).
+const taskSkillsRef = pgTable("task_skills", {
+	taskId: text("task_id").notNull(),
+	skillId: text("skill_id").notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
+		.notNull()
+		.defaultNow(),
+});
+
+const libTasksRef = pgTable("tasks", {
+	id: text("id").primaryKey(),
+	title: text("title").notNull(),
+	permalinkId: text("permalink_id").notNull(),
+	teamId: text("team_id").notNull(),
+	projectId: text("project_id"),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" })
+		.notNull()
+		.defaultNow(),
+});
 
 const ALLOWED_ROOT = process.env.LIBRARY_ALLOWED_ROOT;
 
@@ -721,6 +742,38 @@ export const libraryRouter = router({
 					),
 				);
 			return { ok: true };
+		}),
+
+	// iter-10 Round F: tasks linked to a skill (reverse direction).
+	// Relevance per codex amendment #5: link-recency then task-recency.
+	listLinkedTasks: protectedProcedure
+		.input(
+			z.object({
+				skillId: z.string(),
+				limit: z.number().int().min(1).max(50).default(50),
+			}),
+		)
+		.query(async ({ ctx, input }) => {
+			const rows = await db
+				.select({
+					id: libTasksRef.id,
+					title: libTasksRef.title,
+					permalinkId: libTasksRef.permalinkId,
+					projectId: libTasksRef.projectId,
+					updatedAt: libTasksRef.updatedAt,
+					linkedAt: taskSkillsRef.createdAt,
+				})
+				.from(taskSkillsRef)
+				.innerJoin(libTasksRef, eq(taskSkillsRef.taskId, libTasksRef.id))
+				.where(
+					and(
+						eq(taskSkillsRef.skillId, input.skillId),
+						eq(libTasksRef.teamId, ctx.user.teamId!),
+					),
+				)
+				.orderBy(desc(taskSkillsRef.createdAt), desc(libTasksRef.updatedAt))
+				.limit(input.limit);
+			return rows;
 		}),
 });
 
