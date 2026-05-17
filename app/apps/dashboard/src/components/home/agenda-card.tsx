@@ -7,6 +7,7 @@ import { CheckIcon, ClockIcon, ExternalLinkIcon } from "lucide-react";
 import Link from "next/link";
 import { useMemo } from "react";
 import { StatusIcon } from "@/components/status-icon";
+import { MetadataConflictBadge } from "@/components/tasks/metadata-conflict-badge";
 import { useUser } from "@/components/user-provider";
 import { type EnrichedTask, useStatuses, useTasks } from "@/hooks/use-data";
 import { useOptimisticAction } from "@/hooks/use-optimistic-action";
@@ -246,6 +247,23 @@ function AgendaRow({
 					) : null}
 				</span>
 			</Link>
+			{/*
+			 * Sibling-of-Link placement: a popover-trigger <button> nested inside
+			 * an <a> is invalid HTML and breaks Next's <Link> click handling.
+			 * The badge stays out of the hover-revealed action strip on purpose
+			 * — it's a high-signal status indicator, not an action.
+			 */}
+			<MetadataConflictBadge
+				task={{
+					id: task.id,
+					title: task.title,
+					statusType: task.status?.type ?? null,
+					priority: task.priority ?? null,
+					dueDate: task.dueDate ?? null,
+					assigneeId: task.assigneeId ?? null,
+				}}
+				className="shrink-0"
+			/>
 			{/* Hover affordances — fade in on row hover or keyboard focus. */}
 			<RowActionStrip>
 				<RowActionButton

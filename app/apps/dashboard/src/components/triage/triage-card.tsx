@@ -9,6 +9,7 @@ import type { CSSProperties } from "react";
 import { AssigneeAvatar } from "@/components/asignee-avatar";
 import { StatusChangedChip } from "@/components/status-changed-chip";
 import { StatusIcon } from "@/components/status-icon";
+import { MetadataConflictBadge } from "@/components/tasks/metadata-conflict-badge";
 
 // Linear renders priority as a 3-bar signal-strength glyph, not a pill.
 // Urgent + high get a colored tint; medium/low stay neutral.
@@ -207,7 +208,7 @@ export function TriageCard({
 					/>
 				</div>
 
-				{/* Row 2: task id + title */}
+				{/* Row 2: task id + title + conflict badge */}
 				<div className="mt-1 flex items-baseline gap-1.5">
 					{taskId && (
 						<span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
@@ -217,6 +218,16 @@ export function TriageCard({
 					<span className="line-clamp-1 font-[510] text-[13px] text-foreground tracking-[-0.005em]">
 						{task.title}
 					</span>
+					<MetadataConflictBadge
+						task={{
+							id: task.id,
+							title: task.title,
+							statusType: task.status?.type ?? null,
+							priority: task.priority ?? null,
+							dueDate: task.dueDate ?? null,
+							assigneeId: task.assignee?.id ?? null,
+						}}
+					/>
 				</div>
 
 				{/* Row 3: project chip · due date · assignee */}

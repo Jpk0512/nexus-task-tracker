@@ -1,6 +1,7 @@
 import type { RouterOutputs } from "@mimir/trpc";
 import { useTaskPanel } from "@/components/panels/task-panel";
 import { StatusChangedChip } from "@/components/status-changed-chip";
+import { MetadataConflictBadge } from "@/components/tasks/metadata-conflict-badge";
 import { useUser } from "@/components/user-provider";
 import type { EnrichedTask } from "@/hooks/use-data";
 import { updateTaskInCache } from "@/hooks/use-data-cache-helpers";
@@ -72,6 +73,20 @@ export const KanbanTask = ({
 						<div className="line-clamp-3 break-words font-medium text-sm">
 							{task.title}
 						</div>
+						<MetadataConflictBadge
+							size="md"
+							task={{
+								id: task.id,
+								title: task.title,
+								statusType: task.status?.type ?? null,
+								priority: task.priority ?? null,
+								dueDate: task.dueDate ?? null,
+								assigneeId: task.assigneeId ?? null,
+								dependencies: task.dependencies ?? null,
+								checklistSummary: task.checklistSummary ?? null,
+							}}
+							className="ml-auto"
+						/>
 					</div>
 
 					<div className="flex flex-wrap items-center gap-1.5">

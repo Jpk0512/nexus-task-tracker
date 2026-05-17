@@ -69,6 +69,7 @@ import { useHotkeys } from "react-hotkeys-hook";
 import { toast } from "sonner";
 import { JkHint } from "@/components/jk-hint";
 import { BulkOpsBar, useBindBulkSelection } from "@/components/tasks/bulk-ops-bar";
+import { MetadataConflictBadge } from "@/components/tasks/metadata-conflict-badge";
 import {
 	TaskToolbar,
 	type TaskGroupBy,
@@ -244,13 +245,23 @@ function TodoRow({
 							className="min-w-0 grow text-left"
 						>
 							<div
-								className={`text-sm ${
+								className={`flex items-center gap-1.5 text-sm ${
 									todo.checked
 										? "text-muted-foreground line-through"
 										: "text-foreground"
 								}`}
 							>
-								{todo.content}
+								<span className="min-w-0 flex-1 truncate">{todo.content}</span>
+								<MetadataConflictBadge
+									task={{
+										id: todo.id,
+										title: todo.content,
+										// Todos use `checked` rather than a status enum; mirror it
+										// to the rule input so future rules can target checked
+										// todos with conflicting metadata.
+										statusType: todo.checked ? "done" : "to_do",
+									}}
+								/>
 							</div>
 							<div className="mt-0.5 flex flex-wrap items-center gap-1 text-xs">
 								{todo.projectName && (

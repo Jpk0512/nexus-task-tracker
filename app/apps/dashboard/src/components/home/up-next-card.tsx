@@ -6,6 +6,7 @@ import { CheckIcon, ExternalLinkIcon } from "lucide-react";
 import Link from "next/link";
 import { useMemo } from "react";
 import { StatusIcon } from "@/components/status-icon";
+import { MetadataConflictBadge } from "@/components/tasks/metadata-conflict-badge";
 import { useUser } from "@/components/user-provider";
 import { type EnrichedTask, useStatuses, useTasks } from "@/hooks/use-data";
 import { useOptimisticAction } from "@/hooks/use-optimistic-action";
@@ -185,6 +186,18 @@ function UpNextRow({
 					{task.priority ? <Priority value={task.priority} /> : null}
 				</span>
 			</Link>
+			{/* Sibling of Link — popover trigger can't nest in <a> (see AgendaCard). */}
+			<MetadataConflictBadge
+				task={{
+					id: task.id,
+					title: task.title,
+					statusType: task.status?.type ?? null,
+					priority: task.priority ?? null,
+					dueDate: task.dueDate ?? null,
+					assigneeId: task.assigneeId ?? null,
+				}}
+				className="shrink-0"
+			/>
 			<RowActionStrip>
 				<RowActionLink
 					href={`${basePath}/projects/${task.projectId}/${task.id}`}

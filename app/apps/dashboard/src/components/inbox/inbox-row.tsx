@@ -11,6 +11,7 @@ import {
 	MailIcon,
 } from "lucide-react";
 import { toast } from "sonner";
+import { MetadataConflictBadge } from "@/components/tasks/metadata-conflict-badge";
 import { useOptimisticAction } from "@/hooks/use-optimistic-action";
 import { useTaskParams } from "@/hooks/use-task-params";
 import { trpc } from "@/utils/trpc";
@@ -203,16 +204,31 @@ export const InboxRow = ({
 			</span>
 			<span className="min-w-0 flex-1">
 				<span className="flex items-baseline justify-between gap-2">
-					<span
-						className={cn(
-							"truncate text-[13px] leading-tight",
-							isUnread
-								? "font-[510] text-foreground"
-								: "font-normal text-muted-foreground",
-						)}
-						style={{ fontWeight: isUnread ? 510 : 400 }}
-					>
-						{item.display}
+					<span className="flex min-w-0 items-center gap-1.5">
+						<span
+							className={cn(
+								"truncate text-[13px] leading-tight",
+								isUnread
+									? "font-[510] text-foreground"
+									: "font-normal text-muted-foreground",
+							)}
+							style={{ fontWeight: isUnread ? 510 : 400 }}
+						>
+							{item.display}
+						</span>
+						{/*
+						 * Inbox rows don't carry task metadata directly today —
+						 * the badge will render null in the common case. We mount
+						 * it so future inbox-to-task linkage (e.g. a `task` field
+						 * exposing status/dueDate) automatically lights up the
+						 * conflict signal without revisiting this component.
+						 */}
+						<MetadataConflictBadge
+							task={{
+								id: item.id,
+								title: item.display ?? undefined,
+							}}
+						/>
 					</span>
 					<time
 						dateTime={createdAt.toISOString()}
