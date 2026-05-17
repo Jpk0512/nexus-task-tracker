@@ -1,5 +1,7 @@
 # Nexus — Agent Directives
 
+> Start here: [docs/STATE_OF_NEXUS.md](docs/STATE_OF_NEXUS.md) — canonical source of truth as of iter 9.
+
 ## Nexus Protocol
 
 The Nexus orchestrator is configured in `.claude/settings.json`. Deep protocol
