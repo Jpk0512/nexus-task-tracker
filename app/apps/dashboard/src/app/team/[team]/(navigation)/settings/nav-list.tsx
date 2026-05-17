@@ -4,12 +4,15 @@ import {
 	BellIcon,
 	BotIcon,
 	CableIcon,
+	CalendarIcon,
 	CircleDashedIcon,
 	CloudUploadIcon,
 	CreditCardIcon,
 	FolderIcon,
+	GithubIcon,
 	KeyRoundIcon,
-	MaximizeIcon,
+	MailIcon,
+	MessageSquareIcon,
 	ServerIcon,
 	SettingsIcon,
 	SparklesIcon,
@@ -36,12 +39,23 @@ export type SettingsLink = {
 };
 
 export type SettingsGroup = {
+	/** Stable identifier — used as the localStorage key for collapse state. */
+	id: string;
 	label: string;
 	links: SettingsLink[];
+	/**
+	 * Whether the group renders as a collapsible region in the sidebar.
+	 * Workspace / Account / Data are always expanded; Connected apps + Developer
+	 * are collapsible (and default-collapsed) per the iter-10 design spec.
+	 */
+	collapsible?: boolean;
+	/** Initial collapse state when no localStorage entry exists yet. */
+	defaultCollapsed?: boolean;
 };
 
 export const getSettingsGroups = (basePath: string): SettingsGroup[] => [
 	{
+		id: "workspace",
 		label: "Workspace",
 		links: [
 			{
@@ -69,9 +83,16 @@ export const getSettingsGroups = (basePath: string): SettingsGroup[] => [
 				to: `${basePath}/settings/tags`,
 				label: "Tags",
 			},
+			{
+				icon: CreditCardIcon,
+				to: `${basePath}/settings/billing`,
+				label: t("settings.sidebar.billing"),
+				scopes: ["team:write"],
+			},
 		],
 	},
 	{
+		id: "account",
 		label: "Account",
 		links: [
 			{
@@ -84,21 +105,61 @@ export const getSettingsGroups = (basePath: string): SettingsGroup[] => [
 				to: `${basePath}/settings/notifications`,
 				label: t("settings.sidebar.notifications"),
 			},
-		],
-	},
-	{
-		label: "Billing",
-		links: [
 			{
-				icon: CreditCardIcon,
-				to: `${basePath}/settings/billing`,
-				label: t("settings.sidebar.billing"),
-				scopes: ["team:write"],
+				icon: KeyRoundIcon,
+				to: `${basePath}/settings/api-keys`,
+				label: "API Keys",
 			},
 		],
 	},
 	{
-		label: "Integrations",
+		id: "connected-apps",
+		label: "Connected apps",
+		collapsible: true,
+		defaultCollapsed: true,
+		links: [
+			{
+				icon: CableIcon,
+				to: `${basePath}/settings/integrations`,
+				label: t("settings.sidebar.integrations"),
+			},
+			{
+				icon: GithubIcon,
+				to: `${basePath}/settings/integrations/github`,
+				label: "GitHub",
+			},
+			{
+				icon: MailIcon,
+				to: `${basePath}/settings/integrations/gmail`,
+				label: "Gmail",
+			},
+			{
+				icon: CalendarIcon,
+				to: `${basePath}/settings/integrations/google-calendar`,
+				label: "Google Calendar",
+			},
+			{
+				icon: MessageSquareIcon,
+				to: `${basePath}/settings/integrations/mattermost`,
+				label: "Mattermost",
+			},
+			{
+				icon: MailIcon,
+				to: `${basePath}/settings/integrations/smtp`,
+				label: "SMTP",
+			},
+			{
+				icon: MessageSquareIcon,
+				to: `${basePath}/settings/integrations/whatsapp`,
+				label: "WhatsApp",
+			},
+		],
+	},
+	{
+		id: "developer",
+		label: "Developer",
+		collapsible: true,
+		defaultCollapsed: true,
 		links: [
 			{
 				icon: BotIcon,
@@ -113,16 +174,6 @@ export const getSettingsGroups = (basePath: string): SettingsGroup[] => [
 				scopes: ["team:write"],
 			},
 			{
-				icon: CableIcon,
-				to: `${basePath}/settings/integrations`,
-				label: t("settings.sidebar.integrations"),
-			},
-			{
-				icon: KeyRoundIcon,
-				to: `${basePath}/settings/api-keys`,
-				label: "API Keys",
-			},
-			{
 				icon: ServerIcon,
 				to: `${basePath}/settings/mcp-servers`,
 				label: "MCP Servers",
@@ -130,6 +181,7 @@ export const getSettingsGroups = (basePath: string): SettingsGroup[] => [
 		],
 	},
 	{
+		id: "data",
 		label: "Data",
 		links: [
 			{
