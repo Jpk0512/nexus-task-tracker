@@ -42,6 +42,9 @@ export const getMilestones = async ({
 			dueDate: milestones.dueDate,
 			color: milestones.color,
 			projectId: milestones.projectId,
+			// iter-10 Round F: surface the new FK so the relationships
+			// sidebar can resolve project -> owner agents in one trip.
+			ownerAgentId: milestones.ownerAgentId,
 			progress: {
 				completed: progressSubquery.completed,
 				inProgress: progressSubquery.inProgress,

@@ -1,30 +1,31 @@
 "use client";
 
 /**
- * Relationships sidebar — iter-10 Round E Task 4.
+ * Relationships sidebar — iter-10 Round F (wired to real backlinks).
  *
- * UI shell only. Three sections — Prompts, Agents, Knowledge — each rendering
- * an empty state today. The `+` button on each header opens the command
- * palette in "link mode" (a stub that toasts a "wire-up coming in iter 8"
- * message); iter-8 wires the join tables + populates counts.
+ * Three sections — Prompts, Agents, Knowledge — fetch via tRPC and render
+ * tiny cards (name + last-touched timestamp). The `+` button on each header
+ * dispatches a `palette.openLink` event which the command palette listens
+ * for and switches into "link mode" (iter-10 Task 6).
  *
  * Layout: collapsible right rail mounted by the project detail layout.
  *   - expanded: 320px wide
  *   - collapsed: 32px strip with a chevron toggle
  *
  * Collapsed state is persisted to localStorage
- * (`nexus.project.relationships.collapsed`) so the choice survives reloads
- * and route changes within the project surface.
+ * (`nexus.project.relationships.collapsed`) so the choice survives reloads.
  *
- * Performance budget (codex amendment #5): the sidebar renders 3 fixed
- * sections regardless of project size, so the heavy lifting (relevance
- * ranking, dedupe, paging) happens at the query layer in iter-8. The shell
- * stays cheap.
+ * Performance (codex amendment #7): each section caps at 50 results
+ * server-side and React Query caches per-project; we mount the sidebar
+ * lazily and only fire queries while it is expanded so the project surface
+ * stays cheap for projects without backlinks.
  */
 
+import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@ui/components/ui/badge";
 import { Button } from "@ui/components/ui/button";
 import { cn } from "@ui/lib/utils";
+import { formatDistanceToNowStrict } from "date-fns";
 import {
 	BrainIcon,
 	ChevronLeftIcon,
@@ -34,10 +35,33 @@ import {
 	SparklesIcon,
 	WandSparklesIcon,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
-import { toast } from "sonner";
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useUser } from "@/components/user-provider";
+import { trpc } from "@/utils/trpc";
 
 const STORAGE_KEY = "nexus.project.relationships.collapsed";
+
+/**
+ * Public link-mode event. The command palette listens for this on `window`
+ * and switches into entity-picker mode. Kept as a custom event (rather than
+ * a global zustand store) so the sidebar stays independent of the palette
+ * implementation — the palette could be swapped without breaking the
+ * sidebar contract.
+ */
+export type PaletteLinkEntity = "prompts" | "agents" | "knowledge" | "skills";
+export interface PaletteOpenLinkDetail {
+	entity: PaletteLinkEntity;
+	sourceType: "project" | "task" | "note" | "agent";
+	sourceId: string;
+}
+
+export function dispatchOpenLink(detail: PaletteOpenLinkDetail): void {
+	if (typeof window === "undefined") return;
+	window.dispatchEvent(
+		new CustomEvent<PaletteOpenLinkDetail>("palette.openLink", { detail }),
+	);
+}
 
 function readCollapsed(): boolean {
 	if (typeof window === "undefined") return false;
@@ -57,48 +81,26 @@ function writeCollapsed(collapsed: boolean): void {
 	}
 }
 
-interface SectionDef {
-	id: "prompts" | "agents" | "knowledge";
-	label: string;
-	icon: typeof BrainIcon;
-	emptyTitle: string;
-	emptyAction: string;
+function formatRelative(value: string | null | undefined): string {
+	if (!value) return "";
+	try {
+		return formatDistanceToNowStrict(new Date(value), { addSuffix: true });
+	} catch {
+		return "";
+	}
 }
-
-const SECTIONS: SectionDef[] = [
-	{
-		id: "prompts",
-		label: "Prompts",
-		icon: WandSparklesIcon,
-		emptyTitle: "No prompts linked yet.",
-		emptyAction: "Add prompt",
-	},
-	{
-		id: "agents",
-		label: "Agents",
-		icon: SparklesIcon,
-		emptyTitle: "No agents linked yet.",
-		emptyAction: "Add agent",
-	},
-	{
-		id: "knowledge",
-		label: "Knowledge notes",
-		icon: BrainIcon,
-		emptyTitle: "No notes linked yet.",
-		emptyAction: "Add note",
-	},
-];
 
 interface Props {
 	projectId: string;
 	className?: string;
 }
 
-export function ProjectRelationshipsSidebar({ projectId: _projectId, className }: Props) {
+export function ProjectRelationshipsSidebar({
+	projectId,
+	className,
+}: Props) {
 	const [collapsed, setCollapsed] = useState<boolean>(false);
 
-	// Restore persisted state on mount. We pay one render of the default
-	// (expanded) to keep server + client markup identical for hydration.
 	useEffect(() => {
 		setCollapsed(readCollapsed());
 	}, []);
@@ -109,12 +111,6 @@ export function ProjectRelationshipsSidebar({ projectId: _projectId, className }
 			writeCollapsed(next);
 			return next;
 		});
-	}, []);
-
-	const onLink = useCallback((section: SectionDef) => {
-		// Iter-8 wires this to the command palette in link mode; today we
-		// surface a stub so the affordance is discoverable but inert.
-		toast(`Linking ${section.label.toLowerCase()} — wire-up coming in iter 8.`);
 	}, []);
 
 	if (collapsed) {
@@ -167,55 +163,244 @@ export function ProjectRelationshipsSidebar({ projectId: _projectId, className }
 			</header>
 
 			<div className="flex flex-col">
-				{SECTIONS.map((section) => {
-					const Icon = section.icon;
-					const count = 0; // iter-8: wire to backlinks query
-					return (
-						<section
-							key={section.id}
-							className="flex flex-col gap-2 border-border border-b px-4 py-3 last:border-b-0"
-						>
-							<div className="flex items-center justify-between">
-								<div className="flex items-center gap-1.5 text-foreground text-sm">
-									<Icon className="size-3.5 text-muted-foreground" />
-									<span className="font-medium">{section.label}</span>
-									<Badge
-										variant="secondary"
-										className="h-4 px-1.5 text-[10px]"
-									>
-										{count}
-									</Badge>
-								</div>
-								<Button
-									type="button"
-									variant="ghost"
-									size="sm"
-									onClick={() => onLink(section)}
-									aria-label={section.emptyAction}
-									className="size-6 p-0 text-muted-foreground hover:text-foreground"
-								>
-									<PlusIcon className="size-3.5" />
-								</Button>
-							</div>
-							<div className="rounded-md border border-dashed border-border bg-background/40 px-3 py-3 text-center">
-								<p className="text-muted-foreground text-xs">
-									{section.emptyTitle}
-								</p>
-								<Button
-									type="button"
-									variant="ghost"
-									size="sm"
-									onClick={() => onLink(section)}
-									className="mt-1 h-6 gap-1 px-2 text-brand text-xs hover:bg-brand/10 hover:text-brand"
-								>
-									<PlusIcon className="size-3" />
-									{section.emptyAction}
-								</Button>
-							</div>
-						</section>
-					);
-				})}
+				<PromptsSection projectId={projectId} />
+				<AgentsSection projectId={projectId} />
+				<KnowledgeSection projectId={projectId} />
 			</div>
 		</aside>
+	);
+}
+
+// ─── Sections ─────────────────────────────────────────────────────────────
+//
+// Each section is its own component so its tRPC query is only registered
+// when the sidebar is expanded (the parent gates rendering above). React
+// Query handles caching + revalidation; we don't manually invalidate here
+// because link mutations live in the palette which calls
+// queryClient.invalidateQueries on its own.
+
+interface SectionShellProps {
+	title: string;
+	icon: typeof WandSparklesIcon;
+	count: number;
+	emptyTitle: string;
+	emptyAction: string;
+	onLink: () => void;
+	children: React.ReactNode;
+}
+
+function SectionShell({
+	title,
+	icon: Icon,
+	count,
+	emptyTitle,
+	emptyAction,
+	onLink,
+	children,
+}: SectionShellProps) {
+	return (
+		<section className="flex flex-col gap-2 border-border border-b px-4 py-3 last:border-b-0">
+			<div className="flex items-center justify-between">
+				<div className="flex items-center gap-1.5 text-foreground text-sm">
+					<Icon className="size-3.5 text-muted-foreground" />
+					<span className="font-medium">{title}</span>
+					<Badge
+						variant="secondary"
+						className="h-4 px-1.5 text-[10px]"
+					>
+						{count}
+					</Badge>
+				</div>
+				<Button
+					type="button"
+					variant="ghost"
+					size="sm"
+					onClick={onLink}
+					aria-label={emptyAction}
+					className="size-6 p-0 text-muted-foreground hover:text-foreground"
+				>
+					<PlusIcon className="size-3.5" />
+				</Button>
+			</div>
+			{count === 0 ? (
+				<div className="rounded-md border border-dashed border-border bg-background/40 px-3 py-3 text-center">
+					<p className="text-muted-foreground text-xs">{emptyTitle}</p>
+					<Button
+						type="button"
+						variant="ghost"
+						size="sm"
+						onClick={onLink}
+						className="mt-1 h-6 gap-1 px-2 text-brand text-xs hover:bg-brand/10 hover:text-brand"
+					>
+						<PlusIcon className="size-3" />
+						{emptyAction}
+					</Button>
+				</div>
+			) : (
+				<ul className="flex flex-col gap-1">{children}</ul>
+			)}
+		</section>
+	);
+}
+
+interface CardItemProps {
+	href: string;
+	title: string;
+	subtitle: string;
+}
+
+function CardItem({ href, title, subtitle }: CardItemProps) {
+	return (
+		<li>
+			<Link
+				href={href}
+				className="flex flex-col gap-0.5 rounded-md border border-transparent px-2 py-1.5 text-xs transition-colors hover:border-border hover:bg-muted"
+				title={title}
+			>
+				<span className="truncate font-medium text-foreground">{title}</span>
+				{subtitle ? (
+					<span className="truncate text-muted-foreground text-[11px]">
+						{subtitle}
+					</span>
+				) : null}
+			</Link>
+		</li>
+	);
+}
+
+function PromptsSection({ projectId }: { projectId: string }) {
+	const user = useUser();
+	const basePath = user?.basePath || "";
+	const promptsQuery = useQuery(
+		trpc.projects.listLinkedPrompts.queryOptions({ projectId, limit: 50 }),
+	);
+	const items = promptsQuery.data ?? [];
+
+	const onLink = useCallback(() => {
+		dispatchOpenLink({
+			entity: "prompts",
+			sourceType: "project",
+			sourceId: projectId,
+		});
+	}, [projectId]);
+
+	return (
+		<SectionShell
+			title="Prompts"
+			icon={WandSparklesIcon}
+			count={items.length}
+			emptyTitle="No prompts linked yet."
+			emptyAction="Add prompt"
+			onLink={onLink}
+		>
+			{items.map((p) => (
+				<CardItem
+					key={p.id}
+					href={`${basePath}/prompts/${p.productSlug}/${p.slug}`}
+					title={p.name}
+					subtitle={`Updated ${formatRelative(p.updatedAt)}`}
+				/>
+			))}
+		</SectionShell>
+	);
+}
+
+function AgentsSection({ projectId }: { projectId: string }) {
+	const user = useUser();
+	const basePath = user?.basePath || "";
+	// Agents owning milestones in this project. We start from milestones,
+	// dedupe by agentId, then resolve agent metadata.
+	const milestonesQuery = useQuery(
+		trpc.milestones.get.queryOptions({ projectId }),
+	);
+	const agentsQuery = useQuery(trpc.agents.get.queryOptions({}));
+
+	const ownedAgentIds = useMemo(() => {
+		const ids = new Set<string>();
+		for (const m of (milestonesQuery.data ?? []) as Array<{
+			ownerAgentId?: string | null;
+		}>) {
+			if (m.ownerAgentId) ids.add(m.ownerAgentId);
+		}
+		return ids;
+	}, [milestonesQuery.data]);
+
+	const agents = useMemo(() => {
+		const rows = (agentsQuery.data ?? []) as Array<{
+			id: string;
+			name: string;
+			description?: string | null;
+			updatedAt?: string;
+		}>;
+		return rows.filter((a) => ownedAgentIds.has(a.id));
+	}, [agentsQuery.data, ownedAgentIds]);
+
+	const onLink = useCallback(() => {
+		dispatchOpenLink({
+			entity: "agents",
+			sourceType: "project",
+			sourceId: projectId,
+		});
+	}, [projectId]);
+
+	return (
+		<SectionShell
+			title="Agents"
+			icon={SparklesIcon}
+			count={agents.length}
+			emptyTitle="No agents owning milestones yet."
+			emptyAction="Assign agent"
+			onLink={onLink}
+		>
+			{agents.map((a) => (
+				<CardItem
+					key={a.id}
+					href={`${basePath}/agents/${a.id}`}
+					title={a.name}
+					subtitle={a.description ?? "Owns a milestone in this project"}
+				/>
+			))}
+		</SectionShell>
+	);
+}
+
+function KnowledgeSection({ projectId }: { projectId: string }) {
+	const user = useUser();
+	const basePath = user?.basePath || "";
+	const knowledgeQuery = useQuery(
+		trpc.projects.listLinkedKnowledge.queryOptions({ projectId, limit: 50 }),
+	);
+	const items = knowledgeQuery.data ?? [];
+
+	const onLink = useCallback(() => {
+		dispatchOpenLink({
+			entity: "knowledge",
+			sourceType: "project",
+			sourceId: projectId,
+		});
+	}, [projectId]);
+
+	return (
+		<SectionShell
+			title="Knowledge notes"
+			icon={BrainIcon}
+			count={items.length}
+			emptyTitle="No notes linked via this project's tasks yet."
+			emptyAction="Link a note from a task"
+			onLink={onLink}
+		>
+			{items.map((n) => (
+				<CardItem
+					key={n.id}
+					href={`${basePath}/knowledge/${encodeURIComponent(n.relativePath)}`}
+					title={n.name}
+					subtitle={
+						n.lastEditedAt
+							? `Edited ${formatRelative(n.lastEditedAt)}`
+							: (n.parentDir ?? "")
+					}
+				/>
+			))}
+		</SectionShell>
 	);
 }
