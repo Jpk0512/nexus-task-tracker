@@ -1,6 +1,9 @@
 import { ActiveProjectsRail } from "@/components/home/active-projects-rail";
+import { ActivityFeed } from "@/components/home/activity-feed";
 import { AgendaCard } from "@/components/home/agenda-card";
+import { EndOfDayRecap } from "@/components/home/end-of-day-recap";
 import { GreetingCard } from "@/components/home/greeting-card";
+import { StaleCommitmentDigest } from "@/components/home/stale-commitment-digest";
 import { UpNextCard } from "@/components/home/up-next-card";
 
 type Props = {
@@ -12,15 +15,15 @@ type Props = {
 /**
  * Home — iter-10 redesign.
  *
- * Above-the-fold layout (1280px desktop):
+ * Layout (1280px desktop):
  *   row 1: GreetingCard (time-of-day + day brief)
  *   row 2: AgendaCard (due today / overdue) | UpNextCard (Triage Now slice)
  *   row 3: ActiveProjectsRail (horizontal scroll)
+ *   row 4: StaleCommitmentDigest (cron-style nag) | EndOfDayRecap (granola)
+ *   row 5: ActivityFeed (last 10 events)
  *
- * Subsequent commits in this iteration layer in:
- *   - ActivityFeed + EodRecap + StaleDigest (commit 3)
- *   - DashboardConfigModal — toggles visibility + reorders cards (commit 4)
- *   - QuickCapture bar above the greeting (commit 6)
+ * All cards become configurable in commit 4 (DashboardConfigModal). Quick-
+ * capture bar lands in commit 6.
  */
 export default async function Page({ searchParams: _searchParams }: Props) {
 	return (
@@ -31,6 +34,11 @@ export default async function Page({ searchParams: _searchParams }: Props) {
 				<UpNextCard />
 			</div>
 			<ActiveProjectsRail />
+			<div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+				<StaleCommitmentDigest />
+				<EndOfDayRecap />
+			</div>
+			<ActivityFeed />
 		</div>
 	);
 }

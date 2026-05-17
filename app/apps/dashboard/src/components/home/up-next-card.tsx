@@ -44,7 +44,11 @@ export const UpNextCard = () => {
 	const { data: statusesData } = useStatuses();
 
 	const doneStatusId = useMemo<string | null>(() => {
-		const list = (statusesData?.data ?? []) as Array<{ id: string; type: string }>;
+		// biome-ignore lint/suspicious/noExplicitAny: tRPC return typed as unknown app-wide
+		const list = (((statusesData as any)?.data ?? []) as Array<{
+			id: string;
+			type: string;
+		}>);
 		const done = list.find((s) => s.type === "done");
 		return done?.id ?? null;
 	}, [statusesData]);
