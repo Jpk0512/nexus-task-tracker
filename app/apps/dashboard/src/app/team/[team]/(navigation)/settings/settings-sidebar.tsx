@@ -122,10 +122,13 @@ export const SettingsSidebar = () => {
 								/>
 								<span className="flex-1">{group.label}</span>
 								<span
-									aria-label={`${visibleLinks.length} settings`}
+									title={`${visibleLinks.length} settings`}
 									className="rounded-full bg-muted/60 px-1.5 text-[10px] text-muted-foreground tabular-nums"
 								>
 									{visibleLinks.length}
+								</span>
+								<span className="sr-only">
+									, {visibleLinks.length} settings
 								</span>
 							</button>
 						) : (
@@ -140,8 +143,9 @@ export const SettingsSidebar = () => {
 						{!collapsed && (
 							<div
 								id={panelId}
-								role={group.collapsible ? "region" : undefined}
-								aria-labelledby={group.collapsible ? headerId : undefined}
+								{...(group.collapsible
+									? { role: "region", "aria-labelledby": headerId }
+									: {})}
 								className="flex flex-col gap-0.5"
 							>
 								{visibleLinks.map((link) => {

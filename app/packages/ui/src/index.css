@@ -59,6 +59,11 @@ body {
 	--popover-foreground: #010102;
 	--primary: #5e6ad2;
 	--primary-foreground: #ffffff;
+	/* --brand is the lavender accent token used for scarce, high-signal
+	   highlights (active nav, key callouts). DESIGN.md mandates lavender
+	   stays scarce so it always reads as a primary signal. */
+	--brand: #5e6ad2;
+	--brand-foreground: #ffffff;
 	--secondary: #f3f4f5;
 	--secondary-foreground: #010102;
 	--muted: #f5f6f7;
@@ -104,6 +109,10 @@ body {
 	/* Lavender accent — the only chromatic color in the system. */
 	--primary: #5e6ad2;
 	--primary-foreground: #ffffff;
+	/* --brand mirrors --primary in dark mode so `bg-brand`, `text-brand`,
+	   and `border-brand` resolve to the canonical lavender hex. */
+	--brand: #5e6ad2;
+	--brand-foreground: #ffffff;
 
 	/* surface-1 for buttons that aren't primary. */
 	--secondary: #0f1011;
@@ -157,6 +166,8 @@ body {
 	--color-popover-foreground: var(--popover-foreground);
 	--color-primary: var(--primary);
 	--color-primary-foreground: var(--primary-foreground);
+	--color-brand: var(--brand);
+	--color-brand-foreground: var(--brand-foreground);
 	--color-secondary: var(--secondary);
 	--color-secondary-foreground: var(--secondary-foreground);
 	--color-muted: var(--muted);
