@@ -42,9 +42,10 @@ import {
 	WrenchIcon,
 } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useProjectParams } from "@/hooks/use-project-params";
+import { usePinnedProjects } from "@/hooks/use-pinned-projects";
 import { IS_SINGLE_USER_MODE } from "@/lib/single-user-mode";
 import { queryClient, trpc } from "@/utils/trpc";
 import { useUser } from "@/components/user-provider";
@@ -53,32 +54,9 @@ import { ProjectsFilters } from "./filters";
 import type { Project } from "./list";
 import { useProjectsFilterParams } from "./use-projects-filter-params";
 
-// ─── Pin persistence ────────────────────────────────────────────────────────
+// ─── Order persistence (pin state lives in use-pinned-projects.ts) ────────
 
-const PIN_STORAGE_KEY = "nexus.projects.pinned";
 const ORDER_STORAGE_KEY = "nexus.projects.order";
-
-function readPinnedSet(): Set<string> {
-	if (typeof window === "undefined") return new Set();
-	try {
-		const raw = window.localStorage.getItem(PIN_STORAGE_KEY);
-		if (!raw) return new Set();
-		const parsed = JSON.parse(raw) as unknown;
-		if (Array.isArray(parsed)) return new Set(parsed.filter((v): v is string => typeof v === "string"));
-		return new Set();
-	} catch {
-		return new Set();
-	}
-}
-
-function writePinnedSet(set: Set<string>): void {
-	if (typeof window === "undefined") return;
-	try {
-		window.localStorage.setItem(PIN_STORAGE_KEY, JSON.stringify(Array.from(set)));
-	} catch {
-		// ignore quota / private-mode failures
-	}
-}
 
 function readOrder(): string[] {
 	if (typeof window === "undefined") return [];
@@ -101,35 +79,6 @@ function writeOrder(order: string[]): void {
 	} catch {
 		// ignore
 	}
-}
-
-/**
- * Live pin state hook — reads from localStorage on mount and listens for
- * `storage` events so toggling a pin in one tab updates the others.
- */
-function usePinnedProjects() {
-	const [pinned, setPinned] = useState<Set<string>>(() => new Set());
-
-	useEffect(() => {
-		setPinned(readPinnedSet());
-		const onStorage = (e: StorageEvent) => {
-			if (e.key === PIN_STORAGE_KEY) setPinned(readPinnedSet());
-		};
-		window.addEventListener("storage", onStorage);
-		return () => window.removeEventListener("storage", onStorage);
-	}, []);
-
-	const toggle = useCallback((id: string) => {
-		setPinned((prev) => {
-			const next = new Set(prev);
-			if (next.has(id)) next.delete(id);
-			else next.add(id);
-			writePinnedSet(next);
-			return next;
-		});
-	}, []);
-
-	return { pinned, toggle };
 }
 
 // ─── Grouping ──────────────────────────────────────────────────────────────
