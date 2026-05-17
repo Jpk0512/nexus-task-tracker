@@ -1265,7 +1265,7 @@ export function TodosView() {
 								key={t.id}
 								todo={t}
 								projects={projects}
-								onCheck={() => checkMut.mutate({ id: t.id })}
+								onCheck={() => markDoneOptimistic.run(t)}
 								onUncheck={() => uncheckMut.mutate({ id: t.id })}
 								onDelete={() => deleteMut.mutate({ id: t.id })}
 								onOpen={() => setOpenTodoId(t.id)}

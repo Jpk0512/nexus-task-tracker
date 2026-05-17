@@ -10,6 +10,7 @@ import { AssigneeAvatar } from "@/components/asignee-avatar";
 import { StatusChangedChip } from "@/components/status-changed-chip";
 import { StatusIcon } from "@/components/status-icon";
 import { MetadataConflictBadge } from "@/components/tasks/metadata-conflict-badge";
+import { IS_SINGLE_USER_MODE } from "@/lib/single-user-mode";
 
 // Linear renders priority as a 3-bar signal-strength glyph, not a pill.
 // Urgent + high get a colored tint; medium/low stay neutral.
@@ -248,15 +249,17 @@ export function TriageCard({
 							</span>
 						)}
 						{task.dueDate && <DueDatePill dueDate={task.dueDate} />}
-						<div className="ml-auto">
-							<AssigneeAvatar
-								name={task.assignee?.name}
-								email={task.assignee?.email}
-								image={task.assignee?.image}
-								color={task.assignee?.color}
-								className="size-4"
-							/>
-						</div>
+						{!IS_SINGLE_USER_MODE && (
+							<div className="ml-auto">
+								<AssigneeAvatar
+									name={task.assignee?.name}
+									email={task.assignee?.email}
+									image={task.assignee?.image}
+									color={task.assignee?.color}
+									className="size-4"
+								/>
+							</div>
+						)}
 					</div>
 				)}
 			</Link>

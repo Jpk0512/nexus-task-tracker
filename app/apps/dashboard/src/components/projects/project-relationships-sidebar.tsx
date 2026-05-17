@@ -317,7 +317,7 @@ function AgentsSection({ projectId }: { projectId: string }) {
 
 	const ownedAgentIds = useMemo(() => {
 		const ids = new Set<string>();
-		for (const m of (milestonesQuery.data ?? []) as Array<{
+		for (const m of (milestonesQuery.data?.data ?? []) as Array<{
 			ownerAgentId?: string | null;
 		}>) {
 			if (m.ownerAgentId) ids.add(m.ownerAgentId);
@@ -326,7 +326,7 @@ function AgentsSection({ projectId }: { projectId: string }) {
 	}, [milestonesQuery.data]);
 
 	const agents = useMemo(() => {
-		const rows = (agentsQuery.data ?? []) as Array<{
+		const rows = (agentsQuery.data?.data ?? []) as Array<{
 			id: string;
 			name: string;
 			description?: string | null;
