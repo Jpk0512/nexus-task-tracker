@@ -74,11 +74,29 @@ Compose volume: `mimrai-pg-data` (live: `app_mimrai-pg-data`). Not renamed in it
 
 ## Deferred to future iters
 
-- Rename `MIMRAI_LOCAL_DEV` → `NEXUS_LOCAL_DEV` (18 consumers; requires container restart)
-- Rename `MIMRAI_SSR_SERVER_URL` → `NEXUS_SSR_SERVER_URL` (2 consumers; requires container restart)
-- Rename volume `mimrai-pg-data` → `nexus-pg-data` (requires data migration to avoid orphan)
-- Delete `app/apps/website/` (34 .tsx files of upstream marketing site — never deployed)
-- Monorepo package namespace cleanup (`@mimir/*` pre-existing typo from upstream)
+### Project-name string holdouts (require coordinated changes)
+- Rename `MIMRAI_LOCAL_DEV` → `NEXUS_LOCAL_DEV` env var (18 consumers across api + dashboard; requires container restart)
+- Rename `MIMRAI_SSR_SERVER_URL` → `NEXUS_SSR_SERVER_URL` env var (2 consumers; requires container restart)
+- Rename volume `mimrai-pg-data` → `nexus-pg-data` (would orphan `app_mimrai-pg-data`; requires data migration via pg_dump/restore or rename SQL)
+- Rename Postgres credentials `POSTGRES_USER/PW/DB=mimrai` → `nexus` (would invalidate connection from running containers; requires SQL `ALTER USER` + `ALTER DATABASE` + container restart)
+- Rename Docker image tag `local-mimrai/node:20-alpine` → `local-nexus/node:20-alpine` (cosmetic; takes effect on next rebuild)
+- Rename seed email literals `dev@mimrai.local`, `{teamId}-main@mimrai.com` → `*@nexus.local` (live seed data in DB; would orphan auth references unless coordinated with a re-seed)
+- Rename MCP wire-protocol identifiers (tool names `mimrai_*`, scope strings `mimrai:tasks:*`, server `name: "mimrai-mcp-server"`, OAuth `client_id: "mimrai"`, JWT audience `mimrai.com`) — these are runtime contracts; any MCP client already configured against the current API would break. Schedule as a "MCP wire rebrand" iter that coordinates client-side updates.
+
+### Code/dir cleanups (scope grew beyond iter 9)
+- Delete `app/apps/website/` (34 .tsx files: hero, pricing, waitlist, policy, sitemap — upstream marketing site, never deployed)
+- Delete `app/apps/desktop/` (3 mimrai-named config files — desktop wrapper not in use)
+- Monorepo package namespace cleanup (`@mimir/*` is a pre-existing typo from the upstream app; rename to `@nexus/*` requires touching imports across the whole monorepo)
+
+### Known pre-existing TS debt (surfaced in iter 9 LSP run, not introduced by rebrand)
+- `mcp-server/server.ts` — missing `@types/node` (10 errors on `node:fs`, `node:path`, `process`). Fix: add `@types/node` to mcp-server's devDependencies.
+- `app/packages/db/src/scan-library.ts` — 8 strict-null-check failures from optional split-array indexing.
+- `app/apps/dashboard/src/components/prompts/list-view.tsx` — 4 property-access errors on a `{ id: string }` type that should be wider.
+- `app/apps/api/src/utils/workflow.ts` — `generateObject` deprecated (AI SDK upgrade), `color` unused import.
+- `app/apps/dashboard/src/app/team/error.tsx` — unused `useEffect` + `reset` parameter.
+- `app/apps/dashboard/src/components/app-sidebar/main.tsx` — unused `Logo` import.
+
+These were verified pre-existing in iter 9 by diffing each affected file vs the iter-8 baseline `5a3c634` — every forge edit was a surgical 1-4 line string/comment rename, never at the error sites. `bun run check-types` was confirmed clean against the iter-8 baseline (failures predate this branch). Cleanup can land in a dedicated "TS debt sweep" iter.
 
 ## Pointers
 
