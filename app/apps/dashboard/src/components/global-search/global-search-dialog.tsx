@@ -19,7 +19,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useDebounceValue } from "usehooks-ts";
 import { useUser } from "@/components/user-provider";
 import { trpc } from "@/utils/trpc";
+import { ACTIONS, findActionById } from "./actions-catalogue";
 import { GlobalSearchProvider, useGlobalSearch } from "./global-search-context";
+import {
+	isCommandItem,
+	loadLastCommand,
+	recordCommand,
+	useLastCommand,
+} from "./repeat-last-command";
 import { SearchResultItem } from "./search-result-item";
 import type { GlobalSearchItem } from "./types";
 
@@ -74,57 +81,8 @@ function persistRecent(item: GlobalSearchItem): void {
 	}
 }
 
-// ─── Actions catalogue ───────────────────────────────────────────────────
-// Static for now — the palette surfaces these when the user types a `/` prefix
-// or switches to the Actions tab. Each action gets `id: 'action:*'` so the
-// existing ActionResultItem renderer picks them up.
-const ACTIONS: GlobalSearchItem[] = [
-	{
-		id: "action:new-task",
-		type: "task",
-		title: "/new task",
-		teamId: "",
-	},
-	{
-		id: "action:new-document",
-		type: "document",
-		title: "/new doc",
-		teamId: "",
-	},
-	{
-		id: "action:new-project",
-		type: "project",
-		title: "/new project",
-		teamId: "",
-	},
-	{
-		id: "action:toggle-sidebar",
-		type: "navigation",
-		title: "/toggle sidebar",
-		teamId: "",
-	},
-	{
-		id: "action:go-settings-labels",
-		type: "navigation",
-		title: "/go to settings/labels",
-		teamId: "",
-		href: "/settings/labels",
-	},
-	{
-		id: "action:go-settings-shortcuts",
-		type: "navigation",
-		title: "/go to settings/shortcuts",
-		teamId: "",
-		href: "/settings/shortcuts",
-	},
-	{
-		id: "action:open-inbox",
-		type: "navigation",
-		title: "/open inbox",
-		teamId: "",
-		href: "/inbox",
-	},
-];
+// Static Actions catalogue lives in `./actions-catalogue` so it can be reused
+// by the repeat-last (Cmd+.) and quick-open (Cmd+O) delighters.
 
 const defaultSearchState: GlobalSearchItem[] = [
 	{
@@ -367,13 +325,38 @@ export const GlobalSearchDialog = ({
 		return grouped;
 	}, [data, parsed.query, defaultState]);
 
+	// Track the last command-style invocation so we can surface it as a
+	// "Repeat: <…>" affordance at the top of the Actions tab (codex
+	// delighter #8). The hook subscribes to in-tab + cross-tab updates.
+	const lastCommand = useLastCommand();
+
 	// Actions tab / action-prefix mode → render the local ACTIONS catalogue
 	// (filtered by the parsed query) instead of server results.
+	//
+	// When there's a remembered last-command we prepend a synthetic
+	// "Repeat: <…>" entry (id `action:repeat-last`) so the user can re-fire
+	// it with a single keystroke from inside the palette. The repeat row
+	// only shows when the input is empty — once the user types we get out
+	// of the way.
 	const actionMatches = useMemo(() => {
 		const q = parsed.query.toLowerCase();
-		if (!q) return ACTIONS;
-		return ACTIONS.filter((a) => a.title.toLowerCase().includes(q));
-	}, [parsed.query]);
+		const base = q
+			? ACTIONS.filter((a) => a.title.toLowerCase().includes(q))
+			: ACTIONS;
+		if (!lastCommand || q) return base;
+		const target = findActionById(lastCommand.id);
+		if (!target) return base;
+		const repeatRow: GlobalSearchItem = {
+			id: "action:repeat-last",
+			type: target.type,
+			title: `Repeat: ${target.title}`,
+			teamId: target.teamId,
+			href: target.href,
+		};
+		// De-duplicate — if the underlying action would also appear in `base`,
+		// we still keep both so the user can see what the repeat refers to.
+		return [repeatRow, ...base];
+	}, [parsed.query, lastCommand]);
 
 	const orderedEntries = useMemo(() => {
 		if (isActionsOnly || parsed.mode === "action") {
@@ -400,9 +383,17 @@ export const GlobalSearchDialog = ({
 
 	// Wrap the existing onSelect (or default close) with the recent-items
 	// persistence side-effect so every successful pick gets recorded.
+	//
+	// Command-style picks (id `action:*`) also flow through `recordCommand`
+	// so the Cmd+. "repeat last" shortcut has something to fire (codex
+	// delighter #8). Entity picks stay on the recent-items list only.
 	const recordRecent = useCallback((item: GlobalSearchItem) => {
-		if (item.id.startsWith("action:") || item.id.startsWith("navigate:")) {
-			// Actions / nav rows aren't entities — don't pollute the recent list.
+		if (isCommandItem(item)) {
+			recordCommand(item);
+			return;
+		}
+		if (item.id.startsWith("navigate:")) {
+			// Nav rows aren't entities — don't pollute the recent list.
 			return;
 		}
 		persistRecent(item);

@@ -1,41 +1,38 @@
-import { CornerDownLeftIcon } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useProjectParams } from "@/hooks/use-project-params";
-import { useTaskParams } from "@/hooks/use-task-params";
+import { CornerDownLeftIcon, RotateCwIcon } from "lucide-react";
+import { findActionById } from "../actions-catalogue";
 import { useGlobalSearch } from "../global-search-context";
+import { loadLastCommand, recordCommand } from "../repeat-last-command";
 import type { ResultItemProps } from "../types";
+import { useActionDispatcher } from "../use-action-dispatcher";
 import { BaseResultItem } from "./base-result-item";
 
 export const ActionResultItem = ({ item }: ResultItemProps) => {
-	const router = useRouter();
 	const { onOpenChange, basePath } = useGlobalSearch();
-	const { setParams: setTaskParams } = useTaskParams();
-	const { setParams: setProjectParams } = useProjectParams();
+	const dispatch = useActionDispatcher(basePath);
 
 	const handleSelect = () => {
-		switch (item.id) {
-			case "action:view-projects": {
-				router.push(`${basePath}/projects`);
-				break;
+		if (item.id === "action:repeat-last") {
+			const last = loadLastCommand();
+			const target = last ? findActionById(last.id) : undefined;
+			if (target) {
+				dispatch(target);
+				// Recording the repeat keeps the "last command" sticky — the
+				// user can chain Cmd+. forever without it drifting back to an
+				// older command.
+				recordCommand(target);
 			}
-			case "action:create-task": {
-				setTaskParams({ createTask: true });
-				break;
-			}
-			case "action:create-project": {
-				setProjectParams({ createProject: true });
-				break;
-			}
-			default:
-				break;
+		} else {
+			dispatch(item);
 		}
 		onOpenChange(false);
 	};
 
+	const isRepeat = item.id === "action:repeat-last";
+
 	return (
 		<BaseResultItem
 			onSelect={handleSelect}
-			icon={CornerDownLeftIcon}
+			icon={isRepeat ? RotateCwIcon : CornerDownLeftIcon}
 			iconColor={item.color}
 			title={item.title}
 		/>

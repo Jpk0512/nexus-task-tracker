@@ -192,6 +192,15 @@ export const SHORTCUTS: ShortcutSpec[] = [
 		description:
 			"Focus the natural-language quick-capture bar on the Home page.",
 	},
+	// ─── Palette delighters (codex review §2 — Linear/Raycast parity) ──────
+	{
+		keys: "mod+.",
+		label: "Repeat last command",
+		scope: "global",
+		action: "palette.repeat-last",
+		description:
+			"Re-fire the most-recent command-style palette invocation (Linear-style).",
+	},
 	// ─── Route-scoped ──────────────────────────────────────────────────────
 	{
 		keys: "c",
