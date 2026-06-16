@@ -21,7 +21,7 @@ export default async function Layout({ children, params }: Props) {
 	const session = await getSession();
 
 	// Local-dev: skip the sign-in redirect; the api injects the seed user.
-	const LOCAL_DEV = process.env.MIMRAI_LOCAL_DEV === "1";
+	const LOCAL_DEV = process.env.NEXUS_LOCAL_DEV === "1";
 
 	if (!LOCAL_DEV && !session?.user?.teamSlug) {
 		return redirect("/sign-in");

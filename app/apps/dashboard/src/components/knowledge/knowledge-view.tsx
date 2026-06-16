@@ -682,7 +682,7 @@ function EmptyState({
 				<p className="max-w-md text-balance text-[12px] text-muted-foreground">
 					Markdown notes sync with your Obsidian vault at{" "}
 					<code className="rounded bg-muted px-1.5 py-0.5 text-[11px]">
-						/Users/john.keeney/mimrai-knowledge
+						/Users/john.keeney/nexus-knowledge
 					</code>
 					. Start with one of the actions below.
 				</p>

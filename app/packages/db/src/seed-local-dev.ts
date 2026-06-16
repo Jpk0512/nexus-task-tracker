@@ -5,7 +5,7 @@
 //
 //   docker run --rm --network supabase_default \
 //     -e DATABASE_URL=postgresql://postgres:your-super-secret-and-long-postgres-password@db:5432/postgres \
-//     -e MIMRAI_LOCAL_DEV=1 \
+//     -e NEXUS_LOCAL_DEV=1 \
 //     -w /app/packages/db \
 //     app-api \
 //     /usr/local/bin/bun run src/seed-local-dev.ts
@@ -35,7 +35,7 @@ const db = drizzle(pool);
 const USER_ID = "local-dev-user";
 const TEAM_ID = "local-dev-team";
 const TEAM_SLUG = "local-dev";
-const EMAIL = "dev@mimrai.local";
+const EMAIL = "dev@nexus.local";
 
 // Dev-workflow statuses — Linear-style names tuned for coding projects.
 const STATUS_IDS = {

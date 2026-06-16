@@ -1,7 +1,7 @@
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 
-const LOCAL_DEV = process.env.MIMRAI_LOCAL_DEV === "1";
+const LOCAL_DEV = process.env.NEXUS_LOCAL_DEV === "1";
 
 const getRedis = () => {
 	const redisUrl = process.env.UPSTASH_REDIS_REST_URL;

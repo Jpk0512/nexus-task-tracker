@@ -31,7 +31,7 @@ export const getSession = async (
 		cache: "default",
 	},
 ) => {
-	if (process.env.MIMRAI_LOCAL_DEV === "1") {
+	if (process.env.NEXUS_LOCAL_DEV === "1") {
 		return {
 			user: { ...LOCAL_DEV_USER },
 			session: { ...LOCAL_DEV_SESSION },

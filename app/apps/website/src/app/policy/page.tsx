@@ -13,18 +13,18 @@ export default function page() {
 				<p>
 					This Privacy Policy describes how{" "}
 					<strong>
-						I, Alain Alvarez Lopez, operating Mimrai as an individual
+						I, Alain Alvarez Lopez, operating Nexus as an individual
 					</strong>
 					, collect, use, and protect your information when you use the service
-					(“Mimrai”, “the Service”, “I”, “my”). By using Mimrai, you agree to
+					(“Nexus”, “the Service”, “I”, “my”). By using Nexus, you agree to
 					the practices described in this Policy.
 				</p>
 
 				<h2>2. Definitions</h2>
 				<ul>
 					<li>
-						<strong>Service</strong>: the Mimrai application available at{" "}
-						<em>mimrai.com</em> and its subdomains.
+						<strong>Service</strong>: the Nexus application available at{" "}
+						<em>localhost:5179</em> and its subdomains.
 					</li>
 					<li>
 						<strong>Personal Data</strong>: information that can identify a
@@ -39,7 +39,7 @@ export default function page() {
 						process data on my behalf (hosting, database, analytics, AI).
 					</li>
 					<li>
-						<strong>User</strong>: any person who accesses or uses Mimrai.
+						<strong>User</strong>: any person who accesses or uses Nexus.
 					</li>
 				</ul>
 
@@ -83,7 +83,7 @@ export default function page() {
 				<h2>4. How I Use the Information</h2>
 				<p>I process your information to:</p>
 				<ul>
-					<li>Operate and maintain Mimrai</li>
+					<li>Operate and maintain Nexus</li>
 					<li>Enable AI-powered features</li>
 					<li>Improve overall performance and user experience</li>
 					<li>Send service-related notifications</li>
@@ -99,7 +99,7 @@ export default function page() {
 				</p>
 				<ul>
 					<li>Your consent</li>
-					<li>Performance of a contract (your use of Mimrai)</li>
+					<li>Performance of a contract (your use of Nexus)</li>
 					<li>My legitimate interest in improving and securing the Service</li>
 					<li>Compliance with legal obligations</li>
 				</ul>
@@ -121,7 +121,7 @@ export default function page() {
 				<h2>8. Service Providers (Processors)</h2>
 				<p>
 					I may share information with trusted third-party providers strictly
-					necessary to run Mimrai, such as:
+					necessary to run Nexus, such as:
 				</p>
 				<ul>
 					<li>Hosting (e.g., Vercel)</li>
@@ -166,7 +166,7 @@ export default function page() {
 
 				<h2>11. Children’s Privacy</h2>
 				<p>
-					Mimrai is not intended for children under 13. I do not knowingly
+					Nexus is not intended for children under 13. I do not knowingly
 					collect information from minors. If you believe a child has used the
 					Service, contact me so I can remove their data.
 				</p>
@@ -190,7 +190,7 @@ export default function page() {
 					<a href="mailto:alain00.alvarez@gmail.com">
 						alain00.alvarez@gmail.com
 					</a>
-					<br />I operate Mimrai as an individual (sole operator).
+					<br />I operate Nexus as an individual (sole operator).
 				</p>
 			</main>
 		</div>

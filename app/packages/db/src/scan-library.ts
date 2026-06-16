@@ -14,8 +14,8 @@
 //     -e DATABASE_URL=postgresql://postgres:your-super-secret-and-long-postgres-password@db:5432/postgres \
 //     -e LIBRARY_ALLOWED_ROOT=/host-home \
 //     -v /Users/john.keeney:/host-home:ro \
-//     -v /Users/john.keeney/mimrai/app/packages/db/src/schema.ts:/app/packages/db/src/schema.ts:ro \
-//     -v /Users/john.keeney/mimrai/app/packages/db/src/scan-library.ts:/app/packages/db/src/scan-library.ts:ro \
+//     -v /Users/john.keeney/nexus-task-tracker/app/packages/db/src/schema.ts:/app/packages/db/src/schema.ts:ro \
+//     -v /Users/john.keeney/nexus-task-tracker/app/packages/db/src/scan-library.ts:/app/packages/db/src/scan-library.ts:ro \
 //     -w /app/packages/db \
 //     app-api \
 //     /usr/local/bin/bun run src/scan-library.ts
@@ -130,8 +130,8 @@ const DEFAULT_SOURCES: Array<{
 	kindHint: string | null;
 }> = [
 	{
-		label: "mimrai .claude",
-		rootPath: `${ALLOWED_ROOT}/mimrai/.claude`,
+		label: "nexus-task-tracker .claude",
+		rootPath: `${ALLOWED_ROOT}/nexus-task-tracker/.claude`,
 		kindHint: null,
 	},
 	{
@@ -146,7 +146,7 @@ const DEFAULT_SOURCES: Array<{
 	},
 	{
 		label: "Nexus",
-		rootPath: `${ALLOWED_ROOT}/mimrai/nexus-orchestrator`,
+		rootPath: `${ALLOWED_ROOT}/nexus-task-tracker/.claude`,
 		kindHint: "orchestration",
 	},
 ];

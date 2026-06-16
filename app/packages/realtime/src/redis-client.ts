@@ -1,6 +1,6 @@
 import { Redis } from "@upstash/redis";
 
-const LOCAL_DEV = process.env.MIMRAI_LOCAL_DEV === "1";
+const LOCAL_DEV = process.env.NEXUS_LOCAL_DEV === "1";
 
 // Stub subscriber that satisfies the @upstash/redis pub-sub shape: callers
 // invoke `.on("subscribe" | "message" | "psubscribe", handler)` and
@@ -29,7 +29,7 @@ function makeStubSubscriber(): any {
 
 // Map-backed Upstash-shaped fake. Implements only the methods this codebase
 // touches; everything else returns null/no-op via a Proxy fallback. Guarded
-// by MIMRAI_LOCAL_DEV so upstream behavior is byte-identical when unset.
+// by NEXUS_LOCAL_DEV so upstream behavior is byte-identical when unset.
 function makeLocalRedis(): any {
 	const store = new Map<string, unknown>();
 	const ttls = new Map<string, number>();

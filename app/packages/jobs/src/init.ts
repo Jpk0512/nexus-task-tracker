@@ -2,7 +2,7 @@ import type { Database } from "@mimir/db/client";
 import { createJobDb } from "@mimir/db/job-client";
 import { locals as realLocals, tasks as realTasks } from "@trigger.dev/sdk";
 
-const LOCAL_DEV = process.env.MIMRAI_LOCAL_DEV === "1";
+const LOCAL_DEV = process.env.NEXUS_LOCAL_DEV === "1";
 
 function recursiveTriggerStub(label: string): any {
 	return new Proxy(() => {}, {

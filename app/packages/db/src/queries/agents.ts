@@ -107,7 +107,7 @@ export const createAgent = async (input: {
 				isMentionable: true,
 				image: input.avatar,
 				teamId: input.teamId,
-				email: input.email ?? `${crypto.randomUUID()}@mimrai.com`,
+				email: input.email ?? `${crypto.randomUUID()}@nexus.local`,
 				createdAt: new Date(),
 				emailVerified: true,
 				updatedAt: new Date(),

@@ -37,13 +37,11 @@ export const OpenSource: React.FC = () => {
 						transition={{ delay: 0.2 }}
 						className="mb-8 text-lg text-zinc-400 leading-relaxed"
 					>
-						Mimrai is early, open source, and building in public. We believe the
-						best tools are built with their users, not just for them.
+						Nexus is a personal, local-first task system. Built for one user,
+						extensible by design.
 						<br />
 						<br />
-						This is a big opportunity to be among the first. Your opinion
-						matters. Join us early to request features, report bugs, and
-						directly influence our roadmap.
+						Fork it, extend it, and make it your own.
 					</motion.p>
 
 					<motion.div
@@ -56,7 +54,7 @@ export const OpenSource: React.FC = () => {
 						<Button
 							variant="default"
 							onClick={() =>
-								window.open("https://github.com/mimrai-org/mimrai", "_blank")
+								window.open("https://github.com/Jpk0512/nexus-task-tracker", "_blank")
 							}
 						>
 							<GithubIcon size={16} />

@@ -7,7 +7,7 @@
 # Then this stack:
 #   docker compose -f docker-compose.local.yaml up -d --build
 #
-# See /Users/john.keeney/mimrai/docs/LOCAL_DEV.md for the full flow.
+# See /Users/john.keeney/nexus-task-tracker/docs/LOCAL_DEV.md for the full flow.
 
 services:
   postgres:
@@ -56,7 +56,7 @@ services:
       # services were dead weight under the 7.75GB Docker VM).
       DATABASE_URL: postgresql://mimrai:mimrai@postgres:5432/mimrai
       REDIS_URL: redis://redis:6379
-      MIMRAI_LOCAL_DEV: "1"
+      NEXUS_LOCAL_DEV: "1"
       ALLOWED_API_ORIGINS: http://localhost:5179
       # Real supabase URL + keys (kong gateway inside supabase network).
       SUPABASE_URL: http://kong:8000
@@ -71,12 +71,11 @@ services:
     ports:
       - "3003:3003"
     volumes:
-      - /Users/john.keeney/mimrai/.claude:/host/mimrai-claude
+      - /Users/john.keeney/nexus-task-tracker/.claude:/host/mimrai-claude
       - /Users/john.keeney/ai-interaction-dash/.claude:/host/aid-claude
       - /Users/john.keeney/elevenlabs-eval-dash/.claude:/host/eed-claude
-      - /Users/john.keeney/mimrai/nexus-orchestrator:/host/nexus
       # Knowledge — the user's Obsidian-compatible vault. Read-write.
-      - /Users/john.keeney/mimrai-knowledge:/host/knowledge
+      - /Users/john.keeney/nexus-knowledge:/host/knowledge
     networks:
       - default
     depends_on:
@@ -100,9 +99,9 @@ services:
       NEXT_PUBLIC_SERVER_URL: http://localhost:3003
       NEXT_PUBLIC_SUPABASE_URL: http://localhost:8000
       NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE
-      NEXT_PUBLIC_MIMRAI_LOCAL_DEV: "1"
-      MIMRAI_LOCAL_DEV: "1"
-      MIMRAI_SSR_SERVER_URL: http://api:3003
+      NEXT_PUBLIC_NEXUS_LOCAL_DEV: "1"
+      NEXUS_LOCAL_DEV: "1"
+      NEXUS_SSR_SERVER_URL: http://api:3003
     ports:
       - "5179:3000"
     depends_on:

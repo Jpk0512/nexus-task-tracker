@@ -49,8 +49,8 @@ export const Hero: React.FC = () => {
 					transition={{ duration: 0.6, ease: "easeOut", delay: 0.2 }}
 					className="mb-10 max-w-2xl font-light text-lg text-zinc-400 leading-relaxed md:text-xl"
 				>
-					More than a project manager. Mimrai is an intelligent companion that
-					understands your team's rhythm, filters operational noise, and guides
+					More than a project manager. Nexus is an intelligent companion that
+					understands your workflow, filters operational noise, and guides
 					you through complexity with calm and focus.
 				</motion.p>
 
@@ -65,7 +65,7 @@ export const Hero: React.FC = () => {
 							size="lg"
 							className="w-full min-w-[160px] gap-2 rounded-full sm:w-auto"
 						>
-							Meet Mimir <ArrowRight size={16} />
+							Open Nexus <ArrowRight size={16} />
 						</Button>
 					</Link>
 
@@ -74,7 +74,7 @@ export const Hero: React.FC = () => {
 						size="lg"
 						className="w-full min-w-[160px] gap-2 rounded-full sm:w-auto"
 						onClick={() =>
-							window.open("https://github.com/mimrai-org/mimrai", "_blank")
+							window.open("https://github.com/Jpk0512/nexus-task-tracker", "_blank")
 						}
 					>
 						<Github size={16} />

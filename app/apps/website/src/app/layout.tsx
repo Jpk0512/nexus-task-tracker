@@ -24,25 +24,24 @@ const notoSansRunic = Noto_Sans_Runic({
 
 export const metadata: Metadata = {
 	metadataBase: new URL(
-		process.env.NEXT_PUBLIC_SITE_URL || "https://mimrai.com",
+		process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:5179",
 	),
 	title: {
-		default: "Mimrai - Minimalist Task Management Tool",
-		template: "%s | Mimrai",
+		default: "Nexus - Personal Task System",
+		template: "%s | Nexus",
 	},
 	description:
-		"Open source minimalist task management tool to track your tasks and projects with ease. Built with AI-powered features.",
+		"Local-only personal task system with AI-powered features.",
 	keywords: [
 		"task management",
 		"project management",
 		"productivity",
-		"open source",
 		"AI assistant",
-		"minimalist",
+		"personal",
 	],
-	authors: [{ name: "Mimrai" }],
-	creator: "Mimrai",
-	publisher: "Mimrai",
+	authors: [{ name: "Nexus" }],
+	creator: "Nexus",
+	publisher: "Nexus",
 	robots: {
 		index: true,
 		follow: true,
@@ -58,17 +57,17 @@ export const metadata: Metadata = {
 		type: "website",
 		locale: "en_US",
 		url: "/",
-		title: "Mimrai - Minimalist Task Management Tool",
+		title: "Nexus - Personal Task System",
 		description:
-			"Open source minimalist task management tool to track your tasks and projects with ease.",
-		siteName: "Mimrai",
+			"Local-only personal task system with AI-powered features.",
+		siteName: "Nexus",
 	},
 	twitter: {
 		card: "summary_large_image",
-		title: "Mimrai - Minimalist Task Management Tool",
+		title: "Nexus - Personal Task System",
 		description:
-			"Open source minimalist task management tool to track your tasks and projects with ease.",
-		creator: "@mimrai",
+			"Local-only personal task system with AI-powered features.",
+		creator: "@nexus",
 	},
 	alternates: {
 		canonical: "/",

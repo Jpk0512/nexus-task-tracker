@@ -27,7 +27,7 @@ const formatUsd = (amountCents: number) => {
 
 export const NavCredits = () => {
 	// Local-dev: there is no billing — hide the chrome entirely.
-	if (process.env.NEXT_PUBLIC_MIMRAI_LOCAL_DEV === "1") return null;
+	if (process.env.NEXT_PUBLIC_NEXUS_LOCAL_DEV === "1") return null;
 
 	const [amountCents, setAmountCents] = useState(CREDIT_PACKS[0]);
 	const [custom, setCustom] = useState(false);

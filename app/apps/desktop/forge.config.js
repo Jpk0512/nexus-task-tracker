@@ -1,6 +1,6 @@
 module.exports = {
 	packagerConfig: {
-		name: "mimrai",
+		name: "nexus",
 		asar: true,
 		osxSign: {},
 		appCategoryType: "public.app-category.developer-tools",
@@ -9,7 +9,7 @@ module.exports = {
 		{
 			name: "@electron-forge/maker-squirrel",
 			config: {
-				executableName: "mimrai",
+				executableName: "nexus",
 			},
 		},
 		{
@@ -19,13 +19,13 @@ module.exports = {
 		{
 			name: "@electron-forge/maker-deb",
 			config: {
-				executableName: "mimrai",
+				executableName: "nexus",
 			},
 		},
 		{
 			name: "@electron-forge/maker-rpm",
 			config: {
-				executableName: "mimrai",
+				executableName: "nexus",
 			},
 		},
 	],
@@ -34,8 +34,8 @@ module.exports = {
 			name: "@electron-forge/publisher-github",
 			config: {
 				repository: {
-					owner: "mimrai-org",
-					name: "mimrai",
+					owner: "Jpk0512",
+					name: "nexus-task-tracker",
 				},
 				prerelease: true,
 			},

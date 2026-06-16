@@ -35,7 +35,7 @@ export const withAuth: MiddlewareHandler = async (c, next) => {
 	}
 
 	// Local-dev fallback: inject seeded user so REST routes work without auth.
-	if (process.env.MIMRAI_LOCAL_DEV === "1") {
+	if (process.env.NEXUS_LOCAL_DEV === "1") {
 		const user = await getUserById(LOCAL_DEV_USER_ID);
 		if (!user) {
 			throw new HTTPException(401, {

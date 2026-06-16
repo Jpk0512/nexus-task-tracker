@@ -6,7 +6,7 @@
 // Only import and initialize Sentry in production
 if (
 	process.env.NODE_ENV === "production" &&
-	process.env.MIMRAI_LOCAL_DEV !== "1"
+	process.env.NEXUS_LOCAL_DEV !== "1"
 ) {
 	const Sentry = require("@sentry/nextjs");
 

@@ -5,7 +5,7 @@ import {
 } from "@openpanel/nextjs";
 
 const isProd = process.env.NODE_ENV === "production";
-const LOCAL_DEV = process.env.NEXT_PUBLIC_MIMRAI_LOCAL_DEV === "1";
+const LOCAL_DEV = process.env.NEXT_PUBLIC_NEXUS_LOCAL_DEV === "1";
 
 const Provider = ({ profileId }: { profileId: string }) => {
 	if (LOCAL_DEV) {

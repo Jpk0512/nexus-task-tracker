@@ -9,10 +9,10 @@
  * drift.
  *
  * We piggy-back on the SAME env var the auth bypass already uses
- * (`MIMRAI_LOCAL_DEV` on the server, `NEXT_PUBLIC_MIMRAI_LOCAL_DEV` mirror
+ * (`NEXUS_LOCAL_DEV` on the server, `NEXT_PUBLIC_NEXUS_LOCAL_DEV` mirror
  * for the client bundle) so there is one source of truth. Introducing a
  * separate flag would create the IA drift codex flagged. The mirror is
- * required because `process.env.MIMRAI_LOCAL_DEV` is undefined in the
+ * required because `process.env.NEXUS_LOCAL_DEV` is undefined in the
  * browser bundle unless prefixed with `NEXT_PUBLIC_`.
  *
  * Usage:
@@ -24,5 +24,5 @@
  * the production bundle in hosted mode.
  */
 export const IS_SINGLE_USER_MODE: boolean =
-	process.env.NEXT_PUBLIC_MIMRAI_LOCAL_DEV === "1" ||
-	process.env.MIMRAI_LOCAL_DEV === "1";
+	process.env.NEXT_PUBLIC_NEXUS_LOCAL_DEV === "1" ||
+	process.env.NEXUS_LOCAL_DEV === "1";

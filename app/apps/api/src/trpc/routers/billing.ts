@@ -22,7 +22,7 @@ export const billingRouter = router({
 
 		// Local-dev: skip Stripe lookups entirely; report an active "team"
 		// subscription so paywalls don't block the UI.
-		if (process.env.MIMRAI_LOCAL_DEV === "1") {
+		if (process.env.NEXUS_LOCAL_DEV === "1") {
 			return {
 				trialEnd: Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60,
 				status: "active",

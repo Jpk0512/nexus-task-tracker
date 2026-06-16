@@ -1,7 +1,7 @@
 import { Stripe } from "stripe";
 
 const LOCAL_DEV =
-	process.env.MIMRAI_LOCAL_DEV === "1" ||
+	process.env.NEXUS_LOCAL_DEV === "1" ||
 	process.env.DISABLE_BILLING === "true";
 
 // Stripe responses come in roughly four shapes that Nexus's callers reach for:

@@ -172,7 +172,7 @@ export const getAvailableTeams = async (userId: string) => {
 };
 
 export const getMimirUser = async ({ teamId }: { teamId: string }) => {
-	const email = `${teamId}-main@mimrai.com`;
+	const email = `${teamId}-main@nexus.local`;
 	const [systemUser] = await db
 		.select()
 		.from(agents)

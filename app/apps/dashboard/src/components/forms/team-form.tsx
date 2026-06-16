@@ -167,7 +167,7 @@ export const TeamForm = ({
 									<FormControl>
 										<div className="relative">
 											<div className="pointer-events-none absolute top-0 left-0 flex h-full items-center pl-3 text-muted-foreground text-sm">
-												https://mimrai.com/
+												http://localhost:5179/
 											</div>
 											<Input
 												placeholder="acme"

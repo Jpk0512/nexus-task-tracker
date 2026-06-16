@@ -1,15 +1,8 @@
 export function getEmailFrom() {
-	return "Mimir <mimir@grupo-titanio.com>";
+	return "Nexus <nexus@localhost>";
 }
 
 export function getAppUrl() {
-	if (
-		process.env.VERCEL_ENV === "production" ||
-		process.env.NODE_ENV === "production"
-	) {
-		return "https://app.mimrai.com";
-	}
-
 	if (process.env.VERCEL_ENV === "preview") {
 		return `https://${process.env.VERCEL_URL}`;
 	}
@@ -18,21 +11,10 @@ export function getAppUrl() {
 }
 
 export function getEmailUrl() {
-	if (process.env.NODE_ENV === "development") {
-		return "http://localhost:3000";
-	}
-
-	return "https://app.mimrai.com";
+	return "http://localhost:3000";
 }
 
 export function getWebsiteUrl() {
-	if (
-		process.env.VERCEL_ENV === "production" ||
-		process.env.NODE_ENV === "production"
-	) {
-		return "https://mimrai.com";
-	}
-
 	if (process.env.VERCEL_ENV === "preview") {
 		return `https://${process.env.VERCEL_URL}`;
 	}
@@ -41,19 +23,12 @@ export function getWebsiteUrl() {
 }
 
 export function getCdnUrl() {
-	return "https://cdn.mimrai.com";
+	return "http://localhost:3000";
 }
 
 export function getApiUrl() {
 	if (process.env.NEXT_PUBLIC_SERVER_URL) {
 		return process.env.NEXT_PUBLIC_SERVER_URL;
-	}
-
-	if (
-		process.env.VERCEL_ENV === "production" ||
-		process.env.NODE_ENV === "production"
-	) {
-		return "https://api.mimrai.com";
 	}
 
 	return "http://localhost:3003";

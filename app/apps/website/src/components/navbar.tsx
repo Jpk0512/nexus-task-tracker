@@ -27,7 +27,7 @@ export const Navbar: React.FC = () => {
 						<Logo className="rounded-sm" />
 						{/* <div className="h-5 w-5 rotate-45 bg-white" /> */}
 						<span className="font-medium text-lg text-white tracking-wide">
-							MIMRAI
+							NEXUS
 						</span>
 					</div>
 				</Link>

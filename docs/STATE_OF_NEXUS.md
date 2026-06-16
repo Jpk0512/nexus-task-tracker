@@ -18,7 +18,7 @@ The project was downloaded from a public GitHub repo (originally a multi-tenant 
 | Backend | Hono + tRPC (`app/apps/api`) |
 | Database | Postgres (pgvector/pgvector:pg16, single container) + Drizzle ORM |
 | Cache | Redis 7 (local container) |
-| Auth | Better Auth library installed but bypassed via `MIMRAI_LOCAL_DEV=1` (hardcoded user) |
+| Auth | Better Auth library installed but bypassed via `NEXUS_LOCAL_DEV=1` (hardcoded user) |
 | Lint/format | Biome |
 | Vector embeddings | pgvector (table exists; vectors not populated yet) |
 | Tracing | None (Sentry stubbed) |
@@ -44,11 +44,11 @@ Compose volume: `mimrai-pg-data` (live: `app_mimrai-pg-data`). Not renamed in it
 
 | Iter | Migration | Rationale |
 |---|---|---|
-| 1 | Upstream app moved into `/Users/john.keeney/mimrai/app/` | Wrap in local-dev shell |
+| 1 | Upstream app moved into `/Users/john.keeney/nexus-task-tracker/app/` | Wrap in local-dev shell |
 | 2 | Nexus orchestrator + memory layer installed alongside app | Agent-driven workflow |
 | 2 | Postgres image swapped: `postgres:16` → `pgvector/pgvector:pg16` | Drizzle uses `vector` type for embeddings |
 | 3 | Adopted Supabase 13-container stack | Wanted auth/storage/realtime |
-| 4 | Auth bypassed via `MIMRAI_LOCAL_DEV=1`; all external services stubbed | Single-user local doesn't need them |
+| 4 | Auth bypassed via `NEXUS_LOCAL_DEV=1`; all external services stubbed | Single-user local doesn't need them |
 | 5 | Kanban + tasks shipped | Core feature |
 | 6 | Mermaid editor | Notion-style page feature |
 | 7 | Rolled back Supabase → single-container pgvector | Only Postgres + pgvector were used |
@@ -75,12 +75,12 @@ Compose volume: `mimrai-pg-data` (live: `app_mimrai-pg-data`). Not renamed in it
 ## Deferred to future iters
 
 ### Project-name string holdouts (require coordinated changes)
-- Rename `MIMRAI_LOCAL_DEV` → `NEXUS_LOCAL_DEV` env var (18 consumers across api + dashboard; requires container restart)
-- Rename `MIMRAI_SSR_SERVER_URL` → `NEXUS_SSR_SERVER_URL` env var (2 consumers; requires container restart)
+- Rename `NEXUS_LOCAL_DEV` env var complete (Phase 0 done)
+- Rename `NEXUS_SSR_SERVER_URL` env var complete (Phase 0 done)
 - Rename volume `mimrai-pg-data` → `nexus-pg-data` (would orphan `app_mimrai-pg-data`; requires data migration via pg_dump/restore or rename SQL)
 - Rename Postgres credentials `POSTGRES_USER/PW/DB=mimrai` → `nexus` (would invalidate connection from running containers; requires SQL `ALTER USER` + `ALTER DATABASE` + container restart)
 - Rename Docker image tag `local-mimrai/node:20-alpine` → `local-nexus/node:20-alpine` (cosmetic; takes effect on next rebuild)
-- Rename seed email literals `dev@mimrai.local`, `{teamId}-main@mimrai.com` → `*@nexus.local` (live seed data in DB; would orphan auth references unless coordinated with a re-seed)
+- Rename seed email literals complete (Phase 0 done: `dev@nexus.local`, `{teamId}-main@nexus.local`; live DB rows may need re-seed)
 - Rename MCP wire-protocol identifiers (tool names `mimrai_*`, scope strings `mimrai:tasks:*`, server `name: "mimrai-mcp-server"`, OAuth `client_id: "mimrai"`, JWT audience `mimrai.com`) — these are runtime contracts; any MCP client already configured against the current API would break. Schedule as a "MCP wire rebrand" iter that coordinates client-side updates.
 
 ### Code/dir cleanups (scope grew beyond iter 9)
@@ -110,7 +110,7 @@ These were verified pre-existing in iter 9 by diffing each affected file vs the 
 ## If you find another stale reference
 
 ```
-cd /Users/john.keeney/mimrai
+cd /Users/john.keeney/nexus-task-tracker
 /opt/homebrew/bin/rg -i 'mimrai' --type-not lock -l
 ```
 

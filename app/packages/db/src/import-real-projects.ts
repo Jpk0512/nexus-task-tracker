@@ -7,10 +7,10 @@
 //
 //   docker run --rm --network supabase_default \
 //     -e DATABASE_URL=postgresql://postgres:your-super-secret-and-long-postgres-password@db:5432/postgres \
-//     -e MIMRAI_LOCAL_DEV=1 \
+//     -e NEXUS_LOCAL_DEV=1 \
 //     -w /app/packages/db \
-//     -v /Users/john.keeney/mimrai/app/packages/db/src/schema.ts:/app/packages/db/src/schema.ts:ro \
-//     -v /Users/john.keeney/mimrai/app/packages/db/src/import-real-projects.ts:/app/packages/db/src/import-real-projects.ts:ro \
+//     -v /Users/john.keeney/nexus-task-tracker/app/packages/db/src/schema.ts:/app/packages/db/src/schema.ts:ro \
+//     -v /Users/john.keeney/nexus-task-tracker/app/packages/db/src/import-real-projects.ts:/app/packages/db/src/import-real-projects.ts:ro \
 //     -v /Users/john.keeney/ai-interaction-dash:/sources/aid:ro \
 //     -v /Users/john.keeney/elevenlabs-eval-dash:/sources/eed:ro \
 //     app-api \

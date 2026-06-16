@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-	const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://mimrai.com";
+	const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:5179";
 	const currentDate = new Date();
 
 	return [

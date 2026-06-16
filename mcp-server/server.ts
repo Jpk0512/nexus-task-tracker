@@ -13,13 +13,13 @@ import {
 import pg from "pg";
 import { z } from "zod";
 
-const TEAM_ID = process.env.MIMRAI_TEAM_ID ?? "local-dev-team";
-const USER_ID = process.env.MIMRAI_USER_ID ?? "local-dev-user";
-const KNOWLEDGE_ROOT = process.env.MIMRAI_KNOWLEDGE_ROOT
-	? resolve(process.env.MIMRAI_KNOWLEDGE_ROOT)
-	: "/Users/john.keeney/mimrai-knowledge";
+const TEAM_ID = process.env.NEXUS_TEAM_ID ?? "local-dev-team";
+const USER_ID = process.env.NEXUS_USER_ID ?? "local-dev-user";
+const KNOWLEDGE_ROOT = process.env.NEXUS_KNOWLEDGE_ROOT
+	? resolve(process.env.NEXUS_KNOWLEDGE_ROOT)
+	: "/Users/john.keeney/nexus-knowledge";
 const DATABASE_URL =
-	process.env.MIMRAI_DATABASE_URL ??
+	process.env.NEXUS_DATABASE_URL ??
 	"postgresql://mimrai:mimrai@localhost:55432/mimrai";
 
 const pool = new pg.Pool({ connectionString: DATABASE_URL });

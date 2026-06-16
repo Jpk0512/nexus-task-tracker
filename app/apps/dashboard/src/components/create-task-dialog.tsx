@@ -35,7 +35,7 @@ import { trpc } from "@/utils/trpc";
 /**
  * Linear-style centered create-task modal.
  *
- * Reference: /Users/john.keeney/mimrai/.claude/skills/designs/references/Screenshot 2026-05-16 at 11.55.28 PM.png
+ * Reference: /Users/john.keeney/nexus-task-tracker/.claude/skills/designs/references/Screenshot 2026-05-16 at 11.55.28 PM.png
  *
  * Layout:
  *   - Header: breadcrumb (Project name or "Workspace") > "New Issue"

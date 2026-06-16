@@ -23,7 +23,7 @@ export async function createContext({ context }: CreateContextOptions) {
 	});
 
 	const userId = session?.user?.id ?? null;
-	const LOCAL_DEV = process.env.MIMRAI_LOCAL_DEV === "1";
+	const LOCAL_DEV = process.env.NEXUS_LOCAL_DEV === "1";
 
 	if (!userId) {
 		if (!LOCAL_DEV) {

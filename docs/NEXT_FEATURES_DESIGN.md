@@ -59,9 +59,9 @@ Brain center. **Same directory Obsidian uses** so you can edit from either side.
 
 ### Vault location
 
-Default: **`/Users/john.keeney/mimrai-knowledge`** (fresh dir, per your choice). The Library-style scoped bind-mount pattern brings it into the api container as `/host/knowledge`. **You can switch this any time from `/team/local-dev/settings/knowledge`** — the model has a `knowledge_vaults` table so multiple vaults are supported.
+Default: **`/Users/john.keeney/nexus-knowledge`** (fresh dir, per your choice). The Library-style scoped bind-mount pattern brings it into the api container as `/host/knowledge`. **You can switch this any time from `/team/local-dev/settings/knowledge`** — the model has a `knowledge_vaults` table so multiple vaults are supported.
 
-Open Obsidian → "Open folder as vault" → point at `/Users/john.keeney/mimrai-knowledge`. Both apps see the same files.
+Open Obsidian → "Open folder as vault" → point at `/Users/john.keeney/nexus-knowledge`. Both apps see the same files.
 
 ### Model
 
@@ -206,24 +206,24 @@ Standalone stdio MCP server wraps the existing tRPC procedures. Drops into `~/.c
 
 ### Install
 
-`/Users/john.keeney/mimrai/mcp-server/` — a small Node project. Single-file `dist/index.js` after `bun build`. Registered in `~/.claude/mcp.json`:
+`/Users/john.keeney/nexus-task-tracker/mcp-server/` — a small Node project. Single-file `dist/index.js` after `bun build`. Registered in `~/.claude/mcp.json`:
 
 ```json
 {
   "mcpServers": {
     "nexus": {
       "command": "node",
-      "args": ["/Users/john.keeney/mimrai/mcp-server/dist/index.js"],
+      "args": ["/Users/john.keeney/nexus-task-tracker/mcp-server/dist/index.js"],
       "env": {
-        "MIMRAI_API": "http://localhost:3003",
-        "MIMRAI_TEAM_ID": "local-dev-team"
+        "NEXUS_DATABASE_URL": "postgresql://mimrai:mimrai@localhost:55432/mimrai",
+        "NEXUS_TEAM_ID": "local-dev-team"
       }
     }
   }
 }
 ```
 
-Authentication is the existing local-dev injection (the api accepts the seed user when `MIMRAI_LOCAL_DEV=1`), so the MCP server doesn't need its own auth for local use. We add a real bearer-token path before this leaves your machine.
+Authentication is the existing local-dev injection (the api accepts the seed user when `NEXUS_LOCAL_DEV=1`), so the MCP server doesn't need its own auth for local use. We add a real bearer-token path before this leaves your machine.
 
 ---
 
