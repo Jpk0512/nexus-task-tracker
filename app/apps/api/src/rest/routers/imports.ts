@@ -1,4 +1,4 @@
-import { createAdminClient } from "@api/lib/supabase";
+import { fileStorageAdapter } from "@api/lib/storage-factory";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { createImport, updateImportStatus } from "@mimir/db/queries/imports";
 import { tasksImportJob } from "@mimir/jobs/imports/tasks-import-job";
@@ -17,27 +17,13 @@ app.post("/tasks/upload", async (c) => {
 		return c.json({ success: false, message: "No file uploaded" }, 400);
 	}
 
-	const supabase = await createAdminClient();
+	const result = await fileStorageAdapter.upload("imports", `${userId}/${file.name}`, file, "text/csv");
 
-	// upload the file to supabase storage
-	const { data, error } = await supabase.storage
-		.from("imports")
-		.upload(`${userId}/${file.name}`, file, {
-			cacheControl: "3600",
-			upsert: true,
-		});
-
-	if (error) {
-		console.error("Error uploading file:", error);
-		return c.json({ success: false, message: "Error uploading file" }, 500);
-	}
-
-	// create a new record in the imports table
 	let taskImport = await createImport({
 		userId,
 		type: "tasks_csv",
 		fileName: file.name,
-		filePath: data.path,
+		filePath: result.path,
 		teamId,
 	});
 

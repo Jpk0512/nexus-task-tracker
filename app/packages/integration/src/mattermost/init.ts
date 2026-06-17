@@ -3,7 +3,7 @@ import { buildAppContext } from "@api/ai/agents/config/shared";
 import { messagingAgent } from "@api/ai/agents/messaging";
 import type { UIChatMessage } from "@api/ai/types";
 import { getUserContext } from "@api/ai/utils/get-user-context";
-import { createAdminClient } from "@api/lib/supabase";
+import { LocalDiskStorageAdapter } from "@mimir/storage";
 import { Client4, type WebSocketMessage } from "@mattermost/client";
 import type { UserProfile } from "@mattermost/types/users";
 import { checkPlanFeatures } from "@mimir/billing";
@@ -325,17 +325,13 @@ export const initMattermostSingle = async (
 													});
 													const fileBlob = await fileResponse.blob();
 
-													const supabase = await createAdminClient();
-													const storageFile = await supabase.storage
-														.from("vault")
-														.upload(
-															`${associetedUser.userId}/${file.id}-${file.name}`,
-															fileBlob,
-															{
-																upsert: true,
-															},
-														);
-													const fullPath = `${process.env.SUPABASE_URL}/storage/v1/object/public/${storageFile.data?.fullPath}`;
+													const storageAdapter = new LocalDiskStorageAdapter();
+													const storageResult = await storageAdapter.upload(
+														"vault",
+														`${associetedUser.userId}/${file.id}-${file.name}`,
+														fileBlob,
+													);
+													const fullPath = storageResult.publicUrl;
 
 													console.log("Attaching file to message:", fullPath);
 
@@ -401,17 +397,13 @@ export const initMattermostSingle = async (
 													});
 													const fileBlob = await fileResponse.blob();
 
-													const supabase = await createAdminClient();
-													const storageFile = await supabase.storage
-														.from("vault")
-														.upload(
-															`${associetedUser.userId}/${file.id}-${file.name}`,
-															fileBlob,
-															{
-																upsert: true,
-															},
-														);
-													const fullPath = `${process.env.SUPABASE_URL}/storage/v1/object/public/${storageFile.data?.fullPath}`;
+													const storageAdapter = new LocalDiskStorageAdapter();
+													const storageResult = await storageAdapter.upload(
+														"vault",
+														`${associetedUser.userId}/${file.id}-${file.name}`,
+														fileBlob,
+													);
+													const fullPath = storageResult.publicUrl;
 
 													console.log("Attaching file to message:", fullPath);
 

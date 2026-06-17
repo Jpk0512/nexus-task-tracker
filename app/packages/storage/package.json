@@ -1,0 +1,16 @@
+{
+	"name": "@mimir/storage",
+	"private": true,
+	"version": "0.0.1",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"scripts": {
+		"clean": "rm -rf .turbo node_modules",
+		"typecheck": "tsc --noEmit"
+	},
+	"devDependencies": {
+		"@mimir/tsconfig": "workspace:*",
+		"typescript": "^5.9.2"
+	}
+}

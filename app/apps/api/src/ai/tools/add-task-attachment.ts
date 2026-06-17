@@ -1,4 +1,4 @@
-import { createAdminClient } from "@api/lib/supabase";
+import { fileStorageAdapter } from "@api/lib/storage-factory";
 import { getTaskById, updateTask } from "@mimir/db/queries/tasks";
 import { tool } from "ai";
 import z from "zod";
@@ -20,28 +20,15 @@ export const addTaskAttachmentTool = tool({
 	inputSchema: addTaskAttachmentToolSchema,
 	execute: async function* (input, executionOptions) {
 		try {
-			const { userId, behalfUserId, teamId } = getToolContext(executionOptions);
-
-			const supabase = await createAdminClient();
+			const { behalfUserId, teamId } = getToolContext(executionOptions);
 
 			const fileBuffer = Buffer.from(input.fileContent);
 
-			const { data, error } = await supabase.storage
-				.from("vault")
-				.upload(
-					`${behalfUserId}/${input.taskId}/${input.fileName}`,
-					fileBuffer,
-					{
-						cacheControl: "3600",
-					},
-				);
-
-			if (error) {
-				throw error;
-			}
-
-			const fileUrl = supabase.storage.from("vault").getPublicUrl(data.path)
-				.data.publicUrl;
+			const result = await fileStorageAdapter.upload(
+				"vault",
+				`${behalfUserId}/${input.taskId}/${input.fileName}`,
+				fileBuffer,
+			);
 
 			const task = await getTaskById(input.taskId);
 
@@ -49,11 +36,11 @@ export const addTaskAttachmentTool = tool({
 				id: input.taskId,
 				teamId,
 				userId: behalfUserId,
-				attachments: [...task.attachments, fileUrl],
+				attachments: [...task.attachments, result.publicUrl],
 			});
 
 			yield {
-				url: fileUrl,
+				url: result.publicUrl,
 				fileName: input.fileName,
 				uploadedAt: new Date().toISOString(),
 			};

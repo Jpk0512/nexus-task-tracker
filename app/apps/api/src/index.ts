@@ -10,6 +10,7 @@ import "./lib/instrument";
 import { HTTPException } from "hono/http-exception";
 import { routers } from "./rest/routers";
 import { mcpRouter } from "./rest/routers/mcp";
+import { storageRouter } from "./rest/routers/storage";
 import { wellKnownRouter } from "./rest/routers/well-known";
 import type { Context } from "./rest/types";
 import { webhooksRouters } from "./rest/webhooks";
@@ -68,6 +69,7 @@ app.use(
 	}),
 );
 
+app.route("/api", storageRouter);
 app.route("/api", routers);
 app.route("/mcp", mcpRouter);
 app.route("/webhooks", webhooksRouters);
