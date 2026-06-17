@@ -1,10 +1,6 @@
-# Local-dev stack for Nexus. Wired to a sibling Supabase self-host stack
-# (../supabase-stack/docker-compose.yml, project: supabase) for postgres,
-# auth, storage, realtime, etc. Bring that stack up first:
+# Local-dev stack for Nexus. Storage is local (@mimir/storage); no external
+# Supabase stack required. Bring this stack up with:
 #
-#   cd ../supabase-stack && docker compose -p supabase up -d
-#
-# Then this stack:
 #   docker compose -f docker-compose.local.yaml up -d --build
 #
 # See /Users/john.keeney/nexus-task-tracker/docs/LOCAL_DEV.md for the full flow.
@@ -58,11 +54,6 @@ services:
       REDIS_URL: redis://redis:6379
       NEXUS_LOCAL_DEV: "1"
       ALLOWED_API_ORIGINS: http://localhost:5179
-      # Real supabase URL + keys (kong gateway inside supabase network).
-      SUPABASE_URL: http://kong:8000
-      SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE
-      SUPABASE_SERVICE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJzZXJ2aWNlX3JvbGUiLAogICAgImlzcyI6ICJzdXBhYmFzZS1kZW1vIiwKICAgICJpYXQiOiAxNjQxNzY5MjAwLAogICAgImV4cCI6IDE3OTk1MzU2MDAKfQ.DaYlNEoUrrEn2Ig7tqibS-PHK5vgusbcbo7X36XVt4Q
-      SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJzZXJ2aWNlX3JvbGUiLAogICAgImlzcyI6ICJzdXBhYmFzZS1kZW1vIiwKICAgICJpYXQiOiAxNjQxNzY5MjAwLAogICAgImV4cCI6IDE3OTk1MzU2MDAKfQ.DaYlNEoUrrEn2Ig7tqibS-PHK5vgusbcbo7X36XVt4Q
       # Library — read+write into host-mounted skill/agent dirs, guarded by allowed-root.
       # Switched from a single $HOME mount to four narrowly-scoped mounts to
       # avoid the virtiofs triple-registration storm we hit during compose
@@ -97,8 +88,6 @@ services:
       PORT: "3000"
       NEXT_PUBLIC_APP_URL: http://localhost:5179
       NEXT_PUBLIC_SERVER_URL: http://localhost:3003
-      NEXT_PUBLIC_SUPABASE_URL: http://localhost:8000
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE
       NEXT_PUBLIC_NEXUS_LOCAL_DEV: "1"
       NEXUS_LOCAL_DEV: "1"
       NEXUS_SSR_SERVER_URL: http://api:3003

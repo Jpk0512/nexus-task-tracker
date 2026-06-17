@@ -2,7 +2,7 @@ import { buildAppContext } from "@api/ai/agents/config/shared";
 import { messagingAgent } from "@api/ai/agents/messaging";
 import type { UIChatMessage } from "@api/ai/types";
 import { getUserContext } from "@api/ai/utils/get-user-context";
-import { createAdminClient } from "@api/lib/supabase";
+import { LocalDiskStorageAdapter } from "@mimir/storage";
 import { checkPlanFeatures } from "@mimir/billing";
 import {
 	getIntegrationByType,
@@ -110,6 +110,7 @@ export const handleSlackMessage = async ({
 		};
 
 		// Download and include attachments as separate message parts
+		const storage = new LocalDiskStorageAdapter();
 		let fileIndex = 0;
 		for (const { url, mimeType } of attachments || []) {
 			const downloadResponse = await fetch(url, {
@@ -118,23 +119,17 @@ export const handleSlackMessage = async ({
 				},
 			});
 			const fileBlob = await downloadResponse.blob();
-			const supabase = await createAdminClient();
 			const fileExtension = mime.extension(mimeType);
 			const fileId =
 				new URL(url).pathname.split("/").pop() || `file-${fileIndex++}`;
-			const storageFile = await supabase.storage
-				.from("vault")
-				.upload(
-					`${associatedUser.userId}/${fileId}.${fileExtension}`,
-					fileBlob,
-					{
-						upsert: true,
-					},
-				);
-			const fullPath = `${process.env.SUPABASE_URL}/storage/v1/object/public/${storageFile.data?.fullPath}`;
+			const storageFile = await storage.upload(
+				"vault",
+				`${associatedUser.userId}/${fileId}.${fileExtension}`,
+				fileBlob,
+			);
 			userMessage.parts.push({
 				type: "text",
-				text: `Attachment: ${fullPath}`,
+				text: `Attachment: ${storageFile.publicUrl}`,
 			});
 		}
 

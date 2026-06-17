@@ -3,7 +3,7 @@ import { buildAppContext } from "@api/ai/agents/config/shared";
 import { messagingAgent } from "@api/ai/agents/messaging";
 import type { UIChatMessage } from "@api/ai/types";
 import { getUserContext } from "@api/ai/utils/get-user-context";
-import { createAdminClient } from "@api/lib/supabase";
+import { LocalDiskStorageAdapter } from "@mimir/storage";
 import { checkPlanFeatures } from "@mimir/billing";
 import { getLinkedUserByExternalId } from "@mimir/db/queries/integrations";
 import {
@@ -84,6 +84,7 @@ export const handleWhatsappMessage = async ({
 	};
 
 	// Download and include attachments as separate message parts
+	const storage = new LocalDiskStorageAdapter();
 	let fileIndex = 0;
 	for (const { url, contentType } of attachments || []) {
 		const downloadResponse = await fetch(url, {
@@ -92,41 +93,32 @@ export const handleWhatsappMessage = async ({
 			},
 		});
 		const fileBlob = await downloadResponse.blob();
-		const supabase = await createAdminClient();
 		const fileExtension = mime.extension(contentType);
 		const fileId =
 			new URL(url).pathname.split("/").pop() || `file-${fileIndex++}`;
 
 		if (contentType.startsWith("audio/")) {
-			// get audio buffer
 			const arrayBuffer = await fileBlob.arrayBuffer();
 			const audioBuffer = Buffer.from(arrayBuffer);
 
-			// transcribe audio
 			const result = await experimental_transcribe({
 				model: openai.transcription("gpt-4o-mini-transcribe"),
 				audio: audioBuffer,
 			});
 
-			// add transcription to message parts
 			userMessage.parts.push({
 				type: "text",
 				text: `${result.text}`,
 			});
 		} else {
-			const storageFile = await supabase.storage
-				.from("vault")
-				.upload(
-					`${associetedUser.userId}/${fileId}.${fileExtension}`,
-					fileBlob,
-					{
-						upsert: true,
-					},
-				);
-			const fullPath = `${process.env.SUPABASE_URL}/storage/v1/object/public/${storageFile.data?.fullPath}`;
+			const storageFile = await storage.upload(
+				"vault",
+				`${associetedUser.userId}/${fileId}.${fileExtension}`,
+				fileBlob,
+			);
 			userMessage.parts.push({
 				type: "text",
-				text: `Attachment: ${fullPath}`,
+				text: `Attachment: ${storageFile.publicUrl}`,
 			});
 		}
 	}

@@ -11,7 +11,7 @@ import { generateObject, generateText, Output } from "ai";
 import * as cptable from "xlsx/dist/cpexcel.full.mjs";
 import * as XLSX from "xlsx/xlsx.mjs";
 import z from "zod";
-import { createAdminClient } from "../../utils/supabase";
+import { LocalDiskStorageAdapter } from "@mimir/storage";
 
 export const tasksImportJob = schemaTask({
 	id: "tasks-import",
@@ -53,13 +53,8 @@ export const tasksImportJob = schemaTask({
 		}
 		logger.info(`Processing import job with ID ${importId}`);
 
-		const supabase = await createAdminClient();
-		const downloadFile = await supabase.storage
-			.from("imports")
-			.download(importJob.filePath);
-
-		// to buffer
-		const buffer = await downloadFile.data?.arrayBuffer();
+		const storage = new LocalDiskStorageAdapter();
+		const buffer = await storage.download("imports", importJob.filePath);
 
 		const workbook = XLSX.read(buffer, { type: "buffer", codepage: 65001 });
 		const sheetName = workbook.SheetNames[0];
