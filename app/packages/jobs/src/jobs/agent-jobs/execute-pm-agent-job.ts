@@ -1,37 +1,33 @@
-import { schemaTask } from "@trigger.dev/sdk";
-import z from "zod";
+import { defineJob } from "../../init";
 
 const PM_JOB_ID = "execute-pm-agent";
 
-export const executePMAgentJob = schemaTask({
+export const executePMAgentJob = defineJob({
 	id: PM_JOB_ID,
-	schema: z.object({
-		projectId: z.string(),
-		teamId: z.string(),
-		trigger: z.object({
-			type: z.enum([
-				"task_status_changed",
-				"task_completed",
-				"milestone_completed",
-				"agent_mention",
-				"project_created",
-				"manual",
-			]),
-			taskId: z.string().optional(),
-			taskTitle: z.string().optional(),
-			oldStatus: z.string().optional(),
-			newStatus: z.string().optional(),
-			newStatusType: z.string().optional(),
-			milestoneId: z.string().optional(),
-			milestoneName: z.string().optional(),
-			mentionedByUserId: z.string().optional(),
-			mentionedByUserName: z.string().optional(),
-			message: z.string().optional(),
-			instruction: z.string().optional(),
-		}),
-	}),
-	maxDuration: 15 * 60, // 15 minutes
-	run: async (_payload) => {
+	run: async (_payload: {
+		projectId: string;
+		teamId: string;
+		trigger: {
+			type:
+				| "task_status_changed"
+				| "task_completed"
+				| "milestone_completed"
+				| "agent_mention"
+				| "project_created"
+				| "manual";
+			taskId?: string;
+			taskTitle?: string;
+			oldStatus?: string;
+			newStatus?: string;
+			newStatusType?: string;
+			milestoneId?: string;
+			milestoneName?: string;
+			mentionedByUserId?: string;
+			mentionedByUserName?: string;
+			message?: string;
+			instruction?: string;
+		};
+	}) => {
 		return false;
 	},
 });

@@ -8,20 +8,14 @@ import {
 	tasks,
 	teams,
 } from "@mimir/db/schema";
-import { logger, schemaTask } from "@trigger.dev/sdk";
 import { generateText } from "ai";
 import { startOfDay } from "date-fns";
 import { and, desc, eq, gte, lte } from "drizzle-orm";
-import z from "zod";
-import { getDb } from "../../init";
+import { defineJob, getDb, logger } from "../../init";
 
-export const createEODTeamSummaryActivityJob = schemaTask({
+export const createEODTeamSummaryActivityJob = defineJob({
 	id: "create-eod-team-summary-activity",
-	description: "Create end-of-day team summary activity",
-	schema: z.object({
-		teamId: z.string(),
-	}),
-	run: async (payload, ctx) => {
+	run: async (payload: { teamId: string }) => {
 		const { teamId } = payload;
 
 		const db = getDb();
@@ -31,7 +25,6 @@ export const createEODTeamSummaryActivityJob = schemaTask({
 		}
 
 		const currentDate = new TZDate(new Date(), team.timezone || "UTC");
-		const currentWeekday = currentDate.getDay(); // 0 (Sun) to 6 (Sat)
 
 		const [settings] = await db
 			.select()

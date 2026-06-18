@@ -3,20 +3,17 @@ import {
 	isSystemTriggerType,
 	SYSTEM_TRIGGER_TYPES,
 } from "@mimir/utils/system-triggers";
-import { logger, schemaTask } from "@trigger.dev/sdk";
 import { and, eq } from "drizzle-orm";
-import z from "zod";
-import { getDb } from "../../init";
+import { defineJob, enqueue, getDb, logger } from "../../init";
 import { createTaskFromTemplateJob } from "./create-task-from-template-job";
 
-export const dispatchTriggerTemplatesJob = schemaTask({
+export const dispatchTriggerTemplatesJob = defineJob({
 	id: "dispatch-trigger-templates-job",
-	schema: z.object({
-		teamId: z.string(),
-		source: z.enum(["system", "db"]),
-		triggerType: z.string(),
-	}),
-	run: async (payload) => {
+	run: async (payload: {
+		teamId: string;
+		source: "system" | "db";
+		triggerType: string;
+	}) => {
 		const db = getDb();
 
 		if (payload.source === "system") {
@@ -42,7 +39,7 @@ export const dispatchTriggerTemplatesJob = schemaTask({
 		const templateIds = rows.map((row) => row.id);
 
 		for (const templateTaskId of templateIds) {
-			await createTaskFromTemplateJob.trigger({
+			await enqueue(createTaskFromTemplateJob.id, {
 				templateTaskId,
 				teamId: payload.teamId,
 				source: payload.source,

@@ -6,10 +6,8 @@ import {
 	tasks,
 } from "@mimir/db/schema";
 import { getNextTaskRecurrenceDate } from "@mimir/utils/recurrence";
-import { logger, runs, schemaTask } from "@trigger.dev/sdk";
 import { and, desc, eq } from "drizzle-orm";
-import z from "zod";
-import { getDb } from "../../init";
+import { cancelJob, defineJob, enqueue, getDb, logger } from "../../init";
 
 const getValidReferenceDate = (referenceDate?: Date): Date => {
 	if (!referenceDate || Number.isNaN(referenceDate.getTime())) {
@@ -26,23 +24,18 @@ const cancelRecurringRun = async ({
 	jobId: string;
 }) => {
 	try {
-		await runs.cancel(jobId);
+		await cancelJob(jobId);
 	} catch (error) {
 		logger.warn(
 			`Failed to cancel recurring job with ID ${jobId} for task ID ${taskId}.`,
-			{
-				error,
-			},
+			{ error },
 		);
 	}
 };
 
-export const createRecurringTaskJob = schemaTask({
+export const createRecurringTaskJob = defineJob({
 	id: "create-recurring-task-job",
-	schema: z.object({
-		originalTaskId: z.string(),
-	}),
-	run: async (payload, { ctx }) => {
+	run: async (payload: { originalTaskId: string }, ctx) => {
 		const db = getDb();
 		const [originalTask] = await db
 			.select()
@@ -170,14 +163,10 @@ export const syncRecurringTaskSchedule = async ({
 		cronExpression: recurringCron,
 	});
 
-	const nextJob = await createRecurringTaskJob.trigger(
-		{
-			originalTaskId: taskId,
-		},
-		{
-			delay: nextDate,
-			idempotencyKey: `recurring-task-${taskId}-${nextDate.toISOString()}`,
-		},
+	const nextJob = await enqueue(
+		createRecurringTaskJob.id,
+		{ originalTaskId: taskId },
+		{ delay: nextDate },
 	);
 
 	await updateTaskRecurringJob({

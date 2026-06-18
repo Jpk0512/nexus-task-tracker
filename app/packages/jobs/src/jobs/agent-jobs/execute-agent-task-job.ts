@@ -29,9 +29,8 @@ import {
 import { createTaskComment, getTaskById } from "@mimir/db/queries/tasks";
 import { getTeamById } from "@mimir/db/queries/teams";
 import { getMimirUser } from "@mimir/db/queries/users";
-import { logger, schemaTask } from "@trigger.dev/sdk";
 import { convertToModelMessages, generateId, stepCountIs } from "ai";
-import z from "zod";
+import { defineJob, logger } from "../../init";
 
 /**
  * Job that executes an agent task plan using a unified agentic approach
@@ -44,19 +43,13 @@ import z from "zod";
  * 5. Completes the task when done
  * 6. Supports focusing on a specific checklist item when checklistItemId is provided
  */
-export const executeAgentTaskPlanJob = schemaTask({
+export const executeAgentTaskPlanJob = defineJob({
 	id: "execute-agent-task-plan",
-	schema: z.object({
-		taskId: z.string(),
-		teamId: z.string(),
-		/**
-		 * Optional: Focus on a specific checklist item instead of the whole task
-		 * When provided, the agent will focus on resolving this specific checklist item
-		 */
-		checklistItemId: z.string().optional(),
-	}),
-	maxDuration: 15 * 60, // 15 minutes
-	run: async (payload) => {
+	run: async (payload: {
+		taskId: string;
+		teamId: string;
+		checklistItemId?: string;
+	}) => {
 		const { taskId, teamId, checklistItemId } = payload;
 
 		logger.info("Starting agent plan execution", {
@@ -93,10 +86,6 @@ export const executeAgentTaskPlanJob = schemaTask({
 			return { status: "failed", reason: "task_not_found" };
 		}
 
-		// If focusing on a checklist item, find it and determine the agent to use
-
-		// const execution = await createTaskExecution({ taskId, teamId });
-
 		if (execution.status === "executing") {
 			logger.warn("Task execution already in progress", { taskId });
 			await updateTaskExecution({
@@ -106,7 +95,6 @@ export const executeAgentTaskPlanJob = schemaTask({
 			return { status: "failed", reason: "execution_already_in_progress" };
 		}
 
-		// Build appropriate message based on focus mode
 		const messageText = focusedChecklistItem
 			? execution.status === "pending"
 				? `You have been assigned to complete the following checklist item: "${focusedChecklistItem.description}". Please resolve this item.`
@@ -126,9 +114,6 @@ export const executeAgentTaskPlanJob = schemaTask({
 			],
 		};
 
-		// Use the agent user ID (from checklist item or task assignee), fallback to system user
-
-		// 6. Update status to executing
 		await Promise.all([
 			updateTaskExecution({
 				taskId: taskId,
@@ -180,7 +165,6 @@ export const executeAgentTaskPlanJob = schemaTask({
 							return {};
 						}
 
-						// If context is marked as stale, refresh it from the database to get latest state
 						if (taskExecution.contextStale) {
 							logger.warn("Execution context is stale, marking for refresh", {
 								taskId,
@@ -243,11 +227,8 @@ export const executeAgentTaskPlanJob = schemaTask({
 			});
 			logger.info("Agent execution completed", { taskId });
 
-			// Find last text part in the response
 			const textParts = response.parts.filter((p) => p.type === "text");
 			const lastTextPart = textParts[textParts.length - 1]?.text || "";
-
-			// Remove xmltags from the response if any
 			const cleanedResponse = lastTextPart.replace(/<[^>]*>/g, "");
 			await createTaskComment({
 				taskId: taskId,
@@ -319,7 +300,6 @@ const getTaskExecutorContext = async ({
 		| undefined;
 
 	if (checklistItemId) {
-		// Get checklist items to find the focused one
 		const checklistItems = await getChecklistItems({
 			taskId,
 			teamId,
@@ -350,7 +330,6 @@ const getTaskExecutorContext = async ({
 			assigneeId: item.assigneeId,
 		});
 	} else {
-		// Regular task execution - use task assignee
 		if (!task.assigneeId) {
 			await updateTaskExecution({
 				taskId: taskId,
@@ -471,10 +450,8 @@ const getTaskExecutorContext = async ({
 		})),
 		executionMemory: execution.memory ?? undefined,
 		enabledIntegrations,
-		// Focus mode: determines whether we're working on the whole task or a specific checklist item
 		focusMode: focusedChecklistItem ? "checklist-item" : "task",
 		focusedChecklistItem,
-		// Agent identity for long-term memory
 		agentId: agentConfig?.id,
 	};
 

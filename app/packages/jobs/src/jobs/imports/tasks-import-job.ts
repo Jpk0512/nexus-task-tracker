@@ -7,43 +7,24 @@ import { createTask, getTaskByTitle } from "@mimir/db/queries/tasks";
 import { getMemberByEmail } from "@mimir/db/queries/teams";
 import { LocalDiskStorageAdapter } from "@mimir/storage";
 import { randomColor } from "@mimir/utils/random";
-import { logger, schemaTask } from "@trigger.dev/sdk";
-import { generateObject, generateText, Output } from "ai";
+import { generateText, Output } from "ai";
 import * as cptable from "xlsx/dist/cpexcel.full.mjs";
 import * as XLSX from "xlsx/xlsx.mjs";
 import z from "zod";
+import { defineJob, logger } from "../../init";
 
-export const tasksImportJob = schemaTask({
+export const tasksImportJob = defineJob({
 	id: "tasks-import",
-	maxDuration: 15 * 60,
-	retry: {
-		maxAttempts: 1,
+	onStart: async ({ payload }: { payload: { importId: string } }) => {
+		await updateImportStatus({ id: payload.importId, status: "processing" });
 	},
-	schema: z.object({
-		importId: z.string(),
-	}),
-	onStart: async ({ payload }) => {
-		const { importId } = payload;
-		await updateImportStatus({
-			id: importId,
-			status: "processing",
-		});
+	onFailure: async ({ payload }: { payload: { importId: string } }) => {
+		await updateImportStatus({ id: payload.importId, status: "failed" });
 	},
-	onFailure: async ({ payload }) => {
-		const { importId } = payload;
-		await updateImportStatus({
-			id: importId,
-			status: "failed",
-		});
+	onSuccess: async ({ payload }: { payload: { importId: string } }) => {
+		await updateImportStatus({ id: payload.importId, status: "completed" });
 	},
-	onSuccess: async ({ payload }) => {
-		const { importId } = payload;
-		await updateImportStatus({
-			id: importId,
-			status: "completed",
-		});
-	},
-	run: async (payload, ctx) => {
+	run: async (payload: { importId: string }) => {
 		XLSX.set_cptable(cptable);
 		const { importId } = payload;
 		const importJob = await getImportById({ id: importId });
@@ -74,7 +55,7 @@ export const tasksImportJob = schemaTask({
 		const headersMapResponse = await generateText({
 			model: openai("gpt-4o"),
 			prompt: `Generate a mapping of the following headers to the schema fields
-			Headers: 
+			Headers:
 			${JSON.stringify(headers, null, 2)}
 
 			First Row (Example Data):
@@ -143,7 +124,6 @@ export const tasksImportJob = schemaTask({
 		for (const rowIndex in dataRows) {
 			try {
 				const row = dataRows[rowIndex] as string[];
-
 				const title = row[titleIndex];
 
 				const taskExists = await getTaskByTitle({
@@ -157,8 +137,8 @@ export const tasksImportJob = schemaTask({
 				}
 
 				const description = row[descriptionIndex];
-				const dueDate = row[dueDateIndex];
-				const priority = row[priorityIndex];
+				const _dueDate = row[dueDateIndex];
+				const _priority = row[priorityIndex];
 				const assignee = row[assigneeIndex];
 				const labels = row[labelsIndex];
 				let labelsArray: string[] | undefined;
@@ -198,9 +178,7 @@ export const tasksImportJob = schemaTask({
 					}
 				}
 
-				// assign the existing member or invite a new one
 				if (assignee) {
-					// check if the assignee is an email
 					if (z.string().email().safeParse(assignee).success) {
 						if (cacheMemberIds.has(assignee)) {
 							assigneeId = cacheMemberIds.get(assignee);
@@ -211,7 +189,6 @@ export const tasksImportJob = schemaTask({
 							});
 
 							if (existingMember) {
-								// if the member exists in the team, assign them
 								assigneeId = existingMember.id;
 								cacheMemberIds.set(assignee, existingMember.id);
 							} else {

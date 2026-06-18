@@ -7,7 +7,6 @@ import {
 	tasks,
 	teams,
 } from "@mimir/db/schema";
-import { logger, schemaTask } from "@trigger.dev/sdk";
 import { generateText } from "ai";
 import {
 	and,
@@ -21,18 +20,15 @@ import {
 	or,
 	sql,
 } from "drizzle-orm";
-import z from "zod";
-import { getDb } from "../../init";
+import { defineJob, getDb, logger } from "../../init";
 
-export const createEODActivityJob = schemaTask({
+export const createEODActivityJob = defineJob({
 	id: "create-eod-activity",
-	description: "Create end-of-day activity for a user",
-	schema: z.object({
-		userId: z.string(),
-		userName: z.string(),
-		teamId: z.string(),
-	}),
-	run: async (payload, ctx) => {
+	run: async (payload: {
+		userId: string;
+		userName: string;
+		teamId: string;
+	}) => {
 		const { userId, teamId } = payload;
 
 		const db = getDb();
@@ -42,7 +38,7 @@ export const createEODActivityJob = schemaTask({
 		}
 
 		const currentDate = new TZDate(new Date(), team.timezone || "UTC");
-		const currentWeekday = currentDate.getDay(); // 0 (Sun) to 6 (Sat)
+		const currentWeekday = currentDate.getDay();
 
 		const [settings] = await db
 			.select()
@@ -75,7 +71,7 @@ export const createEODActivityJob = schemaTask({
 			eq(tasks.assigneeId, userId),
 			eq(tasks.teamId, teamId),
 		];
-		const taskOrderBy = [
+		const _taskOrderBy = [
 			asc(
 				sql`CASE ${tasks.priority} WHEN 'urgent' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 WHEN 'low' THEN 4 END`,
 			),
@@ -107,7 +103,6 @@ export const createEODActivityJob = schemaTask({
 				and(
 					eq(activities.type, "task_completed"),
 					...taskWhereClause,
-					// Only tasks completed today
 					sql`DATE(${activities.createdAt}) = CURRENT_DATE`,
 				),
 			);
@@ -153,7 +148,6 @@ ${completedTasks
 		});
 
 		console.log(recommendation.usage);
-
 		console.log(recommendation.text);
 
 		await createActivity({

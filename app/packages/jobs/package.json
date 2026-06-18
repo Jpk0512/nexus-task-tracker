@@ -3,12 +3,12 @@
 	"version": "0.0.2",
 	"private": true,
 	"scripts": {
-		"dev": "trigger dev",
-		"deploy": "trigger deploy",
+		"dev": "bun --watch src/index.ts",
 		"typecheck": "tsc --noEmit"
 	},
 	"exports": {
 		"./*": "./src/jobs/*.ts",
+		"./init": "./src/init.ts",
 		"./schema": "./src/schema.ts"
 	},
 	"dependencies": {
@@ -23,7 +23,6 @@
 		"@mimir/notifications": "workspace:*",
 		"@mimir/utils": "workspace:*",
 		"@sindresorhus/slugify": "^2.2.1",
-		"@trigger.dev/sdk": "catalog:",
 		"@zip.js/zip.js": "^2.7.62",
 		"ai": "6.0.64",
 		"camelcase-keys": "^10.0.0",
@@ -39,7 +38,6 @@
 		"zod": "catalog:"
 	},
 	"devDependencies": {
-		"trigger.dev": "4.3.3",
 		"@types/bun": "latest",
 		"@types/heic-convert": "2.1.0",
 		"@types/xlsx": "^0.0.36"

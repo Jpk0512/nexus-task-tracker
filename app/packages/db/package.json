@@ -22,7 +22,6 @@
 		"@mimir/logger": "workspace:*",
 		"@mimir/utils": "workspace:*",
 		"@mimir/realtime": "workspace:*",
-		"@trigger.dev/sdk": "catalog:",
 		"@types/pg": "^8.15.5",
 		"camelcase-keys": "^10.0.0",
 		"date-fns": "4.1.0",

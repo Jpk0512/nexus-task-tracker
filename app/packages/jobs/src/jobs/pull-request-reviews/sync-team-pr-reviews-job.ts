@@ -4,20 +4,17 @@ import {
 	getLinkedUsers,
 } from "@mimir/db/queries/integrations";
 import { syncPrReview } from "@mimir/db/queries/pr-reviews";
-import { logger, schemaTask } from "@trigger.dev/sdk";
 import { Octokit } from "octokit";
-import z from "zod";
+import { defineJob, logger } from "../../init";
 
-export const syncTeamPrReviewsJob = schemaTask({
+export const syncTeamPrReviewsJob = defineJob({
 	id: "sync-team-pr-reviews",
-	schema: z.object({
-		teamId: z.string(),
-		repoId: z.string().optional(),
-	}),
-	run: async ({ teamId, repoId }, ctx) => {
+	run: async (payload: { teamId: string; repoId?: string }) => {
+		const { teamId, repoId } = payload;
+
 		const integration = await getIntegrationByType({
 			type: "github",
-			teamId: teamId,
+			teamId,
 		});
 
 		if (!integration) {
@@ -29,7 +26,7 @@ export const syncTeamPrReviewsJob = schemaTask({
 		);
 
 		const linkedUsers = await getLinkedUsers({
-			teamId: teamId,
+			teamId,
 			integrationType: "github",
 		});
 
@@ -37,9 +34,7 @@ export const syncTeamPrReviewsJob = schemaTask({
 			`Found ${linkedUsers.data.length} linked users for team ${teamId}`,
 		);
 
-		const connectedRepositories = await getConnectedRepositories({
-			teamId: teamId,
-		});
+		const connectedRepositories = await getConnectedRepositories({ teamId });
 
 		logger.log(
 			`Found ${connectedRepositories.length} connected repositories for team ${teamId}`,

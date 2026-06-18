@@ -1,17 +1,15 @@
 import { TZDate } from "@date-fns/tz";
 import { teams, users, usersOnTeams } from "@mimir/db/schema";
-import { schedules } from "@trigger.dev/sdk";
-import { format, set } from "date-fns";
+import { set } from "date-fns";
 import { eq } from "drizzle-orm";
-import { getDb } from "../../init";
+import { defineJob, enqueue, getDb, registerCron } from "../../init";
 import { createDigestActivityJob } from "./create-digest-activity";
 import { createEODActivityJob } from "./create-eod-activity";
 import { createEODTeamSummaryActivityJob } from "./create-eod-team-summary";
 
-export const scheduleDailyNotificationsJob = schedules.task({
+export const scheduleDailyNotificationsJob = defineJob({
 	id: "schedule-daily-notifications",
-	cron: "0 5 * * *", // Every day at 5am
-	run: async (payload, ctx) => {
+	run: async (_payload: Record<string, unknown>) => {
 		const db = getDb();
 
 		const usersOnTeamsList = await db
@@ -25,41 +23,27 @@ export const scheduleDailyNotificationsJob = schedules.task({
 			const digestDate = set(date, { hours: 9, minutes: 0, seconds: 0 });
 
 			if (digestDate > date)
-				await createDigestActivityJob.trigger(
+				await enqueue(
+					createDigestActivityJob.id,
 					{
 						userId: userOnTeam.user.id,
 						teamId: userOnTeam.users_on_teams.teamId,
 						userName: userOnTeam.user.name,
 					},
-					{
-						delay: digestDate,
-						idempotencyKey: `daily-digest-${userOnTeam.user.id}-${userOnTeam.users_on_teams.teamId}-${format(digestDate, "yyyy-MM-dd")}`,
-						tags: [
-							`userName:${userOnTeam.user.name}`,
-							`teamId:${userOnTeam.users_on_teams.teamId}`,
-							`userId:${userOnTeam.user.id}`,
-						],
-					},
+					{ delay: digestDate },
 				);
 
 			const eodDate = set(date, { hours: 17, minutes: 0, seconds: 0 });
 
 			if (eodDate > date) {
-				await createEODActivityJob.trigger(
+				await enqueue(
+					createEODActivityJob.id,
 					{
 						userId: userOnTeam.user.id,
 						teamId: userOnTeam.users_on_teams.teamId,
 						userName: userOnTeam.user.name,
 					},
-					{
-						delay: eodDate,
-						idempotencyKey: `daily-eod-${userOnTeam.user.id}-${userOnTeam.users_on_teams.teamId}-${format(eodDate, "yyyy-MM-dd")}`,
-						tags: [
-							`userName:${userOnTeam.user.name}`,
-							`teamId:${userOnTeam.users_on_teams.teamId}`,
-							`userId:${userOnTeam.user.id}`,
-						],
-					},
+					{ delay: eodDate },
 				);
 			}
 		}
@@ -70,17 +54,16 @@ export const scheduleDailyNotificationsJob = schedules.task({
 			const eodDate = set(date, { hours: 17, minutes: 0, seconds: 0 });
 
 			if (eodDate > date) {
-				await createEODTeamSummaryActivityJob.trigger(
-					{
-						teamId: team.id,
-					},
-					{
-						delay: eodDate,
-						idempotencyKey: `daily-team-summary-${team.id}-${format(eodDate, "yyyy-MM-dd")}`,
-						tags: [`teamId:${team.id}`],
-					},
+				await enqueue(
+					createEODTeamSummaryActivityJob.id,
+					{ teamId: team.id },
+					{ delay: eodDate },
 				);
 			}
 		}
 	},
 });
+
+registerCron("schedule-daily-notifications", "0 5 * * *", () =>
+	enqueue(scheduleDailyNotificationsJob.id, {}).then(() => {}),
+);

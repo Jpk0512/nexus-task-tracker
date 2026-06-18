@@ -1,91 +1,219 @@
+import { randomUUID } from "node:crypto";
 import type { Database } from "@mimir/db/client";
 import { createJobDb } from "@mimir/db/job-client";
-import { locals as realLocals, tasks as realTasks } from "@trigger.dev/sdk";
 
-const LOCAL_DEV = process.env.NEXUS_LOCAL_DEV === "1";
+// ---------------------------------------------------------------------------
+// Minimal logger shim — replaces trigger.dev's logger
+// ---------------------------------------------------------------------------
 
-function recursiveTriggerStub(label: string): any {
-	return new Proxy(() => {}, {
-		get: (_t, prop) => {
-			if (prop === "then") return undefined; // not a thenable
-			return recursiveTriggerStub(`${label}.${String(prop)}`);
-		},
-		apply: (_t, _thisArg, args: any[]) => {
-			if (label === "tasks.trigger") {
-				const name = args?.[0];
-				console.log(`[stub:trigger.dev] tasks.trigger ${name ?? ""}`);
-				return Promise.resolve({ id: "stub-local-dev" });
-			}
-			// middleware/onWait/onResume etc. — accept callbacks but never invoke them
-			return undefined;
-		},
+export const logger = {
+	info: (...args: unknown[]) => console.info("[jobs]", ...args),
+	warn: (...args: unknown[]) => console.warn("[jobs]", ...args),
+	error: (...args: unknown[]) => console.error("[jobs]", ...args),
+	log: (...args: unknown[]) => console.log("[jobs]", ...args),
+	debug: (...args: unknown[]) => console.debug("[jobs]", ...args),
+};
+
+// ---------------------------------------------------------------------------
+// Register enqueue into globalThis so @mimir/db can call it without
+// a compile-time import (avoids the db → jobs circular dependency).
+// Wired at module-eval time at the bottom of this file.
+
+// ---------------------------------------------------------------------------
+// Per-job-run DB context (replaces trigger.dev locals)
+// ---------------------------------------------------------------------------
+
+const _runDb = new Map<
+	string,
+	{ db: Database; disconnect: () => Promise<void> }
+>();
+let _currentRunId: string | null = null;
+
+function withRunId<T>(runId: string, fn: () => Promise<T>): Promise<T> {
+	const prev = _currentRunId;
+	_currentRunId = runId;
+	return fn().finally(() => {
+		_currentRunId = prev;
+		const entry = _runDb.get(runId);
+		if (entry) {
+			entry.disconnect().catch(() => {});
+			_runDb.delete(runId);
+		}
 	});
 }
 
-// In LOCAL_DEV mode, locals storage is process-local and the trigger.dev runtime
-// is not involved. We still need a working get/set/create for the helpers below.
-function createLocalsStub() {
-	const store = new Map<symbol, unknown>();
+export const getDb = (): Database => {
+	if (!_currentRunId) throw new Error("getDb() called outside of a job run");
+	const entry = _runDb.get(_currentRunId);
+	if (!entry) throw new Error("Database not initialized for this job run");
+	return entry.db;
+};
+
+// ---------------------------------------------------------------------------
+// Job registry — maps id → run function
+// ---------------------------------------------------------------------------
+
+type RunFn<P> = (payload: P, ctx: JobContext) => Promise<unknown>;
+
+interface JobDef<P = unknown> {
+	id: string;
+	run: RunFn<P>;
+	onStart?: (opts: { payload: P }) => Promise<void>;
+	onSuccess?: (opts: { payload: P }) => Promise<void>;
+	onFailure?: (opts: { payload: P; error: unknown }) => Promise<void>;
+}
+
+const _registry = new Map<string, JobDef<unknown>>();
+
+export interface JobContext {
+	run: { id: string };
+}
+
+export interface JobHandle {
+	id: string;
+}
+
+// ---------------------------------------------------------------------------
+// Schedule registry — maps scheduled job id → cancel fn
+// ---------------------------------------------------------------------------
+
+const _schedules = new Map<string, () => void>();
+
+// ---------------------------------------------------------------------------
+// Deferred timer handles — for one-off delayed jobs (cancelRun)
+// ---------------------------------------------------------------------------
+
+const _timers = new Map<string, ReturnType<typeof setTimeout>>();
+
+// ---------------------------------------------------------------------------
+// defineJob — register a job definition
+// ---------------------------------------------------------------------------
+
+export function defineJob<P>(def: JobDef<P>): JobDef<P> & {
+	trigger: (payload: P, opts?: TriggerOpts) => Promise<JobHandle>;
+} {
+	_registry.set(def.id, def as JobDef<unknown>);
 	return {
-		create<T>(name: string) {
-			return { __key: Symbol(name) } as unknown as { __key: symbol } & T;
-		},
-		get<T>(local: { __key: symbol }): T | undefined {
-			return store.get(local.__key) as T | undefined;
-		},
-		set<T>(local: { __key: symbol }, value: T) {
-			store.set(local.__key, value);
-		},
+		...def,
+		trigger: (payload: P, opts?: TriggerOpts) =>
+			enqueue(def.id, payload as Record<string, unknown>, opts),
 	};
 }
 
-const tasks: typeof realTasks = LOCAL_DEV
-	? (recursiveTriggerStub("tasks") as typeof realTasks)
-	: realTasks;
-const locals: typeof realLocals = LOCAL_DEV
-	? (createLocalsStub() as unknown as typeof realLocals)
-	: realLocals;
+interface TriggerOpts {
+	delay?: Date | number;
+	idempotencyKey?: string;
+	tags?: string[];
+}
 
-// Store the database instance
-const DbLocal = locals.create<{
-	db: Database;
-	disconnect: () => Promise<void>;
-}>("db");
+// ---------------------------------------------------------------------------
+// enqueue — one-off job dispatch (immediate or delayed)
+// ---------------------------------------------------------------------------
 
-// Helper function to get the database instance from locals
-export const getDb = (): Database => {
-	const dbObj = locals.get(DbLocal);
-	if (!dbObj) throw new Error("Database not initialized in middleware");
-	return dbObj.db;
-};
+export async function enqueue(
+	jobName: string,
+	payload: Record<string, unknown>,
+	opts?: { delayMs?: number; delay?: Date | number; idempotencyKey?: string },
+): Promise<JobHandle> {
+	const id = randomUUID();
+	const delayMs = resolveDelayMs(opts);
 
-// Helper function to get the disconnect function from locals
-const getDisconnect = () => {
-	const dbObj = locals.get(DbLocal);
-	if (!dbObj) throw new Error("Database not initialized in middleware");
-	return dbObj.disconnect();
-};
+	if (delayMs > 0) {
+		const handle = setTimeout(() => {
+			_timers.delete(id);
+			void _execJob(jobName, payload, id);
+		}, delayMs);
+		_timers.set(id, handle);
+	} else {
+		void _execJob(jobName, payload, id);
+	}
 
-// Middleware is run around every run
-tasks.middleware("db", async ({ next }) => {
-	// Create a fresh database instance for each job run
-	// This ensures consistent connection pooling with optimized settings for Supabase
+	return { id };
+}
+
+function resolveDelayMs(opts?: {
+	delayMs?: number;
+	delay?: Date | number;
+}): number {
+	if (!opts) return 0;
+	if (opts.delayMs !== undefined) return Math.max(0, opts.delayMs);
+	if (opts.delay instanceof Date) {
+		return Math.max(0, opts.delay.getTime() - Date.now());
+	}
+	if (typeof opts.delay === "number") return Math.max(0, opts.delay);
+	return 0;
+}
+
+async function _execJob(
+	jobName: string,
+	payload: Record<string, unknown>,
+	runId: string,
+): Promise<void> {
+	const def = _registry.get(jobName);
+	if (!def) {
+		logger.warn(`[scheduler] Unknown job: ${jobName}`);
+		return;
+	}
+
 	const dbObj = createJobDb();
-	locals.set(DbLocal, dbObj);
+	_runDb.set(runId, dbObj);
+	const ctx: JobContext = { run: { id: runId } };
 
-	await next();
-});
+	try {
+		await def.onStart?.({ payload });
+		await withRunId(runId, () => def.run(payload, ctx));
+		await def.onSuccess?.({ payload });
+	} catch (error) {
+		logger.error(`[scheduler] Job ${jobName} (${runId}) failed:`, error);
+		await def.onFailure?.({ payload, error });
+	}
+}
 
-// This lifecycle hook is called when a `wait` is hit
-// In cloud this can result in the machine being suspended until later
-tasks.onWait("db", async () => {
-	// Close the connection pool to free database connections
-	await getDisconnect();
-});
+// ---------------------------------------------------------------------------
+// cancelRun — cancel a pending delayed job by id
+// ---------------------------------------------------------------------------
 
-// This lifecycle hook is called when a run is resumed after a `wait`
-tasks.onResume("db", async () => {
-	// Create a new database instance since the old pool was closed
-	const db = createJobDb();
-	locals.set(DbLocal, db);
-});
+export async function cancelJob(runId: string): Promise<void> {
+	const handle = _timers.get(runId);
+	if (handle) {
+		clearTimeout(handle);
+		_timers.delete(runId);
+	}
+}
+
+// ---------------------------------------------------------------------------
+// registerCron — register a recurring cron job
+// Uses the 'croner' package already listed in jobs/package.json
+// ---------------------------------------------------------------------------
+
+export interface CronDescriptor {
+	id: string;
+	cron: string;
+}
+
+export function registerCron(
+	id: string,
+	cron: string,
+	fn: () => Promise<void>,
+): CronDescriptor {
+	if (_schedules.has(id)) {
+		_schedules.get(id)?.();
+		_schedules.delete(id);
+	}
+
+	// Lazy require croner so the module is not imported until a cron is registered
+	// eslint-disable-next-line @typescript-eslint/no-require-imports
+	const { Cron } = require("croner") as typeof import("croner");
+	const job = new Cron(cron, { catch: true, protect: true }, () => {
+		void fn();
+	});
+
+	_schedules.set(id, () => job.stop());
+	return { id, cron };
+}
+
+// ---------------------------------------------------------------------------
+// Wire enqueue into globalThis so @mimir/db/queries/agent-triggers can call
+// it without a compile-time import (breaks the db → jobs circular dep).
+// ---------------------------------------------------------------------------
+(globalThis as Record<string, unknown>).__jobsEnqueue = enqueue;

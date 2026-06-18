@@ -33,7 +33,6 @@
 		"@mimir/utils": "workspace:*",
 		"@modelcontextprotocol/sdk": "^1.25.3",
 		"@slack/bolt": "^4.6.0",
-		"@trigger.dev/sdk": "catalog:",
 		"@trpc/server": "^11.6.0",
 		"@upstash/realtime": "^1.0.2",
 		"@upstash/redis": "^1.36.1",

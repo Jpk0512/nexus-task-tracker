@@ -1,19 +1,16 @@
 import { createTask } from "@mimir/db/queries/tasks";
 import { checklistItems, labelsOnTasks, tasks } from "@mimir/db/schema";
-import { logger, schemaTask } from "@trigger.dev/sdk";
 import { and, eq } from "drizzle-orm";
-import z from "zod";
-import { getDb } from "../../init";
+import { defineJob, getDb, logger } from "../../init";
 
-export const createTaskFromTemplateJob = schemaTask({
+export const createTaskFromTemplateJob = defineJob({
 	id: "create-task-from-template-job",
-	schema: z.object({
-		templateTaskId: z.string(),
-		teamId: z.string(),
-		source: z.enum(["system", "db"]),
-		triggerType: z.string(),
-	}),
-	run: async (payload) => {
+	run: async (payload: {
+		templateTaskId: string;
+		teamId: string;
+		source: "system" | "db";
+		triggerType: string;
+	}) => {
 		const db = getDb();
 
 		const [templateTask] = await db

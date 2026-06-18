@@ -28,7 +28,6 @@
 		"@mimir/events": "workspace:*",
 		"@mimir/utils": "workspace:*",
 		"@slack/bolt": "^4.6.0",
-		"@trigger.dev/sdk": "catalog:",
 		"ai": "6.0.64",
 		"date-fns": "^4.1.0",
 		"drizzle-orm": "catalog:",

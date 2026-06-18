@@ -11,8 +11,7 @@ import {
 	teams,
 } from "@mimir/db/schema";
 import { getAppUrl } from "@mimir/utils/envs";
-import { logger, schemaTask } from "@trigger.dev/sdk";
-import { generateObject, generateText, Output } from "ai";
+import { generateText, Output } from "ai";
 import { format } from "date-fns";
 import {
 	and,
@@ -26,17 +25,15 @@ import {
 	sql,
 } from "drizzle-orm";
 import z from "zod";
-import { getDb } from "../../init";
+import { defineJob, getDb, logger } from "../../init";
 
-export const createDigestActivityJob = schemaTask({
+export const createDigestActivityJob = defineJob({
 	id: "create-digest-activity",
-	description: "Create digest activity for a user",
-	schema: z.object({
-		userId: z.string(),
-		userName: z.string(),
-		teamId: z.string(),
-	}),
-	run: async (payload, ctx) => {
+	run: async (payload: {
+		userId: string;
+		userName: string;
+		teamId: string;
+	}) => {
 		const { userId, teamId } = payload;
 
 		const db = getDb();
@@ -46,7 +43,7 @@ export const createDigestActivityJob = schemaTask({
 		}
 
 		const currentDate = new TZDate(new Date(), team.timezone || "UTC");
-		const currentWeekday = currentDate.getDay(); // 0 (Sun) to 6 (Sat)
+		const currentWeekday = currentDate.getDay();
 
 		const [settings] = await db
 			.select()
@@ -181,15 +178,15 @@ You are Mimir, an AI productivity companion that helps users stay focused on the
 
 <importance-criteria>
 - Tasks already in progress (if it can be finished today according to due date)
-	Example: “This task is already in progress”, “You've already started this task”, “Continuing this task maintains flow on what you began earlier”
+	Example: "This task is already in progress", "You've already started this task", "Continuing this task maintains flow on what you began earlier"
 - Task Priorities (based on task priority: urgent, high, medium, low)
-	Example: "This task is marked as {priority} priority", “The priority level for this task is {priority}”
+	Example: "This task is marked as {priority} priority", "The priority level for this task is {priority}"
 - Tasks Due dates (based on tasks due date if available)
-	Example if due today: "This task is due today", “This task needs to be completed today to meet its deadline”
-	Example if overdue: "This task is overdue by {n} days", “The deadline for this task has passed by {n} days”
-	Example if due soon: “This task is due on {date}”, “The upcoming deadline for this task is {date}”
+	Example if due today: "This task is due today", "This task needs to be completed today to meet its deadline"
+	Example if overdue: "This task is overdue by {n} days", "The deadline for this task has passed by {n} days"
+	Example if due soon: "This task is due on {date}", "The upcoming deadline for this task is {date}"
 - Task importance to the project milestones (based on milestone description if available)
-	Example: “This task contributes to milestone {milestone.name} due {milestone.dueDate}”
+	Example: "This task contributes to milestone {milestone.name} due {milestone.dueDate}"
 - Task importance to the project itself (based on project description if available)
 	Example: "This task is important for the success of the project {name} because {reason from project description}"
 - Task importance to the user's goals (only if user goals are provided)
@@ -204,10 +201,10 @@ The user has the following top priority tasks:
 	${uniqueTopPriorities
 		.map(
 			(task) =>
-				`<task> 
+				`<task>
 	Task ID: ${task.tasks.id}
 	Title: "${task.tasks.title}"
-	Status: ${task.statuses.type} 
+	Status: ${task.statuses.type}
 	Priority: ${task.tasks.priority}
 	Due Date: ${
 		task.tasks.dueDate
@@ -254,11 +251,7 @@ ${project.milestones.map((milestone) => `    - Name: ${milestone.name}, ID: ${mi
 
 		console.log(prompt);
 
-		const {
-			output: recommendation,
-			usage,
-			request,
-		} = await generateText({
+		const { output: recommendation, usage } = await generateText({
 			model: openai("gpt-4o-mini"),
 			temperature: 0.7,
 			output: Output.object({
