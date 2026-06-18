@@ -10,12 +10,20 @@ declare module "vitest" {
 	export namespace test {
 		export function fails(name: string, fn: () => void | Promise<void>): void;
 	}
-	export function expect<T>(
-		value: T,
-		message?: string,
-	): {
-		toHaveLength(length: number): void;
-		toBe(expected: T): void;
-		toEqual(expected: unknown): void;
-	};
+
+	interface Matchers<R = void> {
+		toHaveLength(length: number): R;
+		toBe(expected: unknown): R;
+		toEqual(expected: unknown): R;
+		toMatch(pattern: string | RegExp): R;
+		toHaveProperty(keyPath: string | string[], value?: unknown): R;
+		toContain(item: unknown): R;
+		toBeTruthy(): R;
+		toBeFalsy(): R;
+		toBeGreaterThan(expected: number): R;
+		toBeLessThan(expected: number): R;
+		not: Matchers<R>;
+	}
+
+	export function expect<T>(value: T, message?: string): Matchers;
 }

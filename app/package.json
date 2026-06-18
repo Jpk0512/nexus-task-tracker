@@ -20,7 +20,7 @@
 		"predev": "bun run clean:stale-js",
 		"dev": "turbo dev -F @mimir/dashboard -F @mimir/api -F @mimir/trpc",
 		"prebuild": "bun run clean:stale-js",
-		"build": "turbo build",
+		"build": "turbo build --filter=!@mimir/website",
 		"check-types": "turbo check-types",
 		"predev:dashboard": "bun run clean:stale-js",
 		"dev:dashboard": "turbo -F @mimir/dashboard dev",
