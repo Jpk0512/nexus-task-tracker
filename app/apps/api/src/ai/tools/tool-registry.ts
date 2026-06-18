@@ -18,27 +18,22 @@ import {
 } from "./agent-memory";
 // Integration tools
 import { createAgentTool } from "./create-agent";
-import { createCalendarEventTool } from "./create-calendar-event";
 // Assistant job tools
 // Checklist/subtask tools
 import { createChecklistItemTool } from "./create-checklist-item";
 // Document tools
 import { createDocumentTool } from "./create-document";
-import { createDraftEmailTool } from "./create-draft-email";
 import { createLabelTool } from "./create-label";
 import { createMilestoneTool } from "./create-milestone";
 import { createProjectTool } from "./create-project";
 // Task management tools
 import { createTaskTool } from "./create-task";
 import { createTaskCommentTool } from "./create-task-comment";
-import { deleteCalendarEventTool } from "./delete-calendar-event";
 import { deleteDocumentTool } from "./delete-document";
 import { getAgentsTool } from "./get-agents";
-import { getCalendarEventsTool } from "./get-calendar-events";
 import { getChecklistItemsTool } from "./get-checklist-item";
 import { getDocumentByIdTool } from "./get-document-by-id";
 import { getDocumentsTool } from "./get-documents";
-import { getEmailsTool } from "./get-emails";
 import { getLabelsTool } from "./get-labels";
 // Milestone tools
 import { getMilestonesTool } from "./get-milestones";
@@ -50,9 +45,7 @@ import { getTaskAttachmentContentTool } from "./get-task-attachment-content";
 import { getTaskByIdTool } from "./get-task-by-id";
 import { getTasksTool } from "./get-tasks";
 import { getUsersTool } from "./get-users";
-import { sendDraftEmailTool } from "./send-draft-email";
 import { sendEmailTool } from "./send-email";
-import { updateCalendarEventTool } from "./update-calendar-event";
 import { updateChecklistItemTool } from "./update-checklist-item";
 import { updateDocumentTool } from "./update-document";
 import { updateMilestoneTool } from "./update-milestone";
@@ -131,24 +124,9 @@ export const memoryTools = {
  * This allows agents to dynamically gain capabilities based on team configuration
  */
 export const integrationToolRegistry = {
-	gmail: {
-		createDraftEmail: createDraftEmailTool,
-		sendDraftEmail: sendDraftEmailTool,
-		getEmails: getEmailsTool,
-	},
-	"google-calendar": {
-		createCalendarEvent: createCalendarEventTool,
-		updateCalendarEvent: updateCalendarEventTool,
-		deleteCalendarEvent: deleteCalendarEventTool,
-		getCalendarEvents: getCalendarEventsTool,
-	},
 	smtp: {
 		sendEmail: sendEmailTool,
 	},
-	// Future integrations can be added here:
-	// slack: { ... },
-	// whatsapp: { ... },
-	// github: { ... },
 };
 
 const integrationMcpBuilder: Partial<

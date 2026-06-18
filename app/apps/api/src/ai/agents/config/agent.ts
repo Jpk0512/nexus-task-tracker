@@ -1,13 +1,11 @@
 import type { UIChatMessage } from "@api/ai/types";
 import { generateTitle } from "@api/ai/utils/generate-title";
 import { summarizeChat } from "@api/ai/utils/summarize-chat";
-import { phClient } from "@api/lib/posthog";
 import {
 	getChatById,
 	saveChat,
 	saveChatMessage,
 } from "@mimir/db/queries/chats";
-import { withTracing } from "@posthog/ai";
 import {
 	convertToModelMessages,
 	createUIMessageStream,
@@ -110,20 +108,9 @@ export const createAgent = (config: AgentConfig) => {
 
 		console.log({ model });
 
-		const posthogModelWrapped = withTracing(model, phClient, {
-			posthogDistinctId: ctx.userId,
-			posthogProperties: {
-				chatId: ctx.chatId,
-				agentId: ctx.agentId,
-			},
-			posthogGroups: {
-				team: ctx.teamId,
-			},
-		});
-
 		const agent = new ToolLoopAgent({
 			...config,
-			model: posthogModelWrapped,
+			model,
 			experimental_context: params.context,
 			experimental_repairToolCall: repairToolCall,
 			instructions: instructions,

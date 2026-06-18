@@ -4,7 +4,6 @@ import {
 	BellIcon,
 	BotIcon,
 	CableIcon,
-	CalendarIcon,
 	CircleDashedIcon,
 	CloudUploadIcon,
 	FolderIcon,
@@ -120,16 +119,6 @@ export const getSettingsGroups = (basePath: string): SettingsGroup[] => [
 				icon: GithubIcon,
 				to: `${basePath}/settings/integrations/github`,
 				label: "GitHub",
-			},
-			{
-				icon: MailIcon,
-				to: `${basePath}/settings/integrations/gmail`,
-				label: "Gmail",
-			},
-			{
-				icon: CalendarIcon,
-				to: `${basePath}/settings/integrations/google-calendar`,
-				label: "Google Calendar",
 			},
 			{
 				icon: MessageSquareIcon,

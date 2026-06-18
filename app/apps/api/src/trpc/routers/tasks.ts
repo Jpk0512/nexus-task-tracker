@@ -40,7 +40,6 @@ import {
 import { getDuplicateTaskEmbedding } from "@mimir/db/queries/tasks-embeddings";
 import { getMemberById } from "@mimir/db/queries/teams";
 import { trackTaskCreated } from "@mimir/events/server";
-import { syncGoogleCalendarTaskEvent } from "@mimir/integration/google-calendar";
 import { syncRecurringTaskSchedule } from "@mimir/jobs/tasks/create-recurring-task-job";
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq } from "drizzle-orm";
@@ -148,14 +147,6 @@ export const tasksRouter = router({
 				});
 			}
 
-			if (task.dueDate && !task.isTemplate) {
-				// Sync the calendar event
-				syncGoogleCalendarTaskEvent({
-					taskId: task.id,
-					teamId: ctx.user.teamId!,
-				});
-			}
-
 			return task;
 		}),
 
@@ -188,19 +179,6 @@ export const tasksRouter = router({
 					taskId: task.id,
 					recurringCron: task.recurring ?? null,
 					previousJobId: oldTask.recurringJobId,
-				});
-			}
-
-			if (
-				!task.isTemplate &&
-				(oldTask.dueDate !== task.dueDate ||
-					oldTask.subscribers !== task.subscribers)
-			) {
-				// Due date or subscribers changed, sync the calendar event
-				syncGoogleCalendarTaskEvent({
-					taskId: task.id,
-					teamId: ctx.user.teamId!,
-					oldSubscribers: oldTask.subscribers,
 				});
 			}
 

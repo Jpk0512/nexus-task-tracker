@@ -1,7 +1,6 @@
 "use client";
 import type { RouterOutputs } from "@mimir/trpc";
-import posthog from "posthog-js";
-import { createContext, useContext, useEffect, useMemo } from "react";
+import { createContext, useContext, useMemo } from "react";
 
 type User = RouterOutputs["users"]["getCurrent"];
 type ExtendedUser = User & {
@@ -25,17 +24,6 @@ export const UserProvider = ({
 			basePath,
 		};
 	}, [user, basePath]);
-
-	useEffect(() => {
-		if (extendedUser) {
-			posthog.identify(extendedUser.id, {
-				email: extendedUser.email,
-				name: extendedUser.name,
-				teamId: extendedUser.team?.id,
-				teamSlug: extendedUser.team?.slug,
-			});
-		}
-	}, [extendedUser]);
 
 	return (
 		<UserContext.Provider value={extendedUser}>{children}</UserContext.Provider>

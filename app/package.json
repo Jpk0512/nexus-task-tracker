@@ -40,7 +40,6 @@
 	"packageManager": "bun@1.2.21",
 	"trustedDependencies": [
 		"@depot/cli",
-		"@sentry/cli",
 		"@tailwindcss/oxide",
 		"es5-ext",
 		"esbuild",

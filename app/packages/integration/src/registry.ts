@@ -77,27 +77,6 @@ export const integrationsRegistry = {
 			accessToken: z.string(),
 		}),
 	},
-	"google-calendar": {
-		name: "Google Calendar",
-		type: "google-calendar" as const,
-		description: "Sync your tasks with Google Calendar. Never miss a deadline",
-		configSchema: z.object({}),
-	},
-	gmail: {
-		name: "Gmail",
-		type: "gmail" as const,
-		description: "Intake tasks directly from your Gmail inbox",
-		configSchema: z.object({
-			filters: z
-				.object({
-					sendersWhitelist: z.array(z.string().email()).optional(),
-					sendersBlacklist: z.array(z.string().email()).optional(),
-					subjectMatching: z.string().optional(),
-					bodyMatching: z.string().optional(),
-				})
-				.optional(),
-		}),
-	},
 	smtp: {
 		name: "SMTP",
 		type: "smtp" as const,

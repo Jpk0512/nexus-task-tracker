@@ -17,8 +17,6 @@
 		"./task-comments": "./src/task-comments/index.ts",
 		"./slack": "./src/slack/index.ts",
 		"./whatsapp": "./src/whatsapp/index.ts",
-		"./google-calendar": "./src/google-calendar/index.ts",
-		"./gmail": "./src/gmail/index.ts",
 		"./smtp": "./src/smtp/index.ts"
 	},
 	"dependencies": {
@@ -34,7 +32,6 @@
 		"ai": "6.0.64",
 		"date-fns": "^4.1.0",
 		"drizzle-orm": "catalog:",
-		"googleapis": "^169.0.0",
 		"mime-types": "^3.0.1",
 		"nodemailer": "^8.0.1",
 		"redis": "^5.8.2",
