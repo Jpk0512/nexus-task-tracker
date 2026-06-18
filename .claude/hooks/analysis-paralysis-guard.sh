@@ -22,9 +22,51 @@ TOOL=$(printf '%s' "$INPUT" | jq -r '.tool_name // ""' 2>/dev/null || echo "")
 
 STATE_DIR="${TMPDIR:-/tmp}"
 COUNT_FILE="${STATE_DIR}/claude-paralysis-${SID}.count"
+POLL_CMD_FILE="${STATE_DIR}/claude-paralysis-${SID}.pollcmd"
+POLL_COUNT_FILE="${STATE_DIR}/claude-paralysis-${SID}.pollcount"
 
 ACTION_TOOL_RE='^(Edit|Write|MultiEdit|NotebookEdit|Bash|Task)$'
 READ_TOOL_RE='^(Read|Grep|Glob|mcp__plugin_socraticode_socraticode__codebase_)'
+
+# Bash poll-loop counter — INDEPENDENT of the read-class counter below. Keyed on
+# the literal Bash command string (trimmed): a run of identical commands is the
+# "agent polls the same thing over and over" loop the read-class counter (which
+# every Bash resets) cannot see. Fail-open: any parse error => silent exit 0.
+if [[ "$TOOL" == "Bash" ]]; then
+  CMD=$(printf '%s' "$INPUT" | jq -r '(.tool_input.command // .input.command // .command) // ""' 2>/dev/null || echo "")
+  # Trim leading/trailing whitespace so cosmetic spacing does not reset the run.
+  CMD="${CMD#"${CMD%%[![:space:]]*}"}"
+  CMD="${CMD%"${CMD##*[![:space:]]}"}"
+  if [[ -n "$CMD" ]]; then
+    PREV=""
+    if [[ -f "$POLL_CMD_FILE" ]]; then
+      PREV=$(cat "$POLL_CMD_FILE" 2>/dev/null || echo "")
+    fi
+    pollcount=0
+    if [[ -f "$POLL_COUNT_FILE" ]]; then
+      pollcount=$(cat "$POLL_COUNT_FILE" 2>/dev/null || echo 0)
+    fi
+    if [[ "$CMD" == "$PREV" ]]; then
+      pollcount=$((pollcount + 1))
+    else
+      pollcount=1
+    fi
+    printf '%s' "$CMD" > "$POLL_CMD_FILE" 2>/dev/null || true
+    printf '%d' "$pollcount" > "$POLL_COUNT_FILE" 2>/dev/null || true
+    if (( pollcount >= 4 )); then
+      # Emit-once-then-reset (mirrors the read-class emit) so a long poll run does
+      # not spam every subsequent identical call.
+      printf '0' > "$POLL_COUNT_FILE" 2>/dev/null || true
+      : > "$POLL_CMD_FILE" 2>/dev/null || true
+      jq -n --arg n "$pollcount" '{
+        hookSpecificOutput: {
+          hookEventName: "PostToolUse",
+          additionalContext: ("[analysis-paralysis-guard] You have run this exact command " + $n + "x with no new result. Stop polling — wait once and read, or pivot. If waiting on async state, use Monitor (poll-with-stop-condition) instead of a busy loop.")
+        }
+      }' 2>/dev/null || true
+    fi
+  fi
+fi
 
 # Action-class tool — reset counter and exit silently
 if printf '%s' "$TOOL" | grep -qE "$ACTION_TOOL_RE"; then

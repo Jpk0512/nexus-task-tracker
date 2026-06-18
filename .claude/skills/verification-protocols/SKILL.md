@@ -16,7 +16,21 @@ Bounded, reproducible, identical-on-rerun. Run these in order; ALL must pass bef
 ```bash
 # TypeScript:
 rtk tsc                                    # type-check, zero errors
-rtk lint                                   # eslint, zero warnings ignored
+
+# Lint detection order (run exactly one of the three branches):
+#   1. package.json has a "lint" script  → rtk lint
+#   2. no lint script but eslint config exists at project root
+#      (.eslintrc.*, eslint.config.*)    → npx eslint . --max-warnings=0
+#   3. neither                           → emit deterministic.lint = {
+#        command: "lint-detection",
+#        exit_code: 0,
+#        stdout: "LINT: N/A (not configured — no lint script in package.json and no eslint config detected)",
+#        status: "not_configured"
+#      }
+# N/A must be reported explicitly in the gate matrix — it is NEVER silently skipped.
+# N/A does NOT degrade to FAIL; remaining gates determine verdict.
+# A failing rtk lint or npx eslint (non-zero exit) is ALWAYS FAIL — N/A requires
+# the full detection sequence to confirm zero lint tooling, not a failed run.
 
 # Python:
 uv run ruff check ingestion/               # lint + format
@@ -53,7 +67,7 @@ For each perspective, list issues with: severity, where (file:line), what is wro
   "verdict": "PASS | PARTIAL | FAIL",
   "deterministic": {
     "tsc": {"command": "rtk tsc", "exit_code": 0, "stdout": "..."},
-    "lint": {"command": "rtk lint", "exit_code": 0, "stdout": "..."},
+    "lint": {"command": "rtk lint | npx eslint . --max-warnings=0 | lint-detection", "exit_code": 0, "stdout": "...", "status": "pass | not_configured"},
     "tests": {"command": "rtk vitest run ...", "exit_code": 0, "stdout": "..."},
     "ruff": {"command": "uv run ruff check ingestion/", "exit_code": 0, "stdout": "..."},
     "custom": [{"command": "...", "exit_code": 0, "stdout": "..."}]

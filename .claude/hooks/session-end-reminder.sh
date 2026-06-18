@@ -10,11 +10,32 @@
 
 set -e
 
-# Find the most recent open session
-result=$(python3 - <<'PY' 2>/dev/null
-import os, sqlite3, json, sys
+# The install-time token is overridable via env so the hook is testable and
+# degrades LOUDLY (not silently) if the token was never rendered. The literal
+# /Users/john.keeney/nexus-task-tracker stays the env default; install-time substitution renders it.
+DB_PATH="${_HOOK_DB_PATH:-/Users/john.keeney/nexus-task-tracker/.memory/project.db}"
+
+# Find the most recent open session. The Python reads _HOOK_DB_PATH (default:
+# the rendered install path). It distinguishes three outcomes on stdout:
+#   ""               → genuine clean pass (no open session / no activity)
+#   {sid,...}        → emit the normal session-end reminder
+#   {"unrendered":1} → install token never substituted; emit a LOUD advisory so
+#                      the inert recorder is visible instead of fail-open-silent.
+result=$(_HOOK_DB_PATH="$DB_PATH" python3 - <<'PY' 2>/dev/null
+import sqlite3, json, sys, os
+
+db_path = os.environ.get("_HOOK_DB_PATH", "/Users/john.keeney/nexus-task-tracker/.memory/project.db")
+
+# Unrendered install token → the path points at a literal "/Users/john.keeney/nexus-task-tracker/..."
+# that does not exist; sqlite would happily CREATE an empty db there and every
+# query would raise OperationalError, which the old bare `except` swallowed into
+# a silent no-reminder. Detect it up front and surface it loudly instead.
+if "/Users/john.keeney/nexus-task-tracker" in db_path:
+    print(json.dumps({"unrendered": 1}))
+    sys.exit(0)
+
 try:
-    conn = sqlite3.connect(os.environ.get("DB_PATH", os.path.join(os.getcwd(), ".memory", "project.db")))
+    conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
     row = cur.execute(
@@ -43,6 +64,16 @@ PY
 
 if [ -z "$result" ]; then
     # No reminder needed
+    exit 0
+fi
+
+# Unrendered install token → emit a LOUD systemMessage so the inert recorder is
+# visible. This is advisory (Stop hook), so we never block — but we must not be
+# silent about a gate that can no longer find the project db.
+if [ "$(printf '%s' "$result" | jq -r '.unrendered // ""')" = "1" ]; then
+    jq -n '{
+      "systemMessage": "[Session Lifecycle] INSTALL NOT RENDERED — the /Users/john.keeney/nexus-task-tracker token was never substituted, so the session-end reminder cannot locate .memory/project.db and is INERT (no end-of-session reminder will ever fire). Re-run the Nexus install/render step (or set _HOOK_DB_PATH) to restore it. Meanwhile, remember to call: python3 .memory/log.py session end --summary \"<one-line>\" --next_step \"<one-line>\" yourself."
+    }'
     exit 0
 fi
 

@@ -1,0 +1,615 @@
+#!/usr/bin/env python3
+"""broker-gate.py — PreToolUse hook for the Task tool.
+
+Fires before every Task invocation. Enforces the broker chokepoint:
+
+  1. broker_state.json must exist, parse, and carry approved=True for THIS turn
+     (called_at within TURN_STALE_SECONDS).  [base contract]
+  2. notepad_logged_at must be present AND within NOTEPAD_STALE_SECONDS (300s) — the
+     notepad ritual is load-bearing, not decorative (P2-07 / GAP-06).
+  3. For Standard/Complex CODE-writing dispatches, a recent ACCEPTED planning-gate
+     row must exist in project.db (P2-09 / GAP-10). Docs/hooks/prose meta-work
+     (non-code personas) is deliberately NOT gated here.
+  4. Persona binding (S1-04/S1-15): a non-team dispatch must target the SAME
+     persona the broker approved — approval for X is not a ticket to dispatch Y.
+     Team approvals carry a finite TTL (TEAM_APPROVAL_TTL_SECONDS) instead of an
+     unconditional freshness skip.
+
+Fail-CLOSED design (P2-10): if broker_state.json is missing, malformed, or
+unreadable the Task is DENIED (exit 2) — a down broker must be LOUD, not silently
+bypassed. Set NEXUS_BROKER_ALLOW_DEGRADED=1 to opt out: the Task is then allowed
+but a LOUD additionalContext warning is emitted every turn so the outage stays
+visible.
+
+Output contract (mirrors no-direct-push-to-session-branch.sh / skills-required-guard.sh):
+a real object
+  {"hookSpecificOutput":{"hookEventName":"PreToolUse",
+                         "permissionDecision":"deny",
+                         "permissionDecisionReason":<reason>}}
+on stdout + the reason on stderr + sys.exit(2). The stringified-decision shape
+NEVER blocked the harness.
+
+Exit codes:
+  0 = allow Task
+  2 = block Task
+
+Env overrides (test isolation):
+  NEXUS_BROKER_STATE_PATH      — path to broker_state.json
+  NEXUS_BROKER_ALLOW_DEGRADED  — '1' allows dispatch when the broker is down
+  _HOOK_DB_PATH                — path to project.db (planning-gate lookup)
+  _HOOK_REPO_ROOT              — repo root (resolves both paths)
+"""
+# NOTE: hooks run under the SYSTEM python3 (3.9 on macOS), where the
+# datetime.UTC alias (3.11+) does not exist — we must use timezone.utc. ruff
+# here targets py312 and raises UP017, so the call sites carry an explicit
+# noqa for that rule to preserve 3.9 runtime safety.
+from __future__ import annotations
+
+import json
+import os
+import re
+import sqlite3
+import sys
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+TURN_STALE_SECONDS = 120
+NOTEPAD_STALE_SECONDS = 300
+# S1-04/S1-15: a standing per-(team,persona) approval is NOT eternal. A team-
+# scoped teammate spawn is accepted without per-turn re-validation only while
+# the approval is younger than this TTL (replaces the unconditional freshness
+# skip — a week-old team approval must not still authorize spawns).
+TEAM_APPROVAL_TTL_SECONDS = 4 * 3600
+# A planning-gate submission older than this no longer counts as "recent".
+# Generous vs lens-gate's 1h because a single plan covers a multi-dispatch turn.
+PLANNING_GATE_WINDOW = timedelta(hours=4)
+
+# Personas whose dispatch writes source code. Agreement with
+# skills-required-guard.CODE_WRITING_PERSONAS, lens-gate.GATED_AGENTS, and
+# no-deferral-gate.FIXING_AGENTS is enforced by nexus-broker/tests/test_drift_guard.py.
+# A dispatch to any of these at Standard/Complex tier requires a recent ACCEPTED
+# planning-gate row.
+CODE_WRITING_PERSONAS = frozenset({
+    "forge", "forge-ui", "forge-ui-pro",
+    "forge-wire", "forge-wire-pro",
+    "pipeline", "pipeline-data", "pipeline-data-pro",
+    "pipeline-async", "pipeline-async-pro",
+    "atlas",
+    "hermes",
+    "quill", "quill-ts", "quill-py",
+})
+
+# Intents that imply writing code, regardless of persona spelling.
+CODE_WRITING_INTENTS = frozenset({
+    "implement_ui",
+    "implement_api",
+    "implement_ingestion",
+    "implement_schema",
+    "implement_wiring",
+    "test",
+})
+
+
+# ---------------------------------------------------------------------------
+# Path resolution
+# ---------------------------------------------------------------------------
+
+def _repo_root() -> Path:
+    env = os.environ.get("_HOOK_REPO_ROOT")
+    if env:
+        return Path(env)
+    here = Path(__file__).resolve()
+    for candidate in [here, *here.parents]:
+        if (candidate / ".memory").is_dir():
+            return candidate
+    return here.parent.parent.parent
+
+
+def _default_state_path() -> Path:
+    return _repo_root() / ".memory" / "files" / "broker_state.json"
+
+
+def _db_path() -> Path:
+    env = os.environ.get("_HOOK_DB_PATH")
+    if env:
+        return Path(env)
+    return _repo_root() / ".memory" / "project.db"
+
+
+def _record_gate_event(code: str, reason: str) -> None:
+    """Append one JSONL row to the gate-telemetry sink. BEST-EFFORT: any failure is swallowed."""
+    try:
+        sink_env = os.environ.get("NEXUS_GATE_BLOCKS_PATH")
+        if sink_env:
+            sink = Path(sink_env)
+        else:
+            sink = _repo_root() / ".memory" / "files" / "gate_blocks.jsonl"
+        sink.parent.mkdir(parents=True, exist_ok=True)
+        row = {
+            "ts": datetime.now(tz=timezone.utc).isoformat(),  # noqa: UP017
+            "event": "PreToolUse",
+            "hook": "BROKER",
+            "code": code,
+            "reason": reason[:200],
+        }
+        with open(sink, "a") as f:
+            f.write(json.dumps(row, separators=(",", ":")) + "\n")
+    except Exception:
+        pass
+
+
+# ---------------------------------------------------------------------------
+# Decision emitters
+# ---------------------------------------------------------------------------
+
+def warn(msg: str) -> None:
+    sys.stderr.write(f"[broker-gate] WARN: {msg}\n")
+
+
+def note(msg: str) -> None:
+    """A non-error, informational stderr line.
+
+    Used when a gate deliberately does NOT apply to this dispatch (e.g. Plexus
+    meta-work is out of the planning-gate's scope). Distinct prefix from WARN so
+    an intentional skip is never mistaken for a degraded/failed check.
+    """
+    sys.stderr.write(f"[broker-gate] SKIP: {msg}\n")
+
+
+def allow_with_warning(context: str) -> None:
+    """Allow the Task but surface a LOUD additionalContext warning + stderr."""
+    out = {
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "additionalContext": context,
+        }
+    }
+    print(json.dumps(out))
+    sys.stderr.write(f"[broker-gate] WARN: {context}\n")
+    sys.exit(0)
+
+
+def block(reason: str) -> None:
+    """Emit a real-object PreToolUse deny + stderr reason, then exit 2."""
+    full = f"Task dispatch blocked: {reason}"
+    out = {
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "deny",
+            "permissionDecisionReason": full,
+        }
+    }
+    print(json.dumps(out))
+    sys.stderr.write(full + "\n")
+    sys.exit(2)
+
+
+# ---------------------------------------------------------------------------
+# Brief extraction (mirrors skills-required-guard._extract_brief)
+# ---------------------------------------------------------------------------
+
+def _read_payload() -> dict:
+    try:
+        raw = sys.stdin.read()
+    except Exception:
+        return {}
+    if not raw.strip():
+        return {}
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        return {}
+
+
+def _extract_brief(tool_input: dict) -> dict:
+    for field in ("description", "prompt", "input"):
+        raw = tool_input.get(field, "")
+        if not isinstance(raw, str) or not raw.strip():
+            continue
+        for blockmatch in re.findall(r"```(?:json)?\s*(\{.*?\})\s*```", raw, re.DOTALL):
+            try:
+                return json.loads(blockmatch)
+            except json.JSONDecodeError:
+                continue
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError:
+            continue
+    return {}
+
+
+def _dispatch_facts(payload: dict) -> tuple[str, str, str, str, str]:
+    """Return (persona, intent, work_type, task_tier, team_name) for this dispatch.
+
+    Reads the dispatch persona from BOTH the Task shape (`subagent_type`) AND the
+    Agent/Team shape (`agent_type`), and extracts `team_name` when the harness
+    routes a team-scoped teammate spawn (P6-01 / DW-02..05). The probe established
+    that subagent dispatch surfaces as tool_name=Task carrying `subagent_type`;
+    the TeamCreate path and any agent-team teammate carry `agent_type`/`team_name`.
+    Reading both keeps a single gate correct regardless of which spawn surface the
+    harness presents.
+
+    Best-effort: any field the brief omits comes back as "" / "standard".
+    """
+    # The real harness envelope nests the tool input under "tool_input"; older
+    # shapes use "input"; flat payloads (tests) carry fields at top level.
+    # IMPORTANT: top-level "agent_type" is the CALLER's identity, not the target
+    # — never read persona/team from top level when a nested dict was found.
+    _nested: dict | None = None
+    for _key in ("tool_input", "input"):
+        _candidate = payload.get(_key)
+        if isinstance(_candidate, dict):
+            _nested = _candidate
+            break
+    tool_input: dict = _nested if _nested is not None else payload
+
+    if _nested is not None:
+        # Input was nested: agent_type at top level is the CALLER's identity —
+        # never read it as the dispatch target. subagent_type at top level is
+        # the dispatch target and safe to use as a fallback when tool_input is
+        # empty (e.g. test shapes that put the persona top-level alongside a
+        # present-but-empty tool_input key).
+        persona = (
+            tool_input.get("subagent_type", "")
+            or tool_input.get("agent_type", "")
+            or payload.get("subagent_type", "")
+        )
+        team_name = str(tool_input.get("team_name", "")).strip()
+    else:
+        # Flat payload fallback (legacy / test shapes).
+        persona = (
+            tool_input.get("subagent_type", "")
+            or tool_input.get("agent_type", "")
+            or payload.get("subagent_type", "")
+            or payload.get("agent_type", "")
+        )
+        team_name = str(
+            tool_input.get("team_name", "")
+            or payload.get("team_name", "")
+        ).strip()
+    persona = str(persona).lower().strip()
+
+    brief = _extract_brief(tool_input)
+    intent = str(brief.get("intent", "") or tool_input.get("intent", "")).lower().strip()
+    work_type = str(brief.get("work_type", "")).lower().strip()
+    task_tier = str(brief.get("task_tier", "standard") or "standard").lower().strip()
+    return persona, intent, work_type, task_tier, team_name
+
+
+def _resolve_gate_fields(
+    state: dict,
+    prompt_intent: str,
+    prompt_work_type: str,
+    prompt_task_tier: str,
+) -> tuple[str, str, str]:
+    """Return (intent, work_type, task_tier), preferring broker_state.approved_brief.
+
+    TASK-083 single-source: nexus_validate_brief persists the validated brief's
+    gate fields into broker_state.json under `approved_brief`. We read those
+    FIRST so the orchestrator no longer needs a full JSON brief embedded in every
+    Agent prompt. We fall back to the prompt-JSON values (`prompt_*`, from
+    _dispatch_facts) per-field ONLY when state lacks that field — so existing
+    prompt-embedded briefs keep working unchanged (back-compat). A present-but-
+    empty state field is treated as "absent" so it never overrides a real
+    prompt-supplied value.
+    """
+    approved_brief = state.get("approved_brief")
+    if not isinstance(approved_brief, dict):
+        approved_brief = {}
+
+    state_intent = str(approved_brief.get("intent", "") or "").lower().strip()
+    state_work_type = str(approved_brief.get("work_type", "") or "").lower().strip()
+    state_task_tier = str(approved_brief.get("task_tier", "") or "").lower().strip()
+
+    intent = state_intent or prompt_intent
+    work_type = state_work_type or prompt_work_type
+    # task_tier carries a default ("standard") out of _dispatch_facts, so the
+    # prompt value is always truthy — state wins only when it actually has a tier.
+    task_tier = state_task_tier or prompt_task_tier
+    return intent, work_type, task_tier
+
+
+def _is_code_writing(persona: str, intent: str) -> bool:
+    return persona in CODE_WRITING_PERSONAS or intent in CODE_WRITING_INTENTS
+
+
+# ---------------------------------------------------------------------------
+# Planning-gate lookup (P2-09)
+# ---------------------------------------------------------------------------
+
+def _has_recent_planning_gate(brief_feat: str) -> bool | None:
+    """True/False if a recent ACCEPTED planning-gate row exists; None on DB error.
+
+    A planning-gate submission is a context_log row with
+    action_type='planning-gate-submit' whose `summary` is the accepted plan JSON
+    (see log.py:cmd_planning_gate_submit). cmd_planning_gate_submit only INSERTs
+    that row AFTER the gate resolves ACCEPTED — every REJECTED path exits before
+    the INSERT — so the presence of such a row IS the ACCEPTED verdict; there is
+    no separate verdict column to filter on. If brief_feat is given we prefer a
+    row whose plan.feat matches; otherwise any recent submission counts (the
+    orchestrator planned something this turn-window).
+
+    Connection: project.db runs in WAL journal mode (the live DB does). A
+    `mode=ro` URI handle CANNOT open a WAL database — it needs write access to
+    the -wal/-shm sidecars to roll the log forward, so it raises
+    OperationalError('unable to open database file') unconditionally and the old
+    code silently fell through to None (WARN+allow) on EVERY call, making this
+    gate permanently inert. `immutable=1` opens a true read-only point-in-time
+    handle that ignores the WAL sidecars and works on a live WAL DB (verified to
+    return rows against .memory/project.db). This is the read-only analogue of
+    lens-gate.sh's plain sqlite3.connect(DB_PATH), without taking a writable
+    handle on a DB another process owns.
+    """
+    db = _db_path()
+    if not db.exists():
+        # Genuinely cannot check (no DB file). Distinct from a query failure.
+        return None
+    cutoff = (datetime.now(tz=timezone.utc) - PLANNING_GATE_WINDOW).isoformat()  # noqa: UP017
+    try:
+        conn = sqlite3.connect(f"file:{db}?immutable=1", uri=True)
+        try:
+            rows = conn.execute(
+                """
+                SELECT summary FROM context_log
+                WHERE action_type = 'planning-gate-submit'
+                  AND logged_at  > ?
+                ORDER BY logged_at DESC
+                LIMIT 25
+                """,
+                (cutoff,),
+            ).fetchall()
+        finally:
+            conn.close()
+    except sqlite3.Error as exc:
+        # A real query/connection failure (corrupt DB, missing table, locked
+        # under immutable contention). NEVER swallow it silently — emit a LOUD
+        # diagnostic so a broken planning-gate read is visible, then signal
+        # "could not check" to the caller (None) rather than a false allow/deny.
+        warn(
+            f"planning-gate read FAILED on {db}: {type(exc).__name__}: {exc}. "
+            "The planning-gate enforcement could not run for this dispatch."
+        )
+        return None
+
+    return bool(rows)
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+def main() -> None:
+    payload = _read_payload()
+    persona, intent, _work_type, task_tier, team_name = _dispatch_facts(payload)
+
+    # LOCKOUT SAFETY (defense-in-depth): a real agent-spawning dispatch — whether
+    # it surfaces as the Task tool (subagent_type), an Agent-tool spawn
+    # (agent_type), or a TeamCreate teammate (agent_type/team_name) — ALWAYS
+    # carries a persona/team. A payload with NONE of these is not a dispatch: it
+    # is native task bookkeeping (TaskCreate/TaskUpdate status/owner edits) or
+    # noise. The matcher already scopes this hook to Task|TeamCreate, but if that
+    # matcher is ever widened, the broker chokepoint must NOT block the
+    # orchestrator's own task list. Mirror the early-out the other three dispatch
+    # gates make (skills-required-guard / persona-alias-resolver /
+    # dispatch-announce) and silent-pass. Fail toward NOT blocking bookkeeping.
+    if not persona and not team_name:
+        sys.exit(0)
+
+    allow_degraded = os.environ.get("NEXUS_BROKER_ALLOW_DEGRADED") == "1"
+
+    state_path_env = os.environ.get("NEXUS_BROKER_STATE_PATH")
+    state_path = Path(state_path_env) if state_path_env else _default_state_path()
+
+    # --- broker_state.json read: FAIL CLOSED (P2-10) ---
+    degraded_reason: str | None = None
+    try:
+        state = json.loads(state_path.read_text())
+    except FileNotFoundError:
+        degraded_reason = "broker_state.json not found"
+    except json.JSONDecodeError as exc:
+        degraded_reason = f"broker_state.json malformed ({exc})"
+    except OSError as exc:
+        degraded_reason = f"broker_state.json unreadable ({exc})"
+
+    if degraded_reason is not None:
+        if allow_degraded:
+            allow_with_warning(
+                f"BROKER DEGRADED: {degraded_reason}. "
+                "NEXUS_BROKER_ALLOW_DEGRADED=1 is set — Task allowed WITHOUT broker "
+                "validation. Dispatches are UNGUARDED until the broker is restored. "
+                "Start nexus-broker and unset NEXUS_BROKER_ALLOW_DEGRADED to re-arm."
+            )
+        block(
+            f"{degraded_reason} — broker unavailable. "
+            "Start nexus-broker or set NEXUS_BROKER_ALLOW_DEGRADED=1 to bypass."
+        )
+
+    # TASK-083: single-source the gate fields. Now that broker_state.json has been
+    # read, prefer its persisted approved_brief (written by nexus_validate_brief)
+    # for intent/work_type/task_tier, falling back per-field to the prompt-JSON
+    # values from _dispatch_facts only when state lacks them (back-compat). This
+    # lets the orchestrator stop re-embedding a full JSON brief in every Agent
+    # prompt: the broker already validated and persisted these fields.
+    intent, _work_type, task_tier = _resolve_gate_fields(
+        state, intent, _work_type, task_tier
+    )
+
+    # --- approval ---
+    if not state.get("approved", False):
+        blocked_persona = state.get("persona", "unknown")
+        block(
+            f"broker rejected dispatch to '{blocked_persona}' — not allowed. "
+            "Call nexus_validate_brief with a valid brief first."
+        )
+
+    # --- turn freshness (per-turn for a top-level Task; per-(team,persona) for
+    #     a team-scoped teammate spawn) ---
+    # A dynamic Workflow creates a Team once, then spawns teammates across MANY
+    # turns from a single broker approval (DW-02..05). Holding those spawns to the
+    # 120s per-turn window would spuriously block legitimate teammate dispatches.
+    # So when THIS dispatch carries a team_name AND the broker approved THIS
+    # persona for THAT team, we accept the standing per-(team,persona) approval
+    # and skip the turn-staleness check. The fresh-turn 120s contract still
+    # governs every ordinary top-level Task dispatch (no team_name) unchanged.
+    #
+    # NOTE: server.py nexus_validate_brief writes `team_name` into state when the
+    # caller supplies it, so a team-scoped spawn whose state carries team_name
+    # enables this relaxation. If team_name is absent (old-style approval or a
+    # plain top-level Task), the check falls through to the standard 120s
+    # freshness window unchanged. The hook fails CLOSED rather than open.
+    state_team = str(state.get("team_name", "") or "").strip()
+    state_persona = str(state.get("persona", "") or "").lower().strip()
+    team_approval_ok = bool(
+        team_name
+        and state_team
+        and state_team == team_name
+        and (not persona or not state_persona or state_persona == persona)
+    )
+
+    # --- persona binding (S1-04/S1-15): non-team path ---
+    # The broker approved ONE persona. A non-team dispatch (no team_name) that
+    # targets a DIFFERENT persona is riding another brief's approval — block it.
+    # The comparison stays lenient exactly like team_approval_ok above: both
+    # sides lowercased+stripped, and an empty side (old-style state, intent-only
+    # dispatch) skips the check rather than blocking.
+    if not team_name and persona and state_persona and persona != state_persona:
+        block(
+            f"broker approved persona '{state_persona}' but dispatch targets "
+            f"'{persona}' — re-validate the brief for '{persona}' "
+            "(call nexus_validate_brief with the persona you are dispatching)."
+        )
+
+    called_at_str = state.get("called_at")
+    if not called_at_str:
+        block(
+            "broker_state.json has no called_at timestamp — "
+            "nexus_validate_brief was not called this turn."
+        )
+
+    try:
+        called_at = datetime.fromisoformat(called_at_str)
+        if called_at.tzinfo is None:
+            called_at = called_at.replace(tzinfo=timezone.utc)  # noqa: UP017
+        now = datetime.now(tz=timezone.utc)  # noqa: UP017
+        age_seconds = (now - called_at).total_seconds()
+    except Exception as exc:
+        block(f"broker_state.json called_at is malformed ({exc}) — cannot verify turn.")
+
+    if age_seconds > TURN_STALE_SECONDS:
+        if not team_approval_ok:
+            block(
+                f"broker_state.json is stale ({age_seconds:.0f}s old, max {TURN_STALE_SECONDS}s) — "
+                "call nexus_validate_brief again for this turn."
+            )
+        # S1-04/S1-15: the team relaxation is bounded by a finite TTL — a
+        # matched per-(team,persona) approval covers multi-turn teammate spawns
+        # but NOT indefinitely.
+        if age_seconds > TEAM_APPROVAL_TTL_SECONDS:
+            block(
+                f"team approval for '{state_team}' has expired ({age_seconds:.0f}s old, "
+                f"max {TEAM_APPROVAL_TTL_SECONDS}s TTL) — call nexus_validate_brief "
+                "again for this team-scoped dispatch."
+            )
+
+    # --- notepad load-bearing (P2-07) ---
+    # The broker only writes approved=True when the brief carried notepad_topic;
+    # the gate additionally requires the notepad to have been READ this turn
+    # (notepad_logged_at present AND within the turn window).
+    if task_tier in {"standard", "complex"}:
+        notepad_ts = state.get("notepad_logged_at")
+        if not notepad_ts:
+            block(
+                "notepad_logged_at is absent — run "
+                "'python3 .memory/log.py notepad list --topic <scope>' and call "
+                "nexus_notepad_ping before dispatching."
+            )
+        try:
+            np_at = datetime.fromisoformat(notepad_ts)
+            if np_at.tzinfo is None:
+                np_at = np_at.replace(tzinfo=timezone.utc)  # noqa: UP017
+            np_age = (datetime.now(tz=timezone.utc) - np_at).total_seconds()  # noqa: UP017
+        except Exception as exc:
+            block(f"notepad_logged_at is malformed ({exc}) — re-run the notepad ritual.")
+        if np_age > NOTEPAD_STALE_SECONDS:
+            block(
+                f"notepad_logged_at is stale ({np_age:.0f}s old, max {NOTEPAD_STALE_SECONDS}s) — "
+                "re-run the notepad ritual and nexus_notepad_ping for this turn."
+            )
+
+    # --- planning-gate: EXPLICITLY SCOPED to code-writing FEATURE dispatches ---
+    # (P2-09 / GAP-10). The spec-first planning gate applies ONLY to a
+    # Standard/Complex tier dispatch that actually writes feature code (a
+    # code-writing persona OR a feature-implementation intent). Plexus meta-work
+    # — hook/skill/doc/broker edits routed to non-code personas like general, or
+    # any simple-tier dispatch — is OUT OF SCOPE and is EXPLICITLY skipped with a
+    # clear stderr note. There is deliberately NO silent fall-through branch: the
+    # dispatch is either gate-checked, or audibly recorded as out-of-scope.
+    is_feature_code = task_tier in {"standard", "complex"} and _is_code_writing(
+        persona, intent
+    )
+    if not is_feature_code:
+        if task_tier not in {"standard", "complex"}:
+            scope_reason = f"task_tier='{task_tier or 'unset'}' (not standard/complex)"
+        else:
+            scope_reason = (
+                f"persona='{persona or '?'}' / intent='{intent or '?'}' is not a "
+                "code-writing feature dispatch (Plexus meta-work: hooks/docs/skills/"
+                "broker edits)"
+            )
+        note(
+            f"planning-gate not applicable — {scope_reason}. Spec-first (Constitution "
+            "Art. I) gates code-writing FEATURE dispatches only; this dispatch is "
+            "out of scope and allowed without a planning-gate row."
+        )
+        sys.exit(0)
+
+    # Reuse the same nested-dict resolution so brief extraction is consistent.
+    _ti_nested: dict | None = None
+    for _ti_key in ("tool_input", "input"):
+        _ti_cand = payload.get(_ti_key)
+        if isinstance(_ti_cand, dict):
+            _ti_nested = _ti_cand
+            break
+    _ti: dict = _ti_nested if _ti_nested is not None else payload
+    brief = _extract_brief(_ti)
+    brief_feat = str(
+        brief.get("feat", "") or brief.get("feat_id", "") or brief.get("task_id", "")
+    ).strip()
+    gate = _has_recent_planning_gate(brief_feat)
+    if gate is None:
+        # Could not check (no project.db, or a read failure already logged LOUD
+        # inside _has_recent_planning_gate). DOCUMENTED FAIL-OPEN (S1-15c): do
+        # NOT lock out a legitimate dispatch on infrastructure absence — but the
+        # fail-open must be LOUD (additionalContext + stderr) AND recorded to the
+        # gate_blocks telemetry sink so a silently-inert planning gate stays
+        # visible. Honesty over silent policy.
+        msg = (
+            "PLANNING-GATE FAIL-OPEN: planning-gate check could not run — "
+            "project.db absent or unreadable. Cannot confirm a plan was ACCEPTED "
+            "for this code-writing dispatch; ALLOWING UNCHECKED (documented "
+            "fail-open). Restore .memory/project.db to re-arm enforcement."
+        )
+        _record_gate_event("PLANNING-GATE-FAIL-OPEN", msg)
+        full = "[GATE:BROKER/PLANNING-GATE-FAIL-OPEN] " + msg
+        print(json.dumps({
+            "hookSpecificOutput": {
+                "hookEventName": "PreToolUse",
+                "additionalContext": full,
+            }
+        }))
+        sys.stderr.write(full + "\n")
+        sys.exit(0)
+    if gate is False:
+        block(
+            f"no ACCEPTED planning-gate row in the last "
+            f"{int(PLANNING_GATE_WINDOW.total_seconds() // 3600)}h for this "
+            f"{task_tier} code-writing dispatch to '{persona or intent}'. "
+            "Run 'python3 .memory/log.py planning-gate submit --feat <id> --json ...' "
+            "first (Constitution Art. I, spec-first)."
+        )
+
+    sys.exit(0)
+
+
+if __name__ == "__main__":
+    main()

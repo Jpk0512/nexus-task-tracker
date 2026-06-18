@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+nexus-vault writer daemon — single-writer that drains vault_jobs serially
+(plan §7.1 B3). Only this process touches vault files + vec_memory.
+
+Generated from launchd/writer.plist.template by bin/install-launchd.sh.
+
+User-controlled activation:
+    launchctl load   ~/Library/LaunchAgents/com.nexus.vault.writer.plist
+    launchctl unload ~/Library/LaunchAgents/com.nexus.vault.writer.plist
+    launchctl list   com.nexus.vault.writer
+-->
+<plist version="1.0">
+  <dict>
+    <key>Label</key>
+    <string>com.nexus.vault.writer</string>
+
+    <key>ProgramArguments</key>
+    <array>
+      <string>__UV_PATH__</string>
+      <string>run</string>
+      <string>--project</string>
+      <string>__PROJECT__</string>
+      <string>python</string>
+      <string>-m</string>
+      <string>broker.vault.writer</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>__PROJECT__</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <dict>
+      <key>SuccessfulExit</key>
+      <false/>
+      <key>Crashed</key>
+      <true/>
+    </dict>
+
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+      <key>NEXUS_VAULT_ROOT</key>
+      <string>__HOME__/nexus-installer/vault</string>
+      <key>NEXUS_VAULT_DB</key>
+      <string>__HOME__/nexus-installer/.memory/project.db</string>
+      <key>PATH</key>
+      <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>__HOME__/Library/Logs/nexus-research/writer.out.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>__HOME__/Library/Logs/nexus-research/writer.err.log</string>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+  </dict>
+</plist>

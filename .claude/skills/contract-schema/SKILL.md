@@ -1,6 +1,6 @@
 ---
 name: contract-schema
-description: Sub-agent I/O contract — required brief fields, return schema, completion-marker vocabulary, and the universal rules every persona must follow. Use this skill when preparing a sub-agent delegation, validating a returned response, or building a brief template. Canonical source is docs/agents/CONTRACT.md; this skill surfaces the parts Nexus needs at delegation time.
+description: Sub-agent I/O contract — required brief fields, return schema, completion-marker vocabulary, and the 19 universal rules every persona must follow. Use this skill when preparing a sub-agent delegation, validating a returned response, or building a brief template. Canonical source is docs/agents/CONTRACT.md; this skill surfaces the parts Nexus needs at delegation time.
 ---
 
 # Contract Schema (Nexus delegation contract)
@@ -11,36 +11,25 @@ Canonical source: `docs/agents/CONTRACT.md`. This skill is a JIT-loaded referenc
 
 ```json
 {
-  "agent_persona": "<persona-name from docs/agents/TEAM.md>",
+  "agent_persona": "scout|forge-ui|forge-ui-pro|forge-wire|forge-wire-pro|pipeline-data|pipeline-data-pro|pipeline-async|pipeline-async-pro|atlas|hermes|palette|lens|lens-fast|quill-ts|quill-py",
   "goal": "<precise, single-sentence statement>",
   "context_files": ["<path>", "<path>"],
   "acceptance_criteria": [
     "<verifiable criterion — pass/fail, not subjective>"
   ],
   "verification_required": [
-    "<type-check command>",
-    "<lint command>",
-    "<test command>"
+    "rtk tsc",
+    "rtk lint",
+    "uv run ruff check"
   ],
   "do_not_touch": ["<files agent must not modify>"],
-  "worktree_branch": "feat/<slug> or null",
   "constraints": ["<must NOT do X>", "<must use Y not Z>"],
   "db_log_cmds": ["<commands orchestrator runs on completion>"],
-  "db_context": "<paste of: python3 .memory/log.py context dump>",
-  "notepad_topic": "<TASK-NNN | FEAT-NNN | branch-name | freeform-kebab>",
-  "skills_required": ["<skill-name-1>", "<skill-name-2>"]
+  "db_context": "<paste of: python3 .memory/log.py context dump>"
 }
 ```
 
 **Required fields** (orchestrator rejects briefs missing any): `agent_persona`, `goal`, `context_files`, `acceptance_criteria`, `verification_required`, `do_not_touch`.
-
-**`skills_required`** — Required for any code-writing persona. List the skill names the agent must load before their first non-Read tool call. See `docs/agents/SKILL_MAP.md` for the minimum set per `(persona, work_type)`. Optional for read-only personas (scout, lens).
-
-**Strongly recommended:** `worktree_branch`, `constraints`, `db_log_cmds`, `db_context`.
-
-The orchestrator REJECTS any brief missing a required field. Personas that receive an incomplete brief must return `## NEXUS:BLOCKED` with the missing field listed.
-
----
 
 ## Required return
 
@@ -54,36 +43,9 @@ The orchestrator REJECTS any brief missing a required field. Personas that recei
   "blockers": ["<if blocked>"],
   "decisions_needed": [{"question": "<…>", "options": ["A","B"], "recommendation": "A"}],
   "db_log_cmds": ["python3 .memory/log.py task update --id TASK-XXX --status done"],
-  "notepad_written": {
-    "topic": "<notepad_topic from brief>",
-    "agent": "<persona>",
-    "kind": "fyi | nuance | reminder | gotcha | next-agent-action",
-    "note": "<the insight written>"
-  },
-  "notes": "<for orchestrator>",
-  "root_cause_analysis": {
-    "symptom": "<one line describing what the user observed>",
-    "why_chain": [
-      "<Why 1: immediate cause>",
-      "<Why 2: cause of Why 1>",
-      "<Why 3: cause of Why 2>",
-      "<Why 4: cause of Why 3>",
-      "<Why 5 (root): architectural / contract / design defect that allowed this bug class>"
-    ],
-    "pattern_fix": "<how the codebase/process changes so this class cannot recur>"
-  },
-  "deploy_step": {
-    "branch": "<branch-name>",
-    "restart_action": "<none | HMR | restart <svc> | build+up <svc>>",
-    "verification": "<command that confirms the new code is running>"
-  }
+  "notes": "<for orchestrator>"
 }
 ```
-
-**Field notes:**
-- `root_cause_analysis` — REQUIRED for any error-fix or bug-investigation task. The `why_chain` must contain ≥ 5 entries.
-- `deploy_step` — REQUIRED for any delivery touching source code or infrastructure. Omitting is a CONTRACT VIOLATION.
-- `notepad_written` — REQUIRED in every agent response. Either the insight object or `{skipped: "no useful context to add"}`. Omitting entirely is a CONTRACT VIOLATION.
 
 ## Completion marker routing (orchestrator switch)
 
@@ -93,48 +55,40 @@ The orchestrator REJECTS any brief missing a required field. Personas that recei
 | `## NEXUS:BLOCKED` | Read blockers. Re-route to a different persona OR escalate to user. |
 | `## NEXUS:NEEDS-DECISION` | AskUserQuestion with options from `decisions_needed`. Log decision_add. Re-spawn. |
 | `## NEXUS:CHECKPOINT` | Write checkpoint summary to `.memory/`. Pause and resume next session. |
-| `## NEXUS:REVISE` | Revision loop: re-spawn implementer with Lens issues YAML. Cap 3 iterations. Stall-detect. |
-| `## NEXUS:DEFER-REQUEST` | Agent found out-of-scope error; orchestrator approves/rejects defer or instructs inline fix. |
+| `## NEXUS:REVISE` | Revision loop: re-spawn implementer with Lens issues YAML. Cap 3 iterations. Stall-detect (issue_count non-decreasing → escalate). |
 
-## Universal Rules (all agents must follow)
+## 9 Universal Rules
 
 1. **Read before edit** — always Read a file before Edit. Re-read after any other tool changes it.
-2. **SocratiCode first** — semantic search (`codebase_search`, `codebase_symbol`, `codebase_graph_query`) must fire before grep/find/rg. Enforced by the socraticode-gate hook.
-3. **Verify before done** — run every `verification_required` command; capture verbatim output. Claims without output are rejected.
+2. **SocratiCode first — programmatically enforced** by `.claude/hooks/socraticode-gate.sh`. grep/rg/find/ack/ag/fgrep/egrep are denied at command position unless `codebase_search` (or other SocratiCode discovery tool) has fired earlier in the session.
+3. **Verify before done** — run every `verification_required` command and capture verbatim output. Enforced by `verify-deliverables.sh` (SubagentStop) which scans the `verification_result` block for each required command's signature.
 4. **No silent failures** — failures go in `blockers`, not `notes`.
-5. **Worktree work only on assigned branch** — never commit to `main` from a worktree agent.
-6. **Return `db_log_cmds`** — orchestrator runs them; agent does not.
+5. **Commit on the session branch — commit-only, never push** — all work lands on the session branch (the branch active at session start, detected at runtime via `git branch --show-current`; never hardcoded). One focused commit per task IS the checkpoint; no new feature branch and no `git worktree`. A sub-agent commits but does NOT push — only the orchestrator or the user pushes.
+6. **Return db_log_cmds** — orchestrator runs them, agent doesn't.
 7. **No invented features** — ambiguity → `## NEXUS:NEEDS-DECISION` with `decisions_needed`. Do not design around ambiguity.
 8. **Leaf executor — no recursion** — personas may NOT call the Task tool. All delegation flows through Nexus.
-9. **Respect `do_not_touch`** — if a needed change is in a forbidden file, return `## NEXUS:NEEDS-DECISION`.
-10. **Deploy-step disclosure** — every implementation response touching source code or infrastructure MUST end with a `## Deploy step` block naming the branch AND the restart action.
-11. **Root cause in every fix response** — bug-fix responses MUST include a `## Root Cause Analysis` block with ≥5 why-chain entries.
-12. **No deferral of discovered issues** — fix in the same delivery unless the user explicitly authorized defer via `## NEXUS:DEFER-REQUEST`.
-13. **Visual and end-to-end verification** — tests that mock the boundary they validate do NOT satisfy this rule. Real-boundary invocation required.
-14. **Skill triggers** — each persona has a skill-trigger table. Load triggered skills via `Skill <name>` before beginning work.
-15. **Notepad read-write loop** — first action: `notepad list`. Last action: `notepad add` with a concise insight.
-16. **Lens validates before NEXUS:DONE is accepted** — coding-agent NEXUS:DONE is CONDITIONAL until Lens validates.
+9. **Respect do_not_touch + Output-Dir STRICT** — escalate via `## NEXUS:NEEDS-DECISION` if a needed change is forbidden. Enforced by `verify-deliverables.sh` via `forbidden_paths` + `must_not_modify` glob checks against agent's `files_changed`.
+
+> *Note:* The earlier rule "agent-browser for web tasks" was dropped per DEC-036 (Phase 4 reverse-audit closeout). No current web work; re-add when a persona starts touching web (use `agent-browser`, not Chrome MCP / computer-use).
 
 ## Brief template (copy into delegations)
 
 ```json
 {
-  "agent_persona": "[PERSONA]",
-  "goal": "One precise sentence stating what to accomplish.",
+  "agent_persona": "forge-ui",
+  "goal": "Add an /api/health endpoint to app/api/ that returns {status: 'ok', version}.",
   "context_files": [
-    "docs/features/FEAT-XXX.md",
-    "path/to/relevant/file"
+    "app/api/mcp/route.ts",
+    "docs/features/FEAT-001-tableau-workbook-catalog.md"
   ],
   "acceptance_criteria": [
-    "Given X, when Y, then Z (verifiable pass/fail)"
+    "GET /api/health returns 200 with {status, version}",
+    "Response type is application/json"
   ],
-  "verification_required": ["<type-check>", "<lint>"],
-  "do_not_touch": ["<persona-boundary paths>"],
-  "worktree_branch": "feat/<slug>",
-  "constraints": ["Use [framework], not [alternative]"],
+  "verification_required": ["rtk tsc", "rtk lint"],
+  "do_not_touch": ["ingestion/", "models/", "docker-compose*.yml"],
+  "constraints": ["use Next.js 15 App Router, not Pages API"],
   "db_log_cmds": ["python3 .memory/log.py task update --id TASK-XXX --status done"],
-  "db_context": "<from context dump>",
-  "notepad_topic": "TASK-XXX",
-  "skills_required": ["[persona]-conventions"]
+  "db_context": "<from context dump>"
 }
 ```

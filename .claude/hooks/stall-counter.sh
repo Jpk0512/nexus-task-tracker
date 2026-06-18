@@ -3,7 +3,7 @@
 # Reads hook input JSON from stdin (Claude Code PostToolUse payload).
 # Calls log.py task stall --task-id X --persona Y --marker Z.
 # stall_count == 2 → hookSpecificOutput forcing Quill RCA + -pro variant.
-# stall_count >= 3 → block + AskUserQuestion injection.
+# stall_count >= 3 → nested permissionDecision=deny + exit 2; escalation prompt in permissionDecisionReason.
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/heartbeat-emitter.sh" 2>/dev/null || true
@@ -117,16 +117,34 @@ LATENCY=$(($(ms_now) - START_MS))
 
 if [ "$STALL_COUNT" -ge 3 ] 2>/dev/null; then
     emit_heartbeat "$HOOK_NAME" "$EVENT" "block" "$LATENCY"
-    printf '{"decision":"block","reason":"stall_count=%s for persona %s on %s. Three consecutive %s markers. Escalating to user — please investigate root cause before retrying.","askUserQuestion":"Task %s has stalled %s times with persona %s returning %s. Should I (1) force a Quill root-cause analysis, (2) escalate to the -pro variant, or (3) abort this task?"}\n' \
+    REASON=$(printf 'stall_count=%s for persona %s on %s. Three consecutive %s markers. Escalating to user — please investigate root cause before retrying. Task %s has stalled %s times with persona %s returning %s. Choose one: (1) force a Quill root-cause analysis, (2) escalate to the -pro variant, or (3) abort this task.' \
         "$STALL_COUNT" "$PERSONA" "$TASK_ID" "$MARKER" \
-        "$TASK_ID" "$STALL_COUNT" "$PERSONA" "$MARKER"
+        "$TASK_ID" "$STALL_COUNT" "$PERSONA" "$MARKER")
+    jq -n --arg r "$REASON" '{
+        hookSpecificOutput: {
+            hookEventName: "PostToolUse",
+            permissionDecision: "deny",
+            permissionDecisionReason: $r
+        }
+    }'
+    # Durable backstop: the escalation must not rely on the JSON channel alone.
+    # exit 2 hard-blocks even if the harness ignores hookSpecificOutput.
     exit 2
 elif [ "$STALL_COUNT" -eq 2 ] 2>/dev/null; then
     emit_heartbeat "$HOOK_NAME" "$EVENT" "warn" "$LATENCY"
-    printf '{"hookSpecificOutput":"[stall-counter] %s stall_count=2 for %s/%s. REQUIRED: (1) Spawn quill-%s for root-cause analysis before retry. (2) Use %s-pro variant (Opus/xhigh) for next dispatch."}\n' \
-        "$MARKER" "$TASK_ID" "$PERSONA" \
-        "$(printf '%s' "$PERSONA" | grep -oE 'py|ts' | head -1 || echo 'ts')" \
-        "$(printf '%s' "$PERSONA" | sed 's/-pro$//')"
+    case "$PERSONA" in
+        *py*) QUILL_SUFFIX="py" ;;
+        *ts*) QUILL_SUFFIX="ts" ;;
+        *)    QUILL_SUFFIX="ts" ;;
+    esac
+    DE_PRO_PERSONA="${PERSONA%-pro}"
+    jq -n \
+        --arg marker "$MARKER" \
+        --arg task_id "$TASK_ID" \
+        --arg persona "$PERSONA" \
+        --arg quill "$QUILL_SUFFIX" \
+        --arg depro "$DE_PRO_PERSONA" \
+        '{hookSpecificOutput: {hookEventName: "PostToolUse", additionalContext: ("[stall-counter] " + $marker + " stall_count=2 for " + $task_id + "/" + $persona + ". REQUIRED: (1) Spawn quill-" + $quill + " for root-cause analysis before retry. (2) Use " + $depro + "-pro variant (Opus/xhigh) for next dispatch.")}}'
     exit 0
 else
     emit_heartbeat "$HOOK_NAME" "$EVENT" "allow" "$LATENCY"

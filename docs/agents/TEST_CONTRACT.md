@@ -32,16 +32,16 @@ Quill does **not** write mocks for code that can hit real infrastructure. See be
 
 | External service | Policy |
 |---|---|
-| Tableau REST API | Mock with `respx` or `pytest-httpx` |
+| External REST APIs | Mock with `respx` or `pytest-httpx` |
 | DuckDB | Use in-memory instance (`duckdb.connect(':memory:')`) |
 | Redis / Dramatiq | Mock broker in tests |
-| Arize OTel | Disable via `ARIZE_TRACE_ENABLED=false` env |
+| Observability traces | Disable via env var (e.g. `{YOUR_TRACER}_TRACE_ENABLED=false`) |
 
 ### conftest.py must provide
 
 - `tmp_duckdb` fixture: in-memory DuckDB connection with schema applied
-- `sample_workbooks` fixture: list of dicts matching Tableau API response shape
-- `monkeypatch` for env vars (`TABLEAU_SERVER_URL`, `TABLEAU_PAT_NAME`, etc.)
+- Sample API response fixtures matching the external service's response shape
+- `monkeypatch` for env vars (e.g. `{YOUR_API_SERVER_URL}`, `{YOUR_API_TOKEN_NAME}`, etc.)
 
 ---
 
@@ -72,8 +72,8 @@ Quill does **not** write mocks for code that can hit real infrastructure. See be
 ## Test Stub Template (Python)
 
 ```python
-# ingestion/tests/test_tableau_catalog.py
-"""Stubs for FEAT-001 TASK-002 — tableau_catalog.py"""
+# ingestion/tests/test_external_catalog.py
+"""Stubs for FEAT-001 TASK-002 — external_catalog.py"""
 import pytest
 
 

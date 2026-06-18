@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+nexus-vault nightly PII catch-up scan — plan §10.4 / B6, Phase 7 Appendix C #14.
+
+Fires at 02:00 local daily. Walks `research/`, applies the same PII detectors
+used at ingest, writes a PII report to research/_meta/pii-report.json. The
+writer routes anything new at severity=critical to 40-inbox/_quarantine/
+on the next ingest cycle. This is the catch-up path for content that
+landed in the vault before B6 was wired (or via a path that bypassed the
+ingest scanner).
+
+Generated from launchd/pii-scan.plist.template by bin/install-launchd.sh.
+
+User-controlled activation:
+    launchctl load   ~/Library/LaunchAgents/com.nexus.vault.pii-scan.plist
+    launchctl unload ~/Library/LaunchAgents/com.nexus.vault.pii-scan.plist
+    launchctl start  com.nexus.vault.pii-scan       # one-shot manual trigger
+    launchctl list   com.nexus.vault.pii-scan
+-->
+<plist version="1.0">
+  <dict>
+    <key>Label</key>
+    <string>com.nexus.vault.pii-scan</string>
+
+    <key>ProgramArguments</key>
+    <array>
+      <string>__UV_PATH__</string>
+      <string>run</string>
+      <string>--project</string>
+      <string>__PROJECT__</string>
+      <string>python</string>
+      <string>__REPO_ROOT__/bin/scan-pii.py</string>
+      <string>--corpus</string>
+      <string>__REPO_ROOT__/vault</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>__REPO_ROOT__</string>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+      <key>Hour</key>
+      <integer>2</integer>
+      <key>Minute</key>
+      <integer>0</integer>
+    </dict>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+      <key>PATH</key>
+      <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+      <key>HOME</key>
+      <string>__HOME__</string>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>__HOME__/Library/Logs/nexus-research/pii-scan.out.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>__HOME__/Library/Logs/nexus-research/pii-scan.err.log</string>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+  </dict>
+</plist>

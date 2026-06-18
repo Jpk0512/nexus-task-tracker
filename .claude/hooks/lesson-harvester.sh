@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 # SessionStart hook: surfaces decisions from the prior session that should
-# have generated a lesson but didn't. Non-blocking — prints to stderr only.
+# have generated a lesson but didn't. Non-blocking — advisory only.
+#
+# Emits its harvest reminder as a nested hookSpecificOutput object on STDOUT so
+# the SessionStart harness surfaces it to the model. The previous stderr path
+# was swallowed by the settings.json `2>/dev/null` wrapper (SessionStart only
+# surfaces stdout), so the reminder never reached the model.
 #
 # Trigger keywords: redelegation, revise, blocked, failure, root cause
 
@@ -8,9 +13,9 @@ import json
 import os
 import sqlite3
 import sys
-import textwrap
 
-DB_PATH = os.environ.get("DB_PATH", os.path.join(os.getcwd(), ".memory", "project.db"))
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+DB_PATH = os.environ.get("_HOOK_DB_PATH", os.path.join(_REPO_ROOT, ".memory", "project.db"))
 TRIGGER_KEYWORDS = ("redelegation", "revise", "blocked", "failure", "root cause")
 
 
@@ -90,7 +95,19 @@ def main() -> int:
                 f"    --source-decision-id {d['id']}"
             )
 
-        print("\n".join(lines), file=sys.stderr)
+        # Emit as a nested hookSpecificOutput object on STDOUT. SessionStart only
+        # surfaces stdout to the model, and the settings.json `2>/dev/null` wrapper
+        # discards stderr — so the previous stderr path dropped the reminder.
+        reminder = "\n".join(lines)
+        json.dump(
+            {
+                "hookSpecificOutput": {
+                    "hookEventName": "SessionStart",
+                    "additionalContext": reminder,
+                }
+            },
+            sys.stdout,
+        )
     except sqlite3.Error:
         pass
     finally:

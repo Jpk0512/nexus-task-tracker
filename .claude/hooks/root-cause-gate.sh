@@ -9,23 +9,41 @@
 #   - Passes write a row to agent_root_cause_log in project.db.
 #
 # Returns exit 2 (block) or exit 0 (pass/skip).
-#
-# Env vars (with defaults):
-#   DB_PATH    — path to project.db (default: <cwd>/.memory/project.db)
-#   REPO_ROOT  — absolute path to project root (default: cwd)
 
 import json
 import os
 import re
 import sqlite3
+import subprocess
 import sys
 from datetime import datetime, timezone
 
-DB_PATH = os.environ.get(
-    "_HOOK_DB_PATH",
-    os.environ.get("DB_PATH", os.path.join(os.getcwd(), ".memory", "project.db")),
-)
-REPO = os.environ.get("REPO_ROOT", os.getcwd())
+
+def _resolve_db_path() -> str:
+    """Resolve the project.db path at RUNTIME.
+
+    Precedence:
+      1. _HOOK_DB_PATH env override (used by tests and custom installs).
+      2. git rev-parse --show-toplevel from this script's directory.
+    Falls back to <cwd>/.memory/project.db if git is unavailable.
+    """
+    override = os.environ.get("_HOOK_DB_PATH")
+    if override:
+        return override
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    try:
+        repo = subprocess.run(
+            ["git", "-C", script_dir, "rev-parse", "--show-toplevel"],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError):
+        repo = os.getcwd()
+    return os.path.join(repo, ".memory", "project.db")
+
+
+DB_PATH = _resolve_db_path()
 
 FIX_KEYWORDS = re.compile(
     r"\b(fix|bug|error|regression|broken|hangs|crashes|500)\b", re.IGNORECASE
@@ -68,6 +86,8 @@ def extract_rca(text: str) -> tuple[str, list[str], str]:
     if sm:
         symptom = sm.group(1).strip()
 
+    why_lines = WHY_LINE.findall(block)
+    # Collect the full line text for each Why N:
     why_chain: list[str] = []
     for wm in re.finditer(r"(Why\s+\d+\s*:.+)", block, re.IGNORECASE):
         why_chain.append(wm.group(1).strip())
@@ -78,6 +98,35 @@ def extract_rca(text: str) -> tuple[str, list[str], str]:
         pattern_fix = pfm.group(1).strip()
 
     return symptom, why_chain, pattern_fix
+
+
+def _warn_extract_miss(payload: dict) -> None:
+    """EXTRACT_OK canary (S1-22): valid SubagentStop JSON yielded NO assistant text.
+
+    Harness schema drift (renamed payload keys) would silently disarm this gate —
+    every return would look empty and exit 0 forever. Warn LOUDLY instead of
+    staying silent (still exit 0: warn, not block). Once per session via a flag
+    file keyed on session_id so repeat returns do not spam the orchestrator.
+    """
+    if not isinstance(payload, dict) or not payload:
+        return
+    import contextlib
+    import tempfile
+    sid = re.sub(r"[^A-Za-z0-9_-]", "_", str(payload.get("session_id") or "unknown"))[:64]
+    flag = os.path.join(tempfile.gettempdir(), ".nexus-extract-miss-root-cause-gate-" + sid)
+    if os.path.exists(flag):
+        return
+    with contextlib.suppress(OSError):
+        open(flag, "w").close()
+    print(json.dumps({
+        "hookSpecificOutput": {
+            "hookEventName": "SubagentStop",
+            "additionalContext": (
+                "[root-cause-gate] EXTRACT-MISS: SubagentStop payload had no "
+                "extractable assistant text — possible harness schema drift"
+            ),
+        }
+    }))
 
 
 def main() -> int:
@@ -110,6 +159,7 @@ def main() -> int:
     )
 
     if not assistant_text:
+        _warn_extract_miss(payload)
         return 0
 
     # Determine which marker is present.

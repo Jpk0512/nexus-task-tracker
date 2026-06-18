@@ -67,3 +67,10 @@ supabase-stack/volumes/storage/
 
 # App-specific
 app/TEST_PROMPTS.md
+
+# PRISM
+prism/.venv/
+prism/__pycache__/
+prism/.ruff_cache/
+prism/.prism/
+prism/.env

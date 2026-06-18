@@ -1,0 +1,44 @@
+{
+  "mcpServers": {
+    "nexus-broker": {
+      "type": "stdio",
+      "command": "uv",
+      "args": [
+        "run",
+        "--directory",
+        "/Users/john.keeney/nexus-task-tracker/nexus-broker",
+        "python",
+        "-m",
+        "broker.server"
+      ],
+      "env": {}
+    },
+    "nexus-vault": {
+      "type": "stdio",
+      "command": "uv",
+      "args": [
+        "run",
+        "--directory",
+        "/Users/john.keeney/nexus-task-tracker/nexus-broker",
+        "python",
+        "-m",
+        "broker.vault.stdio"
+      ],
+      "env": {}
+    },
+    "prism": {
+      "type": "stdio",
+      "command": "uv",
+      "args": [
+        "--directory",
+        "/Users/john.keeney/nexus-task-tracker/prism",
+        "run",
+        "python",
+        "-m",
+        "prism.cli",
+        "mcp"
+      ],
+      "env": {}
+    }
+  }
+}

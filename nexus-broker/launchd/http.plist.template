@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+nexus-vault HTTP MCP daemon — read-only, bearer-authed, 127.0.0.1:8848.
+
+This file is GENERATED from launchd/http.plist.template by bin/install-launchd.sh
+(sed-substitutes __HOME__, __UV_PATH__, __PROJECT__). Do not edit the generated
+copy — edit the template and re-run install-launchd.sh.
+
+User-controlled activation (we never auto-load):
+    launchctl load   ~/Library/LaunchAgents/com.nexus.vault.http.plist
+    launchctl unload ~/Library/LaunchAgents/com.nexus.vault.http.plist
+    launchctl list   com.nexus.vault.http
+-->
+<plist version="1.0">
+  <dict>
+    <key>Label</key>
+    <string>com.nexus.vault.http</string>
+
+    <key>ProgramArguments</key>
+    <array>
+      <string>__UV_PATH__</string>
+      <string>run</string>
+      <string>--project</string>
+      <string>__PROJECT__</string>
+      <string>python</string>
+      <string>-m</string>
+      <string>broker.vault.http</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>__PROJECT__</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <dict>
+      <key>SuccessfulExit</key>
+      <false/>
+      <key>Crashed</key>
+      <true/>
+    </dict>
+
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+      <key>NEXUS_VAULT_ROOT</key>
+      <string>__HOME__/nexus-installer/vault</string>
+      <key>NEXUS_VAULT_DB</key>
+      <string>__HOME__/nexus-installer/.memory/project.db</string>
+      <key>NEXUS_VAULT_HTTP_HOST</key>
+      <string>127.0.0.1</string>
+      <key>NEXUS_VAULT_HTTP_PORT</key>
+      <string>8848</string>
+      <key>NEXUS_VAULT_BEARER_DEFAULT</key>
+      <string>__HOME__/.config/nexus-research/bearers.d/default.token</string>
+      <key>PATH</key>
+      <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>__HOME__/Library/Logs/nexus-research/http.out.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>__HOME__/Library/Logs/nexus-research/http.err.log</string>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+  </dict>
+</plist>

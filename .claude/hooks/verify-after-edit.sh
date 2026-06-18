@@ -22,7 +22,35 @@ INPUT=$(cat)
 
 EVENT=$(printf '%s' "$INPUT" | jq -r '.hook_event_name // .event // ""' 2>/dev/null)
 
-PROJECT_ROOT="${REPO_ROOT:-$(pwd)}"
+# The install-time token is overridable via env so the hook is testable and
+# degrades LOUDLY (not silently) if the token was never rendered.
+PROJECT_ROOT="${_HOOK_INSTALL_ROOT:-/Users/john.keeney/nexus-task-tracker}"
+TS_CHECK_DIR="app/apps/dashboard"
+PY_CHECK_DIR=""
+INGESTION_DIR=""
+# When the profile has no Python backend, py_check_dir is null → renders empty;
+# fall back to the ingestion dir so the python check still runs against real code.
+PY_CHECK_DIR="${PY_CHECK_DIR:-$INGESTION_DIR}"
+
+# Unrendered install token → fail-open-silent: with PROJECT_ROOT still literal,
+# every candidate path is skipped (it can never match "$PROJECT_ROOT"/*) and the
+# hook exits 0 with no findings — a dead no-op invisible to the operator. This is
+# an ADVISORY hook (never blocks), so "loud" = emit a nested additionalContext
+# advisory announcing the inert gate rather than silently doing nothing.
+case "$PROJECT_ROOT" in
+  __*__)
+    event_out=$(printf '%s' "$INPUT" | jq -r '.hook_event_name // .event // "PostToolUse"' 2>/dev/null)
+    [ -z "$event_out" ] && event_out="PostToolUse"
+    msg='[verify-after-edit] INSTALL NOT RENDERED — the /Users/john.keeney/nexus-task-tracker token was never substituted, so the post-change tsc/ruff check cannot resolve the project root and is INERT (no findings will ever surface). This is advisory-only, so edits are not blocked, but the safety net is OFF. Re-run the Nexus install/render step (or set _HOOK_INSTALL_ROOT) to restore post-edit checks.'
+    jq -n --arg r "$msg" --arg ev "$event_out" '{
+      hookSpecificOutput: {
+        hookEventName: $ev,
+        additionalContext: $r
+      }
+    }'
+    exit 0
+    ;;
+esac
 
 # Collect candidate file paths into the FILES array.
 declare -a FILES=()
@@ -107,16 +135,13 @@ for FILE_PATH in "${FILES[@]}"; do
 
   result=""
   if [ "$check_kind" = "ts" ]; then
-    cd "$PROJECT_ROOT/app" 2>/dev/null || cd "$PROJECT_ROOT"
+    cd "$PROJECT_ROOT/$TS_CHECK_DIR" 2>/dev/null || cd "$PROJECT_ROOT"
     raw=$(rtk tsc --noEmit --skipLibCheck 2>&1 | head -40)
     if [ -n "$raw" ]; then
       result="rtk tsc on $FILE_PATH:\n$raw"
     fi
   elif [ "$check_kind" = "py" ]; then
-    case "$FILE_PATH" in
-      */ingestion/*) cd "$PROJECT_ROOT/ingestion" ;;
-      *) cd "$PROJECT_ROOT" ;;
-    esac
+    cd "$PROJECT_ROOT/$PY_CHECK_DIR" 2>/dev/null || cd "$PROJECT_ROOT"
     raw=$(uv run ruff check "$FILE_PATH" 2>&1 | head -40)
     if [ -n "$raw" ] && ! echo "$raw" | grep -q "^All checks passed"; then
       result="uv run ruff check $FILE_PATH:\n$raw"

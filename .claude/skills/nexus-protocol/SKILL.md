@@ -24,6 +24,8 @@ Supporting contracts (canonical):
 | 6 | [Sub-Agent Review Protocol](#6-sub-agent-review-protocol) | After any agent returns work |
 | 7 | [Context Preservation](#7-context-preservation) | Before ending a session |
 | 8 | [Persona Quick Reference](#8-persona-quick-reference) | Choosing which agent for the task |
+| 9 | [Broker Dispatch Gate](#9-broker-dispatch-gate) | Before any Task dispatch |
+| 10 | [Workflow-First Dispatch Decomposition](#10-workflow-first-dispatch-decomposition) | At any non-trivial dispatch — match task shape to a primitive; ≥2 independent subtasks → a Workflow; goal-shaped work → the goal model |
 
 ---
 
@@ -37,7 +39,13 @@ python3 .memory/log.py context dump       # review open tasks + last session nex
 cat docs/drift-report.md                  # check for staleness alerts
 ```
 
-Then confirm SocratiCode index is active (`codebase_status` returns green). If not, run `codebase_index`.
+Then confirm SocratiCode index is active: `codebase_status(projectPath="/abs/path")` returns 100%. If not, index it (all calls under the `mcp__plugin_socraticode_socraticode__` prefix):
+
+- Index a project:         `codebase_index(projectPath="/abs/path")`, then poll `codebase_status(projectPath="/abs/path")` until 100%
+- Incremental re-index:    `codebase_update(projectPath="/abs/path")` (changed files only)
+- Full rebuild:            `codebase_remove(projectPath="/abs/path")`, then `codebase_index(projectPath="/abs/path")` (e.g. after an embedding-model change)
+- Build the code graph:    `codebase_graph_build(projectPath="/abs/path")`, then poll `codebase_graph_status(projectPath="/abs/path")`
+- Index context artifacts: `codebase_context_index(projectPath="/abs/path")`
 
 The SocratiCode-first rule is **programmatically enforced** by `.claude/hooks/socraticode-gate.sh` — grep/rg/find/ack/ag are blocked by the PreToolUse hook unless a SocratiCode discovery tool fired earlier in the session. The flag is session-scoped and persists once set.
 
@@ -110,6 +118,18 @@ Return: `{"gate": "ACCEPTED", ...}` (logged as a `context_log` row with `action_
 
 Simple class skips submit. Standard/Complex MUST submit before the first implementer dispatch.
 
+### Bootstrap — authoring the gate's own prerequisites
+
+Planning-gate items 1 and 7 (the spec file and failing test stubs) are the gate's own prerequisites — but their authors are code-writing personas: Atlas writes the spec, Quill writes the stubs. This is a chicken-and-egg: a Standard/Complex dispatch to a code-writing persona requires an ACCEPTED planning-gate row first, yet the spec and stubs that satisfy the gate do not exist yet.
+
+The escape: `broker-gate.py` computes `is_feature_code = task_tier in {"standard", "complex"} and _is_code_writing(persona, intent)`. A **SIMPLE-tier** dispatch is never feature-code regardless of persona, so it skips the planning-gate requirement entirely.
+
+Bootstrap sequence (3 steps):
+
+1. Author the spec (`docs/features/FEAT-XXX.md`) and failing test stubs at **SIMPLE tier** — the planning-gate does not apply, so Atlas and Quill can be dispatched without a prior ACCEPTED row.
+2. Run `planning-gate submit` → verify the return is `{"gate": "ACCEPTED", ...}`.
+3. Dispatch implementers at Standard/Complex tier — the accepted planning-gate row now exists and the gate passes.
+
 ### MACRO_NODE — hierarchical planning for multi-phase features
 
 When a feature naturally splits into phases (e.g., FEAT-005 had Polars dtype mapping → schema design → migration → ingestion → search exposure; FEAT-006 had Phase A → B → C → C.1 → D), use the **MACRO_NODE pattern**:
@@ -145,14 +165,13 @@ When a feature naturally splits into phases (e.g., FEAT-005 had Polars dtype map
 
 Every sub-agent brief must include (per CONTRACT.md schema):
 
-- `agent_persona` — exact name from TEAM.md (Scout, Forge, Pipeline, Lens, Quill, Atlas, Hermes)
+- `agent_persona` — exact canonical/split slug from TEAM.md (`scout`, `forge-ui`, `forge-ui-pro`, `forge-wire`, `forge-wire-pro`, `pipeline-data`, `pipeline-data-pro`, `pipeline-async`, `pipeline-async-pro`, `hermes`, `atlas`, `palette`, `lens-fast`, `lens`, `quill-ts`, `quill-py`). The base names `forge`/`pipeline`/`quill` are RETIRED — never dispatch them.
 - `goal` — one sentence
 - `context_files` — minimum set of files to read (≤5; no "read everything")
 - `acceptance_criteria` — GWT format, copied from spec
 - `verification_required` — which checks must pass (`rtk tsc`, `rtk lint`, `uv run ruff check`, etc.)
 - `do_not_touch` — files agent must not modify
 - `db_log_cmds` — commands to run on completion (if any)
-- `worktree_branch` — `feat/<slug>` or null if main-thread work
 - `constraints` — must NOT do X, must use Y not Z
 
 **Never** brief an agent with "figure out what needs doing." The scope is fully defined before delegation.
@@ -287,19 +306,44 @@ See `docs/agents/TEAM.md` for full definitions. Quick routing only:
 
 | Work type | Lead | Pair if needed |
 |---|---|---|
-| Next.js / TypeScript / UI | Forge | — |
-| Python ingestion / DuckDB writes | Pipeline | — |
-| Tableau REST or Azure AI wiring | Hermes | Pipeline or Forge |
-| DuckDB schema / Malloy models | Atlas | Pipeline |
-| Unknown territory / investigation | Scout | — (read-only, no edits) |
-| Validation / acceptance check | Lens | — (no code, only reports) |
-| Test writing | Quill | Coordinates with Lens |
-| Multi-domain or cross-cutting | Scout first | Then assign by domain |
+| `next` UI / components / RSC pages | `forge-ui` | **MUST pair with `palette`** (neither ships without the other); escalate to `forge-ui-pro` |
+| `app/api` / server actions / `vercel-ai-sdk-v4` wiring / read-side `postgres` | `forge-wire` | Pair with `forge-ui`; escalate to `forge-wire-pro` |
+| Python transforms / writers / embeddings / `postgres` writes | `pipeline-data` | Pair with `pipeline-async`; escalate to `pipeline-data-pro` |
+| Dramatiq workers / Redis / integration-target clients / async | `pipeline-async` | Pair with `pipeline-data`; escalate to `pipeline-async-pro` |
+| Integration-target / AI-provider / MCP wiring | `hermes` | Works with `pipeline-async`, `forge-wire` |
+| `postgres` schema / `none` models | `atlas` | Design-only, no Bash |
+| Unknown territory / investigation | `scout` | read-only, no edits; ≥3 in parallel for recon |
+| Deterministic gates (lint/tsc/test) | `lens-fast` | reports only; dispatched ∥ `lens` |
+| Deep / semantic / RCA / visual review | `lens` | reports only; dispatched ∥ `lens-fast` |
+| TS test authoring | `quill-ts` | Coordinates with Lens |
+| Python test authoring | `quill-py` | Coordinates with Lens |
 
-Cascade routing (Phase 2+, when persona agent files land in `.claude/agents/`):
-- Scout → Haiku (read-only investigation, cheap)
-- Forge, Pipeline, Hermes, Atlas, Lens, Quill → Sonnet
-- Nexus (this agent) → Opus
+The base names `forge`/`pipeline`/`quill` are RETIRED — `persona-alias-resolver.sh` DENIES them (exit 2) or redirects only on scope hints. NEVER dispatch a base name.
+
+Cascade routing (per agent frontmatter `model:`):
+- `scout`, `lens-fast` → Haiku (read-only investigation / deterministic gates, cheap; high-volume)
+- `forge-ui`, `forge-wire`, `pipeline-data`, `pipeline-async`, `hermes`, `quill-ts`, `quill-py`, `palette` → Sonnet (implementation precision)
+- `atlas`, `lens`, Nexus (this agent) → Opus (architectural / judgment / orchestration reasoning)
+- `*-pro` variants (`forge-ui-pro`, `forge-wire-pro`, `pipeline-data-pro`, `pipeline-async-pro`) → Opus + xhigh effort (used for COMPLEX or REWORK loops)
+
+---
+
+## 9. Broker Dispatch Gate
+
+Every `Task` dispatch is mechanically gated by the `.claude/hooks/broker-gate.py` PreToolUse hook. It blocks dispatch unless `nexus_validate_brief_tool` ran THIS turn. The ritual is **validate → ping → dispatch**:
+
+1. Call `mcp__nexus-broker__nexus_validate_brief_tool` with the brief you are about to dispatch. It writes `.memory/files/broker_state.json` with `approved` + `called_at`.
+2. After running `notepad list`, call `mcp__nexus-broker__nexus_notepad_ping`.
+3. Dispatch the `Task`. The gate checks `approved=true` AND `called_at` is < **120 s** old (`TURN_STALE_SECONDS`). If you stall >120 s between validate and dispatch, re-call validate.
+
+**Block strings you will see (and the fix for each):**
+- `broker rejected dispatch to '<persona>' — Task dispatch not allowed. Call nexus_validate_brief with a valid brief first.` → the brief failed validation; fix the brief, re-validate.
+- `broker_state.json has no called_at timestamp — nexus_validate_brief was not called this turn.` → you never validated; validate now.
+- `broker_state.json is stale (<N>s old, max 120s) — call nexus_validate_brief again for this turn.` → re-validate, then dispatch promptly.
+
+**Fail-CLOSED (P2-10):** if `.memory/files/broker_state.json` is missing/malformed/unreadable (e.g. the nexus-broker MCP is not running), the gate **blocks** the Task (exit 2) — a down broker must be loud, not silently bypassed. Set `NEXUS_BROKER_ALLOW_DEGRADED=1` to allow Tasks while degraded (a LOUD `additionalContext` warning fires every turn until the broker is restored); unset it and restart the broker to re-arm.
+
+**Disambiguation:** this is the **nexus-broker validation MCP** (`python -m broker.server`), NOT a Redis message broker. The two broker tools (`nexus_validate_brief_tool`, `nexus_notepad_ping`) are the only MCP tools Nexus calls itself.
 
 ---
 
@@ -308,12 +352,18 @@ Cascade routing (Phase 2+, when persona agent files land in `.claude/agents/`):
 Three reinforcements canonical for Nexus orchestrator behavior — full text in
 `docs/CONSTITUTION.md` and `docs/agents/CONTRACT.md`.
 
-### Parallel-first dispatch
-- Independent subtasks → all dispatched in a single message (one tool block,
-  multiple `Task` invocations).
-- Investigation phase → ≥3 parallel Scouts probing different angles.
-- Sequential single-agent dispatches are FORBIDDEN unless the orchestrator names
-  the dependency that requires serialization in writing.
+### Workflow-first dispatch
+- **Threshold:** when a task decomposes into **≥2 independent subtasks** (they need
+  no output from each other), author a dynamic **Workflow** — Workflow is the DEFAULT
+  for ≥2 independent subtasks, not just for multi-phase work — rather than firing
+  sequential single dispatches. Sequential single-agent dispatch is permitted ONLY
+  when the orchestrator names in writing the dependency that requires serialization.
+- **Cap:** bound homogeneous (same-persona) fan-out at **K ≤ 5** — returns plateau
+  past 5 (Constitution Article XIII.b).
+- Raw multi-`Task` fan-out in one tool block is the **deprecated legacy shape**
+  (superseded by the Workflow primitive); it survives ONLY as the **≥3 read-only
+  Scout recon** exception (investigation phase → ≥3 parallel Scouts probing different
+  angles). See §10 for the full primitive-by-shape ladder + goal model.
 
 ### Root cause before re-dispatch
 - When a sub-agent returns `NEXUS:REVISE` OR the user reports a regression, the
@@ -356,3 +406,25 @@ python3 .memory/log.py notepad list --topic <topic>
 ```
 
 Surface any `next-agent-action` or `gotcha` entries in the implementer's brief under `constraints`. This prevents agents from re-discovering what the previous agent already learned.
+
+---
+
+## 10. Workflow-First Dispatch Decomposition
+
+Source of truth: **Constitution Article XIII / XIII.b / XIII.d** (+ DEC-020/022/023/024/025). This section is the operational cue at dispatch time. Dispatch is **WORKFLOW-FIRST** — match the TASK SHAPE to an orchestrator-invocable primitive, do not just count subtasks. Load **`Skill nexus-dispatch-catalog`** at any non-trivial dispatch (the cheat-sheet + the 6 techniques + the goal model); load **`Skill nexus-orchestration`** once you have chosen a primitive (how to RUN it). DEC-021 no-rediscovery: do not reverse-engineer your own toolset.
+
+**Primitive-by-shape.** PARALLEL / independent / fan-out / audit / migration / debate → the **Workflow** tool. ITERATE until a verifiable goal (tests pass / gate green / no new findings) → a **loop-until-done Workflow**. POLL external state you don't control (CI, deploy, PR, logs, queue) → **Monitor**. OUTLIVE-the-session / recurring → **CronCreate** (session, ≤7-day) or `RemoteTrigger`/Routines (durable). Indivisible → one **Agent**. Discovery / quick-Q → inline. (The orchestrator runs on a DENYLIST — Workflow/Monitor/Cron/Agent/Task are NOT denied → available, and are in `permissions.allow` so they run prompt-free.)
+
+**Threshold ladder.** (a) single INDIVISIBLE task → ONE `Agent`/`Task` (a single-teammate Workflow is *preferred* — never forced — for the built-in Lens stage + monitorability). (b) **≥2 INDEPENDENT subtasks** (need no output from each other) → **a dynamic Workflow** (the DEFAULT — not just for multi-phase work); homogeneous same-persona fan-out capped at **K ≤ 5**; `≥3` read-only Scout recon is the standing exception, and is the ONLY surviving use of raw multi-`Task` fan-out (the deprecated legacy shape, superseded by the Workflow primitive). (c) **multi-phase / fan-out-then-verify / scale beyond one context** → a dynamic **Workflow** — move the plan into code when the work is **long-running, massively parallel, highly structured, and/or adversarial**.
+
+**Goal model (HARD GATE, DEC-023/025).** For goal-shaped work the orchestrator OWNS the goal: **ELICIT** the intent (a sharp clarifying question if vague) → **CLARIFY** into a VERIFIABLE oracle + scope + stop condition (LIGHT = a Goal Object `{success_criteria, acceptance_checks, non_goals, open_questions}`, the default; HEAVY = a LOSS FUNCTION via `Skill nexus-loss-function`) → **CONFIRM** with the user ONCE before driving (a separate Lens critic reviews in autonomous ticks) → **DRIVE** with orchestrator-invocable primitives only. NEVER recommend a user slash-command — `/goal`/`/loop`/`/effort` are USER-only; EMULATE them (loop-until-done Workflow / Monitor / Cron). RUNAWAY GUARDS on any iterate/poll loop: max-iteration cap, no-progress detection (halt on identical errors / empty diffs / recurring fails), token/$ budget, circuit-breaker, and SEPARATE-JUDGE (the model that stopped working never decides it's done = Lens).
+
+**Decompose algorithm.** (1) List atomic units (one per callsite / failing test / module / source / candidate); indivisible → ONE Agent. (2) Test independence — any unit needing another's output is sequential or a pipeline, never naive parallel. (3) Pipeline (DEFAULT, no barrier) vs parallel barrier (only when stage N needs ALL of stage N-1). (4) Write each unit's brief explicitly. (5) Dispatch 3–5 in parallel (homogeneous K ≤ 5; never exceed runtime caps). (6) Add a SEPARATE verify/critic phase. (7) Synthesize at the barrier + completeness critic (no-deferral). (8) Loop-until-dry for unknown-size work, with a mandatory max-iteration cap.
+
+**The 6 techniques** (choose by shape, not count):
+- **Classify-and-act** — a classifier decides the task TYPE, then routes to the matching agent/behavior. Trigger: branching-on-type.
+- **Fan-out-and-synthesize** — split into many independent steps, run an agent on each in parallel, then a synthesize barrier merges the structured outputs. Trigger: truly independent subtasks exceeding one context window.
+- **Adversarial verification** — a SEPARATE agent attacks each producer's output against a rubric from a diverse viewpoint; never self-review. (The local Lens mandate.) Gate on risk, not count.
+- **Generate-and-filter** — generate many candidates, dedupe, and keep only the best after rubric/verification filtering. Trigger: breadth THEN quality.
+- **Tournament** — N agents each attempt the SAME task differently; judges compare pairwise through a bracket until one winner remains. Trigger: one hard problem worth N attempts.
+- **Loop-until-done** — for unknown-size work, loop spawning agents until a stop condition ("no new findings" / "no more errors"), with a mandatory max-iteration cap.

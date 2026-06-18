@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+nexus-vault weekly RAG eval — plan §11.5 / B4, Phase 7 Appendix C #12.
+
+Fires every Saturday at 05:00 local. Runs `bin/run-eval.py --resume`, which
+re-evaluates any queries missing from eval-run-latest.json (or starts a
+fresh run if no prior file). The B4 auto-disable wiring in vault_health
+reads the latest run on the next health check.
+
+Generated from launchd/eval.plist.template by bin/install-launchd.sh.
+
+User-controlled activation:
+    launchctl load   ~/Library/LaunchAgents/com.nexus.vault.eval.plist
+    launchctl unload ~/Library/LaunchAgents/com.nexus.vault.eval.plist
+    launchctl start  com.nexus.vault.eval           # one-shot manual trigger
+    launchctl list   com.nexus.vault.eval
+-->
+<plist version="1.0">
+  <dict>
+    <key>Label</key>
+    <string>com.nexus.vault.eval</string>
+
+    <key>ProgramArguments</key>
+    <array>
+      <string>__UV_PATH__</string>
+      <string>run</string>
+      <string>--project</string>
+      <string>__PROJECT__</string>
+      <string>python</string>
+      <string>__REPO_ROOT__/bin/run-eval.py</string>
+      <string>--resume</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>__REPO_ROOT__</string>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+      <key>Weekday</key>
+      <integer>6</integer>
+      <key>Hour</key>
+      <integer>5</integer>
+      <key>Minute</key>
+      <integer>0</integer>
+    </dict>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+      <key>PATH</key>
+      <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+      <key>HOME</key>
+      <string>__HOME__</string>
+      <key>NEXUS_VAULT_ROOT</key>
+      <string>__REPO_ROOT__/vault</string>
+      <key>NEXUS_VAULT_DB</key>
+      <string>__REPO_ROOT__/.memory/project.db</string>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>__HOME__/Library/Logs/nexus-research/eval.out.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>__HOME__/Library/Logs/nexus-research/eval.err.log</string>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+  </dict>
+</plist>

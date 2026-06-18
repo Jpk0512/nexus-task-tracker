@@ -1,0 +1,91 @@
+{
+  "schema_version": "1.0",
+  "frontend": {
+    "present": true,
+    "framework": "next",
+    "ui_lib": "shadcn",
+    "routing": "app",
+    "src_dir": "app/apps/dashboard/src",
+    "test_dir": "app/apps/dashboard",
+    "ts_check_dir": "app/apps/dashboard",
+    "test_runner": "none"
+  },
+  "backend": {
+    "present": true,
+    "framework": "hono",
+    "language": "ts",
+    "src_dir": "app/apps/api/src",
+    "orm": "drizzle",
+    "migrations": "",
+    "py_check_dir": null
+  },
+  "data": {
+    "db": "postgres",
+    "vector": "pgvector",
+    "has_ingestion": false,
+    "ingestion_dir": null,
+    "semantic_layer": "none",
+    "models_dir": null
+  },
+  "workers": {
+    "present": false,
+    "framework": "none",
+    "broker": "none"
+  },
+  "mcp_server_dir": "mcp-server",
+  "ai_layer": "vercel-ai-sdk-v4",
+  "ai_model": "",
+  "package_manager": "bun",
+  "integration_targets": [
+    "supabase",
+    "slack",
+    "trigger.dev",
+    "posthog"
+  ],
+  "socraticode_watched_prefixes": [
+    "/app/apps/",
+    "/app/packages/"
+  ],
+  "persona_set": [
+    "atlas",
+    "forge",
+    "forge-ui",
+    "forge-ui-pro",
+    "forge-wire",
+    "forge-wire-pro",
+    "hermes",
+    "lens",
+    "lens-fast",
+    "nexus-orchestrator",
+    "palette",
+    "quill",
+    "quill-ts",
+    "scout"
+  ],
+  "stack_skills": [
+    "ai-sdk-patterns",
+    "atlas-schema-patterns",
+    "contract-schema",
+    "embedding-patterns",
+    "forge-ui-conventions",
+    "forge-wire-conventions",
+    "hermes-auth-patterns",
+    "log-work",
+    "nexus-capabilities",
+    "nexus-dispatch-catalog",
+    "nexus-health",
+    "nexus-loss-function",
+    "nexus-orchestration",
+    "nexus-protocol",
+    "palette-design-patterns",
+    "parallel-first-check",
+    "project-context",
+    "rsc-boundary-rules",
+    "server-action-contract",
+    "tailwind-design-tokens",
+    "tdd-patterns",
+    "team-routing",
+    "verification-protocols",
+    "vitest-rtl-idioms"
+  ]
+}

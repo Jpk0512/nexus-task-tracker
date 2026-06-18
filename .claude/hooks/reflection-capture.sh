@@ -10,8 +10,11 @@ import sqlite3
 import sys
 from datetime import datetime, timezone
 
-DB_PATH = os.environ.get("DB_PATH", os.path.join(os.getcwd(), ".memory", "project.db"))
-REPO = os.environ.get("REPO_ROOT", os.getcwd())
+# Install-time substitution renders /Users/john.keeney/nexus-task-tracker. Tests (and a runtime
+# sanity check) can override via the _HOOK_INSTALL_ROOT env var. KEEP the literal
+# /Users/john.keeney/nexus-task-tracker as the default so render_template still substitutes it.
+REPO = os.environ.get("_HOOK_INSTALL_ROOT", "/Users/john.keeney/nexus-task-tracker")
+DB_PATH = f"{REPO}/.memory/project.db"
 
 WATCHED_PATTERNS = (
     re.compile(r"docs/features/"),
@@ -74,7 +77,36 @@ def summarize_diff(old_content: str, new_content: str) -> tuple[str, int]:
     return summary[:200], changed_count
 
 
+def _emit_unrendered_warning() -> None:
+    """The install-time /Users/john.keeney/nexus-task-tracker token was never rendered. This hook
+    would otherwise silently no-op (DB_PATH points at a literal-token path that
+    does not exist), so doc-critical edits would never be snapshotted. Fail SAFE
+    (do not block the edit) but LOUD: emit a nested additionalContext warning
+    naming the unrendered token so the orchestrator notices the hook is inert."""
+    ctx = (
+        "[reflection-capture] WARNING — the install-time /Users/john.keeney/nexus-task-tracker token was "
+        "never rendered, so this PostToolUse hook cannot locate .memory/project.db and "
+        "is silently NOT recording reflection snapshots of doc-critical edits. Re-run "
+        "the Nexus install/render step (or set _HOOK_INSTALL_ROOT) to restore capture."
+    )
+    json.dump(
+        {
+            "hookSpecificOutput": {
+                "hookEventName": "PostToolUse",
+                "additionalContext": ctx,
+            }
+        },
+        sys.stdout,
+    )
+    print(ctx, file=sys.stderr)
+
+
 def main() -> int:
+    # Unrendered install token: fail SAFE + LOUD instead of silent no-op.
+    if REPO.startswith("__") and REPO.endswith("__"):
+        _emit_unrendered_warning()
+        return 0
+
     raw = sys.stdin.read()
     try:
         payload = json.loads(raw)

@@ -1,0 +1,81 @@
+[project]
+name = "nexus-broker"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+  "fastmcp>=2.0",
+  "pytest>=8.0",
+  "pytest-asyncio>=0.23",
+  "pyyaml>=6.0",
+  "sqlite-vec>=0.1.6",
+  "uvicorn>=0.30",
+  "httpx>=0.27",
+  "jsonschema>=4.23",
+]
+
+[dependency-groups]
+dev = [
+  "ruff>=0.15",
+  "mypy>=1.13",
+  "pytest-randomly>=4.1.0",
+  "hypothesis>=6.100",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/broker"]
+
+# OPT-067 — pinned lint/type config. The quality bar lives in this versioned
+# artifact, not in author discipline. Run via `tools/ci.sh` (repo root).
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+# Sensible, high-signal rule set. BLE/UP/I/F/SIM are the audit-named wins
+# (BLE001 flags bare-except, UP017 the stale timezone.utc debt).
+select = ["E", "W", "F", "I", "UP", "B", "BLE", "SIM"]
+# E501 (line-length) is governed by the formatter, not enforced as a lint error;
+# pinning it as a hard gate would only flag pre-existing long lines with no bug risk.
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+# state.py:74 bare-except narrowing is owned by OPT-070 (separate change); keep
+# BLE001 active everywhere else so new bare-excepts are still caught.
+"src/broker/state.py" = ["BLE001"]
+# Tests may use broad asserts/imports, re-import for isolation, and are not
+# held to import-sort/f-string cosmetics. Full strictness stays on src/broker/**.
+"tests/**" = ["F401", "F811", "F541", "I001", "BLE001", "SIM"]
+
+[tool.mypy]
+# Scoped to broker.* (see `files`). Third-party deps live in the gitignored,
+# uv-managed .venv that the repo-root pyright/mypy workspace does not auto-resolve,
+# so missing-import noise is silenced; broker.* itself is type-checked.
+python_version = "3.12"
+files = ["src/broker"]
+ignore_missing_imports = true
+namespace_packages = true
+explicit_package_bases = true
+mypy_path = "src"
+# Start permissive — pinned to PASS on today's tree. Tighten incrementally
+# (disallow_untyped_defs, strict) as annotations land; see tools/README.md.
+warn_unused_ignores = false
+warn_redundant_casts = true
+
+# Pre-existing typing debt scoped out so the gate is green today (5 errors).
+# FOLLOW-UP (OPT-067): re-enable per-module and fix.
+#   - vault/policy.py: narrow `data` from dynamic YAML load (dict[Any,Any]) so the
+#     frozenset/int/dict PolicyRules args type-check (4 errors).
+#   - vault/prompts_resources.py: the dynamic `mcp._nexus_vault_resource_enumeration`
+#     attribute on FastMCP (1 attr-defined error) — type via a Protocol or setattr.
+[[tool.mypy.overrides]]
+module = ["broker.vault.policy", "broker.vault.prompts_resources"]
+ignore_errors = true

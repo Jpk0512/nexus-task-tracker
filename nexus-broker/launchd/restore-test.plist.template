@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+nexus-vault weekly restore-test — plan §10.4 / B5, Phase 7 Appendix C #13.
+
+Fires every Sunday at 04:00 local. Restores the most recent backup to a
+temporary directory, runs PRAGMA integrity_check, compares a sample query
+against the live vault, and writes restore-report.json. Exit 0 on PASS;
+non-zero on FAIL.
+
+Generated from launchd/restore-test.plist.template by bin/install-launchd.sh.
+
+User-controlled activation:
+    launchctl load   ~/Library/LaunchAgents/com.nexus.vault.restore-test.plist
+    launchctl unload ~/Library/LaunchAgents/com.nexus.vault.restore-test.plist
+    launchctl start  com.nexus.vault.restore-test  # one-shot manual trigger
+    launchctl list   com.nexus.vault.restore-test
+-->
+<plist version="1.0">
+  <dict>
+    <key>Label</key>
+    <string>com.nexus.vault.restore-test</string>
+
+    <key>ProgramArguments</key>
+    <array>
+      <string>__REPO_ROOT__/bin/vault-restore-test.sh</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>__REPO_ROOT__</string>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+      <key>Weekday</key>
+      <integer>0</integer>
+      <key>Hour</key>
+      <integer>4</integer>
+      <key>Minute</key>
+      <integer>0</integer>
+    </dict>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+      <key>PATH</key>
+      <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+      <key>HOME</key>
+      <string>__HOME__</string>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>__HOME__/Library/Logs/nexus-research/restore-test.out.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>__HOME__/Library/Logs/nexus-research/restore-test.err.log</string>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+  </dict>
+</plist>

@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+nexus-vault nightly backup — plan §10.4 / B5.
+
+Fires at 03:00 local daily. Writes to ~/.cache/nexus-research/backups/<YYYY-MM-DD>/.
+The script refuses if the working tree is dirty (it will not snapshot user WIP);
+that's intentional. Failed runs leave a log line in backup.err.log.
+
+Generated from launchd/backup.plist.template by bin/install-launchd.sh.
+
+User-controlled activation:
+    launchctl load   ~/Library/LaunchAgents/com.nexus.vault.backup.plist
+    launchctl unload ~/Library/LaunchAgents/com.nexus.vault.backup.plist
+    launchctl start  com.nexus.vault.backup        # one-shot manual trigger
+    launchctl list   com.nexus.vault.backup
+-->
+<plist version="1.0">
+  <dict>
+    <key>Label</key>
+    <string>com.nexus.vault.backup</string>
+
+    <key>ProgramArguments</key>
+    <array>
+      <string>__REPO_ROOT__/bin/vault-backup.sh</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>__REPO_ROOT__</string>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+      <key>Hour</key>
+      <integer>3</integer>
+      <key>Minute</key>
+      <integer>0</integer>
+    </dict>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+      <key>PATH</key>
+      <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+      <key>HOME</key>
+      <string>__HOME__</string>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>__HOME__/Library/Logs/nexus-research/backup.out.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>__HOME__/Library/Logs/nexus-research/backup.err.log</string>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+  </dict>
+</plist>
