@@ -151,13 +151,6 @@ const defaultSearchState: GlobalSearchItem[] = [
 		href: "/settings/profile",
 	},
 	{
-		id: "navigate:billing",
-		type: "navigation",
-		title: "Billing",
-		teamId: "",
-		href: "/settings/billing",
-	},
-	{
 		id: "navigate:labels",
 		type: "navigation",
 		title: "Labels",

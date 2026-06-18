@@ -15,7 +15,12 @@ app.post("/avatar", async (c) => {
 	}
 
 	const ext = file.name.split(".").pop() ?? "bin";
-	const result = await fileStorageAdapter.upload("vault", `${userId}/avatar.${ext}`, file, file.type);
+	const result = await fileStorageAdapter.upload(
+		"vault",
+		`${userId}/avatar.${ext}`,
+		file,
+		file.type,
+	);
 
 	return c.json({
 		success: true,

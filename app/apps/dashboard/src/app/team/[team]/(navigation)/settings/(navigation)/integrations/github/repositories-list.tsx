@@ -240,7 +240,10 @@ export const BranchesInput = ({
 			</PopoverTrigger>
 			<PopoverContent>
 				<Command>
-					<CommandInput placeholder="Search branches…" aria-label="Search branches" />
+					<CommandInput
+						placeholder="Search branches…"
+						aria-label="Search branches"
+					/>
 					<CommandGroup>
 						{branches?.map((branch) => (
 							<CommandItem

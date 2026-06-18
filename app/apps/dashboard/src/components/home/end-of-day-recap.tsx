@@ -125,8 +125,8 @@ export const EndOfDayRecap = () => {
 						icon={<SparklesIcon className="size-3.5 text-violet-500" />}
 					/>
 					<p className="col-span-3 text-[11px] text-muted-foreground">
-						Granola-style narrative recap (what you shipped, what's
-						blocked, what's next) lands in iter-11.
+						Granola-style narrative recap (what you shipped, what's blocked,
+						what's next) lands in iter-11.
 					</p>
 				</div>
 			) : null}

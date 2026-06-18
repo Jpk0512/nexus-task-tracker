@@ -86,11 +86,7 @@ export interface LensSidebarProps {
 	onSelect: (id: LensSegmentId) => void;
 }
 
-export function LensSidebar({
-	activeId,
-	counts,
-	onSelect,
-}: LensSidebarProps) {
+export function LensSidebar({ activeId, counts, onSelect }: LensSidebarProps) {
 	return (
 		<nav
 			aria-label="Personal lens segments"

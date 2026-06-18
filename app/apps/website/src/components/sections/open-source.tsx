@@ -54,7 +54,10 @@ export const OpenSource: React.FC = () => {
 						<Button
 							variant="default"
 							onClick={() =>
-								window.open("https://github.com/Jpk0512/nexus-task-tracker", "_blank")
+								window.open(
+									"https://github.com/Jpk0512/nexus-task-tracker",
+									"_blank",
+								)
 							}
 						>
 							<GithubIcon size={16} />

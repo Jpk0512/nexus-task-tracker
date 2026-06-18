@@ -73,7 +73,11 @@ interface GroupByOptionDef {
 }
 
 const GROUP_BY_LIBRARY: Record<TaskGroupBy, GroupByOptionDef> = {
-	none: { value: "none", label: "None", icon: <ListIcon className="size-3.5" /> },
+	none: {
+		value: "none",
+		label: "None",
+		icon: <ListIcon className="size-3.5" />,
+	},
 	project: {
 		value: "project",
 		label: "Project",
@@ -89,7 +93,11 @@ const GROUP_BY_LIBRARY: Record<TaskGroupBy, GroupByOptionDef> = {
 		label: "Priority",
 		icon: <FlagIcon className="size-3.5" />,
 	},
-	due: { value: "due", label: "Due", icon: <CalendarIcon className="size-3.5" /> },
+	due: {
+		value: "due",
+		label: "Due",
+		icon: <CalendarIcon className="size-3.5" />,
+	},
 	assignee: {
 		value: "assignee",
 		label: "Assignee",
@@ -102,16 +110,23 @@ const GROUP_BY_LIBRARY: Record<TaskGroupBy, GroupByOptionDef> = {
 	},
 };
 
-const VIEW_MODES: Array<{ value: TaskViewMode; label: string; icon: React.ReactNode }> =
-	[
-		{ value: "list", label: "List", icon: <ListIcon className="size-3.5" /> },
-		{
-			value: "compact",
-			label: "Compact",
-			icon: <Rows3Icon className="size-3.5" />,
-		},
-		{ value: "cards", label: "Cards", icon: <LayoutGridIcon className="size-3.5" /> },
-	];
+const VIEW_MODES: Array<{
+	value: TaskViewMode;
+	label: string;
+	icon: React.ReactNode;
+}> = [
+	{ value: "list", label: "List", icon: <ListIcon className="size-3.5" /> },
+	{
+		value: "compact",
+		label: "Compact",
+		icon: <Rows3Icon className="size-3.5" />,
+	},
+	{
+		value: "cards",
+		label: "Cards",
+		icon: <LayoutGridIcon className="size-3.5" />,
+	},
+];
 
 export interface FilterChip {
 	/** Stable key for the chip (e.g. `"status"`, `"priority"`). */
@@ -354,7 +369,9 @@ export function TaskToolbar({
 								>
 									{def.icon}
 									<span className="flex-1">{def.label}</span>
-									{active && <CheckIcon className="size-3.5 text-muted-foreground" />}
+									{active && (
+										<CheckIcon className="size-3.5 text-muted-foreground" />
+									)}
 								</DropdownMenuItem>
 							);
 						})}

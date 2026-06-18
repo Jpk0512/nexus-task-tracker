@@ -19,7 +19,6 @@ import { CSS } from "@dnd-kit/utilities";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@ui/components/ui/button";
 import { DataSelectInput } from "@ui/components/ui/data-select-input";
-import { Label } from "@ui/components/ui/label";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -27,6 +26,7 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "@ui/components/ui/dropdown-menu";
+import { Label } from "@ui/components/ui/label";
 import { cn } from "@ui/lib/utils";
 import { EllipsisIcon, GripVerticalIcon } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -253,7 +253,10 @@ export const StatusesList = () => {
 	return (
 		<div className="text-sm">
 			<div className="mb-2 flex items-center gap-2">
-				<Label htmlFor="statuses-project-filter" className="font-medium text-xs">
+				<Label
+					htmlFor="statuses-project-filter"
+					className="font-medium text-xs"
+				>
 					Project
 				</Label>
 				<DataSelectInput

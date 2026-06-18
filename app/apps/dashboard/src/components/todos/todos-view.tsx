@@ -68,11 +68,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { toast } from "sonner";
 import { JkHint } from "@/components/jk-hint";
-import { BulkOpsBar, useBindBulkSelection } from "@/components/tasks/bulk-ops-bar";
+import {
+	BulkOpsBar,
+	useBindBulkSelection,
+} from "@/components/tasks/bulk-ops-bar";
 import { MetadataConflictBadge } from "@/components/tasks/metadata-conflict-badge";
 import {
-	TaskToolbar,
 	type TaskGroupBy,
+	TaskToolbar,
 	useToolbarGroupBy,
 } from "@/components/tasks/task-toolbar";
 import { useJkNavigation } from "@/hooks/use-jk-navigation";
@@ -1103,10 +1106,7 @@ export function TodosView() {
 	// ── Bulk selection ───────────────────────────────────────────────────────
 	// Bind the surface so the shared bulk-ops bar can fire mutations against
 	// the right entity set + so `escape` clears selection on this page only.
-	const visibleIds = useMemo(
-		() => activeTodos.map((t) => t.id),
-		[activeTodos],
-	);
+	const visibleIds = useMemo(() => activeTodos.map((t) => t.id), [activeTodos]);
 	useBindBulkSelection({ surface: "todos", orderedIds: visibleIds });
 	const selectedSet = useTaskSelection((s) => s.selected);
 	const toggleSelection = useTaskSelection((s) => s.toggle);

@@ -3,10 +3,8 @@ import { buildAppContext } from "@api/ai/agents/config/shared";
 import { messagingAgent } from "@api/ai/agents/messaging";
 import type { UIChatMessage } from "@api/ai/types";
 import { getUserContext } from "@api/ai/utils/get-user-context";
-import { LocalDiskStorageAdapter } from "@mimir/storage";
 import { Client4, type WebSocketMessage } from "@mattermost/client";
 import type { UserProfile } from "@mattermost/types/users";
-import { checkPlanFeatures } from "@mimir/billing";
 import { integrationsCache } from "@mimir/cache/integrations-cache";
 import { db } from "@mimir/db/client";
 import { getChatById, saveChatMessage } from "@mimir/db/queries/chats";
@@ -16,6 +14,7 @@ import {
 } from "@mimir/db/queries/integrations";
 import { integrations } from "@mimir/db/schema";
 import { trackMessage } from "@mimir/events/server";
+import { LocalDiskStorageAdapter } from "@mimir/storage";
 import { getApiUrl } from "@mimir/utils/envs";
 import type { UIMessage } from "ai";
 import { fetch } from "bun";
@@ -233,20 +232,6 @@ export const initMattermostSingle = async (
 								// handle the message
 
 								if (isMentioned) {
-									const canAccess = await checkPlanFeatures(
-										integration.teamId,
-										["ai"],
-									);
-									if (!canAccess) {
-										await client.createPost({
-											channel_id: typedData.post.channel_id,
-											message:
-												"Your team plan does not include AI features. Please upgrade your plan to use this feature.",
-											root_id: threadId ?? typedData.post.id,
-										});
-										return;
-									}
-
 									const [userContext, chat] = await Promise.all([
 										getUserContext({
 											userId: associetedUser.userId,

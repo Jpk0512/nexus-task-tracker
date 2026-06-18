@@ -17,7 +17,10 @@ export class LocalDiskStorageAdapter implements FileStorageAdapter {
 
 	private safePath(bucket: string, filePath: string): string {
 		const resolved = path.resolve(this.storageRoot, bucket, filePath);
-		if (resolved !== this.storageRoot && !resolved.startsWith(this.storageRoot + path.sep)) {
+		if (
+			resolved !== this.storageRoot &&
+			!resolved.startsWith(this.storageRoot + path.sep)
+		) {
 			throw new Error(`Path escapes storage root: ${resolved}`);
 		}
 		return resolved;

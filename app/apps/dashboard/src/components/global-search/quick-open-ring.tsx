@@ -19,16 +19,12 @@
  */
 
 import { DialogTitle } from "@radix-ui/react-dialog";
-import {
-	Dialog,
-	DialogContent,
-	DialogHeader,
-} from "@ui/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader } from "@ui/components/ui/dialog";
 import { cn } from "@ui/lib/utils";
 import { formatDistanceToNowStrict } from "date-fns";
 import {
-	BoxIcon,
 	BookOpenIcon,
+	BoxIcon,
 	ChevronRightIcon,
 	FileTextIcon,
 	HashIcon,
@@ -40,8 +36,8 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useUser } from "@/components/user-provider";
 import { useTaskPanel } from "@/components/panels/task-panel";
+import { useUser } from "@/components/user-provider";
 import type { GlobalSearchItem } from "./types";
 
 const RECENT_KEY = "nexus.palette.recent";

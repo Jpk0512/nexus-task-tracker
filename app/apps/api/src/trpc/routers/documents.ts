@@ -186,10 +186,7 @@ export const documentsRouter = router({
 					subscribedAt: documentSubscriptions.subscribedAt,
 				})
 				.from(documentSubscriptions)
-				.innerJoin(
-					usersRef,
-					eq(documentSubscriptions.userId, usersRef.id),
-				)
+				.innerJoin(usersRef, eq(documentSubscriptions.userId, usersRef.id))
 				.where(eq(documentSubscriptions.documentId, input.documentId))
 				.orderBy(asc(documentSubscriptions.subscribedAt));
 			return rows;

@@ -17,8 +17,8 @@ import Link from "next/link";
 export const RowActionStrip = ({ children }: { children: React.ReactNode }) => (
 	<div
 		className={cn(
-			"absolute top-1/2 right-1.5 flex -translate-y-1/2 items-center gap-0.5 rounded-md border border-border bg-background/95 px-1 py-0.5 opacity-0 shadow-sm backdrop-blur transition-opacity",
-			"group-hover:opacity-100 group-focus-within:opacity-100",
+			"-translate-y-1/2 absolute top-1/2 right-1.5 flex items-center gap-0.5 rounded-md border border-border bg-background/95 px-1 py-0.5 opacity-0 shadow-sm backdrop-blur transition-opacity",
+			"group-focus-within:opacity-100 group-hover:opacity-100",
 		)}
 		onClick={(e) => e.stopPropagation()}
 		onKeyDown={(e) => e.stopPropagation()}

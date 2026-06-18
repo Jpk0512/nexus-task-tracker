@@ -3,8 +3,6 @@ import { buildAppContext } from "@api/ai/agents/config/shared";
 import { messagingAgent } from "@api/ai/agents/messaging";
 import type { UIChatMessage } from "@api/ai/types";
 import { getUserContext } from "@api/ai/utils/get-user-context";
-import { LocalDiskStorageAdapter } from "@mimir/storage";
-import { checkPlanFeatures } from "@mimir/billing";
 import { getLinkedUserByExternalId } from "@mimir/db/queries/integrations";
 import {
 	getAvailableTeams,
@@ -12,6 +10,7 @@ import {
 	switchTeam,
 } from "@mimir/db/queries/users";
 import { trackMessage } from "@mimir/events/server";
+import { LocalDiskStorageAdapter } from "@mimir/storage";
 import { getApiUrl } from "@mimir/utils/envs";
 import { experimental_transcribe, type UIMessage } from "ai";
 import mime from "mime-types";
@@ -62,14 +61,6 @@ export const handleWhatsappMessage = async ({
 			});
 			user.teamId = availableTeams[0]!.id;
 		}
-	}
-
-	const canAccess = await checkPlanFeatures(user.teamId!, ["ai"]);
-	if (!canAccess) {
-		response.message(
-			"Your team plan does not include AI features. Please upgrade your plan to use this feature.",
-		);
-		return response.toString();
 	}
 
 	const userContext = await getUserContext({

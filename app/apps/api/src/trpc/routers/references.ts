@@ -14,8 +14,8 @@ import {
 	intakes,
 	knowledgeNotesOnTasks,
 	projects,
-	tasks as tasksTable,
 	taskSkills,
+	tasks as tasksTable,
 	todoAttachments,
 	todos,
 } from "@mimir/db/schema";
@@ -259,9 +259,7 @@ async function listForLibrary(
 		.from(taskSkills)
 		.innerJoin(tasksTable, eq(taskSkills.taskId, tasksTable.id))
 		.leftJoin(projects, eq(projects.id, tasksTable.projectId))
-		.where(
-			and(eq(taskSkills.skillId, skillId), eq(tasksTable.teamId, teamId)),
-		)
+		.where(and(eq(taskSkills.skillId, skillId), eq(tasksTable.teamId, teamId)))
 		.orderBy(desc(taskSkills.createdAt))
 		.limit(50);
 

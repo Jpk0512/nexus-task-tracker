@@ -15,9 +15,9 @@
  *   (b) /Users/john.keeney/mimrai  path prefix (but NOT mimrai-pg-data or @mimir/)
  */
 
-import { describe, test, expect } from "vitest";
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
+import { describe, expect, test } from "vitest";
 
 // ---------------------------------------------------------------------------
 // Patterns
@@ -25,7 +25,7 @@ import { join, relative } from "node:path";
 
 /** Matches MIMRAI_LOCAL_DEV or NEXT_PUBLIC_MIMRAI_LOCAL_DEV as exact env-var tokens */
 const ENV_VAR_RE =
-  /(?<![A-Z0-9_])(?:NEXT_PUBLIC_)?MIMRAI_LOCAL_DEV(?![A-Z0-9_])/;
+	/(?<![A-Z0-9_])(?:NEXT_PUBLIC_)?MIMRAI_LOCAL_DEV(?![A-Z0-9_])/;
 
 /**
  * Matches the absolute path prefix /Users/john.keeney/mimrai (with or without
@@ -36,24 +36,24 @@ const ENV_VAR_RE =
  * Strategy: match /Users/john.keeney/mimrai and then require the next char (if
  * any) to be '/' or end-of-token — but explicitly exclude the "-pg-data" suffix.
  */
-const ABS_PATH_RE =
-  /\/Users\/john\.keeney\/mimrai(?!-pg-data)(?:[\/\s"']|$)/;
+const ABS_PATH_RE = /\/Users\/john\.keeney\/mimrai(?!-pg-data)(?:[/\s"']|$)/;
 
 // ---------------------------------------------------------------------------
 // Directories / files to exclude from the walk
 // ---------------------------------------------------------------------------
 
 const EXCLUDED_DIRS = new Set([
-  "node_modules",
-  ".next",
-  "dist",
-  "build",
-  ".turbo",
+	"node_modules",
+	".next",
+	"dist",
+	"build",
+	".turbo",
+	"__tests__", // test files may legally contain pattern strings in comments
 ]);
 
 /** Also skip any directory whose name starts with .pre-nexus */
 function isExcludedDir(name: string): boolean {
-  return EXCLUDED_DIRS.has(name) || name.startsWith(".pre-nexus");
+	return EXCLUDED_DIRS.has(name) || name.startsWith(".pre-nexus");
 }
 
 /** Skip binary / lock files that are not text source */
@@ -64,24 +64,24 @@ const EXCLUDED_FILE_NAMES = new Set(["bun.lock", "bun.lockb", "yarn.lock"]);
 // ---------------------------------------------------------------------------
 
 function* walkText(dir: string, selfPath: string): Generator<string> {
-  let entries: import("node:fs").Dirent<string>[];
-  try {
-    entries = readdirSync(dir, { withFileTypes: true, encoding: "utf8" });
-  } catch {
-    return;
-  }
+	let entries: import("node:fs").Dirent<string>[];
+	try {
+		entries = readdirSync(dir, { withFileTypes: true, encoding: "utf8" });
+	} catch {
+		return;
+	}
 
-  for (const entry of entries) {
-    if (entry.isDirectory()) {
-      if (isExcludedDir(entry.name)) continue;
-      yield* walkText(join(dir, entry.name), selfPath);
-    } else if (entry.isFile()) {
-      if (EXCLUDED_FILE_NAMES.has(entry.name)) continue;
-      const filePath = join(dir, entry.name);
-      if (filePath === selfPath) continue; // never scan this guard test itself
-      yield filePath;
-    }
-  }
+	for (const entry of entries) {
+		if (entry.isDirectory()) {
+			if (isExcludedDir(entry.name)) continue;
+			yield* walkText(join(dir, entry.name), selfPath);
+		} else if (entry.isFile()) {
+			if (EXCLUDED_FILE_NAMES.has(entry.name)) continue;
+			const filePath = join(dir, entry.name);
+			if (filePath === selfPath) continue; // never scan this guard test itself
+			yield filePath;
+		}
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -93,33 +93,33 @@ function* walkText(dir: string, selfPath: string): Generator<string> {
  * Reads files as UTF-8 text; skips files that cannot be decoded (binary).
  */
 function scanForPattern(
-  rootDir: string,
-  pattern: RegExp,
+	rootDir: string,
+	pattern: RegExp,
 ): Array<{ file: string; lines: number[] }> {
-  const hits: Array<{ file: string; lines: number[] }> = [];
+	const hits: Array<{ file: string; lines: number[] }> = [];
 
-  for (const filePath of walkText(rootDir, THIS_FILE)) {
-    let content: string;
-    try {
-      content = readFileSync(filePath, "utf8");
-    } catch {
-      continue; // skip unreadable / binary files
-    }
+	for (const filePath of walkText(rootDir, THIS_FILE)) {
+		let content: string;
+		try {
+			content = readFileSync(filePath, "utf8");
+		} catch {
+			continue; // skip unreadable / binary files
+		}
 
-    // Quick pre-check before splitting lines
-    if (!pattern.test(content)) continue;
+		// Quick pre-check before splitting lines
+		if (!pattern.test(content)) continue;
 
-    const matchedLines: number[] = [];
-    content.split("\n").forEach((line, idx) => {
-      if (pattern.test(line)) matchedLines.push(idx + 1);
-    });
+		const matchedLines: number[] = [];
+		content.split("\n").forEach((line, idx) => {
+			if (pattern.test(line)) matchedLines.push(idx + 1);
+		});
 
-    if (matchedLines.length > 0) {
-      hits.push({ file: filePath, lines: matchedLines });
-    }
-  }
+		if (matchedLines.length > 0) {
+			hits.push({ file: filePath, lines: matchedLines });
+		}
+	}
 
-  return hits;
+	return hits;
 }
 
 // ---------------------------------------------------------------------------
@@ -128,16 +128,16 @@ function scanForPattern(
 
 // __tests__ → dashboard → apps → app
 const APP_ROOT = join(
-  import.meta.dirname ?? __dirname,
-  "..",  // dashboard
-  "..",  // apps
-  "..",  // app
+	import.meta.dirname ?? __dirname,
+	"..", // dashboard
+	"..", // apps
+	"..", // app
 );
 
 /** Absolute path of this test file — always excluded from the scan */
 const THIS_FILE = join(
-  import.meta.dirname ?? __dirname,
-  "feat-1-mimrai-refs-guard.test.ts",
+	import.meta.dirname ?? __dirname,
+	"feat-1-mimrai-refs-guard.test.ts",
 );
 
 // ---------------------------------------------------------------------------
@@ -145,43 +145,37 @@ const THIS_FILE = join(
 // ---------------------------------------------------------------------------
 
 describe("FEAT-001 Phase-0 guard: residual mimrai refs", () => {
-  test(
-    "zero MIMRAI_LOCAL_DEV / NEXT_PUBLIC_MIMRAI_LOCAL_DEV references in app/",
-    () => {
-      const hits = scanForPattern(APP_ROOT, ENV_VAR_RE);
+	test("zero MIMRAI_LOCAL_DEV / NEXT_PUBLIC_MIMRAI_LOCAL_DEV references in app/", () => {
+		const hits = scanForPattern(APP_ROOT, ENV_VAR_RE);
 
-      const message =
-        hits.length === 0
-          ? "No matches"
-          : `Found ${hits.length} file(s) with MIMRAI_LOCAL_DEV references:\n` +
-            hits
-              .map(
-                ({ file, lines }) =>
-                  `  ${relative(APP_ROOT, file)} (line${lines.length > 1 ? "s" : ""} ${lines.join(", ")})`,
-              )
-              .join("\n");
+		const message =
+			hits.length === 0
+				? "No matches"
+				: `Found ${hits.length} file(s) with MIMRAI_LOCAL_DEV references:\n` +
+					hits
+						.map(
+							({ file, lines }) =>
+								`  ${relative(APP_ROOT, file)} (line${lines.length > 1 ? "s" : ""} ${lines.join(", ")})`,
+						)
+						.join("\n");
 
-      expect(hits, message).toHaveLength(0);
-    },
-  );
+		expect(hits, message).toHaveLength(0);
+	});
 
-  test(
-    "zero /Users/john.keeney/mimrai absolute path references in app/",
-    () => {
-      const hits = scanForPattern(APP_ROOT, ABS_PATH_RE);
+	test("zero /Users/john.keeney/mimrai absolute path references in app/", () => {
+		const hits = scanForPattern(APP_ROOT, ABS_PATH_RE);
 
-      const message =
-        hits.length === 0
-          ? "No matches"
-          : `Found ${hits.length} file(s) with /Users/john.keeney/mimrai path references:\n` +
-            hits
-              .map(
-                ({ file, lines }) =>
-                  `  ${relative(APP_ROOT, file)} (line${lines.length > 1 ? "s" : ""} ${lines.join(", ")})`,
-              )
-              .join("\n");
+		const message =
+			hits.length === 0
+				? "No matches"
+				: `Found ${hits.length} file(s) with /Users/john.keeney/mimrai path references:\n` +
+					hits
+						.map(
+							({ file, lines }) =>
+								`  ${relative(APP_ROOT, file)} (line${lines.length > 1 ? "s" : ""} ${lines.join(", ")})`,
+						)
+						.join("\n");
 
-      expect(hits, message).toHaveLength(0);
-    },
-  );
+		expect(hits, message).toHaveLength(0);
+	});
 });

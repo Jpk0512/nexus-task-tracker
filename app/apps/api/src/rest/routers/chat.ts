@@ -8,7 +8,6 @@ import { getUserContext } from "@api/ai/utils/get-user-context";
 import type { Context } from "@api/rest/types";
 import { chatRequestSchema } from "@api/schemas/chat";
 import { OpenAPIHono } from "@hono/zod-openapi";
-import { calculateTokenUsageCost } from "@mimir/billing";
 import { getAgentById, getDocumentsForAgent } from "@mimir/db/queries/agents";
 import {
 	clearChatActiveStreamId,
@@ -16,18 +15,15 @@ import {
 	getChatById,
 	setChatActiveStreamId,
 } from "@mimir/db/queries/chats";
-import { recordCreditUsage } from "@mimir/db/queries/credits";
-import { AGENT_DEFAULT_MODEL } from "@mimir/utils/agents";
 import {
 	createUIMessageStreamResponse,
 	generateId,
 	UI_MESSAGE_STREAM_HEADERS,
 } from "ai";
-import { withPlanFeatures } from "../middleware/plan-feature";
 
 const app = new OpenAPIHono<Context>();
 
-app.post("/", withPlanFeatures(["ai"]), async (c) => {
+app.post("/", async (c) => {
 	const body = await c.req.json();
 	const validationresult = chatRequestSchema.safeParse(body);
 
@@ -43,7 +39,7 @@ app.post("/", withPlanFeatures(["ai"]), async (c) => {
 
 	const userId = session.userId;
 
-	const [userContext, allTools, agentConfig] = await Promise.all([
+	const [userContext, allTools] = await Promise.all([
 		getUserContext({
 			userId,
 			teamId,
@@ -104,28 +100,6 @@ app.post("/", withPlanFeatures(["ai"]), async (c) => {
 			buildInstructions: buildWorkspaceSystemPrompt as (
 				ctx: AppContext,
 			) => string,
-			onFinish: async ({ response, usage }) => {
-				const usageCost = await calculateTokenUsageCost({
-					model: agentConfig?.model || AGENT_DEFAULT_MODEL,
-					usage,
-				});
-
-				const usageCostCents = Math.round((usageCost?.costUSD || 0) * 100);
-				if (usageCostCents > 0) {
-					await recordCreditUsage({
-						teamId,
-						amountCents: usageCostCents,
-						metadata: {
-							model:
-								usageCost?.model || agentConfig?.model || AGENT_DEFAULT_MODEL,
-							inputTokens: usage.inputTokens || 0,
-							outputTokens: usage.outputTokens || 0,
-							totalTokens: usage.totalTokens || 0,
-							costUSD: usageCost?.costUSD || 0,
-						},
-					});
-				}
-			},
 			generateTitle: true,
 		},
 	});
@@ -162,7 +136,7 @@ app.post("/", withPlanFeatures(["ai"]), async (c) => {
 	});
 });
 
-app.get("/:id/stream", withPlanFeatures(["ai"]), async (c) => {
+app.get("/:id/stream", async (c) => {
 	const teamId = c.get("teamId");
 	const chatId = c.req.param("id");
 	const chat = await getChatById(chatId, teamId);

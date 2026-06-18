@@ -37,20 +37,18 @@ const PRIORITY_ORDER: Record<string, number> = {
 export const UpNextCard = () => {
 	const user = useUser();
 	const qc = useQueryClient();
-	const { tasks, isLoading } = useTasks(
-		{
-			statusType: ["in_progress", "review"],
-			pageSize: 50,
-		},
-	);
+	const { tasks, isLoading } = useTasks({
+		statusType: ["in_progress", "review"],
+		pageSize: 50,
+	});
 	const { data: statusesData } = useStatuses();
 
 	const doneStatusId = useMemo<string | null>(() => {
 		// biome-ignore lint/suspicious/noExplicitAny: tRPC return typed as unknown app-wide
-		const list = (((statusesData as any)?.data ?? []) as Array<{
+		const list = ((statusesData as any)?.data ?? []) as Array<{
 			id: string;
 			type: string;
-		}>);
+		}>;
 		const done = list.find((s) => s.type === "done");
 		return done?.id ?? null;
 	}, [statusesData]);

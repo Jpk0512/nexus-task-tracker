@@ -12,7 +12,6 @@ import {
 import { getAllTools } from "@api/ai/tools/tool-registry";
 import type { UIChatMessage } from "@api/ai/types";
 import { getUserContext } from "@api/ai/utils/get-user-context";
-import { calculateTokenUsageCost, checkPlanFeatures } from "@mimir/billing";
 import { createActivity, getActivities } from "@mimir/db/queries/activities";
 import { getAgentByUserId } from "@mimir/db/queries/agents";
 import {
@@ -21,7 +20,6 @@ import {
 	saveChatMessage,
 } from "@mimir/db/queries/chats";
 import { getChecklistItems } from "@mimir/db/queries/checklists";
-import { getCreditBalance, recordCreditUsage } from "@mimir/db/queries/credits";
 import {
 	addTaskExecutionUsageMetrics,
 	createTaskExecution,
@@ -31,7 +29,6 @@ import {
 import { createTaskComment, getTaskById } from "@mimir/db/queries/tasks";
 import { getTeamById } from "@mimir/db/queries/teams";
 import { getMimirUser } from "@mimir/db/queries/users";
-import { AGENT_DEFAULT_MODEL } from "@mimir/utils/agents";
 import { logger, schemaTask } from "@trigger.dev/sdk";
 import { convertToModelMessages, generateId, stepCountIs } from "ai";
 import z from "zod";
@@ -131,43 +128,6 @@ export const executeAgentTaskPlanJob = schemaTask({
 
 		// Use the agent user ID (from checklist item or task assignee), fallback to system user
 
-		const canAccess = await checkPlanFeatures(teamId, ["ai"]);
-		if (!canAccess) {
-			logger.error("Team plan does not support AI features", { teamId });
-			await createTaskComment({
-				taskId,
-				teamId,
-				userId,
-				comment:
-					"Your current plan does not support AI features. Please upgrade to access this functionality.",
-			});
-			return { status: "failed", reason: "plan_cannot_access_ai_features" };
-		}
-
-		const creditBalance = await getCreditBalance({ teamId });
-		if ((creditBalance?.balanceCents ?? 0) <= 0) {
-			logger.warn("Insufficient credits for task execution", {
-				taskId,
-				teamId,
-				balanceCents: creditBalance?.balanceCents ?? 0,
-			});
-			await Promise.all([
-				updateTaskExecution({
-					taskId,
-					status: "failed",
-					lastError: "Insufficient credits",
-				}),
-				createTaskComment({
-					taskId,
-					teamId,
-					userId,
-					comment:
-						"Execution stopped because your team has no available credits. Please purchase more credits and retry.",
-				}),
-			]);
-			return { status: "failed", reason: "insufficient_credits" };
-		}
-
 		// 6. Update status to executing
 		await Promise.all([
 			updateTaskExecution({
@@ -265,35 +225,12 @@ export const executeAgentTaskPlanJob = schemaTask({
 						}
 					},
 					onFinish: async ({ totalUsage, finishReason }) => {
-						const usageCost = await calculateTokenUsageCost({
-							model: agentConfig?.model || AGENT_DEFAULT_MODEL,
-							usage: totalUsage,
-						});
 						await addTaskExecutionUsageMetrics(task.id, {
 							inputTokens: totalUsage.inputTokens || 0,
 							outputTokens: totalUsage.outputTokens || 0,
 							totalTokens: totalUsage.totalTokens || 0,
-							costUSD: usageCost?.costUSD || 0,
+							costUSD: 0,
 						});
-
-						const usageCostCents = Math.round((usageCost?.costUSD || 0) * 100);
-						if (usageCostCents > 0) {
-							await recordCreditUsage({
-								teamId,
-								amountCents: usageCostCents,
-								metadata: {
-									taskId,
-									model:
-										usageCost?.model ||
-										agentConfig?.model ||
-										AGENT_DEFAULT_MODEL,
-									inputTokens: totalUsage.inputTokens || 0,
-									outputTokens: totalUsage.outputTokens || 0,
-									totalTokens: totalUsage.totalTokens || 0,
-									costUSD: usageCost?.costUSD || 0,
-								},
-							});
-						}
 						logger.info("Agent OnFinish", { totalUsage, finishReason });
 					},
 				},

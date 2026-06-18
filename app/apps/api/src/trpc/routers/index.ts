@@ -5,7 +5,6 @@ import { activitiesReactionsRouter } from "./activities-reactions";
 import { agentsRouter } from "./agents";
 import { apiKeysRouter } from "./api-keys";
 import { autopilotSettingsRouter } from "./autopilot-settings";
-import { billingRouter } from "./billing";
 import { chatRouter } from "./chats";
 import { checklistsRouter } from "./checklists";
 import { documentsRouter } from "./documents";
@@ -63,7 +62,6 @@ export const appRouter = router({
 	users: usersRouter,
 	teams: teamsRouter,
 	integrations: integrationsRouter,
-	billing: billingRouter,
 	labels: labelsRouter,
 	library: libraryRouter,
 	mcpServers: mcpServersRouter,

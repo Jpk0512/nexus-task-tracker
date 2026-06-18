@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { UIChatMessage } from "@api/ai/types";
 import type { IntegrationConfig, IntegrationName } from "@integration/registry";
 import { randomColor } from "@mimir/utils/random";
-import { relations, type SQL, sql } from "drizzle-orm";
+import { type SQL, sql } from "drizzle-orm";
 import {
 	bigint,
 	boolean,
@@ -104,16 +104,6 @@ export const apikey = pgTable("apikey", {
 	metadata: jsonb("metadata").$type<Record<string, any>>(),
 });
 
-export const plansEnum = pgEnum("plans", ["free", "team"]);
-
-export const creditMovementTypeEnum = pgEnum("credit_movement_type", [
-	"purchase",
-	"usage",
-	"refund",
-	"adjustment",
-	"promo",
-]);
-
 export const teams = pgTable("teams", {
 	id: text("id")
 		.$defaultFn(() => randomUUID())
@@ -123,66 +113,11 @@ export const teams = pgTable("teams", {
 	prefix: text("prefix").notNull(),
 	description: text("description"),
 	email: text("email").notNull(),
-	plan: plansEnum("plan"),
-	subscriptionId: text("subscription_id"),
 	timezone: text("timezone").default("UTC").notNull(),
 	locale: text("locale").default("en-US").notNull(),
-	customerId: text("customer_id"),
-	canceledAt: timestamp("canceled_at"),
 	createdAt: timestamp("created_at").defaultNow().notNull(),
 	updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
-
-export const creditBalance = pgTable(
-	"credit_balance",
-	{
-		id: text("id")
-			.$defaultFn(() => randomUUID())
-			.primaryKey(),
-		teamId: text("team_id")
-			.notNull()
-			.references(() => teams.id, { onDelete: "cascade" }),
-		balanceCents: integer("balance_cents").notNull().default(0),
-		createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
-			.defaultNow()
-			.notNull(),
-		updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" })
-			.defaultNow()
-			.notNull(),
-	},
-	(table) => [
-		unique("unique_credit_balance_per_team").on(table.teamId),
-		index("credit_balance_team_id_index").on(table.teamId),
-	],
-);
-
-export const creditLedger = pgTable(
-	"credit_ledger",
-	{
-		id: text("id")
-			.$defaultFn(() => randomUUID())
-			.primaryKey(),
-		teamId: text("team_id")
-			.notNull()
-			.references(() => teams.id, { onDelete: "cascade" }),
-		type: creditMovementTypeEnum("type").notNull(),
-		amountCents: integer("amount_cents").notNull(),
-		stripePaymentIntentId: text("stripe_payment_intent_id"),
-		stripeEventId: text("stripe_event_id").unique(),
-		metadata: jsonb("metadata").$type<Record<string, unknown>>(),
-		createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
-			.defaultNow()
-			.notNull(),
-	},
-	(table) => [
-		index("credit_ledger_team_id_index").on(table.teamId),
-		index("credit_ledger_type_index").on(table.type),
-		index("credit_ledger_stripe_payment_intent_id_index").on(
-			table.stripePaymentIntentId,
-		),
-		index("credit_ledger_created_at_index").on(table.createdAt),
-	],
-);
 
 export const users = pgTable(
 	"user",

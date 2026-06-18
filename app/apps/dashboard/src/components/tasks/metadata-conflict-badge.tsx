@@ -105,8 +105,7 @@ export const MetadataConflictBadge = ({
 							: `${conflicts.length} metadata conflicts`}
 					</p>
 					<p className="mt-0.5 text-[11px] text-muted-foreground">
-						These rules fired because the task's fields contradict each
-						other.
+						These rules fired because the task's fields contradict each other.
 					</p>
 				</div>
 				<ul className="divide-y divide-border/60">

@@ -9,8 +9,8 @@ import { toast } from "sonner";
 import { useShortcut } from "@/hooks/use-shortcuts";
 import { queryClient, trpc } from "@/utils/trpc";
 import { findActionById } from "./global-search/actions-catalogue";
-import { GlobalSearchDialog } from "./global-search/global-search-dialog";
 import type { PaletteLinkMode } from "./global-search/global-search-context";
+import { GlobalSearchDialog } from "./global-search/global-search-dialog";
 import { QuickOpenRing } from "./global-search/quick-open-ring";
 import {
 	loadLastCommand,
@@ -133,7 +133,7 @@ export const NavSearch = ({
 						promptId: item.id,
 						projectId: sourceId,
 					});
-					toast(`Linked prompt to project`);
+					toast("Linked prompt to project");
 				} else if (sourceType === "project" && entity === "agents") {
 					// Project doesn't have a direct agent link; "linking an agent"
 					// to a project surface means: ensure the agent owns one of
@@ -150,16 +150,16 @@ export const NavSearch = ({
 						taskId: sourceId,
 						noteId: item.id,
 					});
-					toast(`Linked note to task`);
+					toast("Linked note to task");
 				} else if (sourceType === "task" && entity === "skills") {
 					await linkSkillToTask.mutateAsync({
 						taskId: sourceId,
 						skillId: item.id,
 					});
-					toast(`Linked skill to task`);
+					toast("Linked skill to task");
 				} else if (sourceType === "agent" && entity === "agents") {
 					// Reverse direction handled at the milestone surface.
-					toast(`Use the milestone detail to assign an owner agent.`);
+					toast("Use the milestone detail to assign an owner agent.");
 				} else if (entity === "knowledge" && sourceType === "project") {
 					// Project -> knowledge runs through the task chain; the
 					// closest single mutation is to surface the knowledge note
@@ -179,7 +179,13 @@ export const NavSearch = ({
 				setLinkMode(null);
 			}
 		},
-		[linkMode, setPromptProject, setMilestoneOwner, linkKnowledgeToTask, linkSkillToTask],
+		[
+			linkMode,
+			setPromptProject,
+			setMilestoneOwner,
+			linkKnowledgeToTask,
+			linkSkillToTask,
+		],
 	);
 
 	return (

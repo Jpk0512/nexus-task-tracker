@@ -177,11 +177,7 @@ function GroupSection({
 					<ul className="pb-2">
 						{visible.map((d) => (
 							<li key={d.id} data-jk-row={d.id}>
-								<DocListItem
-									doc={d}
-									team={team}
-									focused={focusedId === d.id}
-								/>
+								<DocListItem doc={d} team={team} focused={focusedId === d.id} />
 							</li>
 						))}
 					</ul>
@@ -399,7 +395,7 @@ function Segmented<T extends string>({
 						aria-checked={active}
 						onClick={() => onChange(opt.value)}
 						className={cn(
-							"inline-flex h-6 items-center gap-1.5 rounded-[5px] px-2.5 text-[12px] font-[510] transition-colors",
+							"inline-flex h-6 items-center gap-1.5 rounded-[5px] px-2.5 font-[510] text-[12px] transition-colors",
 							active
 								? "bg-background text-foreground shadow-sm"
 								: "text-muted-foreground hover:text-foreground",
@@ -433,7 +429,11 @@ export function DocumentsIndexView() {
 	const [scope, setScopeState] = useState<Scope>(() =>
 		urlScope && ["all", "team", "personal"].includes(urlScope)
 			? urlScope
-			: readStored<Scope>(SCOPE_KEY, ["all", "team", "personal"] as const, "all"),
+			: readStored<Scope>(
+					SCOPE_KEY,
+					["all", "team", "personal"] as const,
+					"all",
+				),
 	);
 	const [viewMode, setViewModeState] = useState<ViewMode>(() =>
 		urlView && ["list", "grouped", "cards"].includes(urlView)

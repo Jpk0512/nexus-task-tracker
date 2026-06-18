@@ -56,10 +56,10 @@ export const AgendaCard = () => {
 	// an enum). Memoized because statusesData is cached for 5min.
 	const doneStatusId = useMemo<string | null>(() => {
 		// biome-ignore lint/suspicious/noExplicitAny: tRPC return typed as unknown app-wide
-		const list = (((statusesData as any)?.data ?? []) as Array<{
+		const list = ((statusesData as any)?.data ?? []) as Array<{
 			id: string;
 			type: string;
-		}>);
+		}>;
 		const done = list.find((s) => s.type === "done");
 		return done?.id ?? null;
 	}, [statusesData]);

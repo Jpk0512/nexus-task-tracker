@@ -95,10 +95,7 @@ interface Props {
 	className?: string;
 }
 
-export function ProjectRelationshipsSidebar({
-	projectId,
-	className,
-}: Props) {
+export function ProjectRelationshipsSidebar({ projectId, className }: Props) {
 	const [collapsed, setCollapsed] = useState<boolean>(false);
 
 	useEffect(() => {
@@ -204,10 +201,7 @@ function SectionShell({
 				<div className="flex items-center gap-1.5 text-foreground text-sm">
 					<Icon className="size-3.5 text-muted-foreground" />
 					<span className="font-medium">{title}</span>
-					<Badge
-						variant="secondary"
-						className="h-4 px-1.5 text-[10px]"
-					>
+					<Badge variant="secondary" className="h-4 px-1.5 text-[10px]">
 						{count}
 					</Badge>
 				</div>
@@ -223,7 +217,7 @@ function SectionShell({
 				</Button>
 			</div>
 			{count === 0 ? (
-				<div className="rounded-md border border-dashed border-border bg-background/40 px-3 py-3 text-center">
+				<div className="rounded-md border border-border border-dashed bg-background/40 px-3 py-3 text-center">
 					<p className="text-muted-foreground text-xs">{emptyTitle}</p>
 					<Button
 						type="button"
@@ -259,7 +253,7 @@ function CardItem({ href, title, subtitle }: CardItemProps) {
 			>
 				<span className="truncate font-medium text-foreground">{title}</span>
 				{subtitle ? (
-					<span className="truncate text-muted-foreground text-[11px]">
+					<span className="truncate text-[11px] text-muted-foreground">
 						{subtitle}
 					</span>
 				) : null}

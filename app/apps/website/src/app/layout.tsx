@@ -30,8 +30,7 @@ export const metadata: Metadata = {
 		default: "Nexus - Personal Task System",
 		template: "%s | Nexus",
 	},
-	description:
-		"Local-only personal task system with AI-powered features.",
+	description: "Local-only personal task system with AI-powered features.",
 	keywords: [
 		"task management",
 		"project management",
@@ -58,15 +57,13 @@ export const metadata: Metadata = {
 		locale: "en_US",
 		url: "/",
 		title: "Nexus - Personal Task System",
-		description:
-			"Local-only personal task system with AI-powered features.",
+		description: "Local-only personal task system with AI-powered features.",
 		siteName: "Nexus",
 	},
 	twitter: {
 		card: "summary_large_image",
 		title: "Nexus - Personal Task System",
-		description:
-			"Local-only personal task system with AI-powered features.",
+		description: "Local-only personal task system with AI-powered features.",
 		creator: "@nexus",
 	},
 	alternates: {

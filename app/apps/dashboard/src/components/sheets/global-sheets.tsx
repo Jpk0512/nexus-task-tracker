@@ -9,7 +9,6 @@ import { LabelUpdateSheet } from "./label-update-sheet";
 import { McpServerCreateSheet } from "./mcp-server-create-sheet";
 import { McpServerUpdateSheet } from "./mcp-server-update-sheet";
 import { MemberUpdateSheet } from "./member-update-sheet";
-import { PlanSelectSheet } from "./plan-select-sheet";
 import { ProjectCreateSheet } from "./project-create-sheet";
 import { ProjectHealthUpdateDialog } from "./project-health-update-dialog";
 import { ProjectUpdateSheet } from "./project-update-sheet";
@@ -44,7 +43,6 @@ export const GlobalSheets = () => {
 			<ProjectUpdateSheet />
 			<ProjectHealthUpdateDialog />
 			<ShareableCreateSheet />
-			<PlanSelectSheet />
 			<TaskViewCreateSheet />
 			<TaskViewUpdateSheet />
 			{/* <TasksSuggestions /> */}

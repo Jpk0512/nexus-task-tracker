@@ -103,7 +103,12 @@ export const ShortcutsOverlay = ({
 	useEffect(() => {
 		if (!open) return;
 		const handler = (e: KeyboardEvent) => {
-			if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key === "/") {
+			if (
+				(e.metaKey || e.ctrlKey) &&
+				!e.shiftKey &&
+				!e.altKey &&
+				e.key === "/"
+			) {
 				e.preventDefault();
 				onOpenChange(false);
 			}

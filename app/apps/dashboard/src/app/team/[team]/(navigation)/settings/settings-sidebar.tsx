@@ -46,7 +46,10 @@ export const SettingsSidebar = () => {
 	const [collapsedById, setCollapsedById] = useState<Record<string, boolean>>(
 		() =>
 			Object.fromEntries(
-				settingsGroups.map((g) => [g.id, !!g.defaultCollapsed && !!g.collapsible]),
+				settingsGroups.map((g) => [
+					g.id,
+					!!g.defaultCollapsed && !!g.collapsible,
+				]),
 			),
 	);
 
@@ -155,7 +158,7 @@ export const SettingsSidebar = () => {
 										<Link key={link.to} href={link.to}>
 											<div
 												className={cn(
-													"flex h-7 items-center gap-2 rounded-sm border-l-2 border-transparent px-4 text-xs transition-colors hover:bg-accent dark:hover:bg-accent/30 [&_svg]:opacity-50",
+													"flex h-7 items-center gap-2 rounded-sm border-transparent border-l-2 px-4 text-xs transition-colors hover:bg-accent dark:hover:bg-accent/30 [&_svg]:opacity-50",
 													isActive &&
 														"border-l-brand bg-brand/10 text-brand [&_svg]:opacity-100",
 												)}

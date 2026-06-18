@@ -32,10 +32,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { IS_SINGLE_USER_MODE } from "@/lib/single-user-mode";
-import {
-	type TaskSurface,
-	useTaskSelection,
-} from "@/stores/task-selection";
+import { type TaskSurface, useTaskSelection } from "@/stores/task-selection";
 import { trpc } from "@/utils/trpc";
 
 /**
@@ -99,21 +96,27 @@ export function BulkOpsBar({ surface, noun = NOUN_DEFAULT }: BulkOpsBarProps) {
 					<span className="inline-flex size-6 items-center justify-center rounded-full bg-primary/15 font-medium text-[11.5px] text-primary tabular-nums">
 						{count}
 					</span>
-					<span className="text-[12.5px] text-foreground">{label} selected</span>
+					<span className="text-[12.5px] text-foreground">
+						{label} selected
+					</span>
 				</div>
 				<span className="mx-1 h-4 w-px bg-border" aria-hidden />
 
 				{(surface === "todos" || surface === "recurring") && (
 					<MarkDoneTaskAction ids={idsArr} surface={surface} />
 				)}
-				{surface === "triage" && <MarkDoneTaskAction ids={idsArr} surface={surface} />}
+				{surface === "triage" && (
+					<MarkDoneTaskAction ids={idsArr} surface={surface} />
+				)}
 				{surface === "inbox" && <MarkReadInboxAction ids={idsArr} />}
 
 				{(surface === "triage" || surface === "recurring") && (
 					<SetStatusAction ids={idsArr} />
 				)}
 
-				{(surface === "todos" || surface === "triage" || surface === "recurring") && (
+				{(surface === "todos" ||
+					surface === "triage" ||
+					surface === "recurring") && (
 					<AddLabelAction ids={idsArr} surface={surface} />
 				)}
 
@@ -179,7 +182,13 @@ function PillButton({
 	);
 }
 
-function MarkDoneTaskAction({ ids, surface }: { ids: string[]; surface: TaskSurface }) {
+function MarkDoneTaskAction({
+	ids,
+	surface,
+}: {
+	ids: string[];
+	surface: TaskSurface;
+}) {
 	const qc = useQueryClient();
 	const clear = useTaskSelection((s) => s.clear);
 	const { data: statusesData } = useQuery(
@@ -197,7 +206,8 @@ function MarkDoneTaskAction({ ids, surface }: { ids: string[]; surface: TaskSurf
 				toast.success(`Marked ${ids.length} done`);
 				clear();
 			},
-			onError: (e: { message?: string }) => toast.error(e?.message ?? "Action failed"),
+			onError: (e: { message?: string }) =>
+				toast.error(e?.message ?? "Action failed"),
 		}),
 	);
 
@@ -278,7 +288,8 @@ function SetStatusAction({ ids }: { ids: string[] }) {
 				qc.invalidateQueries({ queryKey: [["tasks"]] });
 				clear();
 			},
-			onError: (e: { message?: string }) => toast.error(e?.message ?? "Action failed"),
+			onError: (e: { message?: string }) =>
+				toast.error(e?.message ?? "Action failed"),
 		}),
 	);
 	const [open, setOpen] = useState(false);
@@ -320,7 +331,13 @@ function SetStatusAction({ ids }: { ids: string[] }) {
 	);
 }
 
-function AddLabelAction({ ids, surface }: { ids: string[]; surface: TaskSurface }) {
+function AddLabelAction({
+	ids,
+	surface,
+}: {
+	ids: string[];
+	surface: TaskSurface;
+}) {
 	const qc = useQueryClient();
 	const clear = useTaskSelection((s) => s.clear);
 	const { data: labelsData } = useQuery(
@@ -337,8 +354,7 @@ function AddLabelAction({ ids, surface }: { ids: string[]; surface: TaskSurface 
 	const [open, setOpen] = useState(false);
 	const handleApply = (labelName: string) => {
 		setOpen(false);
-		const queryKey =
-			surface === "todos" ? [["todos"]] : [["tasks"]];
+		const queryKey = surface === "todos" ? [["todos"]] : [["tasks"]];
 		Promise.all(
 			ids.map((id) => {
 				if (surface === "todos") {
@@ -400,17 +416,15 @@ function AssignAction({ ids }: { ids: string[] }) {
 	const qc = useQueryClient();
 	const clear = useTaskSelection((s) => s.clear);
 	const { data: members } = useQuery(trpc.teams.getMembers.queryOptions());
-	const memberList = useMemo<any[]>(
-		() => (members as any[]) ?? [],
-		[members],
-	);
+	const memberList = useMemo<any[]>(() => (members as any[]) ?? [], [members]);
 	const bulkMut = useMutation(
 		trpc.tasks.bulkUpdate.mutationOptions({
 			onSuccess: () => {
 				qc.invalidateQueries({ queryKey: [["tasks"]] });
 				clear();
 			},
-			onError: (e: { message?: string }) => toast.error(e?.message ?? "Action failed"),
+			onError: (e: { message?: string }) =>
+				toast.error(e?.message ?? "Action failed"),
 		}),
 	);
 	const [open, setOpen] = useState(false);
@@ -457,7 +471,13 @@ function AssignAction({ ids }: { ids: string[] }) {
 	);
 }
 
-function SnoozeAction({ ids, surface }: { ids: string[]; surface: TaskSurface }) {
+function SnoozeAction({
+	ids,
+	surface,
+}: {
+	ids: string[];
+	surface: TaskSurface;
+}) {
 	// Snooze is a date-set: pick a date, push `dueDate` (tasks) or
 	// `seen + dueDate metadata` (inbox). Inbox doesn't currently model a
 	// snooze field — we degrade gracefully by mark-as-seen + a "snoozed until"
@@ -550,16 +570,26 @@ function SnoozeAction({ ids, surface }: { ids: string[]; surface: TaskSurface })
 	);
 }
 
-function ArchiveAction({ ids, surface }: { ids: string[]; surface: TaskSurface }) {
+function ArchiveAction({
+	ids,
+	surface,
+}: {
+	ids: string[];
+	surface: TaskSurface;
+}) {
 	const qc = useQueryClient();
 	const clear = useTaskSelection((s) => s.clear);
 	const updateInboxMut = useMutation(trpc.inbox.update.mutationOptions({}));
 	const deleteTodoMut = useMutation(trpc.todos.delete.mutationOptions({}));
-	const bulkDeleteTaskMut = useMutation(trpc.tasks.bulkDelete.mutationOptions({}));
+	const bulkDeleteTaskMut = useMutation(
+		trpc.tasks.bulkDelete.mutationOptions({}),
+	);
 	const handleClick = () => {
 		if (surface === "inbox") {
 			Promise.all(
-				ids.map((id) => updateInboxMut.mutateAsync({ id, status: "archived" } as any)),
+				ids.map((id) =>
+					updateInboxMut.mutateAsync({ id, status: "archived" } as any),
+				),
 			).then(
 				() => {
 					qc.invalidateQueries({ queryKey: [["inbox"]] });
@@ -573,7 +603,9 @@ function ArchiveAction({ ids, surface }: { ids: string[]; surface: TaskSurface }
 		// Todos have no archive field — degrade to delete (the user can recreate;
 		// codex amendment #6 lifecycle unification: todos collapse archive+delete).
 		if (surface === "todos") {
-			Promise.all(ids.map((id) => deleteTodoMut.mutateAsync({ id } as any))).then(
+			Promise.all(
+				ids.map((id) => deleteTodoMut.mutateAsync({ id } as any)),
+			).then(
 				() => {
 					qc.invalidateQueries({ queryKey: [["todos"]] });
 					toast.success(`Removed ${ids.length}`);
@@ -584,15 +616,15 @@ function ArchiveAction({ ids, surface }: { ids: string[]; surface: TaskSurface }
 			return;
 		}
 		// Tasks (triage / recurring) — bulkDelete is the closest archive we have.
-		bulkDeleteTaskMut.mutate({ ids } as any,
-			{
-				onSuccess: () => {
-					qc.invalidateQueries({ queryKey: [["tasks"]] });
-					toast.success(`Archived ${ids.length}`);
-					clear();
-				},
-				onError: (e: { message?: string }) => toast.error(e?.message ?? "Action failed"),
-			},);
+		bulkDeleteTaskMut.mutate({ ids } as any, {
+			onSuccess: () => {
+				qc.invalidateQueries({ queryKey: [["tasks"]] });
+				toast.success(`Archived ${ids.length}`);
+				clear();
+			},
+			onError: (e: { message?: string }) =>
+				toast.error(e?.message ?? "Action failed"),
+		});
 	};
 	return (
 		<PillButton
@@ -616,13 +648,17 @@ function DeleteAction({
 	const qc = useQueryClient();
 	const clear = useTaskSelection((s) => s.clear);
 	const deleteTodoMut = useMutation(trpc.todos.delete.mutationOptions({}));
-	const bulkDeleteTaskMut = useMutation(trpc.tasks.bulkDelete.mutationOptions({}));
+	const bulkDeleteTaskMut = useMutation(
+		trpc.tasks.bulkDelete.mutationOptions({}),
+	);
 	const deleteInboxMut = useMutation(trpc.inbox.delete.mutationOptions({}));
 
 	const handleConfirm = () => {
 		setConfirmOpen(false);
 		if (surface === "inbox") {
-			Promise.all(ids.map((id) => deleteInboxMut.mutateAsync({ id } as any))).then(
+			Promise.all(
+				ids.map((id) => deleteInboxMut.mutateAsync({ id } as any)),
+			).then(
 				() => {
 					qc.invalidateQueries({ queryKey: [["inbox"]] });
 					toast.success(`Deleted ${ids.length}`);
@@ -633,7 +669,9 @@ function DeleteAction({
 			return;
 		}
 		if (surface === "todos") {
-			Promise.all(ids.map((id) => deleteTodoMut.mutateAsync({ id } as any))).then(
+			Promise.all(
+				ids.map((id) => deleteTodoMut.mutateAsync({ id } as any)),
+			).then(
 				() => {
 					qc.invalidateQueries({ queryKey: [["todos"]] });
 					toast.success(`Deleted ${ids.length}`);
@@ -643,15 +681,15 @@ function DeleteAction({
 			);
 			return;
 		}
-		bulkDeleteTaskMut.mutate({ ids } as any,
-			{
-				onSuccess: () => {
-					qc.invalidateQueries({ queryKey: [["tasks"]] });
-					toast.success(`Deleted ${ids.length}`);
-					clear();
-				},
-				onError: (e: { message?: string }) => toast.error(e?.message ?? "Action failed"),
-			},);
+		bulkDeleteTaskMut.mutate({ ids } as any, {
+			onSuccess: () => {
+				qc.invalidateQueries({ queryKey: [["tasks"]] });
+				toast.success(`Deleted ${ids.length}`);
+				clear();
+			},
+			onError: (e: { message?: string }) =>
+				toast.error(e?.message ?? "Action failed"),
+		});
 	};
 
 	return (

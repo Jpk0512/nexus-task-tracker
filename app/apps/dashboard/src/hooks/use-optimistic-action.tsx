@@ -155,7 +155,9 @@ export function useOptimisticAction<TInput, TSnapshot>(
 				toast.dismiss(toastId);
 				toast.error(`Couldn't ${opts.toastLabel.toLowerCase()}`, {
 					description:
-						err instanceof Error ? err.message : "The server rejected the change.",
+						err instanceof Error
+							? err.message
+							: "The server rejected the change.",
 				});
 				opts.onError?.(err, input);
 			},

@@ -69,10 +69,6 @@ const breadcrumpsMap: BreadcrumpItem[] = [
 		segments: ["settings", "profile"],
 	},
 	{
-		label: "Billing",
-		segments: ["settings", "billing"],
-	},
-	{
 		label: "Members",
 		segments: ["settings", "members"],
 	},

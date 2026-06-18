@@ -72,7 +72,10 @@ const DAY_NAMES: Record<string, 0 | 1 | 2 | 3 | 4 | 5 | 6> = {
  * the token in the title rather than guessing wrong.
  */
 function parseDateToken(raw: string, now: Date): Date | null {
-	const cleaned = raw.toLowerCase().replace(/^next-/, "next ").trim();
+	const cleaned = raw
+		.toLowerCase()
+		.replace(/^next-/, "next ")
+		.trim();
 	if (cleaned === "today") return now;
 	if (cleaned === "tomorrow") return addDays(now, 1);
 	const nextMatch = cleaned.match(/^next\s+(\w+)$/);
@@ -108,7 +111,10 @@ function parseDateToken(raw: string, now: Date): Date | null {
  * recognized tokens (each must be a separate whitespace-delimited word).
  * Everything else stacks into the title — punctuation preserved.
  */
-export function parseQuickCapture(input: string, now = new Date()): ParsedCapture {
+export function parseQuickCapture(
+	input: string,
+	now = new Date(),
+): ParsedCapture {
 	const out: ParsedCapture = {
 		title: "",
 		projectQuery: null,
@@ -339,4 +345,3 @@ export const QuickCapture = () => {
 		</section>
 	);
 };
-

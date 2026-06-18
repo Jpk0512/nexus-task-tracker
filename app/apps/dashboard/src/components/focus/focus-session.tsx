@@ -58,12 +58,7 @@ const BREAK_SEC = 5 * 60;
 const STATE_LS_KEY = "nexus.focus.state";
 const LOG_LS_KEY = "nexus.focus.log";
 
-type FocusStatus =
-	| "idle"
-	| "running"
-	| "paused"
-	| "break"
-	| "completed";
+type FocusStatus = "idle" | "running" | "paused" | "break" | "completed";
 
 interface FocusState {
 	status: FocusStatus;
@@ -372,7 +367,7 @@ function FocusTray({
 			<div className="flex items-baseline gap-2">
 				<span
 					className={cn(
-						"font-mono font-[510] text-[28px] tabular-nums",
+						"font-[510] font-mono text-[28px] tabular-nums",
 						state.status === "running" && "text-violet-400",
 						state.status === "paused" && "text-muted-foreground",
 						state.status === "break" && "text-emerald-500",
@@ -461,11 +456,7 @@ function FocusTray({
 								Defer
 							</Button>
 						</PopoverTrigger>
-						<PopoverContent
-							side="top"
-							align="end"
-							className="w-[220px] p-2"
-						>
+						<PopoverContent side="top" align="end" className="w-[220px] p-2">
 							<p className="px-1 pb-1 text-[11px] text-muted-foreground">
 								Why are you stopping?
 							</p>

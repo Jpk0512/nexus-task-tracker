@@ -13,9 +13,6 @@ import {
 } from "@api/schemas/agents";
 import { protectedProcedure, router } from "@api/trpc/init";
 import { db } from "@mimir/db/client";
-import { and, desc, eq } from "drizzle-orm";
-import { pgTable, text, timestamp } from "drizzle-orm/pg-core";
-import { z } from "zod/v3";
 import {
 	deleteAgentMemory,
 	getAgentMemories,
@@ -37,6 +34,9 @@ import {
 	HIDDEN_AGENT_INTEGRATIONS,
 } from "@mimir/utils/agents";
 import type { Tool } from "ai";
+import { and, desc, eq } from "drizzle-orm";
+import { pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { z } from "zod/v3";
 
 // iter-10 Round F: local ref to read milestones.owner_agent_id.
 const milestonesRef = pgTable("milestones", {

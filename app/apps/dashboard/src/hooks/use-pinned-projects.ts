@@ -27,9 +27,7 @@ function readPinnedSet(): Set<string> {
 		if (!raw) return new Set();
 		const parsed = JSON.parse(raw) as unknown;
 		if (Array.isArray(parsed)) {
-			return new Set(
-				parsed.filter((v): v is string => typeof v === "string"),
-			);
+			return new Set(parsed.filter((v): v is string => typeof v === "string"));
 		}
 		return new Set();
 	} catch {

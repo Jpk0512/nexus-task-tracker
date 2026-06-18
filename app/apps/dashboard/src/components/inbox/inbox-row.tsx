@@ -250,7 +250,7 @@ export const InboxRow = ({
 			<div
 				className={cn(
 					"absolute top-1.5 right-2 flex items-center gap-0.5 rounded-md border border-border bg-background/95 px-1 py-0.5 opacity-0 shadow-sm backdrop-blur transition-opacity",
-					"group-hover:opacity-100 focus-within:opacity-100",
+					"focus-within:opacity-100 group-hover:opacity-100",
 					isFocused && "opacity-100",
 				)}
 				onClick={(e) => e.stopPropagation()}
@@ -270,10 +270,7 @@ export const InboxRow = ({
 						<MailIcon className="size-3.5" />
 					)}
 				</InlineActionButton>
-				<InlineActionButton
-					title="Convert to task"
-					onClick={convertToTask}
-				>
+				<InlineActionButton title="Convert to task" onClick={convertToTask}>
 					<ListTodoIcon className="size-3.5" />
 				</InlineActionButton>
 				<InlineActionButton title="Snooze" onClick={snoozeAction}>

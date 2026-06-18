@@ -15,12 +15,8 @@ import { TriageCard, type TriageTask } from "@/components/triage/triage-card";
 import { useUser } from "@/components/user-provider";
 import { type EnrichedTask, useTasks } from "@/hooks/use-data";
 import { useShortcut } from "@/hooks/use-shortcuts";
+import { LENS_SEGMENTS, type LensSegmentId, LensSidebar } from "./lens-sidebar";
 import { WeeklyRollover } from "./weekly-rollover";
-import {
-	LensSidebar,
-	type LensSegmentId,
-	LENS_SEGMENTS,
-} from "./lens-sidebar";
 
 /**
  * Personal lens — codex delighter #2 (Things-style Today / Upcoming / Someday).
@@ -123,13 +119,7 @@ function LensList({ team, teamPrefix, tasks, emptyMessage }: LensColumnProps) {
 	);
 }
 
-function SectionHeader({
-	title,
-	count,
-}: {
-	title: string;
-	count?: number;
-}) {
+function SectionHeader({ title, count }: { title: string; count?: number }) {
 	return (
 		<header className="flex items-baseline gap-2 px-1 pb-2">
 			<h2 className="font-[510] text-[14px] text-foreground tracking-[-0.005em]">
@@ -202,11 +192,7 @@ export function PersonalLens() {
 			const isStarred = starred.has(t.id);
 
 			// Today segment — any of: due today, in Now column, starred
-			if (
-				(due && isToday(due)) ||
-				isInNowColumn ||
-				isStarred
-			) {
+			if ((due && isToday(due)) || isInNowColumn || isStarred) {
 				today.push(t);
 			}
 
@@ -251,14 +237,7 @@ export function PersonalLens() {
 			someday,
 			logbookByWeek,
 		};
-	}, [
-		openTasks,
-		doneTasks,
-		starred,
-		endToday,
-		upcomingCutoff,
-		logbookCutoff,
-	]);
+	}, [openTasks, doneTasks, starred, endToday, upcomingCutoff, logbookCutoff]);
 
 	const upcomingCount = useMemo(() => {
 		let n = 0;

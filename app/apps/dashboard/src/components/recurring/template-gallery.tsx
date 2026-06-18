@@ -121,15 +121,15 @@ export function TemplateGallery({
 							className={cn(
 								"group relative flex flex-col gap-2 rounded-md border border-border bg-card/30 p-3 transition-colors",
 								"hover:border-border/80 hover:bg-card/60",
-								tpl.custom &&
-									"border-dashed bg-transparent hover:bg-card/40",
+								tpl.custom && "border-dashed bg-transparent hover:bg-card/40",
 							)}
 						>
 							<div className="flex items-start gap-2">
 								<div
 									className={cn(
 										"flex size-7 shrink-0 items-center justify-center rounded-md border border-violet-400/20 bg-violet-400/[0.06] text-violet-300",
-										tpl.custom && "border-border bg-card/40 text-muted-foreground",
+										tpl.custom &&
+											"border-border bg-card/40 text-muted-foreground",
 									)}
 								>
 									<Icon className="size-3.5" />

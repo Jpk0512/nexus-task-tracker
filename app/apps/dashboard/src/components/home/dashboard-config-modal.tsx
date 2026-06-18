@@ -62,7 +62,9 @@ export const DashboardConfigModal = ({
 }) => {
 	const sensors = useSensors(
 		useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
-		useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+		useSensor(KeyboardSensor, {
+			coordinateGetter: sortableKeyboardCoordinates,
+		}),
 	);
 
 	const handleDragEnd = ({ active, over }: DragEndEvent) => {
@@ -78,9 +80,7 @@ export const DashboardConfigModal = ({
 
 	const toggle = (id: HomeCardId, enabled: boolean) => {
 		onChange({
-			cards: config.cards.map((c) =>
-				c.id === id ? { ...c, enabled } : c,
-			),
+			cards: config.cards.map((c) => (c.id === id ? { ...c, enabled } : c)),
 		});
 	};
 
@@ -92,8 +92,8 @@ export const DashboardConfigModal = ({
 						Customize your home
 					</DialogTitle>
 					<DialogDescription className="text-[12px] text-muted-foreground">
-						Toggle visibility and drag to reorder. Layout saves to this
-						browser; share via the URL param.
+						Toggle visibility and drag to reorder. Layout saves to this browser;
+						share via the URL param.
 					</DialogDescription>
 				</DialogHeader>
 				<div className="max-h-[60vh] overflow-y-auto px-2 py-2">

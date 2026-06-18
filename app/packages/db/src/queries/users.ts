@@ -159,8 +159,6 @@ export const getAvailableTeams = async (userId: string) => {
 			id: teams.id,
 			name: teams.name,
 			slug: teams.slug,
-			plan: teams.plan,
-			customerId: teams.customerId,
 			role: usersOnTeams.role,
 		})
 		.from(usersOnTeams)

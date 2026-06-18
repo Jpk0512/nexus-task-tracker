@@ -3,8 +3,7 @@ import { generateTeamPrefix, generateTeamSlug } from "@mimir/utils/teams";
 import { and, eq, ilike, isNull, ne, not, or, type SQL } from "drizzle-orm";
 import { union } from "drizzle-orm/pg-core";
 import { db } from "..";
-import { agents, type plansEnum, teams, users, usersOnTeams } from "../schema";
-import { recordCreditPromo } from "./credits";
+import { agents, teams, users, usersOnTeams } from "../schema";
 import { getMimirUser } from "./users";
 
 export const checkSlugExists = async (slug: string) => {
@@ -92,12 +91,6 @@ export const createTeam = async ({
 			.update(users)
 			.set({ teamId: team.id, teamSlug: team.slug })
 			.where(eq(users.id, userId));
-
-		await recordCreditPromo({
-			teamId: team.id,
-			amountCents: 500,
-			metadata: { reason: "Welcome bonus for creating first team" },
-		});
 	}
 
 	await getMimirUser({ teamId: team.id });
@@ -121,34 +114,12 @@ export const createTeam = async ({
 	return team;
 };
 
-export const linkCustomerToTeam = async ({
-	teamId,
-	customerId,
-}: {
-	teamId: string;
-	customerId: string;
-}) => {
-	const [team] = await db
-		.update(teams)
-		.set({ customerId })
-		.where(eq(teams.id, teamId))
-		.returning();
-
-	if (!team) {
-		throw new Error("Failed to link customer to team");
-	}
-
-	return team;
-};
-
 export const updateTeam = async ({
 	name,
 	description,
 	email,
 	locale,
 	timezone,
-	plan,
-	subscriptionId,
 	id,
 }: {
 	name?: string;
@@ -156,8 +127,6 @@ export const updateTeam = async ({
 	email?: string;
 	locale?: string;
 	timezone?: string;
-	subscriptionId?: string;
-	plan?: (typeof plansEnum.enumValues)[number] | null;
 	id: string;
 }) => {
 	const [team] = await db
@@ -168,8 +137,6 @@ export const updateTeam = async ({
 			description,
 			locale,
 			timezone,
-			subscriptionId,
-			plan,
 		})
 		.where(eq(teams.id, id))
 		.returning();
@@ -406,26 +373,6 @@ export const getMemberById = async ({
 		)
 		.limit(1);
 	return member;
-};
-
-export const updateTeamPlan = async ({
-	customerId,
-	plan,
-	subscriptionId,
-	canceledAt,
-}: {
-	customerId: string;
-	subscriptionId?: string;
-	plan?: (typeof plansEnum.enumValues)[number] | null;
-	canceledAt?: Date | null;
-}) => {
-	const [team] = await db
-		.update(teams)
-		.set({ plan, canceledAt, subscriptionId })
-		.where(eq(teams.customerId, customerId))
-		.returning();
-
-	return team;
 };
 
 export const getMemberByEmail = async ({

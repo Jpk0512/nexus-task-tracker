@@ -16,8 +16,8 @@ export default function page() {
 						I, Alain Alvarez Lopez, operating Nexus as an individual
 					</strong>
 					, collect, use, and protect your information when you use the service
-					(“Nexus”, “the Service”, “I”, “my”). By using Nexus, you agree to
-					the practices described in this Policy.
+					(“Nexus”, “the Service”, “I”, “my”). By using Nexus, you agree to the
+					practices described in this Policy.
 				</p>
 
 				<h2>2. Definitions</h2>

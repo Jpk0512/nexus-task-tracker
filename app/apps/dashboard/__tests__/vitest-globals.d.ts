@@ -5,14 +5,17 @@
  */
 
 declare module "vitest" {
-  export function describe(name: string, fn: () => void): void;
-  export function test(name: string, fn: () => void | Promise<void>): void;
-  export namespace test {
-    export function fails(name: string, fn: () => void | Promise<void>): void;
-  }
-  export function expect<T>(value: T, message?: string): {
-    toHaveLength(length: number): void;
-    toBe(expected: T): void;
-    toEqual(expected: unknown): void;
-  };
+	export function describe(name: string, fn: () => void): void;
+	export function test(name: string, fn: () => void | Promise<void>): void;
+	export namespace test {
+		export function fails(name: string, fn: () => void | Promise<void>): void;
+	}
+	export function expect<T>(
+		value: T,
+		message?: string,
+	): {
+		toHaveLength(length: number): void;
+		toBe(expected: T): void;
+		toEqual(expected: unknown): void;
+	};
 }

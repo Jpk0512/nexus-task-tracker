@@ -9,10 +9,13 @@ import {
 } from "date-fns";
 import { useMemo } from "react";
 import { JkHint } from "@/components/jk-hint";
-import { BulkOpsBar, useBindBulkSelection } from "@/components/tasks/bulk-ops-bar";
 import {
-	TaskToolbar,
+	BulkOpsBar,
+	useBindBulkSelection,
+} from "@/components/tasks/bulk-ops-bar";
+import {
 	type TaskGroupBy,
+	TaskToolbar,
 	useToolbarGroupBy,
 } from "@/components/tasks/task-toolbar";
 import { useJkNavigation } from "@/hooks/use-jk-navigation";
@@ -98,16 +101,12 @@ export const InboxList = ({ className }: { className?: string }) => {
 	const rangeSelection = useTaskSelection((s) => s.rangeTo);
 	const clearSelection = useTaskSelection((s) => s.clear);
 	const focusedId = jk.focusedId ?? null;
-	useShortcut(
-		"row.toggle",
-		() => focusedId && toggleSelection(focusedId),
-		{ enabled: !!focusedId },
-	);
-	useShortcut(
-		"row.range",
-		() => focusedId && rangeSelection(focusedId),
-		{ enabled: !!focusedId },
-	);
+	useShortcut("row.toggle", () => focusedId && toggleSelection(focusedId), {
+		enabled: !!focusedId,
+	});
+	useShortcut("row.range", () => focusedId && rangeSelection(focusedId), {
+		enabled: !!focusedId,
+	});
 	useShortcut("row.escape", () => clearSelection());
 
 	const grouped = useMemo(() => {

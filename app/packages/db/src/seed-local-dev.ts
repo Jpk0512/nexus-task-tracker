@@ -155,7 +155,6 @@ async function main() {
 			slug: TEAM_SLUG,
 			prefix: "DEV",
 			email: EMAIL,
-			plan: "team",
 			timezone: "UTC",
 			locale: "en-US",
 			createdAt: now,

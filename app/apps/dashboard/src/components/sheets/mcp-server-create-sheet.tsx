@@ -21,8 +21,7 @@ export const McpServerCreateSheet = () => {
 				<DialogHeader>
 					<DialogTitle>Add MCP Server</DialogTitle>
 					<DialogDescription>
-						Connect to an MCP server to sync data between Nexus and other
-						tools.
+						Connect to an MCP server to sync data between Nexus and other tools.
 					</DialogDescription>
 				</DialogHeader>
 				<McpServerForm />

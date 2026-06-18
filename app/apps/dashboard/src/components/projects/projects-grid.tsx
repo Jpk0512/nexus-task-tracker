@@ -44,11 +44,11 @@ import {
 import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { useProjectParams } from "@/hooks/use-project-params";
+import { useUser } from "@/components/user-provider";
 import { usePinnedProjects } from "@/hooks/use-pinned-projects";
+import { useProjectParams } from "@/hooks/use-project-params";
 import { IS_SINGLE_USER_MODE } from "@/lib/single-user-mode";
 import { queryClient, trpc } from "@/utils/trpc";
-import { useUser } from "@/components/user-provider";
 import { ProjectContextMenu } from "./context-menu";
 import { ProjectsFilters } from "./filters";
 import type { Project } from "./list";
@@ -98,9 +98,7 @@ interface ProjectGroup {
 }
 
 function bucketByRecency(project: Project): string {
-	const updated = project.updatedAt
-		? new Date(project.updatedAt).getTime()
-		: 0;
+	const updated = project.updatedAt ? new Date(project.updatedAt).getTime() : 0;
 	if (!updated) return "Older";
 	const ageMs = Date.now() - updated;
 	const day = 86_400_000;
@@ -118,7 +116,7 @@ function groupProjects(projects: Project[], groupBy: GroupKey): ProjectGroup[] {
 	for (const project of projects) {
 		let key: string;
 		if (groupBy === "status") {
-			key = project.archived ? "Archived" : project.status ?? "Active";
+			key = project.archived ? "Archived" : (project.status ?? "Active");
 		} else if (groupBy === "owner") {
 			if (IS_SINGLE_USER_MODE) {
 				key = "You";
@@ -140,8 +138,7 @@ function groupProjects(projects: Project[], groupBy: GroupKey): ProjectGroup[] {
 
 	if (groupBy === "recency") {
 		groups.sort(
-			(a, b) =>
-				RECENCY_ORDER.indexOf(a.label) - RECENCY_ORDER.indexOf(b.label),
+			(a, b) => RECENCY_ORDER.indexOf(a.label) - RECENCY_ORDER.indexOf(b.label),
 		);
 	} else {
 		groups.sort((a, b) => a.label.localeCompare(b.label));
@@ -203,7 +200,12 @@ interface ProjectCardProps {
 	onTogglePin: (id: string) => void;
 }
 
-function ProjectCard({ project, href, isPinned, onTogglePin }: ProjectCardProps) {
+function ProjectCard({
+	project,
+	href,
+	isPinned,
+	onTogglePin,
+}: ProjectCardProps) {
 	const total = project.progress.inProgress + project.progress.completed;
 	const percent =
 		total > 0 ? Math.round((project.progress.completed / total) * 100) : 0;
@@ -269,8 +271,8 @@ function ProjectCard({ project, href, isPinned, onTogglePin }: ProjectCardProps)
 						"absolute top-2 right-2 inline-flex h-7 w-7 items-center justify-center rounded-md border border-transparent text-muted-foreground transition-all",
 						"hover:border-border hover:bg-background hover:text-foreground",
 						isPinned
-							? "opacity-100 text-brand"
-							: "opacity-0 group-hover:opacity-100 focus:opacity-100",
+							? "text-brand opacity-100"
+							: "opacity-0 focus:opacity-100 group-hover:opacity-100",
 					)}
 				>
 					{isPinned ? (
@@ -340,7 +342,7 @@ function StarterTemplates({
 						type="button"
 						onClick={() => onCreate(template)}
 						className={cn(
-							"group flex flex-col items-start gap-2 rounded-lg border border-dashed border-border bg-card p-4 text-left transition-colors",
+							"group flex flex-col items-start gap-2 rounded-lg border border-border border-dashed bg-card p-4 text-left transition-colors",
 							"hover:border-brand/50 hover:bg-muted/40",
 						)}
 					>
@@ -523,7 +525,7 @@ export function ProjectsGrid({
 			{pinnedProjects.length > 0 && (
 				<section
 					className={cn(
-						"sticky top-0 z-10 -mx-6 border-border border-b bg-background/95 px-6 py-3 backdrop-blur",
+						"-mx-6 sticky top-0 z-10 border-border border-b bg-background/95 px-6 py-3 backdrop-blur",
 					)}
 				>
 					<button
@@ -538,9 +540,7 @@ export function ProjectsGrid({
 							<ChevronDownIcon className="size-3.5" />
 						)}
 						<PinIcon className="size-3 text-brand" />
-						<span className="font-medium uppercase tracking-wide">
-							Pinned
-						</span>
+						<span className="font-medium uppercase tracking-wide">Pinned</span>
 						<Badge variant="secondary" className="h-4 px-1.5 text-[10px]">
 							{pinnedProjects.length}
 						</Badge>
@@ -582,7 +582,7 @@ export function ProjectsGrid({
 
 			{/* Empty state */}
 			{isEmpty && (
-				<div className="rounded-lg border border-dashed border-border bg-card/50 p-8 text-center">
+				<div className="rounded-lg border border-border border-dashed bg-card/50 p-8 text-center">
 					<h2 className="font-semibold text-foreground text-lg">
 						Start with a template
 					</h2>
@@ -613,7 +613,7 @@ export function ProjectsGrid({
 									type="button"
 									onClick={() => toggleGroup(group.id)}
 									className={cn(
-										"sticky top-0 z-[5] -mx-6 flex items-center gap-2 border-border border-b bg-card px-6 py-2 text-left",
+										"-mx-6 sticky top-0 z-[5] flex items-center gap-2 border-border border-b bg-card px-6 py-2 text-left",
 										"text-muted-foreground text-xs hover:text-foreground",
 									)}
 									aria-expanded={!collapsed}

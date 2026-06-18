@@ -15,10 +15,13 @@ import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { JkHint } from "@/components/jk-hint";
-import { BulkOpsBar, useBindBulkSelection } from "@/components/tasks/bulk-ops-bar";
 import {
-	TaskToolbar,
+	BulkOpsBar,
+	useBindBulkSelection,
+} from "@/components/tasks/bulk-ops-bar";
+import {
 	type TaskGroupBy,
+	TaskToolbar,
 	useToolbarGroupBy,
 } from "@/components/tasks/task-toolbar";
 import { useUser } from "@/components/user-provider";
@@ -136,9 +139,7 @@ function DroppableColumn({
 								teamPrefix={teamPrefix}
 								isFocused={focusedId === t.id}
 								isSelected={selectedSet?.has(t.id) ?? false}
-								onToggleSelect={(extend) =>
-									onToggleSelect?.(t.id, extend)
-								}
+								onToggleSelect={(extend) => onToggleSelect?.(t.id, extend)}
 							/>
 						</li>
 					))}
@@ -496,16 +497,12 @@ export function TriageView() {
 	const clearSelection = useTaskSelection((s) => s.clear);
 
 	const focusedId = jk.focusedId ?? null;
-	useShortcut(
-		"row.toggle",
-		() => focusedId && toggleSelection(focusedId),
-		{ enabled: !!focusedId },
-	);
-	useShortcut(
-		"row.range",
-		() => focusedId && rangeSelection(focusedId),
-		{ enabled: !!focusedId },
-	);
+	useShortcut("row.toggle", () => focusedId && toggleSelection(focusedId), {
+		enabled: !!focusedId,
+	});
+	useShortcut("row.range", () => focusedId && rangeSelection(focusedId), {
+		enabled: !!focusedId,
+	});
 	useShortcut("row.escape", () => clearSelection());
 
 	// Triage column moves — 1/2/3 routes the focused card. Already exists in
@@ -560,7 +557,10 @@ export function TriageView() {
 		},
 		mutateFn: (task: TriageTask) => {
 			if (!doneStatusId) return Promise.reject(new Error("No done status"));
-			return updateTask.mutateAsync({ id: task.id, statusId: doneStatusId } as any);
+			return updateTask.mutateAsync({
+				id: task.id,
+				statusId: doneStatusId,
+			} as any);
 		},
 		rollback: (task) => {
 			setPendingMoves((prev) => {

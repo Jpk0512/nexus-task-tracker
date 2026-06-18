@@ -1,4 +1,3 @@
-import { stripeClient } from "@api/lib/payments";
 import { resend } from "@api/lib/resend";
 import {
 	acceptTeamInviteSchema,
@@ -17,21 +16,14 @@ import {
 } from "@api/schemas/teams";
 import { protectedProcedure, router } from "@api/trpc/init";
 import {
-	checkLimit,
-	createTrialSubscription,
-	updateSubscriptionUsage,
-} from "@mimir/billing";
-import {
 	changeOwner,
 	checkSlugExists,
 	createTeam,
 	deleteTeam,
-	generateUniqueTeamSlug,
 	getMemberById,
 	getMembers,
 	getTeamById,
 	leaveTeam,
-	linkCustomerToTeam,
 	updateMember,
 	updateTeam,
 } from "@mimir/db/queries/teams";
@@ -45,7 +37,6 @@ import {
 } from "@mimir/db/queries/user-invites";
 import { getAvailableTeams } from "@mimir/db/queries/users";
 import { InviteEmail } from "@mimir/email/emails/invite";
-import { TRPCError } from "@trpc/server";
 import z from "zod";
 
 export const teamsRouter = router({
@@ -65,52 +56,11 @@ export const teamsRouter = router({
 		})
 		.mutation(async ({ ctx, input }) => {
 			const team = await createTeam({ ...input, userId: ctx.user.id });
-
-			// Create a customer in Stripe
-			const customer = await stripeClient.customers.create({
-				name: team.name,
-				email: team.email,
-				metadata: {
-					teamId: team.id,
-				},
-			});
-
-			// Link the customer to the team
-			await linkCustomerToTeam({
-				teamId: team.id,
-				customerId: customer.id,
-			});
-
-			if (process.env.DISABLE_BILLING === "true") {
-				return team;
-			}
-
-			// Create a trial subscription for the team
-			await createTrialSubscription({
-				teamId: team.id,
-				recurringInterval: "monthly",
-			});
-
 			return team;
 		}),
 
 	getCurrent: protectedProcedure.query(async ({ ctx }) => {
 		const team = await getTeamById(ctx.user.teamId!);
-		if (!team.customerId) {
-			const customer = await stripeClient.customers.create({
-				name: team.name,
-				email: team.email,
-				metadata: {
-					teamId: team.id,
-				},
-			});
-
-			await linkCustomerToTeam({
-				teamId: team.id,
-				customerId: customer.id,
-			});
-		}
-
 		return team;
 	}),
 
@@ -118,39 +68,11 @@ export const teamsRouter = router({
 		.meta({ scopes: ["team:write"] })
 		.input(updateTeamSchema)
 		.mutation(async ({ ctx, input }) => {
-			const oldTeam = await getTeamById(ctx.user.teamId!);
 			const team = await updateTeam({
 				...input,
 				id: ctx.user.teamId!,
 			});
-
-			const {
-				data: [existingCustomer],
-			} = await stripeClient.customers.list({
-				email: oldTeam.email,
-				limit: 1,
-			});
-
-			// Update the customer in Stripe if it exists
-			if (existingCustomer) {
-				await stripeClient.customers.update(existingCustomer.id, {
-					name: team!.name,
-					email: team!.email,
-				});
-			} else {
-				// Create a new customer in Stripe if it doesn't exist
-				const customer = await stripeClient.customers.create({
-					name: team!.name,
-					email: team!.email,
-					metadata: {
-						teamId: team!.id,
-					},
-				});
-				await linkCustomerToTeam({
-					teamId: team!.id,
-					customerId: customer.id,
-				});
-			}
+			return team;
 		}),
 
 	getMembers: protectedProcedure
@@ -162,6 +84,7 @@ export const teamsRouter = router({
 			});
 			return members;
 		}),
+
 	acceptInvite: protectedProcedure
 		.meta({
 			team: false,
@@ -173,23 +96,10 @@ export const teamsRouter = router({
 				throw new Error("This invite is not for your email");
 			}
 
-			const canInvite = await checkLimit({
-				teamId: currentInvite.teamId,
-				type: "users",
-				movement: 1,
-			});
-
-			if (!canInvite) {
-				throw new Error("Team user limit reached");
-			}
-
 			const invite = await acceptTeamInvite({
 				userId: ctx.user.id,
 				userInviteId: input.inviteId,
 			});
-
-			// Update the subscription with the new user count
-			updateSubscriptionUsage({ teamId: invite.teamId, type: "users" });
 
 			return invite;
 		}),
@@ -199,7 +109,7 @@ export const teamsRouter = router({
 			team: false,
 		})
 		.input(getTeamInviteByIdSchema)
-		.query(async ({ ctx, input }) => {
+		.query(async ({ input }) => {
 			return getTeamInviteById(input.inviteId);
 		}),
 
@@ -227,20 +137,6 @@ export const teamsRouter = router({
 		.meta({ scopes: ["team:write"] })
 		.input(createTeamInviteSchema)
 		.mutation(async ({ ctx, input }) => {
-			const canInvite = await checkLimit({
-				teamId: ctx.user.teamId!,
-				type: "users",
-				movement: 1,
-			});
-
-			if (!canInvite) {
-				throw new TRPCError({
-					code: "FORBIDDEN",
-					message: "Team user limit reached",
-					cause: "TEAM_USER_LIMIT_REACHED",
-				});
-			}
-
 			const invite = await createTeamInvite({
 				email: input.email,
 				teamId: ctx.user.teamId!,
@@ -265,8 +161,6 @@ export const teamsRouter = router({
 
 	leave: protectedProcedure.mutation(async ({ ctx }) => {
 		const membership = await leaveTeam(ctx.user.id, ctx.user.teamId!);
-		// Update the subscription with the new user count
-		updateSubscriptionUsage({ teamId: ctx.user.teamId!, type: "users" });
 		return membership;
 	}),
 
@@ -298,8 +192,6 @@ export const teamsRouter = router({
 			}
 
 			const membership = await leaveTeam(input.userId, ctx.user.teamId!);
-			// Update the subscription with the new user count
-			updateSubscriptionUsage({ teamId: ctx.user.teamId!, type: "users" });
 			return membership;
 		}),
 
@@ -331,12 +223,6 @@ export const teamsRouter = router({
 		.meta({ scopes: ["team:write"] })
 		.mutation(async ({ ctx }) => {
 			const team = await deleteTeam(ctx.user.teamId!);
-
-			// Cancel the subscription in Stripe if it exists
-			if (team.subscriptionId) {
-				await stripeClient.subscriptions.cancel(team.subscriptionId!);
-			}
-
 			return team;
 		}),
 

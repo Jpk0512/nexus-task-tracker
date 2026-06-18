@@ -50,8 +50,8 @@ export const Hero: React.FC = () => {
 					className="mb-10 max-w-2xl font-light text-lg text-zinc-400 leading-relaxed md:text-xl"
 				>
 					More than a project manager. Nexus is an intelligent companion that
-					understands your workflow, filters operational noise, and guides
-					you through complexity with calm and focus.
+					understands your workflow, filters operational noise, and guides you
+					through complexity with calm and focus.
 				</motion.p>
 
 				<motion.div
@@ -74,7 +74,10 @@ export const Hero: React.FC = () => {
 						size="lg"
 						className="w-full min-w-[160px] gap-2 rounded-full sm:w-auto"
 						onClick={() =>
-							window.open("https://github.com/Jpk0512/nexus-task-tracker", "_blank")
+							window.open(
+								"https://github.com/Jpk0512/nexus-task-tracker",
+								"_blank",
+							)
 						}
 					>
 						<Github size={16} />

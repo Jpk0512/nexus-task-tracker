@@ -17,7 +17,12 @@ app.post("/tasks/upload", async (c) => {
 		return c.json({ success: false, message: "No file uploaded" }, 400);
 	}
 
-	const result = await fileStorageAdapter.upload("imports", `${userId}/${file.name}`, file, "text/csv");
+	const result = await fileStorageAdapter.upload(
+		"imports",
+		`${userId}/${file.name}`,
+		file,
+		"text/csv",
+	);
 
 	let taskImport = await createImport({
 		userId,

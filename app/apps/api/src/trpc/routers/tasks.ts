@@ -19,7 +19,6 @@ import {
 import { protectedProcedure, router } from "@api/trpc/init";
 import { buildSmartCompletePrompt } from "@api/utils/smart-complete";
 import { db } from "@mimir/db/client";
-import { TRPCError } from "@trpc/server";
 import {
 	bulkDeleteTask,
 	bulkUpdateTask,
@@ -43,6 +42,7 @@ import { getMemberById } from "@mimir/db/queries/teams";
 import { trackTaskCreated } from "@mimir/events/server";
 import { syncGoogleCalendarTaskEvent } from "@mimir/integration/google-calendar";
 import { syncRecurringTaskSchedule } from "@mimir/jobs/tasks/create-recurring-task-job";
+import { TRPCError } from "@trpc/server";
 import { and, desc, eq } from "drizzle-orm";
 import { pgTable, text, timestamp } from "drizzle-orm/pg-core";
 import z from "zod";
@@ -533,7 +533,12 @@ export const tasksRouter = router({
 	// Relevance ranking per codex amendment #5: link-recency first, then
 	// note-recency. Page cap at 50; UI surfaces "Show more" beyond that.
 	listKnowledge: protectedProcedure
-		.input(z.object({ taskId: z.string(), limit: z.number().int().min(1).max(50).default(50) }))
+		.input(
+			z.object({
+				taskId: z.string(),
+				limit: z.number().int().min(1).max(50).default(50),
+			}),
+		)
 		.query(async ({ input }) => {
 			const rows = await db
 				.select({
@@ -601,7 +606,12 @@ export const tasksRouter = router({
 		}),
 
 	listSkills: protectedProcedure
-		.input(z.object({ taskId: z.string(), limit: z.number().int().min(1).max(50).default(50) }))
+		.input(
+			z.object({
+				taskId: z.string(),
+				limit: z.number().int().min(1).max(50).default(50),
+			}),
+		)
 		.query(async ({ input }) => {
 			const rows = await db
 				.select({
@@ -612,7 +622,10 @@ export const tasksRouter = router({
 					linkedAt: taskSkills.createdAt,
 				})
 				.from(taskSkills)
-				.innerJoin(libraryEntriesRef, eq(taskSkills.skillId, libraryEntriesRef.id))
+				.innerJoin(
+					libraryEntriesRef,
+					eq(taskSkills.skillId, libraryEntriesRef.id),
+				)
 				.where(eq(taskSkills.taskId, input.taskId))
 				.orderBy(desc(taskSkills.createdAt), desc(libraryEntriesRef.updatedAt))
 				.limit(input.limit);

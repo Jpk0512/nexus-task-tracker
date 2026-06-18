@@ -1,18 +1,12 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { cronToRecurrenceEditor } from "@mimir/utils/recurrence";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Skeleton } from "@ui/components/ui/skeleton";
 import { CalendarSyncIcon } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { Suspense, useMemo } from "react";
 import { toast } from "sonner";
-import { BulkOpsBar, useBindBulkSelection } from "@/components/tasks/bulk-ops-bar";
-import {
-	TaskToolbar,
-	type TaskGroupBy,
-	useToolbarGroupBy,
-} from "@/components/tasks/task-toolbar";
 import {
 	RecurringCard,
 	type RecurringSummary,
@@ -21,6 +15,15 @@ import {
 	type RecurringTemplate,
 	TemplateGallery,
 } from "@/components/recurring/template-gallery";
+import {
+	BulkOpsBar,
+	useBindBulkSelection,
+} from "@/components/tasks/bulk-ops-bar";
+import {
+	type TaskGroupBy,
+	TaskToolbar,
+	useToolbarGroupBy,
+} from "@/components/tasks/task-toolbar";
 import { useShortcut } from "@/hooks/use-shortcuts";
 import { useTaskParams } from "@/hooks/use-task-params";
 import { useTaskSelection } from "@/stores/task-selection";
@@ -44,10 +47,9 @@ function RecurringPageContent() {
 	// than enough for the foreseeable future. We sort newest-next-run-first
 	// after enrichment below.
 	const { data, isLoading } = useQuery(
-		trpc.tasks.get.queryOptions(
-			{ recurring: true, pageSize: 100 } as any,
-			{ staleTime: 30 * 1000 },
-		),
+		trpc.tasks.get.queryOptions({ recurring: true, pageSize: 100 } as any, {
+			staleTime: 30 * 1000,
+		}),
 	);
 
 	const tasks = useMemo<any[]>(() => {
@@ -66,8 +68,12 @@ function RecurringPageContent() {
 				// Paused recurrences sink to the bottom; otherwise nearest-next-run first.
 				if (a.paused && !b.paused) return 1;
 				if (!a.paused && b.paused) return -1;
-				const ta = a.nextRunAt ? new Date(a.nextRunAt).getTime() : Infinity;
-				const tb = b.nextRunAt ? new Date(b.nextRunAt).getTime() : Infinity;
+				const ta = a.nextRunAt
+					? new Date(a.nextRunAt).getTime()
+					: Number.POSITIVE_INFINITY;
+				const tb = b.nextRunAt
+					? new Date(b.nextRunAt).getTime()
+					: Number.POSITIVE_INFINITY;
 				return ta - tb;
 			}),
 		[summaries],
@@ -163,8 +169,8 @@ function RecurringPageContent() {
 					Recurring
 				</h1>
 				<p className="mt-0.5 text-[12px] text-muted-foreground">
-					Tasks that repeat on a schedule. Spawn one from a template or build
-					a custom cadence.
+					Tasks that repeat on a schedule. Spawn one from a template or build a
+					custom cadence.
 				</p>
 			</header>
 			<TaskToolbar
@@ -259,7 +265,7 @@ function toRecurringSummary(task: any, team: string): RecurringSummary | null {
 	if (!task) return null;
 	const cron = task.recurring;
 	const editor = cron ? cronToRecurrenceEditor(cron) : null;
-	const human = editor ? humanFromEditor(editor) : cron ?? "—";
+	const human = editor ? humanFromEditor(editor) : (cron ?? "—");
 	return {
 		id: task.id,
 		title: task.title ?? "Untitled",
@@ -282,14 +288,12 @@ function humanFromEditor(editor: {
 }): string {
 	const freq = editor.frequency ?? "";
 	const i = editor.interval ?? 1;
-	const time = editor.hour != null && editor.minute != null
-		? formatTime(editor.hour, editor.minute)
-		: null;
+	const time =
+		editor.hour != null && editor.minute != null
+			? formatTime(editor.hour, editor.minute)
+			: null;
 	const days = editor.byDay?.map(shortDay).join(", ");
-	const head =
-		i === 1
-			? `Every ${unit(freq)}`
-			: `Every ${i} ${unit(freq)}s`;
+	const head = i === 1 ? `Every ${unit(freq)}` : `Every ${i} ${unit(freq)}s`;
 	const parts = [head];
 	if (days) parts.push(`on ${days}`);
 	if (time) parts.push(`at ${time}`);

@@ -125,7 +125,7 @@ function NoteRow({
 							// left-border + bg-brand/10 tint. Inactive rows keep a
 							// transparent left-border so the row width doesn't shift on
 							// selection.
-							"group flex w-full items-center gap-2 border-l-2 border-transparent px-[34px] py-1 text-left text-[13px] tracking-[-0.005em] transition-colors",
+							"group flex w-full items-center gap-2 border-transparent border-l-2 px-[34px] py-1 text-left text-[13px] tracking-[-0.005em] transition-colors",
 							active
 								? "border-l-brand bg-brand/10 font-[510] text-brand"
 								: "font-[400] text-foreground hover:bg-accent/40",

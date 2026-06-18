@@ -1,5 +1,6 @@
 "use client";
 
+import { useMutation } from "@tanstack/react-query";
 import { Button } from "@ui/components/ui/button";
 import {
 	Dialog,
@@ -9,7 +10,6 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@ui/components/ui/dialog";
-import { useMutation } from "@tanstack/react-query";
 import { cn } from "@ui/lib/utils";
 import {
 	differenceInCalendarDays,
@@ -18,12 +18,12 @@ import {
 	getISOWeekYear,
 	startOfWeek,
 } from "date-fns";
-import { useRouter } from "next/navigation";
 import { CalendarCheck2Icon, RotateCcwIcon, XIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useUser } from "@/components/user-provider";
-import { useTasks, type EnrichedTask } from "@/hooks/use-data";
+import { type EnrichedTask, useTasks } from "@/hooks/use-data";
 import { invalidateTasksCache } from "@/hooks/use-data-cache-helpers";
 import { trpc } from "@/utils/trpc";
 
@@ -114,9 +114,7 @@ export function WeeklyRollover() {
 	);
 
 	const stats = useMemo(() => {
-		const startLastWeek = new Date(
-			startOfThisWeek.getTime() - 7 * 86_400_000,
-		);
+		const startLastWeek = new Date(startOfThisWeek.getTime() - 7 * 86_400_000);
 		const carryOver: EnrichedTask[] = [];
 		let reviewed = 0;
 		for (const t of openTasks) {
@@ -131,8 +129,7 @@ export function WeeklyRollover() {
 		}
 		let completed = 0;
 		for (const t of doneTasks) {
-			const at =
-				(t as any).completedAt ?? (t as any).statusChangedAt ?? null;
+			const at = (t as any).completedAt ?? (t as any).statusChangedAt ?? null;
 			if (!at) continue;
 			const d = new Date(at);
 			if (d >= startLastWeek && d < startOfThisWeek) completed += 1;
@@ -196,8 +193,8 @@ export function WeeklyRollover() {
 						Weekly rollover · {format(startOfThisWeek, "MMM d")}
 					</p>
 					<p className="mt-0.5 text-[12px] text-muted-foreground">
-						{stats.carryOver.length} carried over · {stats.reviewed} in
-						review · {stats.completed} completed last week
+						{stats.carryOver.length} carried over · {stats.reviewed} in review ·{" "}
+						{stats.completed} completed last week
 					</p>
 					<div className="mt-2 flex flex-wrap gap-1.5">
 						<Button
@@ -238,8 +235,8 @@ export function WeeklyRollover() {
 							Carry-overs from last week
 						</DialogTitle>
 						<DialogDescription>
-							{stats.carryOver.length} tasks were due last week and aren't
-							done yet. Reschedule, archive, or mark them complete.
+							{stats.carryOver.length} tasks were due last week and aren't done
+							yet. Reschedule, archive, or mark them complete.
 						</DialogDescription>
 					</DialogHeader>
 					<ul className="max-h-[400px] space-y-1 overflow-y-auto py-1">
@@ -247,9 +244,7 @@ export function WeeklyRollover() {
 							const due = (t as any).dueDate
 								? new Date((t as any).dueDate as string)
 								: null;
-							const daysLate = due
-								? -differenceInCalendarDays(due, now)
-								: null;
+							const daysLate = due ? -differenceInCalendarDays(due, now) : null;
 							return (
 								<li
 									key={t.id}
