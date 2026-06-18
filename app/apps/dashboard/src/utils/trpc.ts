@@ -11,12 +11,12 @@ import {
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
 
 // Local-dev URL split: SSR inside the docker container reaches the api via
-// MIMRAI_SSR_SERVER_URL (docker DNS), browser reaches it via the public
+// NEXUS_SSR_SERVER_URL (docker DNS), browser reaches it via the public
 // NEXT_PUBLIC_SERVER_URL. Upstream behavior unchanged when NEXUS_LOCAL_DEV
 // is not set.
 const ssrUrl =
 	process.env.NEXUS_LOCAL_DEV === "1"
-		? process.env.MIMRAI_SSR_SERVER_URL || process.env.NEXT_PUBLIC_SERVER_URL
+		? process.env.NEXUS_SSR_SERVER_URL || process.env.NEXT_PUBLIC_SERVER_URL
 		: process.env.NEXT_PUBLIC_SERVER_URL;
 const browserUrl = process.env.NEXT_PUBLIC_SERVER_URL;
 

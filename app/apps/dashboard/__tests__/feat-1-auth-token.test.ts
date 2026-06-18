@@ -148,7 +148,7 @@ function scanForPattern(
 // ---------------------------------------------------------------------------
 
 describe("FEAT-001 P3 — auth.ts Bearer-token implementation", () => {
-  test.fails(
+  test(
     "auth.ts reads NEXUS_API_TOKEN from process.env (token-check present)",
     () => {
       const src = readSource(AUTH_MIDDLEWARE_PATH);
@@ -157,7 +157,7 @@ describe("FEAT-001 P3 — auth.ts Bearer-token implementation", () => {
     },
   );
 
-  test.fails(
+  test(
     "auth.ts validates Authorization: Bearer <token> header (bearer prefix parsed)",
     () => {
       const src = readSource(AUTH_MIDDLEWARE_PATH);
@@ -174,7 +174,7 @@ describe("FEAT-001 P3 — auth.ts Bearer-token implementation", () => {
     },
   );
 
-  test.fails(
+  test(
     "auth.ts NEXUS_LOCAL_DEV bypass removed (replaced by token gate in P3)",
     () => {
       const src = readSource(AUTH_MIDDLEWARE_PATH);
@@ -187,7 +187,7 @@ describe("FEAT-001 P3 — auth.ts Bearer-token implementation", () => {
     },
   );
 
-  test.fails(
+  test(
     "auth.ts: token comparison against NEXUS_API_TOKEN rejects wrong tokens (invalid-token 401 path present)",
     () => {
       const src = readSource(AUTH_MIDDLEWARE_PATH);
@@ -225,7 +225,7 @@ describe("FEAT-001 P3 — MIMRAI_SSR_SERVER_URL half-rename fix", () => {
   const MIMRAI_SSR_RE =
     /(?<![A-Z0-9_])MIMRAI_SSR_SERVER_URL(?![A-Z0-9_])/;
 
-  test.fails(
+  test(
     "auth-client.ts uses NEXUS_SSR_SERVER_URL (not MIMRAI_SSR_SERVER_URL)",
     () => {
       const src = readSource(AUTH_CLIENT_PATH);
@@ -237,7 +237,7 @@ describe("FEAT-001 P3 — MIMRAI_SSR_SERVER_URL half-rename fix", () => {
     },
   );
 
-  test.fails(
+  test(
     "trpc.ts uses NEXUS_SSR_SERVER_URL (not MIMRAI_SSR_SERVER_URL)",
     () => {
       const src = readSource(TRPC_PATH);
@@ -249,7 +249,7 @@ describe("FEAT-001 P3 — MIMRAI_SSR_SERVER_URL half-rename fix", () => {
     },
   );
 
-  test.fails("zero MIMRAI_SSR_SERVER_URL references across all of app/", () => {
+  test("zero MIMRAI_SSR_SERVER_URL references across all of app/", () => {
     const hits = scanForPattern(APP_ROOT, MIMRAI_SSR_RE);
 
     const message =
