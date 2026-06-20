@@ -41,6 +41,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { tagColor } from "@/lib/project-color";
 import { trpc } from "@/utils/trpc";
 
 type Props = { productSlug: string; team: string };
@@ -52,26 +53,9 @@ type PromptRow = {
 	tags: string[] | null;
 	version: number;
 	updatedAt: string;
+	projectId: string | null;
+	projectName: string | null;
 };
-
-// Stable colors for tag chips. Derived from a hash so the same tag name
-// renders the same dot color across visits — Linear behaviour.
-const TAG_PALETTE = [
-	"#9b8afb", // violet
-	"#5e6ad2", // indigo
-	"#26b5ce", // teal
-	"#4cb782", // green
-	"#f2c94c", // yellow
-	"#f2994a", // orange
-	"#eb5757", // red
-	"#bb87fc", // pink
-];
-
-function tagColor(name: string): string {
-	let h = 0;
-	for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0;
-	return TAG_PALETTE[Math.abs(h) % TAG_PALETTE.length] ?? TAG_PALETTE[0]!;
-}
 
 // `{{ varName }}` (lenient whitespace) → ordered, deduped variable list.
 function extractVars(content: string): string[] {
@@ -343,6 +327,11 @@ export function PromptListView({ productSlug, team }: Props) {
 	const { data } = useQuery(
 		trpc.prompts.getPrompts.queryOptions({ productSlug }),
 	);
+	// getPrompts narrows `product` to `{ id }`; pull the full-shape product
+	// detail (name, description) from getProductBySlug for the header.
+	const { data: productDetail } = useQuery(
+		trpc.prompts.getProductBySlug.queryOptions({ slug: productSlug }),
+	);
 	const [showNew, setShowNew] = useState(false);
 	const [name, setName] = useState("");
 	const [search, setSearch] = useState("");
@@ -414,11 +403,11 @@ export function PromptListView({ productSlug, team }: Props) {
 				<div className="mt-2 flex items-baseline justify-between gap-4">
 					<div>
 						<h1 className="font-[510] text-[15px] text-foreground tracking-[-0.012em]">
-							{product?.name ?? productSlug}
+							{productDetail?.name ?? productSlug}
 						</h1>
-						{product?.description && (
+						{productDetail?.description && (
 							<p className="mt-1 text-[12px] text-muted-foreground">
-								{product.description}
+								{productDetail.description}
 							</p>
 						)}
 					</div>
@@ -507,7 +496,7 @@ export function PromptListView({ productSlug, team }: Props) {
 				{filtered.length === 0 && (
 					<div className="py-16 text-center text-muted-foreground text-sm">
 						{prompts.length === 0
-							? `No prompts yet for ${product?.name ?? productSlug}. Add the first one above.`
+							? `No prompts yet for ${productDetail?.name ?? productSlug}. Add the first one above.`
 							: "No prompts match this search."}
 					</div>
 				)}
@@ -527,7 +516,7 @@ export function PromptListView({ productSlug, team }: Props) {
 									className="absolute inset-0 rounded-md"
 									aria-label={`Open ${p.name}`}
 								/>
-								{/* col 1: name + version */}
+								{/* col 1: name + version + project badge */}
 								<div className="pointer-events-none relative z-10 flex min-w-0 items-center gap-2">
 									<span className="truncate font-[510] text-[13px] text-foreground">
 										{p.name}
@@ -538,6 +527,17 @@ export function PromptListView({ productSlug, team }: Props) {
 									>
 										v{p.version}
 									</Badge>
+									{p.projectId && (
+										<span className="pointer-events-auto relative z-10 flex h-[18px] items-center gap-1 rounded-full border border-border px-[7px] font-normal text-[10px] text-muted-foreground">
+											<span
+												className="inline-block h-[5px] w-[5px] shrink-0 rounded-full"
+												style={{ background: tagColor(p.projectId) }}
+											/>
+											<span className="max-w-[80px] truncate">
+												{p.projectName ?? "Unknown project"}
+											</span>
+										</span>
+									)}
 								</div>
 								{/* col 2: tags */}
 								<div className="pointer-events-none relative z-10 hidden items-center gap-1 sm:flex">

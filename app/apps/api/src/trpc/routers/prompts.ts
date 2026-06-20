@@ -15,6 +15,14 @@ import {
 } from "drizzle-orm/pg-core";
 import { z } from "zod/v3";
 
+// Minimal projects table reference for team-ownership checks on setProject,
+// and for projectName resolution in getPrompts.
+const projects = pgTable("projects", {
+	id: text("id").primaryKey(),
+	teamId: text("team_id").notNull(),
+	name: text("name").notNull(),
+});
+
 const promptProducts = pgTable("prompt_products", {
 	id: text("id").primaryKey(),
 	teamId: text("team_id").notNull(),
@@ -203,11 +211,14 @@ export const promptsRouter = router({
 					id: prompts.id,
 					name: prompts.name,
 					slug: prompts.slug,
+					projectId: prompts.projectId,
+					projectName: projects.name,
 					tags: prompts.tags,
 					version: prompts.version,
 					updatedAt: prompts.updatedAt,
 				})
 				.from(prompts)
+				.leftJoin(projects, eq(projects.id, prompts.projectId))
 				.where(eq(prompts.productId, product.id))
 				.orderBy(asc(prompts.name));
 			return { product, prompts: rows };
@@ -220,6 +231,7 @@ export const promptsRouter = router({
 				.select({
 					id: prompts.id,
 					productId: prompts.productId,
+					projectId: prompts.projectId,
 					name: prompts.name,
 					slug: prompts.slug,
 					content: prompts.content,
@@ -433,8 +445,24 @@ export const promptsRouter = router({
 			}),
 		)
 		.mutation(async ({ input, ctx }) => {
-			// Team-scope guard: confirm the prompt belongs to this team
-			// before mutating.
+			if (input.projectId !== null) {
+				const [proj] = await db
+					.select({ id: projects.id })
+					.from(projects)
+					.where(
+						and(
+							eq(projects.id, input.projectId),
+							eq(projects.teamId, ctx.user.teamId!),
+						),
+					)
+					.limit(1);
+				if (!proj)
+					throw new TRPCError({
+						code: "BAD_REQUEST",
+						message: "Project does not belong to your team",
+					});
+			}
+
 			const [authz] = await db
 				.select({ id: prompts.id })
 				.from(prompts)

@@ -12,6 +12,7 @@
 
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
+import { boolean, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 import { Pool } from "pg";
 import {
 	documents,
@@ -23,6 +24,26 @@ import {
 	users,
 	usersOnTeams,
 } from "./schema";
+
+// Inline definition mirrors prompts.ts — not yet exported from schema.
+const promptProducts = pgTable("prompt_products", {
+	id: text("id").primaryKey(),
+	teamId: text("team_id").notNull(),
+	name: text("name").notNull(),
+	slug: text("slug").notNull(),
+	description: text("description"),
+	icon: text("icon"),
+	color: text("color"),
+	archived: boolean("archived").notNull().default(false),
+	createdAt: timestamp("created_at", {
+		withTimezone: true,
+		mode: "string",
+	}).notNull(),
+	updatedAt: timestamp("updated_at", {
+		withTimezone: true,
+		mode: "string",
+	}).notNull(),
+});
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error("DATABASE_URL is required");
@@ -504,6 +525,23 @@ async function main() {
 			.set({ projectId: d.projectId })
 			.where(eq(documents.id, d.id));
 	}
+
+	console.log("[seed-local-dev] prompt product: kbuddy…");
+	await db
+		.insert(promptProducts)
+		.values({
+			id: "ld-pp-kbuddy",
+			teamId: TEAM_ID,
+			name: "kbuddy",
+			slug: "kbuddy",
+			description: null,
+			icon: null,
+			color: null,
+			archived: false,
+			createdAt: nowIso,
+			updatedAt: nowIso,
+		})
+		.onConflictDoNothing({ target: promptProducts.id });
 
 	console.log("[seed-local-dev] done.");
 	await pool.end();

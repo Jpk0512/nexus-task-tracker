@@ -18,20 +18,33 @@ import {
 	DropdownMenuTrigger,
 } from "@ui/components/ui/dropdown-menu";
 import { Input } from "@ui/components/ui/input";
+import {
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+} from "@ui/components/ui/popover";
+import { Skeleton } from "@ui/components/ui/skeleton";
 import { cn } from "@ui/lib/utils";
 import { formatDistanceToNowStrict } from "date-fns";
 import {
 	ArrowLeftIcon,
+	CheckIcon,
+	ChevronDownIcon,
 	ClipboardIcon,
+	FolderIcon,
 	HistoryIcon,
+	MinusIcon,
 	SaveIcon,
+	SearchIcon,
 	Trash2Icon,
+	XIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { BacklinksPanel } from "@/components/backlinks/backlinks-panel";
 import { BlockEditor } from "@/components/editor/block-editor";
+import { tagColor } from "@/lib/project-color";
 import { trpc } from "@/utils/trpc";
 
 type Props = { productSlug: string; promptSlug: string; team: string };
@@ -66,6 +79,9 @@ export function PromptEditView({ productSlug, promptSlug, team }: Props) {
 	const [notes, setNotes] = useState("");
 	const [varValues, setVarValues] = useState<Record<string, string>>({});
 	const [diffVersion, setDiffVersion] = useState<PromptVersion | null>(null);
+	const [projectId, setProjectId] = useState<string | null>(null);
+	const [pickerOpen, setPickerOpen] = useState(false);
+	const [projectSearch, setProjectSearch] = useState("");
 
 	// Past versions — populated as users hit "Save as new version". Older
 	// prompts created before the snapshot landed will simply have an empty
@@ -76,11 +92,18 @@ export function PromptEditView({ productSlug, promptSlug, team }: Props) {
 	});
 	const versions = (versionsQuery.data ?? []) as PromptVersion[];
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: intentional — reset all editable fields only when the prompt identity changes, not on every field update
 	useEffect(() => {
 		if (prompt) {
 			setContent(prompt.content);
 			setNotes(prompt.notes ?? "");
-			// Reset var values to empty strings when prompt loads
+			// prompt.projectId is returned by the server but absent from the inferred client type
+			setProjectId(
+				((prompt as unknown as Record<string, unknown>).projectId as
+					| string
+					| null
+					| undefined) ?? null,
+			);
 			const vars = extractVars(prompt.content);
 			setVarValues(Object.fromEntries(vars.map((v) => [v, ""])));
 		}
@@ -90,13 +113,17 @@ export function PromptEditView({ productSlug, promptSlug, team }: Props) {
 
 	const updateMut = useMutation(
 		trpc.prompts.updatePrompt.mutationOptions({
-			onSuccess: (p, vars) => {
-				toast.success(vars.bumpVersion ? "Saved as new version" : "Saved");
+			onSuccess: (_data, vars) => {
+				const bumped =
+					typeof vars === "object" &&
+					vars !== null &&
+					vars.bumpVersion === true;
+				toast.success(bumped ? "Saved as new version" : "Saved");
 				qc.invalidateQueries({
 					queryKey: [["prompts", "getPromptBySlug"]],
 				});
 				qc.invalidateQueries({ queryKey: [["prompts", "getPrompts"]] });
-				if (vars.bumpVersion) {
+				if (bumped) {
 					qc.invalidateQueries({
 						queryKey: [["prompts", "getVersions"]],
 					});
@@ -115,6 +142,39 @@ export function PromptEditView({ productSlug, promptSlug, team }: Props) {
 			},
 		}),
 	);
+
+	const setProjectMut = useMutation(
+		trpc.prompts.setProject.mutationOptions({
+			onSuccess: () => {
+				qc.invalidateQueries({ queryKey: [["prompts", "getPromptBySlug"]] });
+				qc.invalidateQueries({ queryKey: [["prompts", "getPrompts"]] });
+			},
+			onError: (e) => toast.error(e.message),
+		}),
+	);
+
+	const projectsQuery = useQuery(trpc.projects.get.queryOptions());
+	const allProjects = (projectsQuery.data ?? []) as Array<{
+		id: string;
+		name: string;
+	}>;
+
+	const selectedProject = allProjects.find((p) => p.id === projectId) ?? null;
+
+	const filteredProjects = projectSearch.trim()
+		? allProjects.filter((p) =>
+				p.name.toLowerCase().includes(projectSearch.toLowerCase()),
+			)
+		: allProjects;
+
+	const handleSelectProject = (id: string | null) => {
+		setProjectId(id);
+		setPickerOpen(false);
+		setProjectSearch("");
+		if (prompt) {
+			setProjectMut.mutate({ promptId: prompt.id, projectId: id });
+		}
+	};
 
 	if (isLoading)
 		return (
@@ -338,6 +398,128 @@ export function PromptEditView({ productSlug, promptSlug, team }: Props) {
 							</pre>
 						</div>
 					)}
+					<div className="border-border border-t pt-3">
+						<div className="mb-1.5 font-[600] text-[10px] text-muted-foreground uppercase tracking-[0.06em]">
+							Project
+						</div>
+						{projectsQuery.isLoading ? (
+							<Skeleton className="h-[30px] w-full rounded-md" />
+						) : (
+							<Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+								<PopoverTrigger asChild>
+									<button
+										type="button"
+										disabled={setProjectMut.isPending}
+										className={cn(
+											"flex h-[30px] w-full items-center gap-1.5 rounded-sm border px-2 text-[12px] outline-none transition-[border-color,background-color,color] duration-150 ease-out",
+											"focus:border-primary focus:ring-[3px] focus:ring-primary/25",
+											selectedProject
+												? "border-border bg-accent/30 text-foreground hover:border-border hover:bg-accent/50"
+												: "border-transparent bg-transparent text-muted-foreground hover:border-border/80 hover:bg-accent/50 hover:text-foreground",
+											setProjectMut.isPending &&
+												"pointer-events-none opacity-50",
+										)}
+									>
+										{selectedProject ? (
+											<>
+												<span
+													className="inline-block h-[7px] w-[7px] shrink-0 rounded-full"
+													style={{ background: tagColor(selectedProject.id) }}
+												/>
+												<span className="min-w-0 flex-1 truncate text-left">
+													{selectedProject.name}
+												</span>
+												<button
+													type="button"
+													onClick={(e) => {
+														e.stopPropagation();
+														handleSelectProject(null);
+													}}
+													className={cn(
+														"flex size-[14px] shrink-0 items-center justify-center rounded-[3px] text-muted-foreground outline-none transition-[background-color,color] duration-100 ease-out",
+														"hover:bg-destructive/12 hover:text-destructive",
+														"focus:ring-1 focus:ring-destructive/50",
+													)}
+													aria-label="Clear project"
+												>
+													<XIcon className="size-3" />
+												</button>
+											</>
+										) : (
+											<>
+												<FolderIcon className="size-3 shrink-0 opacity-50" />
+												<span className="flex-1 text-left">Set project…</span>
+												<ChevronDownIcon className="ml-auto size-3 opacity-40" />
+											</>
+										)}
+									</button>
+								</PopoverTrigger>
+								<PopoverContent
+									align="start"
+									className="data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 w-[--radix-popover-trigger-width] min-w-[200px] rounded-lg border border-border bg-popover p-1 shadow-[0_8px_24px_rgba(0,0,0,.5)] data-[state=closed]:animate-out data-[state=open]:animate-in"
+								>
+									<div className="flex items-center gap-1.5 border-border/70 border-b px-2 py-1.5">
+										<SearchIcon className="size-3 shrink-0 text-muted-foreground" />
+										<input
+											value={projectSearch}
+											onChange={(e) => setProjectSearch(e.target.value)}
+											placeholder="Search projects…"
+											className="flex-1 border-0 bg-transparent text-[12px] text-foreground outline-none placeholder:text-muted-foreground"
+										/>
+									</div>
+									<button
+										type="button"
+										onClick={() => handleSelectProject(null)}
+										className="flex w-full items-center gap-2 rounded-[5px] px-2 py-1.5 text-[12px] text-muted-foreground transition-[background-color,color] duration-100 ease-out hover:bg-accent hover:text-foreground"
+									>
+										<MinusIcon className="size-3" />
+										No project
+									</button>
+									{filteredProjects.length > 0 && (
+										<>
+											<div className="my-1 border-border/60 border-t" />
+											<div className="px-2 py-1 font-[600] text-[10px] text-muted-foreground uppercase tracking-[0.06em]">
+												Projects
+											</div>
+											{filteredProjects.map((proj) => (
+												<button
+													key={proj.id}
+													type="button"
+													onClick={() => handleSelectProject(proj.id)}
+													className={cn(
+														"flex w-full cursor-pointer items-center gap-2 rounded-[5px] px-2 py-1.5 text-[13px] text-foreground transition-[background-color] duration-100 ease-out hover:bg-accent",
+														projectId === proj.id && "bg-primary/[0.08]",
+													)}
+												>
+													<span
+														className="inline-block h-[7px] w-[7px] shrink-0 rounded-full"
+														style={{ background: tagColor(proj.id) }}
+													/>
+													<span className="min-w-0 flex-1 truncate text-left">
+														{proj.name}
+													</span>
+													{projectId === proj.id && (
+														<CheckIcon className="ml-auto size-3 text-primary" />
+													)}
+												</button>
+											))}
+										</>
+									)}
+									{filteredProjects.length === 0 &&
+										allProjects.length === 0 && (
+											<div className="px-2 py-3 text-center text-[12px] text-muted-foreground">
+												No projects yet
+											</div>
+										)}
+									{filteredProjects.length === 0 && allProjects.length > 0 && (
+										<div className="px-2 py-3 text-center text-[12px] text-muted-foreground">
+											No projects match
+										</div>
+									)}
+								</PopoverContent>
+							</Popover>
+						)}
+					</div>
 					<BacklinksPanel entityType="prompt" entityId={prompt.id} />
 				</aside>
 			</div>
