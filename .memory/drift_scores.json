@@ -1,19 +1,19 @@
 {
   "FEAT-001": {
     "FileStorageAdapter": 18,
-    "MIMRAI_": 40,
-    "MIMRAI_LOCAL_DEV": 33,
+    "MIMRAI_": 55,
+    "MIMRAI_LOCAL_DEV": 34,
     "NEXT_PUBLIC_MIMRAI_LOCAL_DEV": 5,
-    "NEXUS_LOCAL_DEV": 54,
+    "NEXUS_LOCAL_DEV": 46,
     "STORAGE": 57,
-    "attachment.ts": 5,
-    "attachments.ts": 5,
+    "attachment.ts": 4,
+    "attachments.ts": 4,
     "compose.local.yaml": 18,
     "createAdminClient": 7,
     "env.example": 45,
-    "init.ts": 8,
+    "init.ts": 21,
     "john.keeney": 61,
-    "stripeClient": 33,
-    "users.ts": 8
+    "stripeClient": 16,
+    "users.ts": 4
   }
 }
