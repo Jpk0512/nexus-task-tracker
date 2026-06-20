@@ -12,10 +12,11 @@ import {
 	writeFileSync,
 } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
+import { extractLinks, resolveLinks } from "@api/lib/wiki-link-parser";
 import { protectedProcedure, router } from "@api/trpc/init";
 import { db } from "@mimir/db/client";
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { boolean, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 import { z } from "zod/v3";
 
@@ -59,6 +60,19 @@ const knowledgeNotes = pgTable("knowledge_notes", {
 		.notNull()
 		.defaultNow(),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" })
+		.notNull()
+		.defaultNow(),
+});
+
+// Wiki-link graph edges (M-002 / FEAT-002 Wave 1).
+// to_note_id is nullable — unresolved links and post-delete SET NULL edges.
+// Exported so the Wave-2 scanner and backlinks endpoint can import it.
+export const knowledgeLinks = pgTable("knowledge_links", {
+	id: text("id").primaryKey(),
+	fromNoteId: text("from_note_id").notNull(),
+	toNoteId: text("to_note_id"),
+	linkText: text("link_text").notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
 		.notNull()
 		.defaultNow(),
 });
@@ -138,20 +152,6 @@ function splitFrontmatter(content: string): {
 	return { frontmatter: parseSimpleYaml(yaml), body };
 }
 
-function serializeYaml(obj: Record<string, unknown>): string {
-	const lines: string[] = [];
-	for (const [k, v] of Object.entries(obj)) {
-		if (Array.isArray(v)) {
-			lines.push(`${k}: [${v.map((x) => JSON.stringify(x)).join(", ")}]`);
-		} else if (typeof v === "string") {
-			lines.push(`${k}: ${/[:#]/.test(v) ? JSON.stringify(v) : v}`);
-		} else {
-			lines.push(`${k}: ${v}`);
-		}
-	}
-	return lines.join("\n");
-}
-
 const SKIP_DIRS = new Set([".obsidian", ".trash", "node_modules", ".git"]);
 
 function* walk(root: string): Generator<string> {
@@ -189,11 +189,14 @@ async function scanVault(vaultId: string) {
 	if (!existsSync(real)) {
 		mkdirSync(real, { recursive: true });
 	}
-	let inserted = 0,
-		updated = 0,
-		unchanged = 0,
-		deleted = 0;
+	let inserted = 0;
+	let updated = 0;
+	let unchanged = 0;
+	let deleted = 0;
 	const seen: string[] = [];
+	// Track which note ids had content changes so we can re-index their links.
+	const changedNoteIds: string[] = [];
+
 	for (const abs of walk(real)) {
 		const rel = relative(real, abs);
 		seen.push(rel);
@@ -236,10 +239,12 @@ async function scanVault(vaultId: string) {
 					lastSeenAt: new Date().toISOString(),
 				} as any)
 				.where(eq(knowledgeNotes.id, existing.id));
+			changedNoteIds.push(existing.id);
 			updated++;
 		} else {
+			const newId = `kn-${createHash("sha256").update(`${vaultId}:${rel}`).digest("hex").slice(0, 16)}`;
 			await db.insert(knowledgeNotes).values({
-				id: `kn-${createHash("sha256").update(`${vaultId}:${rel}`).digest("hex").slice(0, 16)}`,
+				id: newId,
 				vaultId,
 				relativePath: rel,
 				absolutePath: abs,
@@ -250,9 +255,51 @@ async function scanVault(vaultId: string) {
 				fileSha: sha,
 				lastSeenAt: new Date().toISOString(),
 			} as any);
+			changedNoteIds.push(newId);
 			inserted++;
 		}
 	}
+
+	// Re-index wiki-links for every note whose content changed.
+	// Fetch all note refs once so resolution is O(notes) not O(notes²).
+	if (changedNoteIds.length > 0) {
+		const allNotes = await db
+			.select({
+				id: knowledgeNotes.id,
+				relativePath: knowledgeNotes.relativePath,
+			})
+			.from(knowledgeNotes)
+			.where(eq(knowledgeNotes.vaultId, vaultId));
+
+		for (const noteId of changedNoteIds) {
+			const [note] = await db
+				.select({ id: knowledgeNotes.id, content: knowledgeNotes.content })
+				.from(knowledgeNotes)
+				.where(eq(knowledgeNotes.id, noteId))
+				.limit(1);
+			if (!note) continue;
+			const body = note.content ?? "";
+			const parsed = extractLinks(body);
+			const resolved = resolveLinks(parsed, allNotes);
+
+			// Remove stale outbound edges for this note, then insert fresh ones.
+			await db
+				.delete(knowledgeLinks)
+				.where(eq(knowledgeLinks.fromNoteId, noteId));
+
+			if (resolved.length > 0) {
+				await db.insert(knowledgeLinks).values(
+					resolved.map(({ linkText, toNoteId }, i) => ({
+						id: `kl-${createHash("sha256").update(`${noteId}:${i}:${linkText}`).digest("hex").slice(0, 16)}`,
+						fromNoteId: noteId,
+						toNoteId: toNoteId ?? null,
+						linkText,
+					})),
+				);
+			}
+		}
+	}
+
 	if (seen.length > 0) {
 		const stale = await db
 			.select({ id: knowledgeNotes.id, abs: knowledgeNotes.absolutePath })
@@ -322,29 +369,44 @@ export const knowledgeRouter = router({
 			}
 			if (!vaultId) return { vaultId: null, notes: [] };
 
-			const filters = [eq(knowledgeNotes.vaultId, vaultId)];
-			if (input?.search) {
-				const s = `%${input.search.replace(/%/g, "\\%")}%`;
-				filters.push(
-					or(ilike(knowledgeNotes.name, s), ilike(knowledgeNotes.content, s))!,
-				);
-			}
-			const notes = await db
-				.select({
-					id: knowledgeNotes.id,
-					name: knowledgeNotes.name,
-					relativePath: knowledgeNotes.relativePath,
-					parentDir: knowledgeNotes.parentDir,
-					updatedAt: knowledgeNotes.updatedAt,
-					// Surfaced so consumers (e.g. project-scoped Knowledge tab)
-					// can filter by `frontmatter.project` without an N+1 fetch.
-					// Frontmatter rows are small jsonb blobs — no measurable cost.
-					frontmatter: knowledgeNotes.frontmatter,
-				})
-				.from(knowledgeNotes)
-				.where(and(...filters))
-				.orderBy(asc(knowledgeNotes.relativePath))
-				.limit(500);
+			const vaultFilter = eq(knowledgeNotes.vaultId, vaultId);
+			const notes = await (input?.search
+				? db
+						.select({
+							id: knowledgeNotes.id,
+							name: knowledgeNotes.name,
+							relativePath: knowledgeNotes.relativePath,
+							parentDir: knowledgeNotes.parentDir,
+							updatedAt: knowledgeNotes.updatedAt,
+							frontmatter: knowledgeNotes.frontmatter,
+							rank: sql<number>`ts_rank(content_fts, websearch_to_tsquery('english', ${input.search}))`,
+						})
+						.from(knowledgeNotes)
+						.where(
+							and(
+								vaultFilter,
+								sql`content_fts @@ websearch_to_tsquery('english', ${input.search})`,
+							),
+						)
+						.orderBy(
+							desc(
+								sql`ts_rank(content_fts, websearch_to_tsquery('english', ${input.search}))`,
+							),
+						)
+						.limit(500)
+				: db
+						.select({
+							id: knowledgeNotes.id,
+							name: knowledgeNotes.name,
+							relativePath: knowledgeNotes.relativePath,
+							parentDir: knowledgeNotes.parentDir,
+							updatedAt: knowledgeNotes.updatedAt,
+							frontmatter: knowledgeNotes.frontmatter,
+						})
+						.from(knowledgeNotes)
+						.where(vaultFilter)
+						.orderBy(asc(knowledgeNotes.relativePath))
+						.limit(500));
 			return { vaultId, notes };
 		}),
 
@@ -414,11 +476,10 @@ export const knowledgeRouter = router({
 				.limit(1);
 			if (!vault) throw new TRPCError({ code: "NOT_FOUND" });
 
-			const rel =
-				input.relativePath
-					.replace(/\.\.\//g, "")
-					.replace(/^\/+/, "")
-					.replace(/\.md$/i, "") + ".md";
+			const rel = `${input.relativePath
+				.replace(/\.\.\//g, "")
+				.replace(/^\/+/, "")
+				.replace(/\.md$/i, "")}.md`;
 			const abs = safeResolve(join(vault.rootPath, rel));
 			if (existsSync(abs)) {
 				throw new TRPCError({
@@ -609,6 +670,37 @@ export const knowledgeRouter = router({
 					desc(tasksRef.updatedAt),
 				)
 				.limit(input.limit);
+			return rows;
+		}),
+
+	listBacklinks: protectedProcedure
+		.input(z.object({ noteId: z.string() }))
+		.query(async ({ input, ctx }) => {
+			const rows = await db
+				.select({
+					linkId: knowledgeLinks.id,
+					linkText: knowledgeLinks.linkText,
+					fromNoteId: knowledgeNotes.id,
+					fromNoteName: knowledgeNotes.name,
+					fromNoteRelativePath: knowledgeNotes.relativePath,
+					linkedAt: knowledgeLinks.createdAt,
+				})
+				.from(knowledgeLinks)
+				.innerJoin(
+					knowledgeNotes,
+					eq(knowledgeNotes.id, knowledgeLinks.fromNoteId),
+				)
+				.innerJoin(
+					knowledgeVaults,
+					eq(knowledgeVaults.id, knowledgeNotes.vaultId),
+				)
+				.where(
+					and(
+						eq(knowledgeLinks.toNoteId, input.noteId),
+						eq(knowledgeVaults.teamId, ctx.user.teamId!),
+					),
+				)
+				.orderBy(desc(knowledgeLinks.createdAt));
 			return rows;
 		}),
 });
