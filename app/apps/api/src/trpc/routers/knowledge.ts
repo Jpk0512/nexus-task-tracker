@@ -703,4 +703,31 @@ export const knowledgeRouter = router({
 				.orderBy(desc(knowledgeLinks.createdAt));
 			return rows;
 		}),
+
+	updateVault: protectedProcedure
+		.input(
+			z.object({
+				vaultId: z.string(),
+				root_path: z.string().min(1),
+			}),
+		)
+		.mutation(async ({ input, ctx }) => {
+			const [existing] = await db
+				.select({ id: knowledgeVaults.id })
+				.from(knowledgeVaults)
+				.where(
+					and(
+						eq(knowledgeVaults.id, input.vaultId),
+						eq(knowledgeVaults.teamId, ctx.user.teamId!),
+					),
+				)
+				.limit(1);
+			if (!existing) throw new TRPCError({ code: "NOT_FOUND" });
+			const [updated] = await db
+				.update(knowledgeVaults)
+				.set({ rootPath: input.root_path })
+				.where(eq(knowledgeVaults.id, input.vaultId))
+				.returning();
+			return updated;
+		}),
 });
