@@ -14,7 +14,7 @@ Build four personal-assistant capabilities on top of the now-local Nexus app (FE
 
 ## Acceptance Criteria (Given/When/Then)
 
-### TASK-013 → — Prompt library
+### TASK-013 ✓ — Prompt library
 
 **Seeded product card on a fresh team**
 Given: a freshly provisioned team with no prompt_products rows created by hand
@@ -93,7 +93,7 @@ Given: the Completed group rendered as a Collapsible
 When: the owner expands it with default motion preferences, and separately under `prefers-reduced-motion`
 Then: with default preferences it animates open over 150ms; under `prefers-reduced-motion` it opens instantly.
 
-### TASK-012 — Knowledge vault
+### TASK-012 → — Knowledge vault
 
 **Wiki-link creates a knowledge_links row on scan**
 Given: a vault note whose content contains `[[Another Note]]`
