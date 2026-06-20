@@ -1,18 +1,10 @@
 import { SidebarProvider } from "@ui/components/ui/sidebar";
-import dynamic from "next/dynamic";
 import { Suspense } from "react";
 import { AppSidebar, AppSidebarWrapper } from "@/components/app-sidebar/main";
 import { BreadcrumbsProvider } from "@/components/breadcrumbs";
+import { DashboardDndProviderClient } from "@/components/dnd/dashboard-dnd-provider-client";
 import Header from "@/components/header";
 import { getSession } from "@/lib/get-session";
-
-const DashboardDndProvider = dynamic(
-	() =>
-		import("@/components/dnd/dashboard-dnd-provider").then((m) => ({
-			default: m.DashboardDndProvider,
-		})),
-	{ ssr: false },
-);
 
 export default async function DashboardLayout({
 	children,
@@ -31,7 +23,7 @@ export default async function DashboardLayout({
 					} as React.CSSProperties
 				}
 			>
-				<DashboardDndProvider>
+				<DashboardDndProviderClient>
 					<AppSidebar />
 					<BreadcrumbsProvider session={session}>
 						<main className="flex flex-1 flex-col">
@@ -39,7 +31,7 @@ export default async function DashboardLayout({
 							<AppSidebarWrapper>{children}</AppSidebarWrapper>
 						</main>
 					</BreadcrumbsProvider>
-				</DashboardDndProvider>
+				</DashboardDndProviderClient>
 			</SidebarProvider>
 		</Suspense>
 	);
