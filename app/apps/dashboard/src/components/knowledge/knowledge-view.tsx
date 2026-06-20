@@ -5,9 +5,11 @@ import { Badge } from "@ui/components/ui/badge";
 import { Button } from "@ui/components/ui/button";
 import { Input } from "@ui/components/ui/input";
 import {
+	AlertCircleIcon,
 	BookOpenIcon,
 	BrainIcon,
 	CalendarIcon,
+	CheckIcon,
 	EyeIcon,
 	EyeOffIcon,
 	FileTextIcon,
@@ -25,13 +27,15 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { BacklinksPanel } from "@/components/backlinks/backlinks-panel";
+import { BlockEditor } from "@/components/editor/block-editor";
 import {
 	type KnowledgeNoteRow,
 	NoteGroup,
 } from "@/components/knowledge/note-group";
+import { WikiLinkInline } from "@/components/knowledge/wiki-link-inline";
 import { trpc } from "@/utils/trpc";
 
 // Knowledge tab — Obsidian vault editor. Linear-style left rail: grouped
@@ -155,6 +159,18 @@ export function KnowledgeView() {
 	const [showAllCategories, setShowAllCategories] = useState(false);
 	const newPathInputRef = useRef<HTMLInputElement | null>(null);
 
+	// Auto-save state machine for the BlockEditor (GWT#5). The header-right
+	// indicator reflects this; "conflict" is transient — we re-fetch the disk
+	// sha and re-save (last-write-wins, DEC-010) rather than block the user.
+	const [autoSaveState, setAutoSaveState] = useState<
+		"idle" | "dirty" | "saving" | "saved" | "conflict"
+	>("idle");
+	// Debounce timer + the latest editor content/sha, kept in refs so the
+	// blur-triggered timeout always reads fresh values without re-binding.
+	const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const draftRef = useRef("");
+	const shaRef = useRef<string | null>(null);
+
 	const listQuery = useQuery(
 		trpc.knowledge.get.queryOptions({ search: search || undefined }),
 	);
@@ -183,7 +199,11 @@ export function KnowledgeView() {
 				lines.push("");
 			}
 			lines.push(noteQuery.data.content ?? "");
-			setDraft(lines.join("\n"));
+			const next = lines.join("\n");
+			setDraft(next);
+			draftRef.current = next;
+			shaRef.current = noteQuery.data.fileSha;
+			setAutoSaveState("idle");
 		}
 	}, [noteQuery.data?.id, noteQuery.data?.fileSha]);
 
@@ -237,6 +257,65 @@ export function KnowledgeView() {
 			onError: (e) => toast.error(e.message),
 		}),
 	);
+
+	// Auto-save (GWT#5): blur fires the knowledge.update mutation after a 500ms
+	// debounce. A CONFLICT (disk sha moved under us) re-fetches the live sha via
+	// getById and re-saves the editor content immediately — last-write-wins,
+	// DEC-010. The header indicator alone narrates; nothing blocks the writer.
+	const updateAsync = updateMut.mutateAsync;
+	const autoSave = useCallback(async () => {
+		const id = selectedId;
+		if (!id) return;
+		const content = draftRef.current;
+		setAutoSaveState("saving");
+		try {
+			await updateAsync({ id, content, expectedSha: shaRef.current ?? "" });
+			setAutoSaveState("saved");
+			refetchList();
+			refetchNote();
+		} catch (err) {
+			const isConflict = err instanceof Error && /CONFLICT/i.test(err.message);
+			if (!isConflict) {
+				setAutoSaveState("idle");
+				toast.error(err instanceof Error ? err.message : "Save failed");
+				return;
+			}
+			setAutoSaveState("conflict");
+			// Re-fetch the current note (fresh fileSha) and re-save (LWW).
+			try {
+				const fresh = await qc.fetchQuery(
+					trpc.knowledge.getById.queryOptions({ id }),
+				);
+				const freshSha = (fresh as { fileSha?: string } | undefined)?.fileSha;
+				shaRef.current = freshSha ?? null;
+				await updateAsync({
+					id,
+					content: draftRef.current,
+					expectedSha: freshSha ?? "",
+				});
+				setAutoSaveState("saved");
+				refetchList();
+				refetchNote();
+			} catch {
+				setAutoSaveState("idle");
+			}
+		}
+	}, [selectedId, updateAsync, qc, refetchList, refetchNote]);
+
+	// "Saved" indicator fades back to idle after 2s (palette §3 indicator spec).
+	useEffect(() => {
+		if (autoSaveState !== "saved") return;
+		const t = setTimeout(() => setAutoSaveState("idle"), 2000);
+		return () => clearTimeout(t);
+	}, [autoSaveState]);
+
+	useEffect(
+		() => () => {
+			if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+		},
+		[],
+	);
+
 	const deleteMut = useMutation(
 		trpc.knowledge.delete.mutationOptions({
 			onSuccess: () => {
@@ -298,6 +377,13 @@ export function KnowledgeView() {
 		}
 		return buckets;
 	}, [notes, selectedId, activeFrontmatterTitle]);
+
+	// Outgoing `[[wiki links]]` parsed from the open note, resolved against the
+	// vault note list — drives the resolved(blue)/unresolved(red) link strip.
+	const wikiLinks = useMemo(
+		() => (selectedId ? parseWikiLinks(draft, notes) : []),
+		[selectedId, draft, notes],
+	);
 
 	const hasSearchActive = search.trim().length > 0;
 	const totalCount = notes.length;
@@ -596,7 +682,8 @@ export function KnowledgeView() {
 									/>
 								</div>
 							</div>
-							<div className="flex gap-2">
+							<div className="flex items-center gap-2">
+								<AutoSaveIndicator state={autoSaveState} />
 								<Button
 									size="sm"
 									variant="ghost"
@@ -645,13 +732,43 @@ export function KnowledgeView() {
 								</Button>
 							</div>
 						</header>
-						<textarea
-							value={draft}
-							onChange={(e) => setDraft(e.target.value)}
-							spellCheck={true}
-							className="grow resize-none p-6 font-mono text-sm leading-relaxed outline-none"
-						/>
+						<div className="grow overflow-y-auto">
+							<div className="mx-auto min-h-[320px] max-w-[740px] rounded-lg px-6 py-6 transition-shadow duration-150 focus-within:ring-1 focus-within:ring-border/60">
+								<BlockEditor
+									key={`${selectedId}:${noteQuery.data.fileSha}`}
+									value={draft}
+									onChange={(value) => {
+										draftRef.current = value;
+										setDraft(value);
+										setAutoSaveState((s) => (s === "saving" ? s : "dirty"));
+									}}
+									onBlur={() => {
+										// blur → debounced autoSave (knowledge.update)
+										if (autoSaveTimer.current)
+											clearTimeout(autoSaveTimer.current);
+										autoSaveTimer.current = setTimeout(autoSave, 500);
+									}}
+								/>
+							</div>
+						</div>
 						<div className="shrink-0 border-border border-t px-6 pb-4">
+							{wikiLinks.length > 0 && (
+								<div className="pt-3">
+									<div className="mb-1.5 font-[510] text-[11px] text-muted-foreground uppercase tracking-wider">
+										Links
+									</div>
+									<div className="flex flex-wrap gap-x-3 gap-y-1 text-[13px]">
+										{wikiLinks.map((l) => (
+											<WikiLinkInline
+												key={l.key}
+												text={l.text}
+												toNoteId={l.toNoteId}
+												onClick={() => l.toNoteId && setSelectedId(l.toNoteId)}
+											/>
+										))}
+									</div>
+								</div>
+							)}
 							<BacklinksPanel entityType="knowledge" entityId={selectedId} />
 						</div>
 					</>
@@ -709,6 +826,83 @@ function EmptyState({
 			</div>
 		</div>
 	);
+}
+
+// Header-right auto-save indicator (palette §3). Mirrors the autoSaveState
+// machine: dirty → "Unsaved", saving → spinner + "Saving…", saved → check +
+// "Saved" (fades after 2s), conflict → "Conflict — reloading".
+function AutoSaveIndicator({
+	state,
+}: {
+	state: "idle" | "dirty" | "saving" | "saved" | "conflict";
+}) {
+	if (state === "idle") return null;
+	if (state === "dirty") {
+		return (
+			<span className="text-[11px] text-muted-foreground opacity-60">
+				Unsaved
+			</span>
+		);
+	}
+	if (state === "saving") {
+		return (
+			<span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+				<RefreshCwIcon className="size-3 animate-spin" />
+				Saving…
+			</span>
+		);
+	}
+	if (state === "conflict") {
+		return (
+			<span className="flex items-center gap-1 text-[11px] text-destructive">
+				<AlertCircleIcon className="size-3" />
+				Conflict — reloading
+			</span>
+		);
+	}
+	return (
+		<span className="flex items-center gap-1 text-[11px] text-[var(--color-success)] opacity-100 transition-opacity duration-500">
+			<CheckIcon className="size-3" />
+			Saved
+		</span>
+	);
+}
+
+// Parse `[[wiki links]]` out of the raw note draft and resolve each against the
+// vault note list by case-insensitive basename (Obsidian-style). Returns the
+// resolved note id (or null when no matching note exists).
+function parseWikiLinks(
+	content: string,
+	notes: NoteListItem[],
+): Array<{ key: string; text: string; toNoteId: string | null }> {
+	const byBasename = new Map<string, string>();
+	for (const n of notes) {
+		const base = n.relativePath
+			.split("/")
+			.pop()!
+			.replace(/\.md$/i, "")
+			.toLowerCase();
+		if (!byBasename.has(base)) byBasename.set(base, n.id);
+		const nameKey = n.name.toLowerCase();
+		if (!byBasename.has(nameKey)) byBasename.set(nameKey, n.id);
+	}
+	const out: Array<{ key: string; text: string; toNoteId: string | null }> = [];
+	const seen = new Set<string>();
+	const matches = content.matchAll(/\[\[([^\]]+)\]\]/g);
+	let i = 0;
+	for (const match of matches) {
+		const raw = match[1].split("|")[0].trim();
+		const lower = raw.toLowerCase();
+		i++;
+		if (seen.has(lower)) continue;
+		seen.add(lower);
+		out.push({
+			key: `${lower}#${i}`,
+			text: raw,
+			toNoteId: byBasename.get(lower) ?? null,
+		});
+	}
+	return out;
 }
 
 function CtaCard({

@@ -3,6 +3,7 @@ import { t } from "@mimir/locale";
 import {
 	BellIcon,
 	BotIcon,
+	BrainIcon,
 	CableIcon,
 	CircleDashedIcon,
 	CloudUploadIcon,
@@ -166,6 +167,11 @@ export const getSettingsGroups = (basePath: string): SettingsGroup[] => [
 		id: "data",
 		label: "Data",
 		links: [
+			{
+				icon: BrainIcon,
+				to: `${basePath}/settings/knowledge`,
+				label: "Knowledge",
+			},
 			{
 				icon: CloudUploadIcon,
 				to: `${basePath}/settings/import`,
