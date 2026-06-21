@@ -149,7 +149,9 @@ export const TaskCommentActivity = ({
 	);
 };
 
-export const ReplyToActivityContent = ({ replyTo }: { replyTo: Activity }) => {
+type ReplyToActivity = Pick<Activity, "user" | "metadata">;
+
+export const ReplyToActivityContent = ({ replyTo }: { replyTo: ReplyToActivity }) => {
 	return (
 		<div className="mx-4 mb-2 flex items-start gap-2 rounded-sm bg-muted/50 p-2 text-muted-foreground">
 			<div className="space-y-1">
