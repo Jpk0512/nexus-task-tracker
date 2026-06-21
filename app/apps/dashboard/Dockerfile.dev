@@ -1,5 +1,12 @@
 # Local-dev image for the Nexus dashboard. Uses node:20-alpine (already
 # cached on this host) and installs bun via its official install script.
+#
+# Multi-stage: devDeps (typescript, tailwindcss, vitest, jsdom, etc.) are
+# present only in the `builder` and `build-deps` stages for `next build`.
+# The `runner` stage installs production-only deps so test tools and
+# @rolldown native bindings are never present in the runtime image.
+# After Step-1 dep recategorization, @nexus-app/trpc + @nexus-app/realtime
+# are in `dependencies` so --production retains them.
 
 FROM local-mimrai/node:20-alpine AS base
 ENV PATH=/root/.bun/bin:$PATH
@@ -17,16 +24,32 @@ WORKDIR /app
 COPY . .
 RUN turbo prune @nexus-app/dashboard --docker
 
-FROM base AS installer
+# Full install (devDeps included) so next build has typescript + tailwindcss.
+FROM base AS build-deps
 WORKDIR /app
 COPY --from=builder /app/out/json/ .
 RUN bun install
 
-FROM installer AS runner
+FROM build-deps AS build
 WORKDIR /app
 COPY --from=builder /app/out/full/ .
+ENV NODE_ENV=production
+RUN cd apps/dashboard && bun x next build
+
+# Production-only install — vitest, jsdom, @testing-library, @rolldown
+# native bindings are excluded from the runtime image.
+FROM base AS prod-deps
+WORKDIR /app
+COPY --from=builder /app/out/json/ .
+RUN bun install --production
+
+FROM base AS runner
+WORKDIR /app
+COPY --from=prod-deps /app/node_modules ./node_modules
+COPY --from=builder /app/out/full/ .
+COPY --from=build /app/apps/dashboard/.next ./apps/dashboard/.next
 
 WORKDIR /app/apps/dashboard
-ENV NODE_ENV=development
+ENV NODE_ENV=production
 EXPOSE 3000
-CMD ["bun", "x", "next", "dev", "--port=3000", "--hostname=0.0.0.0"]
+CMD ["bun", "x", "next", "start", "--port=3000", "--hostname=0.0.0.0"]
