@@ -326,13 +326,31 @@ export const promptsRouter = router({
 			if (!existing) throw new TRPCError({ code: "NOT_FOUND" });
 			const p = existing.prompts;
 
-			// Snapshot the CURRENT row into prompt_versions BEFORE updating
-			// when the caller wants to bump the version counter. The bump-only
-			// path (no other patch fields) is rare in practice but still
-			// preserves the prior state cleanly.
+			const patch: Record<string, unknown> = {
+				updatedAt: new Date().toISOString(),
+			};
+			if (input.name !== undefined) {
+				patch.name = input.name;
+				patch.slug = slugify(input.name);
+			}
+			if (input.content !== undefined) {
+				patch.content = input.content;
+				const vars = extractVariables(input.content);
+				patch.variables = vars.length > 0 ? vars : null;
+			}
+			if (input.notes !== undefined) patch.notes = input.notes;
+			if (input.tags !== undefined) patch.tags = input.tags;
+
 			if (input.bumpVersion) {
-				try {
-					await db
+				// Snapshot + bump are one atomic unit: snapshot the current row,
+				// then set version = MAX(version)+1 (computed inside the txn so
+				// concurrent save-as-new-version calls cannot produce duplicate
+				// version numbers). The UNIQUE(prompt_id, version) constraint on
+				// prompt_versions is the last-resort guard; onConflictDoNothing
+				// handles the idempotent-retry case without hiding real errors
+				// (no try/catch here — unexpected failures propagate to the caller).
+				const [row] = await db.transaction(async (tx) => {
+					await tx
 						.insert(promptVersions)
 						.values({
 							id: `pv-${p.id}-${p.version}-${Math.random()
@@ -348,29 +366,23 @@ export const promptsRouter = router({
 						.onConflictDoNothing({
 							target: [promptVersions.promptId, promptVersions.version],
 						});
-				} catch (err) {
-					// A duplicate (promptId, version) collision means we've already
-					// snapshotted this revision — safe to ignore. Anything else
-					// shouldn't block the update.
-					console.warn("prompt_versions snapshot failed", err);
-				}
+
+					return tx
+						.update(prompts)
+						.set({
+							...patch,
+							// Derive the new version atomically from the DB — avoids the
+							// read-then-write race where two concurrent saves both read
+							// version N and both try to write version N+1.
+							version: sql`(SELECT COALESCE(MAX(version), 0) + 1 FROM prompt_versions WHERE prompt_id = ${p.id})`,
+							// biome-ignore lint/suspicious/noExplicitAny: drizzle set() partial patch requires any cast
+						} as any)
+						.where(eq(prompts.id, p.id))
+						.returning();
+				});
+				return row;
 			}
 
-			const patch: Record<string, unknown> = {
-				updatedAt: new Date().toISOString(),
-			};
-			if (input.name !== undefined) {
-				patch.name = input.name;
-				patch.slug = slugify(input.name);
-			}
-			if (input.content !== undefined) {
-				patch.content = input.content;
-				const vars = extractVariables(input.content);
-				patch.variables = vars.length > 0 ? vars : null;
-			}
-			if (input.notes !== undefined) patch.notes = input.notes;
-			if (input.tags !== undefined) patch.tags = input.tags;
-			if (input.bumpVersion) patch.version = p.version + 1;
 			const [row] = await db
 				.update(prompts)
 				// biome-ignore lint/suspicious/noExplicitAny: drizzle set() partial patch requires any cast
