@@ -593,3 +593,109 @@ describe("GWT-C7 — teams.getInviteById: team-B cannot read team-A invite", () 
 		expect(result).not.toBeNull();
 	});
 });
+
+// ---------------------------------------------------------------------------
+// GWT-C8 — tasks.getLinkedDocuments: foreign-team READ IDOR blocked
+// ---------------------------------------------------------------------------
+// Regression note: if assertTaskTeam's return value is ignored (the prior
+// no-op form), this test FAILS — the guard is a no-op and the read leaks.
+
+describe("GWT-C8 — tasks.getLinkedDocuments: team-B caller cannot read linked docs of team-A task", () => {
+	test("GIVEN task owned by team-A WHEN team-B calls getLinkedDocuments THEN TRPCError NOT_FOUND", async () => {
+		const caller = callerAs({ userId: USER_B_ID, teamId: TEAM_B_ID });
+		let threw: TRPCError | null = null;
+		try {
+			await caller.tasks.getLinkedDocuments({ taskId: TASK_A_ID });
+		} catch (err) {
+			if (err instanceof TRPCError) threw = err;
+			else throw err;
+		}
+		expect(threw).not.toBeNull();
+		expect(threw!.code).toBe("NOT_FOUND");
+	});
+
+	test("same-team caller CAN call getLinkedDocuments (guard does not over-block)", async () => {
+		const caller = callerAs({ userId: USER_A_ID, teamId: TEAM_A_ID });
+		// Returns an array (may be empty — no docs seeded). The key assertion is
+		// that it does NOT throw.
+		const rows = await caller.tasks.getLinkedDocuments({ taskId: TASK_A_ID });
+		expect(Array.isArray(rows)).toBe(true);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// GWT-C9 — tasks.getLinkedKnowledgeNotes: foreign-team READ IDOR blocked
+// ---------------------------------------------------------------------------
+
+describe("GWT-C9 — tasks.getLinkedKnowledgeNotes: team-B caller cannot read linked notes of team-A task", () => {
+	test("GIVEN task owned by team-A WHEN team-B calls getLinkedKnowledgeNotes THEN TRPCError NOT_FOUND", async () => {
+		const caller = callerAs({ userId: USER_B_ID, teamId: TEAM_B_ID });
+		let threw: TRPCError | null = null;
+		try {
+			await caller.tasks.getLinkedKnowledgeNotes({ taskId: TASK_A_ID });
+		} catch (err) {
+			if (err instanceof TRPCError) threw = err;
+			else throw err;
+		}
+		expect(threw).not.toBeNull();
+		expect(threw!.code).toBe("NOT_FOUND");
+	});
+
+	test("same-team caller CAN call getLinkedKnowledgeNotes (guard does not over-block)", async () => {
+		const caller = callerAs({ userId: USER_A_ID, teamId: TEAM_A_ID });
+		const rows = await caller.tasks.getLinkedKnowledgeNotes({
+			taskId: TASK_A_ID,
+		});
+		expect(Array.isArray(rows)).toBe(true);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// GWT-C10 — tasks.listKnowledge: foreign-team READ IDOR blocked
+// ---------------------------------------------------------------------------
+
+describe("GWT-C10 — tasks.listKnowledge: team-B caller cannot list knowledge for team-A task", () => {
+	test("GIVEN task owned by team-A WHEN team-B calls listKnowledge THEN TRPCError NOT_FOUND", async () => {
+		const caller = callerAs({ userId: USER_B_ID, teamId: TEAM_B_ID });
+		let threw: TRPCError | null = null;
+		try {
+			await caller.tasks.listKnowledge({ taskId: TASK_A_ID });
+		} catch (err) {
+			if (err instanceof TRPCError) threw = err;
+			else throw err;
+		}
+		expect(threw).not.toBeNull();
+		expect(threw!.code).toBe("NOT_FOUND");
+	});
+
+	test("same-team caller CAN call listKnowledge (guard does not over-block)", async () => {
+		const caller = callerAs({ userId: USER_A_ID, teamId: TEAM_A_ID });
+		const rows = await caller.tasks.listKnowledge({ taskId: TASK_A_ID });
+		expect(Array.isArray(rows)).toBe(true);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// GWT-C11 — tasks.listSkills: foreign-team READ IDOR blocked
+// ---------------------------------------------------------------------------
+
+describe("GWT-C11 — tasks.listSkills: team-B caller cannot list skills for team-A task", () => {
+	test("GIVEN task owned by team-A WHEN team-B calls listSkills THEN TRPCError NOT_FOUND", async () => {
+		const caller = callerAs({ userId: USER_B_ID, teamId: TEAM_B_ID });
+		let threw: TRPCError | null = null;
+		try {
+			await caller.tasks.listSkills({ taskId: TASK_A_ID });
+		} catch (err) {
+			if (err instanceof TRPCError) threw = err;
+			else throw err;
+		}
+		expect(threw).not.toBeNull();
+		expect(threw!.code).toBe("NOT_FOUND");
+	});
+
+	test("same-team caller CAN call listSkills (guard does not over-block)", async () => {
+		const caller = callerAs({ userId: USER_A_ID, teamId: TEAM_A_ID });
+		const rows = await caller.tasks.listSkills({ taskId: TASK_A_ID });
+		expect(Array.isArray(rows)).toBe(true);
+	});
+});
