@@ -12,7 +12,7 @@ import { MemberUpdateSheet } from "./member-update-sheet";
 import { ProjectCreateSheet } from "./project-create-sheet";
 import { ProjectHealthUpdateDialog } from "./project-health-update-dialog";
 import { ProjectUpdateSheet } from "./project-update-sheet";
-import { ShareableCreateSheet } from "./shareable-create-sheet.tsx";
+import { ShareableCreateSheet } from "./shareable-create-sheet";
 import { StatusCreateSheet } from "./status-create-sheet";
 import { StatusUpdateSheet } from "./status-update-sheet ";
 import { TaskDependencyDialog } from "./task-dependency-dialog";

@@ -1,17 +1,15 @@
 "use client";
 
-import type { RouterOutputs } from "@nexus-app/trpc";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { create } from "zustand";
+import type { EnrichedTask } from "@/hooks/use-data";
 import { useTasksViewContext } from "@/components/tasks-view/tasks-view";
 import { trpc } from "@/utils/trpc";
 
-export type Task = RouterOutputs["tasks"]["get"]["data"][number];
-
 type CalendarDndStore = {
-	activeTask: Task | null;
+	activeTask: EnrichedTask | null;
 	overDate: string | null;
-	setActiveTask: (task: Task | null) => void;
+	setActiveTask: (task: EnrichedTask | null) => void;
 	setOverDate: (date: string | null) => void;
 };
 

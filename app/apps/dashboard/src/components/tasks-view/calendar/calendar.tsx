@@ -10,7 +10,6 @@ import {
 	useSensor,
 	useSensors,
 } from "@dnd-kit/core";
-import type { RouterOutputs } from "@nexus-app/trpc";
 import { Button } from "@ui/components/ui/button";
 import {
 	addDays,
@@ -32,9 +31,10 @@ import { TaskContextMenu } from "../../task-context-menu";
 import { useTasksViewContext } from "../tasks-view";
 import { CalendarDayDroppable } from "./calendar-day";
 import { CalendarTask, DraggableCalendarTask } from "./calendar-task";
+import type { EnrichedTask } from "@/hooks/use-data";
 import { useCalendarDnd, useCalendarDndStore } from "./use-calendar-dnd";
 
-type CalendarTaskData = RouterOutputs["tasks"]["get"]["data"][number];
+type CalendarTaskData = EnrichedTask;
 
 export const TasksCalendar = () => {
 	const { tasks, fetchNextPage, hasNextPage, isLoading } =

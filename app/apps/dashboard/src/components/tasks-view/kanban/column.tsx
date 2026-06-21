@@ -5,17 +5,18 @@ import * as Kanban from "@nexus-app/ui/kanban";
 import { Badge } from "@ui/components/ui/badge";
 import { Minimize2Icon, PlusIcon } from "lucide-react";
 import type { GenericGroup } from "@/components/tasks-view/tasks-group";
+import type { EnrichedTask } from "@/hooks/use-data";
 import { useTaskParams } from "@/hooks/use-task-params";
 import { cn } from "@/lib/utils";
 import { TaskContextMenu } from "../../task-context-menu";
 import { useTasksViewContext } from "../tasks-view";
 import { KanbanTask } from "./kanban-task";
-import { type Task, useKanbanStore } from "./use-kanban-board";
+import { useKanbanStore } from "./use-kanban-board";
 
 interface BoardColumnProps {
 	column: GenericGroup;
 	columnName: string;
-	tasks: Task[];
+	tasks: EnrichedTask[];
 }
 
 export function BoardColumn({ column, columnName, tasks }: BoardColumnProps) {

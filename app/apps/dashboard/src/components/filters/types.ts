@@ -25,10 +25,9 @@ interface BaseFilterOption {
 export interface SelectFilterOption extends BaseFilterOption {
 	type: "select";
 	multiple: boolean;
-	queryOptions: {
-		queryKey: unknown[];
-		queryFn: () => Promise<SelectOptionItem[]>;
-	};
+	// Accept any react-query-compatible options object; consumers narrow via select
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	queryOptions: Record<string, any> & { queryKey: unknown[] };
 }
 
 export interface DateFilterOption extends BaseFilterOption {

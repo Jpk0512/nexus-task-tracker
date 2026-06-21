@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import { memo, useCallback, useMemo, useRef, useState } from "react";
 import { useTaskPanel } from "@/components/panels/task-panel";
-import type { Task } from "@/hooks/use-data";
+import type { EnrichedTask } from "@/hooks/use-data";
 import { useTaskParams } from "@/hooks/use-task-params";
 import { useTaskSelectionStore } from "@/store/task-selection";
 import { queryClient, trpc } from "@/utils/trpc";
@@ -40,7 +40,7 @@ const ESTIMATED_GROUP_HEADER_HEIGHT = 44;
 
 type VirtualItem =
 	| { type: "group-header"; group: GenericGroup; taskCount: number }
-	| { type: "task"; task: Task; groupId: string }
+	| { type: "task"; task: EnrichedTask; groupId: string }
 	| { type: "create-button"; groupId: string };
 
 export const TasksList = () => {
@@ -56,7 +56,7 @@ export const TasksList = () => {
 	// Get stable reference to panel opener - only this component subscribes to panel context
 	const taskPanel = useTaskPanel();
 	const handleOpenTask = useCallback(
-		(task: Task) => {
+		(task: EnrichedTask) => {
 			queryClient.setQueryData(
 				trpc.tasks.getById.queryKey({ id: task.id }),
 				task,
@@ -95,7 +95,7 @@ export const TasksList = () => {
 
 			// Add tasks only if group is not collapsed
 			if (!isCollapsed) {
-				for (const task of taskGroup.tasks) {
+				for (const task of taskGroup.tasks as EnrichedTask[]) {
 					items.push({
 						type: "task",
 						task,

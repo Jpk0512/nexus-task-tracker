@@ -5,7 +5,8 @@ import { AnimatePresence } from "motion/react";
 import { useMemo, useRef } from "react";
 import { BoardColumn } from "./column";
 import { KanbanMinimap } from "./kanban-minimap";
-import { type Task, useKanbanBoard, useKanbanStore } from "./use-kanban-board"; // The hook we created above
+import type { EnrichedTask } from "@/hooks/use-data";
+import { useKanbanBoard, useKanbanStore } from "./use-kanban-board";
 
 export function TasksBoard() {
 	const { setActiveTaskId, setOverColumnName } = useKanbanStore();
@@ -17,18 +18,18 @@ export function TasksBoard() {
 	const formattedBoardData = useMemo(() => {
 		if (!boardData) return {};
 		return Object.entries(boardData).reduce(
-			(acc, [columnName, { column, tasks }]) => {
-				acc[columnName] = tasks;
+			(acc, [columnName, { tasks }]) => {
+				acc[columnName] = tasks as EnrichedTask[];
 				return acc;
 			},
-			{} as Record<string, Task[]>,
+			{} as Record<string, EnrichedTask[]>,
 		);
 	}, [boardData]);
 
 	const columnsArray = useMemo(() => {
 		if (!boardData) return [];
 		return Object.entries(boardData).map(([columnName, { column, tasks }]) => {
-			return { name: columnName, column, tasks };
+			return { name: columnName, column, tasks: tasks as EnrichedTask[] };
 		});
 	}, [formattedBoardData]);
 

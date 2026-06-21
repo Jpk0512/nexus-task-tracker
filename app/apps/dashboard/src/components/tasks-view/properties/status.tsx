@@ -1,14 +1,16 @@
 "use client";
-import type { RouterOutputs } from "@nexus-app/trpc";
 import { StatusIcon } from "@/components/status-icon";
 
-type Status = RouterOutputs["statuses"]["get"]["data"][number];
+type StatusShape = {
+	type: "done" | "backlog" | "to_do" | "in_progress" | "review";
+	name: string;
+};
 
 export const TaskPropertyStatus = ({
 	status,
 	id: _id,
 }: {
-	status: Status | undefined | null;
+	status: StatusShape | undefined | null;
 	id?: string;
 }) => {
 	if (!status) return null;

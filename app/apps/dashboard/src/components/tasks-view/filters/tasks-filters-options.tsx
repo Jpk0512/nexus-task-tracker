@@ -1,6 +1,7 @@
 import { getContrast } from "@nexus-app/utils/random";
 import { subDays, subHours } from "date-fns";
 import { CalendarIcon, TagsIcon, UserCheckIcon, UserIcon } from "lucide-react";
+import type { DateRangeOptionItem } from "@/components/filters/types";
 import { AssigneeAvatar } from "@/components/asignee-avatar";
 import { MilestoneIcon } from "@/components/milestone-icon";
 import { ProjectIcon } from "@/components/project-icon";
@@ -10,6 +11,7 @@ import { trpc } from "@/utils/trpc";
 export const tasksFilterOptions = {
 	status: {
 		label: "Status",
+		type: "select" as const,
 		multiple: true,
 		icon: <StatusIcon type="to_do" className="size-4!" />,
 		filterKey: "statusId",
@@ -29,6 +31,7 @@ export const tasksFilterOptions = {
 
 	assignee: {
 		label: "Assignee",
+		type: "select" as const,
 		multiple: true,
 		icon: <UserIcon className="size-4!" />,
 		filterKey: "assigneeId",
@@ -49,6 +52,7 @@ export const tasksFilterOptions = {
 	},
 	project: {
 		label: "Project",
+		type: "select" as const,
 		multiple: true,
 		icon: <ProjectIcon className="size-4!" />,
 		filterKey: "projectId",
@@ -67,6 +71,7 @@ export const tasksFilterOptions = {
 	},
 	milestone: {
 		label: "Milestone",
+		type: "select" as const,
 		multiple: true,
 		icon: <MilestoneIcon className="size-4!" />,
 		filterKey: "milestoneId",
@@ -85,6 +90,7 @@ export const tasksFilterOptions = {
 	},
 	labels: {
 		label: "Labels",
+		type: "select" as const,
 		multiple: true,
 		icon: <TagsIcon className="size-4!" />,
 		filterKey: "labels",
@@ -113,6 +119,7 @@ export const tasksFilterOptions = {
 	},
 	completedBy: {
 		label: "Completed By",
+		type: "select" as const,
 		multiple: true,
 		icon: <UserCheckIcon className="size-4!" />,
 		filterKey: "completedBy",
@@ -132,69 +139,54 @@ export const tasksFilterOptions = {
 	statusChangedAt: {
 		label: "Status Changed At",
 		multiple: false,
-		type: "date-range",
+		type: "date-range" as const,
 		icon: <CalendarIcon className="size-4!" />,
 		filterKey: "statusChangedAt",
 		options: [
 			{
 				label: "Last 1 hour",
-				value: [
-					subHours(new Date(), 1).toISOString(),
-					new Date().toISOString(),
-				],
+				value: [subHours(new Date(), 1).toISOString(), new Date().toISOString()] as [string, string],
 			},
 			{
 				label: "Last 6 hours",
-				value: [
-					subHours(new Date(), 6).toISOString(),
-					new Date().toISOString(),
-				],
+				value: [subHours(new Date(), 6).toISOString(), new Date().toISOString()] as [string, string],
 			},
 			{
 				label: "Last 12 hours",
-				value: [
-					subHours(new Date(), 12).toISOString(),
-					new Date().toISOString(),
-				],
+				value: [subHours(new Date(), 12).toISOString(), new Date().toISOString()] as [string, string],
 			},
 			{
 				label: "Last 24 hours",
-				value: [
-					subHours(new Date(), 24).toISOString(),
-					new Date().toISOString(),
-				],
+				value: [subHours(new Date(), 24).toISOString(), new Date().toISOString()] as [string, string],
 			},
 			{
 				label: "Last 3 days",
-				value: [subDays(new Date(), 3).toISOString(), new Date().toISOString()],
+				value: [subDays(new Date(), 3).toISOString(), new Date().toISOString()] as [string, string],
 			},
 			{
 				label: "Last 7 days",
-				value: [subDays(new Date(), 7).toISOString(), new Date().toISOString()],
+				value: [subDays(new Date(), 7).toISOString(), new Date().toISOString()] as [string, string],
 			},
 		],
 	},
 	createdAt: {
 		label: "Created At",
 		multiple: false,
-		type: "date-range",
+		type: "date-range" as const,
 		icon: <CalendarIcon className="size-4!" />,
 		filterKey: "createdAt",
 		options: [
 			{
 				label: "Last 1 day",
-				value: [subDays(new Date(), 1).toISOString(), new Date().toISOString()],
+				value: [subDays(new Date(), 1).toISOString(), new Date().toISOString()] as [string, string],
 			},
 			{
 				label: "Last 7 days",
-				value: [subDays(new Date(), 7).toISOString(), new Date().toISOString()],
+				value: [subDays(new Date(), 7).toISOString(), new Date().toISOString()] as [string, string],
 			},
 			{
 				label: "Last 30 days",
-				value: [
-					subDays(new Date(), 30).toISOString(),
-					new Date().toISOString(),
-				],
+				value: [subDays(new Date(), 30).toISOString(), new Date().toISOString()] as [string, string],
 			},
 		],
 	},
