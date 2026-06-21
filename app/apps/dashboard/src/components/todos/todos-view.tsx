@@ -48,6 +48,7 @@ import {
 	SelectValue,
 } from "@ui/components/ui/select";
 import { Skeleton } from "@ui/components/ui/skeleton";
+import { cn } from "@ui/lib/utils";
 import {
 	ArrowUpRightIcon,
 	BoxIcon,
@@ -63,11 +64,13 @@ import {
 	Trash2Icon,
 	XIcon,
 } from "lucide-react";
-import Link from "next/link";
+import { MotionConfig, motion } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { toast } from "sonner";
+import { Editor } from "@/components/editor";
 import { JkHint } from "@/components/jk-hint";
+import { LibraryDetailView } from "@/components/library/detail-view";
 import {
 	BulkOpsBar,
 	useBindBulkSelection,
@@ -422,32 +425,41 @@ function AttachmentsModal({
 		content: "",
 	});
 
+	const noteDrafts = useRef<Record<string, string>>({});
+	const newNoteDraft = useRef("");
+	const [newNoteKey, setNewNoteKey] = useState(0);
+
+	const onErr = (e: { message: string }) => toast.error(e.message);
 	const refetch = () => {
 		qc.invalidateQueries({ queryKey: [["todos", "getById"]] });
 		qc.invalidateQueries({ queryKey: [["todos", "get"]] });
 	};
-
 	const attachMut = useMutation(
 		trpc.todos.attach.mutationOptions({
 			onSuccess: () => {
 				setDraft({ title: "", content: "" });
+				newNoteDraft.current = "";
+				setNewNoteKey((k) => k + 1);
 				refetch();
 			},
-			onError: (e) => toast.error(e.message),
+			onError: onErr,
 		}),
 	);
 	const detachMut = useMutation(
-		trpc.todos.detach.mutationOptions({
-			onSuccess: refetch,
-			onError: (e) => toast.error(e.message),
-		}),
+		trpc.todos.detach.mutationOptions({ onSuccess: refetch, onError: onErr }),
 	);
 	const updateAttMut = useMutation(
 		trpc.todos.updateAttachment.mutationOptions({
 			onSuccess: refetch,
-			onError: (e) => toast.error(e.message),
+			onError: onErr,
 		}),
 	);
+	const saveNote = (id: string, o: string | null) =>
+		noteDrafts.current[id] !== undefined &&
+		noteDrafts.current[id] !== (o ?? "") &&
+		updateAttMut.mutate({ attachmentId: id, content: noteDrafts.current[id] });
+	const saveTitle = (id: string, o: string, v: string) =>
+		v !== o && updateAttMut.mutate({ attachmentId: id, title: v });
 
 	return (
 		<Dialog open onOpenChange={(o) => !o && onClose()}>
@@ -463,7 +475,20 @@ function AttachmentsModal({
 							key={a.id}
 							className="rounded-md border border-border bg-card/40 p-3"
 						>
-							<div className="mb-1 flex items-center justify-between">
+							{a.kind === "note" ? (
+								<Editor
+									onBlur={() => saveNote(a.id, a.content)}
+									value={a.content ?? ""}
+									placeholder="Note body…"
+									onChange={(v) => {
+										noteDrafts.current[a.id] = v;
+									}}
+									className="min-h-[8rem] rounded border border-border bg-background p-2 text-xs"
+								/>
+							) : a.kind === "doc_link" && a.docId ? (
+								<LibraryDetailView entryId={a.docId} readOnly />
+							) : null}
+							<div className="mt-2 flex items-center justify-between">
 								<div className="flex items-center gap-2">
 									{a.kind === "note" ? (
 										<StickyNoteIcon className="size-3.5 text-amber-500" />
@@ -472,14 +497,7 @@ function AttachmentsModal({
 									)}
 									<input
 										defaultValue={a.title}
-										onBlur={(e) => {
-											if (e.target.value !== a.title) {
-												updateAttMut.mutate({
-													attachmentId: a.id,
-													title: e.target.value,
-												});
-											}
-										}}
+										onBlur={(e) => saveTitle(a.id, a.title, e.target.value)}
 										className="bg-transparent font-medium text-sm outline-none"
 									/>
 								</div>
@@ -492,27 +510,6 @@ function AttachmentsModal({
 									<Trash2Icon className="size-3.5" />
 								</Button>
 							</div>
-							{a.kind === "note" ? (
-								<textarea
-									defaultValue={a.content ?? ""}
-									onBlur={(e) => {
-										if (e.target.value !== (a.content ?? "")) {
-											updateAttMut.mutate({
-												attachmentId: a.id,
-												content: e.target.value,
-											});
-										}
-									}}
-									className="h-32 w-full resize-y rounded border border-border bg-background p-2 font-mono text-xs"
-								/>
-							) : (
-								<Link
-									href={`/team/${(typeof window !== "undefined" && location.pathname.split("/")[2]) || ""}/documents/${a.docId}`}
-									className="text-primary text-sm underline"
-								>
-									Open document →
-								</Link>
-							)}
 						</div>
 					))}
 					{(todo?.attachments ?? []).length === 0 && (
@@ -529,7 +526,7 @@ function AttachmentsModal({
 								todoId,
 								kind: "note",
 								title: draft.title.trim(),
-								content: draft.content,
+								content: newNoteDraft.current,
 							});
 						}}
 						className="space-y-2 rounded-md border border-border border-dashed bg-card/20 p-3"
@@ -544,11 +541,13 @@ function AttachmentsModal({
 							placeholder="Note title"
 							className="h-8"
 						/>
-						<textarea
-							value={draft.content}
-							onChange={(e) => setDraft({ ...draft, content: e.target.value })}
-							placeholder="Note body (markdown)…"
-							className="h-24 w-full resize-y rounded border border-border bg-background p-2 font-mono text-xs"
+						<Editor
+							key={newNoteKey}
+							placeholder="Note body…"
+							onChange={(v) => {
+								newNoteDraft.current = v;
+							}}
+							className="min-h-24 rounded border border-border bg-background p-2 text-xs"
 						/>
 						<Button
 							type="submit"
@@ -881,7 +880,23 @@ function StaticTodoRow({
 export function TodosView() {
 	const qc = useQueryClient();
 	const { setParams: setTaskParams } = useTaskParams();
-	const todosQuery = useQuery(trpc.todos.get.queryOptions(undefined));
+
+	// In-memory filter state (NOT URL params — these are low-stakes view
+	// preferences and we don't want deep-link noise). Clearing either filter
+	// (the "All" pill) resets it to undefined so the full list returns.
+	const [selectedTag, setSelectedTag] = useState<string | undefined>(undefined);
+	const [selectedProjectId, setSelectedProjectId] = useState<
+		string | undefined
+	>(undefined);
+	const tagFilter = selectedTag;
+	const projectFilter = selectedProjectId;
+
+	const todosQuery = useQuery(
+		trpc.todos.get.queryOptions({
+			...(tagFilter ? { tag: tagFilter } : {}),
+			...(projectFilter ? { projectId: projectFilter } : {}),
+		}),
+	);
 	const projectsQuery = useQuery(
 		trpc.projects.get.queryOptions({ pageSize: 100 } as any),
 	);
@@ -985,6 +1000,22 @@ export function TodosView() {
 	const allTodos = (todosQuery.data ?? []) as Todo[];
 	const projects = ((projectsQuery.data as { data: Project[] } | undefined)
 		?.data ?? []) as Project[];
+
+	// Tag universe for the filter strip. Derived from a project-scoped (but
+	// NOT tag-scoped) query so selecting a tag pill doesn't collapse the strip
+	// down to the single active tag. Mirrors the active project filter so the
+	// strip only offers tags reachable in the current project view.
+	const tagSourceQuery = useQuery(
+		trpc.todos.get.queryOptions({
+			...(selectedProjectId ? { projectId: selectedProjectId } : {}),
+		}),
+	);
+	const tagSourceTodos = (tagSourceQuery.data ?? []) as Todo[];
+	const allTags = useMemo(() => {
+		const seen = new Set<string>();
+		for (const t of tagSourceTodos) for (const tag of t.tags) seen.add(tag);
+		return [...seen].sort((a, b) => a.localeCompare(b));
+	}, [tagSourceTodos]);
 
 	// j/k navigation over the active list. Enter opens the todo's
 	// attachments modal — same affordance as clicking the row body.
@@ -1213,6 +1244,97 @@ export function TodosView() {
 					/>
 				</div>
 
+				{/* ── Tag filter strip ──────────────────────────────────────────
+				 *  In-memory tag filter. The "All" pill clears selectedTag back to
+				 *  undefined → the todos.get query drops the tag arg → full list. */}
+				{allTags.length > 0 && (
+					<div
+						role="group"
+						className="mb-2 flex flex-wrap items-center gap-1.5"
+						aria-label="Filter todos by tag"
+						data-testid="tag-filter-strip"
+					>
+						<button
+							type="button"
+							onClick={() => setSelectedTag(undefined)}
+							aria-pressed={selectedTag === undefined}
+							className={cn(
+								"rounded-full border px-2 py-0.5 text-[11px] transition-colors duration-150",
+								selectedTag === undefined
+									? "border-primary bg-primary/10 text-foreground"
+									: "border-border/60 bg-transparent text-muted-foreground hover:border-border hover:text-foreground",
+							)}
+						>
+							All
+						</button>
+						{allTags.map((tag) => (
+							<button
+								key={tag}
+								type="button"
+								onClick={() =>
+									setSelectedTag((cur) => (cur === tag ? undefined : tag))
+								}
+								aria-pressed={selectedTag === tag}
+								className={cn(
+									"rounded-full border px-2 py-0.5 text-[11px] transition-colors duration-150",
+									selectedTag === tag
+										? "border-primary bg-primary/10 text-foreground"
+										: "border-border/60 bg-transparent text-muted-foreground hover:border-border hover:text-foreground",
+								)}
+							>
+								{tag}
+							</button>
+						))}
+					</div>
+				)}
+
+				{/* ── Project filter strip ──────────────────────────────────────
+				 *  In-memory project filter. The "All" pill clears
+				 *  selectedProjectId back to undefined → full list. */}
+				{projects.length > 0 && (
+					<div
+						role="group"
+						className="mb-3 flex flex-wrap items-center gap-1.5"
+						aria-label="Filter todos by project"
+						data-testid="project-filter-strip"
+					>
+						<button
+							type="button"
+							onClick={() => setSelectedProjectId(undefined)}
+							aria-pressed={selectedProjectId === undefined}
+							className={cn(
+								"rounded-full border px-2 py-0.5 text-[11px] transition-colors duration-150",
+								selectedProjectId === undefined
+									? "border-primary bg-primary/10 text-foreground"
+									: "border-border/60 bg-transparent text-muted-foreground hover:border-border hover:text-foreground",
+							)}
+						>
+							All
+						</button>
+						{projects.map((p) => (
+							<button
+								key={p.id}
+								type="button"
+								data-project-pill={p.id}
+								onClick={() =>
+									setSelectedProjectId((cur) =>
+										cur === p.id ? undefined : p.id,
+									)
+								}
+								aria-pressed={selectedProjectId === p.id}
+								className={cn(
+									"rounded-full border px-2 py-0.5 text-[11px] transition-colors duration-150",
+									selectedProjectId === p.id
+										? "border-primary bg-primary/10 text-foreground"
+										: "border-border/60 bg-transparent text-muted-foreground hover:border-border hover:text-foreground",
+								)}
+							>
+								{p.name}
+							</button>
+						))}
+					</div>
+				)}
+
 				{/* Initial-load skeleton — Linear-style 6 row stack at the same
 				 *  geometry as a real <TodoRow> so there's no layout shift on
 				 *  hydrate. Falls through to the empty state below once the
@@ -1259,29 +1381,35 @@ export function TodosView() {
 					items={activeTodos.map((t) => t.id)}
 					strategy={verticalListSortingStrategy}
 				>
-					<div className="space-y-1">
-						{activeTodos.map((t) => (
-							<TodoRow
-								key={t.id}
-								todo={t}
-								projects={projects}
-								onCheck={() => markDoneOptimistic.run(t)}
-								onUncheck={() => uncheckMut.mutate({ id: t.id })}
-								onDelete={() => deleteMut.mutate({ id: t.id })}
-								onOpen={() => setOpenTodoId(t.id)}
-								onAddTag={(tag) => onAddTag(t.id, tag)}
-								onRemoveTag={(tag) => onRemoveTag(t.id, tag)}
-								onLinkProject={(pid) => onLinkProject(t.id, pid)}
-								onLinkDoc={(did, title) => onLinkDoc(t.id, did, title)}
-								onPromote={() => onPromote(t)}
-								onToggleSelect={(extend) =>
-									extend ? rangeSelection(t.id) : toggleSelection(t.id)
-								}
-								isFocused={jk.isFocused(t.id)}
-								isSelected={selectedSet.has(t.id)}
-							/>
-						))}
-					</div>
+					{/* reducedMotion="user" defers to the OS prefers-reduced-motion
+					 *  setting, so the check→move layout animation is instant for
+					 *  users who opt out — no manual matchMedia plumbing. */}
+					<MotionConfig reducedMotion="user">
+						<div className="space-y-1">
+							{activeTodos.map((t) => (
+								<motion.div key={t.id} layout="position">
+									<TodoRow
+										todo={t}
+										projects={projects}
+										onCheck={() => markDoneOptimistic.run(t)}
+										onUncheck={() => uncheckMut.mutate({ id: t.id })}
+										onDelete={() => deleteMut.mutate({ id: t.id })}
+										onOpen={() => setOpenTodoId(t.id)}
+										onAddTag={(tag) => onAddTag(t.id, tag)}
+										onRemoveTag={(tag) => onRemoveTag(t.id, tag)}
+										onLinkProject={(pid) => onLinkProject(t.id, pid)}
+										onLinkDoc={(did, title) => onLinkDoc(t.id, did, title)}
+										onPromote={() => onPromote(t)}
+										onToggleSelect={(extend) =>
+											extend ? rangeSelection(t.id) : toggleSelection(t.id)
+										}
+										isFocused={jk.isFocused(t.id)}
+										isSelected={selectedSet.has(t.id)}
+									/>
+								</motion.div>
+							))}
+						</div>
+					</MotionConfig>
 				</SortableContext>
 
 				<CompletedSection

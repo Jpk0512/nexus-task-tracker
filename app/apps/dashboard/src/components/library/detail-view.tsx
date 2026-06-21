@@ -28,7 +28,7 @@ import { BlockEditor } from "@/components/editor/block-editor";
 import { trpc } from "@/utils/trpc";
 import { kindColor } from "./kind-color";
 
-type Props = { entryId: string };
+type Props = { entryId: string; readOnly?: boolean };
 
 type Tab = "rendered" | "yaml";
 
@@ -46,7 +46,7 @@ function serializeYamlObj(obj: Record<string, unknown>): string {
 	return lines.join("\n");
 }
 
-export function LibraryDetailView({ entryId }: Props) {
+export function LibraryDetailView({ entryId, readOnly = false }: Props) {
 	const { team } = useParams<{ team: string }>();
 	const qc = useQueryClient();
 	const { data: entry, isLoading } = useQuery(
@@ -209,7 +209,7 @@ export function LibraryDetailView({ entryId }: Props) {
 						<Button variant="outline" size="sm" onClick={copyPath}>
 							<ClipboardIcon className="size-3.5" /> Copy path
 						</Button>
-						{!editing ? (
+						{readOnly ? null : !editing ? (
 							<Button
 								variant="outline"
 								size="sm"
