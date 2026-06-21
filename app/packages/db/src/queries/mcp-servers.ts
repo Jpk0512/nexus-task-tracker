@@ -1,4 +1,5 @@
 import { and, eq, inArray, type SQL } from "drizzle-orm";
+import { decryptToken, encryptToken } from "@nexus-app/utils/token-crypto";
 import { db } from "..";
 import { integrationUserLink, mcpServers } from "../schema";
 
@@ -158,8 +159,12 @@ export const getMcpServerUserTokens = async ({
 	for (const link of links) {
 		if (link.mcpServerId && link.accessToken) {
 			tokens[link.mcpServerId] = {
-				accessToken: link.accessToken,
-				refreshToken: link.refreshToken,
+				// Decrypt at read-time. Legacy plaintext rows (no "v1:" prefix) are
+				// returned as-is and will be re-encrypted on the next OAuth refresh.
+				accessToken: await decryptToken(link.accessToken),
+				refreshToken: link.refreshToken
+					? await decryptToken(link.refreshToken)
+					: null,
 				config: link.config as {
 					tokenType?: string;
 					expiresIn?: number;
@@ -191,8 +196,11 @@ export const updateMcpServerUserToken = async ({
 	await db
 		.update(integrationUserLink)
 		.set({
-			accessToken,
-			...(refreshToken !== undefined ? { refreshToken } : {}),
+			// Encrypt before persisting — decryptToken handles the "v1:" prefix on read.
+			accessToken: await encryptToken(accessToken),
+			...(refreshToken !== undefined
+				? { refreshToken: refreshToken ? await encryptToken(refreshToken) : null }
+				: {}),
 			...(config ? { config } : {}),
 		})
 		.where(

@@ -8,6 +8,7 @@ import {
 	session,
 } from "@nexus-app/db/schema";
 import { getApiUrl, getAppUrl } from "@nexus-app/utils/envs";
+import { encryptToken } from "@nexus-app/utils/token-crypto";
 import { eq } from "drizzle-orm";
 import type { Context } from "../types";
 
@@ -290,6 +291,12 @@ app.get("/callback", async (c) => {
 		expires_in?: number;
 	};
 
+	// Encrypt tokens before storage — decryptToken handles "v1:" prefix on read.
+	const encryptedAccessToken = await encryptToken(tokens.access_token);
+	const encryptedRefreshToken = tokens.refresh_token
+		? await encryptToken(tokens.refresh_token)
+		: undefined;
+
 	// Store credentials as an integration user link.
 	// Uses the MCP server ID as integrationId so each user authenticates independently.
 	await db
@@ -299,8 +306,8 @@ app.get("/callback", async (c) => {
 			externalUserId: mcpServerId,
 			mcpServerId: mcpServerId,
 			externalUserName: server.name,
-			accessToken: tokens.access_token,
-			refreshToken: tokens.refresh_token,
+			accessToken: encryptedAccessToken,
+			refreshToken: encryptedRefreshToken,
 			config: {
 				tokenType: tokens.token_type,
 				expiresIn: tokens.expires_in,
@@ -314,8 +321,8 @@ app.get("/callback", async (c) => {
 				integrationUserLink.externalUserId,
 			],
 			set: {
-				accessToken: tokens.access_token,
-				refreshToken: tokens.refresh_token,
+				accessToken: encryptedAccessToken,
+				refreshToken: encryptedRefreshToken,
 				config: {
 					tokenType: tokens.token_type,
 					expiresIn: tokens.expires_in,

@@ -34,6 +34,7 @@
 		"./pr-reviews": "./src/pr-reviews.ts",
 		"./teams": "./src/teams.ts",
 		"./agents": "./src/agents.ts",
-		"./system-triggers": "./src/system-triggers.ts"
+		"./system-triggers": "./src/system-triggers.ts",
+		"./token-crypto": "./src/token-crypto.ts"
 	}
 }
