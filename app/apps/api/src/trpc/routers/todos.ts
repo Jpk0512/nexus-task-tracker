@@ -301,7 +301,20 @@ export const todosRouter = router({
 
 	detach: protectedProcedure
 		.input(z.object({ attachmentId: z.string() }))
-		.mutation(async ({ input }) => {
+		.mutation(async ({ input, ctx }) => {
+			// Verify the attachment's parent todo belongs to this team before deleting.
+			const [a] = await db
+				.select({ id: todoAttachments.id })
+				.from(todoAttachments)
+				.innerJoin(todos, eq(todos.id, todoAttachments.todoId))
+				.where(
+					and(
+						eq(todoAttachments.id, input.attachmentId),
+						eq(todos.teamId, ctx.user.teamId!),
+					),
+				)
+				.limit(1);
+			if (!a) throw new TRPCError({ code: "NOT_FOUND" });
 			await db
 				.delete(todoAttachments)
 				.where(eq(todoAttachments.id, input.attachmentId));
@@ -316,7 +329,20 @@ export const todosRouter = router({
 				content: z.string().optional(),
 			}),
 		)
-		.mutation(async ({ input }) => {
+		.mutation(async ({ input, ctx }) => {
+			// Verify the attachment's parent todo belongs to this team before patching.
+			const [a] = await db
+				.select({ id: todoAttachments.id })
+				.from(todoAttachments)
+				.innerJoin(todos, eq(todos.id, todoAttachments.todoId))
+				.where(
+					and(
+						eq(todoAttachments.id, input.attachmentId),
+						eq(todos.teamId, ctx.user.teamId!),
+					),
+				)
+				.limit(1);
+			if (!a) throw new TRPCError({ code: "NOT_FOUND" });
 			const patch: Record<string, unknown> = {
 				updatedAt: new Date().toISOString(),
 			};
