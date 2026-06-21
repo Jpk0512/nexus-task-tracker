@@ -173,6 +173,9 @@ export function KnowledgeView() {
 	const saveInFlight = useRef(false);
 	const draftRef = useRef("");
 	const shaRef = useRef<string | null>(null);
+	// Stable ref to autoSave so the trailing-edge setTimeout closure always
+	// invokes the latest version without a circular useCallback dep.
+	const autoSaveRef = useRef<() => Promise<void>>(async () => {});
 
 	const listQuery = useQuery(
 		trpc.knowledge.get.queryOptions({ search: search || undefined }),
@@ -307,8 +310,19 @@ export function KnowledgeView() {
 			}
 		} finally {
 			saveInFlight.current = false;
+			// Trailing-edge guard: if the user edited while this save was in-flight
+			// the early-return above silently dropped that content. Re-arm a save so
+			// the newest draft is never silently discarded.
+			if (draftRef.current !== content) {
+				setAutoSaveState("dirty");
+				if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+				autoSaveTimer.current = setTimeout(() => {
+					void autoSaveRef.current();
+				}, 500);
+			}
 		}
 	}, [selectedId, updateAsync, qc, refetchList, refetchNote]);
+	autoSaveRef.current = autoSave;
 
 	// "Saved" indicator fades back to idle after 2s (palette §3 indicator spec).
 	useEffect(() => {
