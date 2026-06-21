@@ -373,6 +373,6 @@ SELECT count(*) FROM knowledge_links WHERE link_text = 'Another Note';
 | Item | Reason |
 |---|---|
 | Existing `todos`, `todo_attachments`, `prompt_products`, `prompts`, `prompt_versions`, `knowledge_vaults`, `knowledge_notes` table DDL | Already present; this feature adds only `knowledge_links` + `content_fts`. No migration on existing tables. |
-| `@mimir/*` package scope | Kept per FEAT-001 DEC-002; not renamed here. |
+| `@nexus-app/*` package scope | Renamed from `@mimir/*` per DEC-014 (supersedes DEC-002); rename complete as of commit 60e3bd5. |
 | `.obsidian/` directory inside any vault | Ignored by the scanner for Obsidian compatibility. |
 | `prompt_versions` history rows | Append-only; "Save as new version" never mutates a prior version. |
