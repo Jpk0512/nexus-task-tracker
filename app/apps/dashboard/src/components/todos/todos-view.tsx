@@ -172,6 +172,7 @@ function TodoRow({
 	onLinkDoc,
 	onPromote,
 	onToggleSelect,
+	onFilterByProject,
 	isFocused = false,
 	isSelected = false,
 }: {
@@ -187,6 +188,7 @@ function TodoRow({
 	onLinkDoc: (docId: string, title: string) => void;
 	onPromote: () => void;
 	onToggleSelect?: (extend: boolean) => void;
+	onFilterByProject?: (projectId: string) => void;
 	isFocused?: boolean;
 	isSelected?: boolean;
 }) {
@@ -245,36 +247,49 @@ function TodoRow({
 							onCheckedChange={(v) => (v ? onCheck() : onUncheck())}
 							className="mt-1.5"
 						/>
-						<button
-							type="button"
-							onClick={onOpen}
-							className="min-w-0 grow text-left"
-						>
-							<div
-								className={`flex items-center gap-1.5 text-sm ${
-									todo.checked
-										? "text-muted-foreground line-through"
-										: "text-foreground"
-								}`}
+						<div className="min-w-0 grow">
+							<button
+								type="button"
+								onClick={onOpen}
+								className="w-full text-left"
 							>
-								<span className="min-w-0 flex-1 truncate">{todo.content}</span>
-								<MetadataConflictBadge
-									task={{
-										id: todo.id,
-										title: todo.content,
-										// Todos use `checked` rather than a status enum; mirror it
-										// to the rule input so future rules can target checked
-										// todos with conflicting metadata.
-										statusType: todo.checked ? "done" : "to_do",
-									}}
-								/>
-							</div>
+								<div
+									className={`flex items-center gap-1.5 text-sm ${
+										todo.checked
+											? "text-muted-foreground line-through"
+											: "text-foreground"
+									}`}
+								>
+									<span className="min-w-0 flex-1 truncate">{todo.content}</span>
+									<MetadataConflictBadge
+										task={{
+											id: todo.id,
+											title: todo.content,
+											// Todos use `checked` rather than a status enum; mirror it
+											// to the rule input so future rules can target checked
+											// todos with conflicting metadata.
+											statusType: todo.checked ? "done" : "to_do",
+										}}
+									/>
+								</div>
+							</button>
 							<div className="mt-0.5 flex flex-wrap items-center gap-1 text-xs">
-								{todo.projectName && (
-									<Badge variant="outline" className="font-normal">
+								{todo.projectName && todo.projectId && (
+									<button
+										type="button"
+										onClick={(e) => {
+											e.stopPropagation();
+											onFilterByProject?.(todo.projectId!);
+										}}
+										className={cn(
+											"inline-flex items-center rounded-full border border-border/60 px-2 py-0.5 font-normal text-xs text-muted-foreground transition-colors hover:border-border hover:text-foreground",
+											"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1",
+										)}
+										aria-label={todo.projectName}
+									>
 										{todo.projectPrefix ? `${todo.projectPrefix} · ` : ""}
 										{todo.projectName}
-									</Badge>
+									</button>
 								)}
 								{todo.tags.map((t) => (
 									<Badge
@@ -330,7 +345,7 @@ function TodoRow({
 									</Badge>
 								)}
 							</div>
-						</button>
+						</div>
 						<button
 							type="button"
 							onClick={onDelete}
@@ -1262,6 +1277,7 @@ export function TodosView() {
 							aria-pressed={selectedTag === undefined}
 							className={cn(
 								"rounded-full border px-2 py-0.5 text-[11px] transition-colors duration-150",
+								"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1",
 								selectedTag === undefined
 									? "border-primary bg-primary/10 text-foreground"
 									: "border-border/60 bg-transparent text-muted-foreground hover:border-border hover:text-foreground",
@@ -1279,6 +1295,7 @@ export function TodosView() {
 								aria-pressed={selectedTag === tag}
 								className={cn(
 									"rounded-full border px-2 py-0.5 text-[11px] transition-colors duration-150",
+									"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1",
 									selectedTag === tag
 										? "border-primary bg-primary/10 text-foreground"
 										: "border-border/60 bg-transparent text-muted-foreground hover:border-border hover:text-foreground",
@@ -1306,6 +1323,7 @@ export function TodosView() {
 							aria-pressed={selectedProjectId === undefined}
 							className={cn(
 								"rounded-full border px-2 py-0.5 text-[11px] transition-colors duration-150",
+								"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1",
 								selectedProjectId === undefined
 									? "border-primary bg-primary/10 text-foreground"
 									: "border-border/60 bg-transparent text-muted-foreground hover:border-border hover:text-foreground",
@@ -1326,6 +1344,7 @@ export function TodosView() {
 								aria-pressed={selectedProjectId === p.id}
 								className={cn(
 									"rounded-full border px-2 py-0.5 text-[11px] transition-colors duration-150",
+									"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1",
 									selectedProjectId === p.id
 										? "border-primary bg-primary/10 text-foreground"
 										: "border-border/60 bg-transparent text-muted-foreground hover:border-border hover:text-foreground",
@@ -1405,6 +1424,7 @@ export function TodosView() {
 										onToggleSelect={(extend) =>
 											extend ? rangeSelection(t.id) : toggleSelection(t.id)
 										}
+										onFilterByProject={(pid) => setSelectedProjectId(pid)}
 										isFocused={jk.isFocused(t.id)}
 										isSelected={selectedSet.has(t.id)}
 									/>
