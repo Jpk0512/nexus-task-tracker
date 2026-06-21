@@ -71,7 +71,7 @@ function MermaidNodeView({ node }: any) {
 		return (
 			<NodeViewWrapper as="pre" className="not-prose">
 				<code data-language={language}>
-					<NodeViewContent as="span" />
+					<NodeViewContent<"span"> as="span" />
 				</code>
 			</NodeViewWrapper>
 		);
@@ -89,7 +89,7 @@ function MermaidNodeView({ node }: any) {
 						Mermaid parse error: {error}
 					</div>
 					<pre className="overflow-x-auto rounded bg-muted p-2 text-xs">
-						<NodeViewContent as="code" />
+						<NodeViewContent<"code"> as="code" />
 					</pre>
 				</div>
 			) : svg ? (
@@ -104,14 +104,14 @@ function MermaidNodeView({ node }: any) {
 							Show source
 						</summary>
 						<pre className="mt-1 overflow-x-auto rounded bg-muted p-2">
-							<NodeViewContent as="code" />
+							<NodeViewContent<"code"> as="code" />
 						</pre>
 					</details>
 				</>
 			) : (
 				<div className="font-mono text-muted-foreground text-xs">
 					Rendering Mermaid diagram…
-					<NodeViewContent as="code" className="hidden" />
+					<NodeViewContent<"code"> as="code" className="hidden" />
 				</div>
 			)}
 		</NodeViewWrapper>

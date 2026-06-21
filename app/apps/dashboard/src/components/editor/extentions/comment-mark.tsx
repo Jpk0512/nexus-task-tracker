@@ -3,76 +3,67 @@ import {
 	Mark,
 	MarkViewContent,
 	type MarkViewRendererProps,
+	type RawCommands,
 	ReactMarkViewRenderer,
 } from "@tiptap/react";
 
-declare module "@tiptap/core" {
-	interface Commands<ReturnType> {
-		commentMark: {
-			unsetCommentMark: (commentId: string) => ReturnType;
+export const CommentMark = Mark.create({
+	name: "comment",
+	inclusive: true,
+	keepOnSplit: true,
+	addAttributes() {
+		return {
+			"data-id": {
+				default: null,
+			},
 		};
-	}
-}
+	},
+	addMarkView() {
+		return ReactMarkViewRenderer(CommentMarkComponent);
+	},
+	parseHTML() {
+		return [
+			{
+				tag: "comment",
+			},
+		];
+	},
+	renderHTML({ HTMLAttributes }) {
+		return ["comment", HTMLAttributes, 0];
+	},
 
-export const CommentMark = Mark.create(() => {
-	return {
-		name: "comment",
-		inclusive: true,
-		keepOnSplit: true,
-		addAttributes() {
-			return {
-				"data-id": {
-					default: null,
+	addCommands() {
+		return {
+			unsetCommentMark:
+				(commentId: string) =>
+				({ editor, commands, chain }: CommandProps) => {
+					const { state } = editor;
+					const { tr } = state;
+					const { doc } = tr;
+
+					doc.descendants((node, pos) => {
+						if (node.marks) {
+							node.marks.forEach((mark) => {
+								if (
+									mark.type.name === "comment" &&
+									mark.attrs["data-id"] === commentId
+								) {
+									chain()
+										.focus()
+										.setTextSelection(pos)
+										.extendMarkRange("comment")
+										.unsetMark("comment")
+										.blur()
+										.run();
+								}
+							});
+						}
+					});
+
+					return true;
 				},
-			};
-		},
-		addMarkView() {
-			return ReactMarkViewRenderer(CommentMarkComponent);
-		},
-		parseHTML() {
-			return [
-				{
-					tag: "comment",
-				},
-			];
-		},
-		renderHTML({ HTMLAttributes }) {
-			return ["comment", HTMLAttributes, 0];
-		},
-
-		addCommands() {
-			return {
-				unsetCommentMark:
-					(commentId: string) =>
-					({ editor, commands, chain }: CommandProps) => {
-						const { state } = editor;
-						const { tr } = state;
-						const { doc } = tr;
-
-						doc.descendants((node, pos) => {
-							if (node.marks) {
-								node.marks.forEach((mark) => {
-									if (
-										mark.type.name === "comment" &&
-										mark.attrs["data-id"] === commentId
-									) {
-										chain()
-											.focus()
-											.setTextSelection(pos)
-											.extendMarkRange("comment")
-											.unsetMark("comment")
-											.blur()
-											.run();
-									}
-								});
-							}
-						});
-
-						return true;
-					},
-			};
-		},
-	};
+		} as unknown as Partial<RawCommands>;
+	},
 });
 
 export const CommentMarkComponent = (props: MarkViewRendererProps) => {

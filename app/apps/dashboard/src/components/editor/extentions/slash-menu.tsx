@@ -12,12 +12,21 @@
 //    mention node (taskMention / documentMention / knowledgeMention /
 //    promptMention) which renders as a compact inline pill.
 
-import type { Editor, Range } from "@tiptap/react";
+import type { ChainedCommands, Editor, Range } from "@tiptap/react";
 import { Extension, ReactRenderer } from "@tiptap/react";
 import Suggestion from "@tiptap/suggestion";
 import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
 import tippy, { type Instance as TippyInstance } from "tippy.js";
+import type { CalloutVariant } from "./callout";
 import { EntityPicker, type PickedEntity } from "./entity-picker";
+
+// @tiptap/core is not a direct dependency of this package so the module
+// augmentation in callout.tsx cannot compile, leaving setCallout absent from
+// ChainedCommands. The command IS registered at runtime by the Callout
+// extension — this cast bridges the type gap without `as any`.
+type CalloutChain = ChainedCommands & {
+	setCallout(attrs?: { variant?: CalloutVariant }): CalloutChain;
+};
 
 type SlashCategory = "Basic" | "Media" | "Code" | "Links" | "Advanced";
 
@@ -348,10 +357,7 @@ const ITEMS: SlashItem[] = [
 		keywords: ["callout", "info", "note", "aside"],
 		category: "Advanced",
 		command: ({ editor, range }) => {
-			editor
-				.chain()
-				.focus()
-				.deleteRange(range)
+			(editor.chain().focus().deleteRange(range) as unknown as CalloutChain)
 				.setCallout({ variant: "info" })
 				.run();
 		},
@@ -363,10 +369,7 @@ const ITEMS: SlashItem[] = [
 		keywords: ["callout", "warn", "warning", "caution", "danger"],
 		category: "Advanced",
 		command: ({ editor, range }) => {
-			editor
-				.chain()
-				.focus()
-				.deleteRange(range)
+			(editor.chain().focus().deleteRange(range) as unknown as CalloutChain)
 				.setCallout({ variant: "warn" })
 				.run();
 		},
@@ -378,10 +381,7 @@ const ITEMS: SlashItem[] = [
 		keywords: ["callout", "tip", "hint", "advice"],
 		category: "Advanced",
 		command: ({ editor, range }) => {
-			editor
-				.chain()
-				.focus()
-				.deleteRange(range)
+			(editor.chain().focus().deleteRange(range) as unknown as CalloutChain)
 				.setCallout({ variant: "tip" })
 				.run();
 		},
@@ -393,10 +393,7 @@ const ITEMS: SlashItem[] = [
 		keywords: ["callout", "quote", "pull"],
 		category: "Advanced",
 		command: ({ editor, range }) => {
-			editor
-				.chain()
-				.focus()
-				.deleteRange(range)
+			(editor.chain().focus().deleteRange(range) as unknown as CalloutChain)
 				.setCallout({ variant: "quote" })
 				.run();
 		},
