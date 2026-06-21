@@ -234,23 +234,104 @@ describe("AC-3 — note attachment editor: AttachmentsModal uses Tiptap Editor f
 // AC-4 — doc_link attachment embeds LibraryDetailView (not a plain anchor)
 // ---------------------------------------------------------------------------
 
-describe("AC-4 — doc_link attachment: AttachmentsModal embeds LibraryDetailView inline", () => {
+describe("AC-4 — doc_link attachment: LibraryDetailView embedded readOnly — all mutation affordances gated", () => {
 	/**
-	 * GIVEN an AttachmentsModal open on a todo that has a 'doc_link' attachment
-	 * WHEN the modal renders the doc_link card
-	 * THEN
-	 *   (a) the render surface is <LibraryDetailView> (inline embed), NOT a <Link>
-	 *       or <a> pointing to the document URL
-	 *   (b) LibraryDetailView is imported from @/components/library/detail-view
+	 * GIVEN a todos doc_link attachment that embeds LibraryDetailView with readOnly={true}
+	 * WHEN LibraryDetailView renders under readOnly
+	 * THEN NO mutation affordance is reachable:
+	 *   (a) no tag-add form / Input with placeholder "+ tag"
+	 *   (b) no tag-remove button (removeTagMut.mutate call sites)
+	 *   (c) no project-unlink button (unlinkProjectMut.mutate call sites)
+	 *   (d) no project-link Select (linkProjectMut.mutate call sites)
+	 *   (e) no Edit button (already gated; confirms the guard pattern)
 	 *
-	 * Source evidence:
-	 *   1. todos-view.tsx imports LibraryDetailView.
-	 *   2. The AttachmentsModal doc_link branch renders <LibraryDetailView> not <Link>.
+	 * Structural-behavioral proof strategy (node harness — no jsdom available):
+	 *   Parse detail-view.tsx, locate every `{readOnly ? null :` guard region by
+	 *   tracking brace depth, and verify that EACH mutation call site
+	 *   (removeTagMut.mutate, addTagMut.mutate, unlinkProjectMut.mutate,
+	 *   linkProjectMut.mutate) falls INSIDE a readOnly-gated region.
 	 *
-	 * Why source-pattern: no jsdom; LibraryDetailView makes tRPC calls and has
-	 * complex render logic. A node-harness test of an embedded rich component
-	 * is not viable without jsdom + extensive mocking.
+	 *   Fails today because all four tag/project mutation calls live OUTSIDE the
+	 *   single existing guard (which only covers the Edit/Save/Cancel buttons at
+	 *   detail-view.tsx:212). Passes once Forge wraps those three affordance groups
+	 *   behind `{readOnly ? null : ...}` or `{!readOnly && ...}` blocks.
+	 *
+	 * Lens RCA reference: detail-view.tsx:212 gates Edit only; :246-271 (tags),
+	 *   :289-301 (unlink), :305-318 (link) remain live under readOnly — a
+	 *   doc_link attachment inside a todo can silently mutate the library entry.
 	 */
+
+	const DETAIL_VIEW_PATH = join(
+		DASHBOARD_ROOT,
+		"src",
+		"components",
+		"library",
+		"detail-view.tsx",
+	);
+
+	/**
+	 * Find all character ranges [start, end) that are covered by a
+	 * `readOnly ? null :` (or `readOnly ? null:`) guard expression in the source.
+	 * The guard begins at the `{` that immediately precedes `readOnly ? null` and
+	 * ends at the matching closing `}`, found by tracking JSX/JS brace depth.
+	 *
+	 * Also supports `!readOnly &&` as an equivalent guard pattern.
+	 */
+	function findReadOnlyGuardRanges(src: string): Array<[number, number]> {
+		const ranges: Array<[number, number]> = [];
+
+		// Pattern 1: `{readOnly ? null :` — the ternary guard
+		// Pattern 2: `{!readOnly &&` — the logical-AND guard
+		const guardPattern = /\{(?:readOnly\s*\?\s*null\s*:|!readOnly\s*&&)/g;
+		let match: RegExpExecArray | null;
+
+		// biome-ignore lint/suspicious/noAssignInExpressions: standard while-loop idiom
+		while ((match = guardPattern.exec(src)) !== null) {
+			const start = match.index;
+			let depth = 0;
+			let end = start;
+			for (let i = start; i < src.length; i++) {
+				if (src[i] === "{") depth++;
+				else if (src[i] === "}") {
+					depth--;
+					if (depth === 0) {
+						end = i + 1;
+						break;
+					}
+				}
+			}
+			if (end > start) {
+				ranges.push([start, end]);
+			}
+		}
+		return ranges;
+	}
+
+	/**
+	 * Returns true if the given character offset falls inside ANY of the guard ranges.
+	 */
+	function isInsideGuard(
+		offset: number,
+		ranges: Array<[number, number]>,
+	): boolean {
+		return ranges.some(([start, end]) => offset >= start && offset < end);
+	}
+
+	/**
+	 * Find all occurrence offsets of `needle` in `haystack`.
+	 */
+	function findAllOffsets(haystack: string, needle: string): number[] {
+		const offsets: number[] = [];
+		let idx = 0;
+		while (true) {
+			const found = haystack.indexOf(needle, idx);
+			if (found === -1) break;
+			offsets.push(found);
+			idx = found + needle.length;
+		}
+		return offsets;
+	}
+
 	test("todos-view.tsx imports LibraryDetailView from @/components/library/detail-view", () => {
 		const src = readSrc(TODOS_VIEW_PATH);
 		expect(src).toMatch(
@@ -258,29 +339,44 @@ describe("AC-4 — doc_link attachment: AttachmentsModal embeds LibraryDetailVie
 		);
 	});
 
-	test("AttachmentsModal doc_link branch renders LibraryDetailView instead of a plain Link anchor", () => {
-		const src = readSrc(TODOS_VIEW_PATH);
+	test("LibraryDetailView detail-view.tsx: all tag/project mutation calls are inside readOnly guard regions (behavioral: no mutation affordance reachable when readOnly=true)", () => {
+		const src = readSrc(DETAIL_VIEW_PATH);
 
-		const modalIdx = src.indexOf("function AttachmentsModal(");
-		expect(modalIdx).toBeGreaterThan(-1);
+		// Locate all `{readOnly ? null :` or `{!readOnly &&` guard blocks
+		const guardRanges = findReadOnlyGuardRanges(src);
 
-		const modalBody = src.slice(modalIdx, modalIdx + 2500);
+		// There must be at least one guard (the existing Edit-button guard proves
+		// the pattern exists; the test below checks ALL mutation sites are covered)
+		expect(guardRanges.length).toBeGreaterThan(0);
 
-		// Must render LibraryDetailView for the doc_link kind
-		expect(modalBody).toMatch(/<LibraryDetailView/);
+		// The four mutation calls that must be gated:
+		//   removeTagMut.mutate   → tag-remove XIcon button inside Badge (line ~249)
+		//   addTagMut.mutate      → tag-add form onSubmit (line ~261)
+		//   unlinkProjectMut.mutate → project unlink XIcon button (line ~292)
+		//   linkProjectMut.mutate   → Select onValueChange for project link (line ~309)
+		const mutationCallSites: Array<{ needle: string; label: string }> = [
+			{ needle: "removeTagMut.mutate", label: "tag-remove button" },
+			{ needle: "addTagMut.mutate", label: "tag-add form submit" },
+			{ needle: "unlinkProjectMut.mutate", label: "project-unlink button" },
+			{ needle: "linkProjectMut.mutate", label: "project-link Select" },
+		];
 
-		// Must NOT fall back to a plain next/link <Link> for the doc_link path
-		// (the only Link usage allowed in the modal body is a non-doc-card context)
-		const docLinkBranchIdx = modalBody.indexOf("doc_link");
-		expect(docLinkBranchIdx).toBeGreaterThan(-1);
+		for (const { needle, label } of mutationCallSites) {
+			const offsets = findAllOffsets(src, needle);
 
-		// Within the doc_link branch (200 chars after the first "doc_link" in the
-		// modal) there must NOT be a <Link href= pointing to the documents URL
-		const docLinkRegion = modalBody.slice(
-			docLinkBranchIdx,
-			docLinkBranchIdx + 300,
-		);
-		expect(docLinkRegion).not.toMatch(/<Link\s+href/);
+			// Each mutation must appear at least once in the source
+			expect(offsets.length).toBeGreaterThan(0);
+
+			// EVERY occurrence must be inside a readOnly guard block.
+			// Fails today because all four are outside any {readOnly ? null :} guard.
+			for (const offset of offsets) {
+				expect(
+					isInsideGuard(offset, guardRanges),
+					`"${needle}" (${label}) at offset ${offset} is NOT inside a readOnly guard — ` +
+						"a readOnly LibraryDetailView embed can still fire this mutation",
+				).toBe(true);
+			}
+		}
 	});
 });
 
