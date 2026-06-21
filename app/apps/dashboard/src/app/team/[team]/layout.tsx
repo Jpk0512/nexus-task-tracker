@@ -1,4 +1,4 @@
-import { Provider as OpenPanelProvider } from "@mimir/events/client";
+import { Provider as OpenPanelProvider } from "@nexus-app/events/client";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { CommandTray } from "@/components/command-tray";

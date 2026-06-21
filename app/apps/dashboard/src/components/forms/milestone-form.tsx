@@ -1,14 +1,14 @@
 "use client";
 
-import { Button } from "@mimir/ui/button";
+import { Button } from "@nexus-app/ui/button";
 import {
 	ColorPicker,
 	ColorPickerArea,
 	ColorPickerHueSlider,
-} from "@mimir/ui/color-picker";
-import { Form, FormControl, FormField, FormItem } from "@mimir/ui/form";
-import { Input } from "@mimir/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@mimir/ui/popover";
+} from "@nexus-app/ui/color-picker";
+import { Form, FormControl, FormField, FormItem } from "@nexus-app/ui/form";
+import { Input } from "@nexus-app/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@nexus-app/ui/popover";
 import { PopoverClose } from "@radix-ui/react-popover";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Calendar } from "@ui/components/ui/calendar";

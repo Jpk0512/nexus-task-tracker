@@ -1,4 +1,4 @@
-import { createLabel } from "@mimir/db/queries/labels";
+import { createLabel } from "@nexus-app/db/queries/labels";
 import { tool } from "ai";
 import z from "zod";
 import { getToolContext } from "../agents/config/shared";

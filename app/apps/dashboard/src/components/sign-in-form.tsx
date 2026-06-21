@@ -1,5 +1,5 @@
 "use client";
-import { Button } from "@mimir/ui/button";
+import { Button } from "@nexus-app/ui/button";
 import {
 	Form,
 	FormControl,
@@ -7,9 +7,9 @@ import {
 	FormItem,
 	FormLabel,
 	FormMessage,
-} from "@mimir/ui/form";
-import { Input } from "@mimir/ui/input";
-import { getAppUrl, getWebsiteUrl } from "@mimir/utils/envs";
+} from "@nexus-app/ui/form";
+import { Input } from "@nexus-app/ui/input";
+import { getAppUrl, getWebsiteUrl } from "@nexus-app/utils/envs";
 import { MailIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";

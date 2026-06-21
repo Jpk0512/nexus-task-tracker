@@ -1,5 +1,5 @@
 "use client";
-import type { RouterOutputs } from "@mimir/trpc";
+import type { RouterOutputs } from "@nexus-app/trpc";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { createContext, useContext, useEffect, useMemo } from "react";
 import { useUser } from "@/components/user-provider";

@@ -1,13 +1,13 @@
 "use client";
-import { Button } from "@mimir/ui/button";
+import { Button } from "@nexus-app/ui/button";
 import {
 	Form,
 	FormControl,
 	FormField,
 	FormItem,
 	FormLabel,
-} from "@mimir/ui/form";
-import { Switch } from "@mimir/ui/switch";
+} from "@nexus-app/ui/form";
+import { Switch } from "@nexus-app/ui/switch";
 import { useMutation } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { toast } from "sonner";

@@ -1,11 +1,11 @@
-import { createTask, updateTaskRecurringJob } from "@mimir/db/queries/tasks";
+import { createTask, updateTaskRecurringJob } from "@nexus-app/db/queries/tasks";
 import {
 	checklistItems,
 	labelsOnTasks,
 	statuses,
 	tasks,
-} from "@mimir/db/schema";
-import { getNextTaskRecurrenceDate } from "@mimir/utils/recurrence";
+} from "@nexus-app/db/schema";
+import { getNextTaskRecurrenceDate } from "@nexus-app/utils/recurrence";
 import { and, desc, eq } from "drizzle-orm";
 import { cancelJob, defineJob, enqueue, getDb, logger } from "../../init";
 

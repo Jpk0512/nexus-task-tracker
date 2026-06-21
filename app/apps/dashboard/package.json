@@ -1,5 +1,5 @@
 {
-	"name": "@mimir/dashboard",
+	"name": "@nexus-app/dashboard",
 	"version": "0.1.0",
 	"private": true,
 	"scripts": {
@@ -20,11 +20,11 @@
 		"@floating-ui/dom": "^1.7.4",
 		"@hookform/resolvers": "^5.2.2",
 		"@mdxeditor/editor": "^3.46.1",
-		"@mimir/events": "workspace:*",
-		"@mimir/locale": "workspace:*",
-		"@mimir/tsconfig": "workspace:*",
-		"@mimir/ui": "workspace:*",
-		"@mimir/utils": "workspace:*",
+		"@nexus-app/events": "workspace:*",
+		"@nexus-app/locale": "workspace:*",
+		"@nexus-app/tsconfig": "workspace:*",
+		"@nexus-app/ui": "workspace:*",
+		"@nexus-app/utils": "workspace:*",
 		"@radix-ui/react-avatar": "^1.1.10",
 		"@radix-ui/react-collapsible": "^1.1.12",
 		"@radix-ui/react-context-menu": "^2.2.16",
@@ -113,8 +113,8 @@
 		"zustand": "^5.0.8"
 	},
 	"devDependencies": {
-		"@mimir/realtime": "workspace:*",
-		"@mimir/trpc": "workspace:*",
+		"@nexus-app/realtime": "workspace:*",
+		"@nexus-app/trpc": "workspace:*",
 		"@vitejs/plugin-react": "^4.3.4",
 		"@tailwindcss/postcss": "^4.1.10",
 		"@tanstack/react-query-devtools": "^5.85.5",

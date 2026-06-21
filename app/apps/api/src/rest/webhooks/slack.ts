@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { OpenAPIHono } from "@hono/zod-openapi";
-import { handleSlackMessage } from "@mimir/integration/slack";
+import { handleSlackMessage } from "@nexus-app/integration/slack";
 import type { EventFromType } from "@slack/bolt";
 import type { MiddlewareHandler } from "hono";
 import type { Context } from "../types";

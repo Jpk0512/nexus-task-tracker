@@ -1,4 +1,4 @@
-import { getContrast } from "@mimir/utils/random";
+import { getContrast } from "@nexus-app/utils/random";
 import { subDays, subHours } from "date-fns";
 import { CalendarIcon, TagsIcon, UserCheckIcon, UserIcon } from "lucide-react";
 import { AssigneeAvatar } from "@/components/asignee-avatar";

@@ -13,7 +13,7 @@ import {
 	getTaskDependencies,
 	getTaskDependencyById,
 	updateTaskDependency,
-} from "@mimir/db/queries/task-dependencies";
+} from "@nexus-app/db/queries/task-dependencies";
 
 export const taskDependenciesRouter = router({
 	get: protectedProcedure

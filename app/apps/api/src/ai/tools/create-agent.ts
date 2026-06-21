@@ -1,5 +1,5 @@
-import { createAgent } from "@mimir/db/queries/agents";
-import { AGENT_DEFAULT_MODEL } from "@mimir/utils/agents";
+import { createAgent } from "@nexus-app/db/queries/agents";
+import { AGENT_DEFAULT_MODEL } from "@nexus-app/utils/agents";
 import { tool } from "ai";
 import z from "zod";
 import { getToolContext } from "../agents/config/shared";

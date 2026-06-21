@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import type { Database } from "@mimir/db/client";
-import { createJobDb } from "@mimir/db/job-client";
+import type { Database } from "@nexus-app/db/client";
+import { createJobDb } from "@nexus-app/db/job-client";
 
 // ---------------------------------------------------------------------------
 // Minimal logger shim — replaces trigger.dev's logger
@@ -15,7 +15,7 @@ export const logger = {
 };
 
 // ---------------------------------------------------------------------------
-// Register enqueue into globalThis so @mimir/db can call it without
+// Register enqueue into globalThis so @nexus-app/db can call it without
 // a compile-time import (avoids the db → jobs circular dependency).
 // Wired at module-eval time at the bottom of this file.
 
@@ -213,7 +213,7 @@ export function registerCron(
 }
 
 // ---------------------------------------------------------------------------
-// Wire enqueue into globalThis so @mimir/db/queries/agent-triggers can call
+// Wire enqueue into globalThis so @nexus-app/db/queries/agent-triggers can call
 // it without a compile-time import (breaks the db → jobs circular dep).
 // ---------------------------------------------------------------------------
 (globalThis as Record<string, unknown>).__jobsEnqueue = enqueue;

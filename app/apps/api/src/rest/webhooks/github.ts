@@ -4,17 +4,17 @@ import {
 	getConnectedRepositoryByInstallationId,
 	getPullRequestPlanByHead,
 	updatePullRequestPlanStatus,
-} from "@mimir/db/queries/github";
+} from "@nexus-app/db/queries/github";
 import {
 	getLinkedUserByUserId,
 	installIntegration,
 	linkUserToIntegration,
-} from "@mimir/db/queries/integrations";
-import { syncPrReview } from "@mimir/db/queries/pr-reviews";
-import { updateTask } from "@mimir/db/queries/tasks";
-import { getTeamById } from "@mimir/db/queries/teams";
-import { log } from "@mimir/integration/logger";
-import { getAppUrl } from "@mimir/utils/envs";
+} from "@nexus-app/db/queries/integrations";
+import { syncPrReview } from "@nexus-app/db/queries/pr-reviews";
+import { updateTask } from "@nexus-app/db/queries/tasks";
+import { getTeamById } from "@nexus-app/db/queries/teams";
+import { log } from "@nexus-app/integration/logger";
+import { getAppUrl } from "@nexus-app/utils/envs";
 import type {
 	PullRequest,
 	PullRequestEvent,

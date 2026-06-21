@@ -3,7 +3,7 @@ import {
 	createAgentMemory,
 	getAgentMemories,
 	updateAgentMemory,
-} from "@mimir/db/queries/agent-memories";
+} from "@nexus-app/db/queries/agent-memories";
 import { tool } from "ai";
 import z from "zod";
 import { type AppContext, getToolContext } from "../agents/config/shared";

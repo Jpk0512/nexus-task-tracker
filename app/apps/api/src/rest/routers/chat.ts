@@ -8,13 +8,13 @@ import { getUserContext } from "@api/ai/utils/get-user-context";
 import type { Context } from "@api/rest/types";
 import { chatRequestSchema } from "@api/schemas/chat";
 import { OpenAPIHono } from "@hono/zod-openapi";
-import { getAgentById, getDocumentsForAgent } from "@mimir/db/queries/agents";
+import { getAgentById, getDocumentsForAgent } from "@nexus-app/db/queries/agents";
 import {
 	clearChatActiveStreamId,
 	clearChatActiveStreamIdIfMatch,
 	getChatById,
 	setChatActiveStreamId,
-} from "@mimir/db/queries/chats";
+} from "@nexus-app/db/queries/chats";
 import {
 	createUIMessageStreamResponse,
 	generateId,

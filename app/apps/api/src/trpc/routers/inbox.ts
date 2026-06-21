@@ -13,7 +13,7 @@ import {
 	getInbox,
 	getInboxById,
 	updateInbox,
-} from "@mimir/db/queries/inbox";
+} from "@nexus-app/db/queries/inbox";
 
 export const inboxRouter = router({
 	get: protectedProcedure

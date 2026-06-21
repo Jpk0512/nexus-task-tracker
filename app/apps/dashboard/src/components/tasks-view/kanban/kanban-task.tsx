@@ -1,4 +1,4 @@
-import type { RouterOutputs } from "@mimir/trpc";
+import type { RouterOutputs } from "@nexus-app/trpc";
 import { useTaskPanel } from "@/components/panels/task-panel";
 import { StatusChangedChip } from "@/components/status-changed-chip";
 import { MetadataConflictBadge } from "@/components/tasks/metadata-conflict-badge";

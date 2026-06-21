@@ -1,4 +1,4 @@
-import { systemUserCache } from "@mimir/cache/system-user-cache";
+import { systemUserCache } from "@nexus-app/cache/system-user-cache";
 import { and, eq } from "drizzle-orm";
 import { db } from "../index";
 import { checklistItems, projects, statuses, tasks, users } from "../schema";
@@ -7,7 +7,7 @@ const AGENT_TASK_JOB_ID = "execute-agent-task-plan";
 const PM_AGENT_JOB_ID = "execute-pm-agent";
 
 // ---------------------------------------------------------------------------
-// Local job enqueue — thin shim so @mimir/db does not depend on @mimir/jobs.
+// Local job enqueue — thin shim so @nexus-app/db does not depend on @nexus-app/jobs.
 // The jobs package registers its enqueue fn into globalThis at startup so
 // db can call it without a compile-time import (avoids db → jobs cycle).
 // ---------------------------------------------------------------------------

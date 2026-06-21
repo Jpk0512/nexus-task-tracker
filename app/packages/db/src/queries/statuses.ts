@@ -1,4 +1,4 @@
-import { statusesLimits } from "@mimir/utils/statuses";
+import { statusesLimits } from "@nexus-app/utils/statuses";
 import {
 	and,
 	arrayContains,

@@ -1,5 +1,5 @@
 import { OpenAPIHono } from "@hono/zod-openapi";
-import { realtime } from "@mimir/realtime";
+import { realtime } from "@nexus-app/realtime";
 import { handle } from "@upstash/realtime";
 import type { Context } from "../types";
 

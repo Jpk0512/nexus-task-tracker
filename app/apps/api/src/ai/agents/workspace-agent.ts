@@ -1,4 +1,4 @@
-import type { IntegrationName } from "@mimir/integration/registry";
+import type { IntegrationName } from "@nexus-app/integration/registry";
 import { type AppContext, formatContextForLLM } from "./config/shared";
 
 /**

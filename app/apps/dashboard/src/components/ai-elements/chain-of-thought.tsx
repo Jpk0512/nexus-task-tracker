@@ -1,11 +1,11 @@
 "use client";
 
-import { Badge } from "@mimir/ui/badge";
+import { Badge } from "@nexus-app/ui/badge";
 import {
 	Collapsible,
 	CollapsibleContent,
 	CollapsibleTrigger,
-} from "@mimir/ui/collapsible";
+} from "@nexus-app/ui/collapsible";
 import { useControllableState } from "@radix-ui/react-use-controllable-state";
 import {
 	BrainIcon,

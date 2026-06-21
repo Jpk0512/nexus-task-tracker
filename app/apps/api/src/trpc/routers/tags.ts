@@ -19,7 +19,7 @@
 // library_entries.team_id + todos.team_id.
 
 import { protectedProcedure, router } from "@api/trpc/init";
-import { db } from "@mimir/db/client";
+import { db } from "@nexus-app/db/client";
 import { sql } from "drizzle-orm";
 import { z } from "zod/v3";
 

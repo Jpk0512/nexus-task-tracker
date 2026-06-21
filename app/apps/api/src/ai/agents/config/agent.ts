@@ -5,7 +5,7 @@ import {
 	getChatById,
 	saveChat,
 	saveChatMessage,
-} from "@mimir/db/queries/chats";
+} from "@nexus-app/db/queries/chats";
 import {
 	convertToModelMessages,
 	createUIMessageStream,

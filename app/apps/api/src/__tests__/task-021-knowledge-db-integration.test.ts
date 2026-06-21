@@ -21,7 +21,7 @@
  *  THEN   note-title rank > note-body rank  (weight A beats weight B)
  *
  * Real Postgres (nexus-postgres, host=localhost:55432, DB=mimrai).
- * Uses drizzle-orm/node-postgres (already a dep of @mimir/db).
+ * Uses drizzle-orm/node-postgres (already a dep of @nexus-app/db).
  * No mocking. Fixture rows are cleaned up in afterAll.
  *
  * Run from app/apps/api/: bun test src/__tests__/task-021-knowledge-db-integration.test.ts
@@ -38,7 +38,7 @@ import { extractLinks, resolveLinks } from "../lib/wiki-link-parser";
 
 // ---------------------------------------------------------------------------
 // DB connection — real postgres, no mock.
-// drizzle-orm/node-postgres is already a transitive dep of @mimir/db.
+// drizzle-orm/node-postgres is already a transitive dep of @nexus-app/db.
 // ---------------------------------------------------------------------------
 
 const DB_URL =

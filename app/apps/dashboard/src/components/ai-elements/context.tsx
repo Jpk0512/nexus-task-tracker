@@ -1,12 +1,12 @@
 "use client";
 
-import { Button } from "@mimir/ui/button";
+import { Button } from "@nexus-app/ui/button";
 import {
 	HoverCard,
 	HoverCardContent,
 	HoverCardTrigger,
-} from "@mimir/ui/hover-card";
-import { Progress } from "@mimir/ui/progress";
+} from "@nexus-app/ui/hover-card";
+import { Progress } from "@nexus-app/ui/progress";
 import type { LanguageModelUsage } from "ai";
 import { type ComponentProps, createContext, useContext } from "react";
 import { estimateCost, type ModelId } from "tokenlens";

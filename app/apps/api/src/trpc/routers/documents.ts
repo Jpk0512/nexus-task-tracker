@@ -8,7 +8,7 @@ import {
 	updateDocumentSchema,
 } from "@api/schemas/documents";
 import { protectedProcedure, router } from "@api/trpc/init";
-import { db } from "@mimir/db/client";
+import { db } from "@nexus-app/db/client";
 import {
 	createDocument,
 	deleteDocument,
@@ -17,7 +17,7 @@ import {
 	getDocuments,
 	reorderDocuments,
 	updateDocument,
-} from "@mimir/db/queries/documents";
+} from "@nexus-app/db/queries/documents";
 import { TRPCError } from "@trpc/server";
 import { and, asc, eq, sql } from "drizzle-orm";
 import { pgTable, text, timestamp } from "drizzle-orm/pg-core";

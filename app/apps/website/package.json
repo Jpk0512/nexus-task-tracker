@@ -1,5 +1,5 @@
 {
-	"name": "@mimir/website",
+	"name": "@nexus-app/website",
 	"version": "0.1.0",
 	"private": true,
 	"scripts": {
@@ -10,12 +10,12 @@
 	},
 	"dependencies": {
 		"@hookform/resolvers": "^5.2.2",
-		"@mimir/api": "workspace:*",
-		"@mimir/ui": "workspace:*",
-		"@mimir/events": "workspace:*",
-		"@mimir/locale": "workspace:*",
-		"@mimir/tsconfig": "workspace:*",
-		"@mimir/utils": "workspace:*",
+		"@nexus-app/api": "workspace:*",
+		"@nexus-app/ui": "workspace:*",
+		"@nexus-app/events": "workspace:*",
+		"@nexus-app/locale": "workspace:*",
+		"@nexus-app/tsconfig": "workspace:*",
+		"@nexus-app/utils": "workspace:*",
 		"@tanstack/react-query": "^5.85.5",
 		"@trpc/client": "^11.5.0",
 		"@trpc/server": "^11.5.0",

@@ -1,4 +1,4 @@
-import { getAgents } from "@mimir/db/queries/agents";
+import { getAgents } from "@nexus-app/db/queries/agents";
 import { tool } from "ai";
 import z from "zod";
 import { getToolContext } from "../agents/config/shared";

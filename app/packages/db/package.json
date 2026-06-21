@@ -1,5 +1,5 @@
 {
-	"name": "@mimir/db",
+	"name": "@nexus-app/db",
 	"private": true,
 	"scripts": {
 		"clean": "rm -rf .turbo node_modules",
@@ -16,12 +16,12 @@
 	},
 	"dependencies": {
 		"@date-fns/utc": "^2.1.1",
-		"@mimir/cache": "workspace:*",
-		"@mimir/embedding": "workspace:*",
-		"@mimir/events": "workspace:*",
-		"@mimir/logger": "workspace:*",
-		"@mimir/utils": "workspace:*",
-		"@mimir/realtime": "workspace:*",
+		"@nexus-app/cache": "workspace:*",
+		"@nexus-app/embedding": "workspace:*",
+		"@nexus-app/events": "workspace:*",
+		"@nexus-app/logger": "workspace:*",
+		"@nexus-app/utils": "workspace:*",
+		"@nexus-app/realtime": "workspace:*",
 		"@types/pg": "^8.15.5",
 		"camelcase-keys": "^10.0.0",
 		"date-fns": "4.1.0",
@@ -31,7 +31,7 @@
 		"snakecase-keys": "^9.0.2"
 	},
 	"devDependencies": {
-		"@mimir/tsconfig": "workspace:*",
+		"@nexus-app/tsconfig": "workspace:*",
 		"drizzle-kit": "^0.31.4",
 		"@types/bun": "latest"
 	}

@@ -1,4 +1,4 @@
-import { getAppUrl } from "@mimir/utils/envs";
+import { getAppUrl } from "@nexus-app/utils/envs";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@ui/components/ui/button";
 import { Form, FormControl, FormField, FormItem } from "@ui/components/ui/form";

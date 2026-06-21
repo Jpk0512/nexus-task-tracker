@@ -1,7 +1,7 @@
 "use client";
-import { Button } from "@mimir/ui/button";
-import { Form } from "@mimir/ui/form";
-import { getTaskPermalink } from "@mimir/utils/tasks";
+import { Button } from "@nexus-app/ui/button";
+import { Form } from "@nexus-app/ui/form";
+import { getTaskPermalink } from "@nexus-app/utils/tasks";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Editor as EditorInstance } from "@tiptap/react";
 import { format } from "date-fns";

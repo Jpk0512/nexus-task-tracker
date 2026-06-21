@@ -1,15 +1,15 @@
-import { db } from "@mimir/db/client";
+import { db } from "@nexus-app/db/client";
 import {
 	account,
 	apikey,
 	session,
 	users,
 	verification,
-} from "@mimir/db/schema";
-import { EmailVerificationEmail } from "@mimir/email/emails/email-verification";
-import { ResetPasswordEmail } from "@mimir/email/emails/reset-password";
-import { op } from "@mimir/events/server";
-import { getAppUrl, getEmailFrom } from "@mimir/utils/envs";
+} from "@nexus-app/db/schema";
+import { EmailVerificationEmail } from "@nexus-app/email/emails/email-verification";
+import { ResetPasswordEmail } from "@nexus-app/email/emails/reset-password";
+import { op } from "@nexus-app/events/server";
+import { getAppUrl, getEmailFrom } from "@nexus-app/utils/envs";
 import { type BetterAuthOptions, betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import {

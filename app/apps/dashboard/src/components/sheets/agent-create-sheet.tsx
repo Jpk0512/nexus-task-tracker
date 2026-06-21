@@ -4,7 +4,7 @@ import {
 	DialogContent,
 	DialogHeader,
 	DialogTitle,
-} from "@mimir/ui/dialog";
+} from "@nexus-app/ui/dialog";
 import { useAgentParams } from "@/hooks/use-agent-params";
 import { AgentForm } from "../forms/agent-form";
 

@@ -1,7 +1,7 @@
 import { fileStorageAdapter } from "@api/lib/storage-factory";
 import { OpenAPIHono } from "@hono/zod-openapi";
-import { createImport, updateImportStatus } from "@mimir/db/queries/imports";
-import { tasksImportJob } from "@mimir/jobs/imports/tasks-import-job";
+import { createImport, updateImportStatus } from "@nexus-app/db/queries/imports";
+import { tasksImportJob } from "@nexus-app/jobs/imports/tasks-import-job";
 import type { Context } from "../types";
 
 const app = new OpenAPIHono<Context>();

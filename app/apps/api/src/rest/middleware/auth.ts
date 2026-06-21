@@ -1,6 +1,6 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { auth } from "@api/lib/auth";
-import { getUserById } from "@mimir/db/queries/users";
+import { getUserById } from "@nexus-app/db/queries/users";
 import type { Session } from "better-auth";
 import type { MiddlewareHandler } from "hono";
 import { HTTPException } from "hono/http-exception";

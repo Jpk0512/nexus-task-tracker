@@ -1,5 +1,5 @@
-import { Button } from "@mimir/ui/button";
-import { DataSelectInput } from "@mimir/ui/data-select-input";
+import { Button } from "@nexus-app/ui/button";
+import { DataSelectInput } from "@nexus-app/ui/data-select-input";
 import {
 	Form,
 	FormControl,
@@ -7,17 +7,17 @@ import {
 	FormItem,
 	FormLabel,
 	FormMessage,
-} from "@mimir/ui/form";
-import { Input } from "@mimir/ui/input";
+} from "@nexus-app/ui/form";
+import { Input } from "@nexus-app/ui/input";
 import {
 	Select,
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
-} from "@mimir/ui/select";
-import { Textarea } from "@mimir/ui/textarea";
-import { statusesLabels } from "@mimir/utils/statuses";
+} from "@nexus-app/ui/select";
+import { Textarea } from "@nexus-app/ui/textarea";
+import { statusesLabels } from "@nexus-app/utils/statuses";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";

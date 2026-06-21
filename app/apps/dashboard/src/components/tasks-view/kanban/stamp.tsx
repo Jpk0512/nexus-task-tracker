@@ -1,4 +1,4 @@
-import { evaluateTaskSignals } from "@mimir/utils/tasks";
+import { evaluateTaskSignals } from "@nexus-app/utils/tasks";
 import { cn } from "@ui/lib/utils";
 import type { KanbanTask } from "./kanban-task";
 

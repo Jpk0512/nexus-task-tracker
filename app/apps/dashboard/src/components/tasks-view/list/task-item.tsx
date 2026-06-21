@@ -1,6 +1,6 @@
 "use client";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
-import type { RouterOutputs } from "@mimir/trpc";
+import type { RouterOutputs } from "@nexus-app/trpc";
 import { Checkbox } from "@ui/components/ui/checkbox";
 import { memo, useCallback } from "react";
 import { StatusChangedChip } from "@/components/status-changed-chip";

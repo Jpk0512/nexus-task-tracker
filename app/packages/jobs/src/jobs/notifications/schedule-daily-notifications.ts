@@ -1,5 +1,5 @@
 import { TZDate } from "@date-fns/tz";
-import { teams, users, usersOnTeams } from "@mimir/db/schema";
+import { teams, users, usersOnTeams } from "@nexus-app/db/schema";
 import { set } from "date-fns";
 import { eq } from "drizzle-orm";
 import { defineJob, enqueue, getDb, registerCron } from "../../init";

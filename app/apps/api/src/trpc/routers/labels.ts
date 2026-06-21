@@ -12,7 +12,7 @@ import {
 	getLabelById,
 	getLabels,
 	updateLabel,
-} from "@mimir/db/queries/labels";
+} from "@nexus-app/db/queries/labels";
 
 export const labelsRouter = router({
 	get: protectedProcedure

@@ -1,4 +1,4 @@
-import { getMilestones } from "@mimir/db/queries/milestones";
+import { getMilestones } from "@nexus-app/db/queries/milestones";
 import type { MimraiMcpServer } from "../server";
 import type { McpContext } from "./build-mcp";
 import { hasScope, ListMilestonesInputSchema } from "./schemas";

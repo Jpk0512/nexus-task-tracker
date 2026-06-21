@@ -1,7 +1,7 @@
 import { OpenAPIHono } from "@hono/zod-openapi";
-import { installIntegration } from "@mimir/db/queries/integrations";
-import { getTeamById } from "@mimir/db/queries/teams";
-import { getApiUrl, getAppUrl } from "@mimir/utils/envs";
+import { installIntegration } from "@nexus-app/db/queries/integrations";
+import { getTeamById } from "@nexus-app/db/queries/teams";
+import { getApiUrl, getAppUrl } from "@nexus-app/utils/envs";
 import { webApi } from "@slack/bolt";
 import type { Context } from "../types";
 

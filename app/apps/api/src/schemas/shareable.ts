@@ -1,4 +1,4 @@
-import { shareablePolicyEnum, shareableTypeEnum } from "@mimir/db/schema";
+import { shareablePolicyEnum, shareableTypeEnum } from "@nexus-app/db/schema";
 import z from "zod";
 
 export const upsertShareableSchema = z.object({

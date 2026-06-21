@@ -1,6 +1,6 @@
 "use client";
 
-import { Skeleton } from "@mimir/ui/skeleton";
+import { Skeleton } from "@nexus-app/ui/skeleton";
 import { FileTextIcon, FolderIcon } from "lucide-react";
 import Link from "next/link";
 import { useUser } from "@/components/user-provider";

@@ -1,6 +1,6 @@
 import { OpenAPIHono } from "@hono/zod-openapi";
-import { handleWhatsappMessage } from "@mimir/integration/whatsapp";
-import { getApiUrl } from "@mimir/utils/envs";
+import { handleWhatsappMessage } from "@nexus-app/integration/whatsapp";
+import { getApiUrl } from "@nexus-app/utils/envs";
 import twilio from "twilio";
 
 const app = new OpenAPIHono();

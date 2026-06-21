@@ -11,7 +11,7 @@ import {
 	getShareableByResourceId,
 	getShareableResource,
 	upsertShareable,
-} from "@mimir/db/queries/shareable";
+} from "@nexus-app/db/queries/shareable";
 import { protectedProcedure, publicProcedure, router } from "../init";
 
 export const shareableRouter = router({

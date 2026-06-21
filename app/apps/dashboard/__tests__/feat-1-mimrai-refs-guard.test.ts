@@ -8,11 +8,11 @@
  * Excluded from scan:
  *   - node_modules, .next, dist, build, .turbo, bun.lock, .pre-nexus* dirs
  *   - mimrai-pg-data docker volume name (intentionally kept)
- *   - @mimir/ package scope (intentionally kept)
+ *   - @nexus-app/ package scope (intentionally kept)
  *
  * Patterns matched:
  *   (a) MIMRAI_LOCAL_DEV  or  NEXT_PUBLIC_MIMRAI_LOCAL_DEV  (exact token)
- *   (b) /Users/john.keeney/mimrai  path prefix (but NOT mimrai-pg-data or @mimir/)
+ *   (b) /Users/john.keeney/mimrai  path prefix (but NOT mimrai-pg-data or @nexus-app/)
  */
 
 import { readdirSync, readFileSync } from "node:fs";
@@ -31,7 +31,7 @@ const ENV_VAR_RE =
  * Matches the absolute path prefix /Users/john.keeney/mimrai (with or without
  * a trailing slash or path segment) but NOT:
  *   - mimrai-pg-data  (docker volume, intentionally kept)
- *   - @mimir/         (package scope, intentionally kept)
+ *   - @nexus-app/         (package scope, intentionally kept)
  *
  * Strategy: match /Users/john.keeney/mimrai and then require the next char (if
  * any) to be '/' or end-of-token — but explicitly exclude the "-pg-data" suffix.

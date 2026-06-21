@@ -1,7 +1,7 @@
-import { getActivityById } from "@mimir/db/queries/activities";
-import type { notificationChannels } from "@mimir/db/queries/notification-settings";
-import { getUserById } from "@mimir/db/queries/users";
-import { sendNotification } from "@mimir/notifications";
+import { getActivityById } from "@nexus-app/db/queries/activities";
+import type { notificationChannels } from "@nexus-app/db/queries/notification-settings";
+import { getUserById } from "@nexus-app/db/queries/users";
+import { sendNotification } from "@nexus-app/notifications";
 import { defineJob } from "../../init";
 
 export const sendNotificationJob = defineJob({

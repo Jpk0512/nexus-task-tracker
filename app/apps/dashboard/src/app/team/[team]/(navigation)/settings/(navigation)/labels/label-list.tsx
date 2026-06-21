@@ -1,13 +1,13 @@
 "use client";
-import { t } from "@mimir/locale";
-import { Button } from "@mimir/ui/button";
+import { t } from "@nexus-app/locale";
+import { Button } from "@nexus-app/ui/button";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
 	DropdownMenuTrigger,
-} from "@mimir/ui/dropdown-menu";
-import { LabelBadge } from "@mimir/ui/label-badge";
+} from "@nexus-app/ui/dropdown-menu";
+import { LabelBadge } from "@nexus-app/ui/label-badge";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { cn } from "@ui/lib/utils";
 import { EllipsisIcon, PlusIcon, TagsIcon } from "lucide-react";
@@ -19,7 +19,7 @@ import { queryClient, trpc } from "@/utils/trpc";
 export const LabelList = () => {
 	const { team } = useParams<{ team: string }>();
 	const { setParams } = useLabelParams();
-	// taskCount is wired through the DB query in @mimir/db/queries/labels —
+	// taskCount is wired through the DB query in @nexus-app/db/queries/labels —
 	// `count(labelsOnTasks.taskId)` already returns the real assignment count.
 	// We keep it here and additionally hot-link the chip to a filtered
 	// /tasks?label=<id> view so a "12 tasks" badge becomes navigable.

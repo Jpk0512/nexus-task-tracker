@@ -5,7 +5,7 @@ import {
 	getZenQueue,
 	updateLastZenModeAt,
 	updateZenModeSettings,
-} from "@mimir/db/queries/zen";
+} from "@nexus-app/db/queries/zen";
 import z from "zod";
 import { protectedProcedure, router } from "../init";
 

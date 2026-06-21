@@ -1,7 +1,7 @@
 "use client";
 
-import { Table } from "@mimir/ui/table";
-import { getAppUrl } from "@mimir/utils/envs";
+import { Table } from "@nexus-app/ui/table";
+import { getAppUrl } from "@nexus-app/utils/envs";
 import Link from "next/link";
 import { type ComponentProps, memo } from "react";
 import { Streamdown } from "streamdown";

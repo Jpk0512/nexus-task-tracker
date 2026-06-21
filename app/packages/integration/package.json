@@ -1,5 +1,5 @@
 {
-	"name": "@mimir/integration",
+	"name": "@nexus-app/integration",
 	"version": "0.0.1",
 	"private": true,
 	"scripts": {
@@ -22,11 +22,11 @@
 	"dependencies": {
 		"@ai-sdk/openai": "3.0.23",
 		"@mattermost/client": "^10.12.0",
-		"@mimir/storage": "workspace:*",
-		"@mimir/cache": "workspace:*",
-		"@mimir/db": "workspace:*",
-		"@mimir/events": "workspace:*",
-		"@mimir/utils": "workspace:*",
+		"@nexus-app/storage": "workspace:*",
+		"@nexus-app/cache": "workspace:*",
+		"@nexus-app/db": "workspace:*",
+		"@nexus-app/events": "workspace:*",
+		"@nexus-app/utils": "workspace:*",
 		"@slack/bolt": "^4.6.0",
 		"ai": "6.0.64",
 		"date-fns": "^4.1.0",
@@ -40,7 +40,7 @@
 	},
 	"devDependencies": {
 		"@mattermost/types": "^10.12.0",
-		"@mimir/tsconfig": "workspace:*",
+		"@nexus-app/tsconfig": "workspace:*",
 		"@types/bun": "latest",
 		"@types/mime-types": "^3.0.1",
 		"@types/redis": "^4.0.11",

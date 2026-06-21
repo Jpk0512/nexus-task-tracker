@@ -1,5 +1,5 @@
-import { teamCache } from "@mimir/cache/teams-cache";
-import { generateTeamPrefix, generateTeamSlug } from "@mimir/utils/teams";
+import { teamCache } from "@nexus-app/cache/teams-cache";
+import { generateTeamPrefix, generateTeamSlug } from "@nexus-app/utils/teams";
 import { and, eq, ilike, isNull, ne, not, or, type SQL } from "drizzle-orm";
 import { union } from "drizzle-orm/pg-core";
 import { db } from "..";

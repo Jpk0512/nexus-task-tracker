@@ -1,14 +1,14 @@
 "use client";
 
-import { t } from "@mimir/locale";
-import { Button } from "@mimir/ui/button";
+import { t } from "@nexus-app/locale";
+import { Button } from "@nexus-app/ui/button";
 import {
 	Card,
 	CardContent,
 	CardDescription,
 	CardHeader,
 	CardTitle,
-} from "@mimir/ui/card";
+} from "@nexus-app/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { IntegrationIcon } from "@/components/integrations/integration-icon";

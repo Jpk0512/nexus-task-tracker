@@ -1,12 +1,12 @@
 "use client";
 
-import { Button } from "@mimir/ui/button";
+import { Button } from "@nexus-app/ui/button";
 import {
 	Tooltip,
 	TooltipContent,
 	TooltipProvider,
 	TooltipTrigger,
-} from "@mimir/ui/tooltip";
+} from "@nexus-app/ui/tooltip";
 import type { ComponentProps } from "react";
 import { cn } from "@/lib/utils";
 

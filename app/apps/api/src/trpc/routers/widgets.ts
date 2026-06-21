@@ -6,7 +6,7 @@ import {
 	getTasksCompletionRate,
 	getTasksSummaryByMember,
 	getTasksTodo,
-} from "@mimir/db/queries/tasks-analytics";
+} from "@nexus-app/db/queries/tasks-analytics";
 
 export const widgetsRouter = router({
 	tasksBurnup: protectedProcedure

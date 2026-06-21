@@ -10,7 +10,7 @@ import {
 	AlertDialogHeader,
 	AlertDialogTitle,
 	AlertDialogTrigger,
-} from "@mimir/ui/alert-dialog";
+} from "@nexus-app/ui/alert-dialog";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Alert, AlertDescription, AlertTitle } from "@ui/components/ui/alert";
 import { Badge } from "@ui/components/ui/badge";

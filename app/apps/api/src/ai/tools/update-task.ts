@@ -1,5 +1,5 @@
-import { getTaskById, updateTask } from "@mimir/db/queries/tasks";
-import { syncRecurringTaskSchedule } from "@mimir/jobs/tasks/create-recurring-task-job";
+import { getTaskById, updateTask } from "@nexus-app/db/queries/tasks";
+import { syncRecurringTaskSchedule } from "@nexus-app/jobs/tasks/create-recurring-task-job";
 import { tool } from "ai";
 import z from "zod";
 import { getToolContext } from "../agents/config/shared";

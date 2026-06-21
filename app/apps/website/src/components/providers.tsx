@@ -1,6 +1,6 @@
 "use client";
 
-import { Toaster } from "@mimir/ui/sonner";
+import { Toaster } from "@nexus-app/ui/sonner";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { queryClient } from "@/utils/trpc";

@@ -1,10 +1,10 @@
-import { teamCache } from "@mimir/cache/teams-cache";
-import { userCache } from "@mimir/cache/users-cache";
+import { teamCache } from "@nexus-app/cache/teams-cache";
+import { userCache } from "@nexus-app/cache/users-cache";
 import {
 	getAvailableTeams,
 	getUserById,
 	switchTeam,
-} from "@mimir/db/queries/users";
+} from "@nexus-app/db/queries/users";
 import type { Context as HonoContext } from "hono";
 import { auth } from "./auth";
 import { roleScopes } from "./scopes";

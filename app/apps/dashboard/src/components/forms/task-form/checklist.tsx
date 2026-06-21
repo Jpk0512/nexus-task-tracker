@@ -1,26 +1,26 @@
 "use client";
-import { Button } from "@mimir/ui/button";
-import { Checkbox } from "@mimir/ui/checkbox";
+import { Button } from "@nexus-app/ui/button";
+import { Checkbox } from "@nexus-app/ui/checkbox";
 import {
 	ContextMenu,
 	ContextMenuContent,
 	ContextMenuItem,
 	ContextMenuTrigger,
-} from "@mimir/ui/context-menu";
-import { DataSelectInput } from "@mimir/ui/data-select-input";
+} from "@nexus-app/ui/context-menu";
+import { DataSelectInput } from "@nexus-app/ui/data-select-input";
 import {
 	Dialog,
 	DialogContent,
 	DialogTitle,
 	DialogTrigger,
-} from "@mimir/ui/dialog";
+} from "@nexus-app/ui/dialog";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
 	DropdownMenuTrigger,
-} from "@mimir/ui/dropdown-menu";
-import { Form, FormControl, FormField, FormItem } from "@mimir/ui/form";
+} from "@nexus-app/ui/dropdown-menu";
+import { Form, FormControl, FormField, FormItem } from "@nexus-app/ui/form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
 	Collapsible,

@@ -3,10 +3,10 @@ import {
 	cancelPullRequestPlan,
 	getConnectedRepositoryByRepoId,
 	getPullRequestPlanById,
-} from "@mimir/db/queries/github";
-import { getIntegrationById } from "@mimir/db/queries/integrations";
-import { switchTeam } from "@mimir/db/queries/users";
-import { getAppUrl } from "@mimir/utils/envs";
+} from "@nexus-app/db/queries/github";
+import { getIntegrationById } from "@nexus-app/db/queries/integrations";
+import { switchTeam } from "@nexus-app/db/queries/users";
+import { getAppUrl } from "@nexus-app/utils/envs";
 import { Octokit } from "octokit";
 import type { Context } from "../types";
 

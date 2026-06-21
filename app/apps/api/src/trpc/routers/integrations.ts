@@ -21,13 +21,13 @@ import {
 	uninstallIntegration,
 	updateIntegration,
 	updateLinkedUser,
-} from "@mimir/db/queries/integrations";
-import { getCurrentUser } from "@mimir/db/queries/users";
+} from "@nexus-app/db/queries/integrations";
+import { getCurrentUser } from "@nexus-app/db/queries/users";
 import {
 	type IntegrationName,
 	integrationsRegistry,
-} from "@mimir/integration/registry";
-import { validateIntegration } from "@mimir/integration/validate";
+} from "@nexus-app/integration/registry";
+import { validateIntegration } from "@nexus-app/integration/validate";
 import z from "zod";
 
 export const integrationsRouter = router({

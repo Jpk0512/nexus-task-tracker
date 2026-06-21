@@ -1,5 +1,5 @@
 "use client";
-import type { RouterInputs, RouterOutputs } from "@mimir/trpc";
+import type { RouterInputs, RouterOutputs } from "@nexus-app/trpc";
 import {
 	type UseMutateFunction,
 	useMutation,

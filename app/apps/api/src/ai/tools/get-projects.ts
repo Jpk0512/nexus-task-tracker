@@ -1,5 +1,5 @@
-import { getProjects } from "@mimir/db/queries/projects";
-import { getAppUrl } from "@mimir/utils/envs";
+import { getProjects } from "@nexus-app/db/queries/projects";
+import { getAppUrl } from "@nexus-app/utils/envs";
 import { tool } from "ai";
 import z from "zod";
 import { getToolContext } from "../agents/config/shared";

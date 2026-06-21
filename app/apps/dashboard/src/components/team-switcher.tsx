@@ -1,14 +1,14 @@
 "use client";
-import { useLocaleStore } from "@mimir/locale";
-import { Avatar, AvatarFallback } from "@mimir/ui/avatar";
+import { useLocaleStore } from "@nexus-app/locale";
+import { Avatar, AvatarFallback } from "@nexus-app/ui/avatar";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
-} from "@mimir/ui/dropdown-menu";
-import { Kbd, KbdGroup } from "@mimir/ui/kbd";
+} from "@nexus-app/ui/dropdown-menu";
+import { Kbd, KbdGroup } from "@nexus-app/ui/kbd";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ChevronsUpDownIcon, PlusIcon } from "lucide-react";
 import Link from "next/link";

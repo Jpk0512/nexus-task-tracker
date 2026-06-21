@@ -1,6 +1,6 @@
 "use client";
 
-import { recurrenceEditorToCron } from "@mimir/utils/recurrence";
+import { recurrenceEditorToCron } from "@nexus-app/utils/recurrence";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type { Editor as EditorInstance } from "@tiptap/react";
 import { Button } from "@ui/components/ui/button";

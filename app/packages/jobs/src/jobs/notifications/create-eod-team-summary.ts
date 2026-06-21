@@ -1,13 +1,13 @@
 import { TZDate } from "@date-fns/tz";
-import { createActivity } from "@mimir/db/queries/activities";
-import { getMimirUser } from "@mimir/db/queries/users";
+import { createActivity } from "@nexus-app/db/queries/activities";
+import { getMimirUser } from "@nexus-app/db/queries/users";
 import {
 	activities,
 	autopilotSettings,
 	statuses,
 	tasks,
 	teams,
-} from "@mimir/db/schema";
+} from "@nexus-app/db/schema";
 import { generateText } from "ai";
 import { startOfDay } from "date-fns";
 import { and, desc, eq, gte, lte } from "drizzle-orm";

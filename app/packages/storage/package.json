@@ -1,5 +1,5 @@
 {
-	"name": "@mimir/storage",
+	"name": "@nexus-app/storage",
 	"private": true,
 	"version": "0.0.1",
 	"exports": {
@@ -10,7 +10,7 @@
 		"typecheck": "tsc --noEmit"
 	},
 	"devDependencies": {
-		"@mimir/tsconfig": "workspace:*",
+		"@nexus-app/tsconfig": "workspace:*",
 		"typescript": "^5.9.2"
 	}
 }

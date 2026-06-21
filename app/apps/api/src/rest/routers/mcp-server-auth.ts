@@ -1,13 +1,13 @@
 import { OpenAPIHono } from "@hono/zod-openapi";
-import { db } from "@mimir/db/client";
-import { getMcpServerById } from "@mimir/db/queries/mcp-servers";
-import { getTeamById } from "@mimir/db/queries/teams";
+import { db } from "@nexus-app/db/client";
+import { getMcpServerById } from "@nexus-app/db/queries/mcp-servers";
+import { getTeamById } from "@nexus-app/db/queries/teams";
 import {
 	integrationUserLink,
 	type McpServerConfig,
 	session,
-} from "@mimir/db/schema";
-import { getApiUrl, getAppUrl } from "@mimir/utils/envs";
+} from "@nexus-app/db/schema";
+import { getApiUrl, getAppUrl } from "@nexus-app/utils/envs";
 import { eq } from "drizzle-orm";
 import type { Context } from "../types";
 

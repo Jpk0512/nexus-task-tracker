@@ -1,5 +1,5 @@
 import { openai } from "@ai-sdk/openai";
-import { statusTypeEnum } from "@mimir/db/schema";
+import { statusTypeEnum } from "@nexus-app/db/schema";
 import { generateObject } from "ai";
 import z from "zod";
 

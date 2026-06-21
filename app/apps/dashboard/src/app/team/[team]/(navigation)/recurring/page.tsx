@@ -1,6 +1,6 @@
 "use client";
 
-import { cronToRecurrenceEditor } from "@mimir/utils/recurrence";
+import { cronToRecurrenceEditor } from "@nexus-app/utils/recurrence";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Skeleton } from "@ui/components/ui/skeleton";
 import { CalendarSyncIcon } from "lucide-react";

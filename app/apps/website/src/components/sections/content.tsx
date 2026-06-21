@@ -1,4 +1,4 @@
-import { Tooltip, TooltipContent, TooltipTrigger } from "@mimir/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@nexus-app/ui/tooltip";
 import Image from "next/image";
 import { ChatWidgetWithoutMimir } from "../chat-widget";
 

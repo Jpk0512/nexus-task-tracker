@@ -1,5 +1,5 @@
-import { createMilestone } from "@mimir/db/queries/milestones";
-import { getAppUrl } from "@mimir/utils/envs";
+import { createMilestone } from "@nexus-app/db/queries/milestones";
+import { getAppUrl } from "@nexus-app/utils/envs";
 import { tool } from "ai";
 import z from "zod";
 import { getToolContext } from "../agents/config/shared";

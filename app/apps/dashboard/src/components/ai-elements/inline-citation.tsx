@@ -1,17 +1,17 @@
 "use client";
 
-import { Badge } from "@mimir/ui/badge";
+import { Badge } from "@nexus-app/ui/badge";
 import {
 	Carousel,
 	type CarouselApi,
 	CarouselContent,
 	CarouselItem,
-} from "@mimir/ui/carousel";
+} from "@nexus-app/ui/carousel";
 import {
 	HoverCard,
 	HoverCardContent,
 	HoverCardTrigger,
-} from "@mimir/ui/hover-card";
+} from "@nexus-app/ui/hover-card";
 import { ArrowLeftIcon, ArrowRightIcon } from "lucide-react";
 import {
 	type ComponentProps,

@@ -14,7 +14,7 @@ import {
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { extractLinks, resolveLinks } from "@api/lib/wiki-link-parser";
 import { protectedProcedure, router } from "@api/trpc/init";
-import { db } from "@mimir/db/client";
+import { db } from "@nexus-app/db/client";
 import { TRPCError } from "@trpc/server";
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { boolean, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";

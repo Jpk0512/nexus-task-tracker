@@ -5,7 +5,7 @@ import {
 	type IntegrationRegistryItem,
 	integrationsRegistry,
 } from "@integration/registry";
-import { integrationsCache } from "@mimir/cache/integrations-cache";
+import { integrationsCache } from "@nexus-app/cache/integrations-cache";
 import { and, desc, eq, type SQL } from "drizzle-orm";
 import { db } from "../index";
 import {

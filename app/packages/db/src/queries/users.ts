@@ -1,4 +1,4 @@
-import { AGENT_DEFAULT_MODEL } from "@mimir/utils/agents";
+import { AGENT_DEFAULT_MODEL } from "@nexus-app/utils/agents";
 import { and, eq, ilike, type SQL } from "drizzle-orm";
 import { db } from "..";
 import { agents, teams, users, usersOnTeams } from "../schema";

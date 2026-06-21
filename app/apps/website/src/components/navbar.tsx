@@ -1,5 +1,5 @@
 "use client";
-import { getAppUrl } from "@mimir/utils/envs";
+import { getAppUrl } from "@nexus-app/utils/envs";
 import { Button } from "@ui/components/ui/button";
 import { GithubIcon, Menu, X } from "lucide-react";
 import Link from "next/link";

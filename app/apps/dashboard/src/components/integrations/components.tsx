@@ -1,6 +1,6 @@
 "use client";
-import type { IntegrationName } from "@mimir/integration/registry";
-import type { RouterOutputs } from "@mimir/trpc";
+import type { IntegrationName } from "@nexus-app/integration/registry";
+import type { RouterOutputs } from "@nexus-app/trpc";
 import { useQuery } from "@tanstack/react-query";
 import { Alert, AlertDescription } from "@ui/components/ui/alert";
 import { trpc } from "@/utils/trpc";

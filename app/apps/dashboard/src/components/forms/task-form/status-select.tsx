@@ -1,6 +1,6 @@
-import type { RouterOutputs } from "@mimir/trpc";
-import { DataSelectInput } from "@mimir/ui/data-select-input";
-import { FormControl, FormField, FormItem } from "@mimir/ui/form";
+import type { RouterOutputs } from "@nexus-app/trpc";
+import { DataSelectInput } from "@nexus-app/ui/data-select-input";
+import { FormControl, FormField, FormItem } from "@nexus-app/ui/form";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { useFormContext, useWatch } from "react-hook-form";

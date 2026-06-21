@@ -1,4 +1,4 @@
-import { createTaskComment } from "@mimir/db/queries/tasks";
+import { createTaskComment } from "@nexus-app/db/queries/tasks";
 import { tool } from "ai";
 import z from "zod";
 import { getToolContext } from "../agents/config/shared";

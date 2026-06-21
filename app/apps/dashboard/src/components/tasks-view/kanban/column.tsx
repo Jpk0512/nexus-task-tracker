@@ -1,7 +1,7 @@
 "use client";
 
-import { Button } from "@mimir/ui/button";
-import * as Kanban from "@mimir/ui/kanban";
+import { Button } from "@nexus-app/ui/button";
+import * as Kanban from "@nexus-app/ui/kanban";
 import { Badge } from "@ui/components/ui/badge";
 import { Minimize2Icon, PlusIcon } from "lucide-react";
 import type { GenericGroup } from "@/components/tasks-view/tasks-group";

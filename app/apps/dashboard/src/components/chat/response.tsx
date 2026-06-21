@@ -1,6 +1,6 @@
 "use client";
 
-import { Table } from "@mimir/ui/table";
+import { Table } from "@nexus-app/ui/table";
 import Link from "next/link";
 import { type ComponentProps, memo } from "react";
 import { Streamdown } from "streamdown";

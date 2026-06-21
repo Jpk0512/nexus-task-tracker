@@ -1,5 +1,5 @@
 "use client";
-import { Avatar, AvatarFallback } from "@mimir/ui/avatar";
+import { Avatar, AvatarFallback } from "@nexus-app/ui/avatar";
 import { AnimatePresence, motion, stagger } from "motion/react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";

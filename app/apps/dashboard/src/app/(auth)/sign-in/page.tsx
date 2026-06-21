@@ -1,4 +1,4 @@
-import { getWebsiteUrl } from "@mimir/utils/envs";
+import { getWebsiteUrl } from "@nexus-app/utils/envs";
 import { Button } from "@ui/components/ui/button";
 import { ChevronLeftIcon } from "lucide-react";
 import Image from "next/image";

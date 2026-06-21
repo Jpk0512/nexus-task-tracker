@@ -1,5 +1,5 @@
 "use client";
-import { Skeleton } from "@mimir/ui/skeleton";
+import { Skeleton } from "@nexus-app/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
 import { TaskForm } from "@/components/forms/task-form/form";
 import { trpc } from "@/utils/trpc";

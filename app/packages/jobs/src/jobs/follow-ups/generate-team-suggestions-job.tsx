@@ -1,6 +1,6 @@
 import { TZDate } from "@date-fns/tz";
-import { createTaskSuggestion } from "@mimir/db/queries/tasks-suggestions";
-import { autopilotSettings, statuses, tasks, teams } from "@mimir/db/schema";
+import { createTaskSuggestion } from "@nexus-app/db/queries/tasks-suggestions";
+import { autopilotSettings, statuses, tasks, teams } from "@nexus-app/db/schema";
 import { and, arrayContains, eq, isNull, lte, not, or, sql } from "drizzle-orm";
 import { defineJob, getDb, logger } from "../../init";
 

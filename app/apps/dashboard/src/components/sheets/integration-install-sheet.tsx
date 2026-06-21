@@ -1,6 +1,6 @@
 "use client";
-import type { IntegrationName } from "@mimir/integration/registry";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@mimir/ui/sheet";
+import type { IntegrationName } from "@nexus-app/integration/registry";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@nexus-app/ui/sheet";
 import { useQuery } from "@tanstack/react-query";
 import { useIntegrationParams } from "@/hooks/use-integration-params";
 import { trpc } from "@/utils/trpc";

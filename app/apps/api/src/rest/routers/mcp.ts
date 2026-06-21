@@ -1,8 +1,8 @@
 import { auth } from "@api/lib/auth";
 import { StreamableHTTPTransport } from "@hono/mcp";
 import { OpenAPIHono } from "@hono/zod-openapi";
-import { db } from "@mimir/db/client";
-import { users } from "@mimir/db/schema";
+import { db } from "@nexus-app/db/client";
+import { users } from "@nexus-app/db/schema";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { eq } from "drizzle-orm";
 import { checkMcpRateLimit } from "../../ai/mcp/rate-limit";

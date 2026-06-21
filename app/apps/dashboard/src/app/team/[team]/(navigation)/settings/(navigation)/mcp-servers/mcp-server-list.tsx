@@ -10,22 +10,22 @@ import {
 	AlertDialogHeader,
 	AlertDialogTitle,
 	AlertDialogTrigger,
-} from "@mimir/ui/alert-dialog";
-import { Badge } from "@mimir/ui/badge";
-import { Button } from "@mimir/ui/button";
+} from "@nexus-app/ui/alert-dialog";
+import { Badge } from "@nexus-app/ui/badge";
+import { Button } from "@nexus-app/ui/button";
 import {
 	Card,
 	CardContent,
 	CardDescription,
 	CardHeader,
 	CardTitle,
-} from "@mimir/ui/card";
+} from "@nexus-app/ui/card";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
 	DropdownMenuTrigger,
-} from "@mimir/ui/dropdown-menu";
+} from "@nexus-app/ui/dropdown-menu";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
 	EllipsisIcon,

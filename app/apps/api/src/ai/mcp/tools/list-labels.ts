@@ -1,4 +1,4 @@
-import { getLabels } from "@mimir/db/queries/labels";
+import { getLabels } from "@nexus-app/db/queries/labels";
 import type { MimraiMcpServer } from "../server";
 import type { McpContext } from "./build-mcp";
 import { hasScope, ListLabelsInputSchema } from "./schemas";

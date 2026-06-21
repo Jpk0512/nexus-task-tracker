@@ -2,7 +2,7 @@
 // notes, variable extraction, and version bump-on-save semantics.
 
 import { protectedProcedure, router } from "@api/trpc/init";
-import { db } from "@mimir/db/client";
+import { db } from "@nexus-app/db/client";
 import { TRPCError } from "@trpc/server";
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 import {

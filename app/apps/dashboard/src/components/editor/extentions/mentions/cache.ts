@@ -1,4 +1,4 @@
-import type { RouterOutputs } from "@mimir/trpc";
+import type { RouterOutputs } from "@nexus-app/trpc";
 import { queryClient, trpc } from "@/utils/trpc";
 
 type TaskListResult = RouterOutputs["tasks"]["get"];

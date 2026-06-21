@@ -1,18 +1,18 @@
 "use client";
 
-import { Button } from "@mimir/ui/button";
+import { Button } from "@nexus-app/ui/button";
 import {
 	Collapsible,
 	CollapsibleContent,
 	CollapsibleTrigger,
-} from "@mimir/ui/collapsible";
-import { Input } from "@mimir/ui/input";
+} from "@nexus-app/ui/collapsible";
+import { Input } from "@nexus-app/ui/input";
 import {
 	Tooltip,
 	TooltipContent,
 	TooltipProvider,
 	TooltipTrigger,
-} from "@mimir/ui/tooltip";
+} from "@nexus-app/ui/tooltip";
 import { ChevronDownIcon } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
 import { createContext, useContext, useEffect, useState } from "react";

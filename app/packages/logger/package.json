@@ -1,5 +1,5 @@
 {
-	"name": "@mimir/logger",
+	"name": "@nexus-app/logger",
 	"version": "0.0.0",
 	"private": true,
 	"type": "module",
@@ -10,7 +10,7 @@
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
-		"@mimir/tsconfig": "workspace:*",
+		"@nexus-app/tsconfig": "workspace:*",
 		"pino": "^9.11.0",
 		"pino-pretty": "^13.1.1"
 	},

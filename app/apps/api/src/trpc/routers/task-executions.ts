@@ -3,7 +3,7 @@ import { protectedProcedure, router } from "@api/trpc/init";
 import {
 	getTaskExecutionByTaskId,
 	getTaskExecutionLogs,
-} from "@mimir/db/queries/task-executions";
+} from "@nexus-app/db/queries/task-executions";
 
 export const taskExecutionsRouter = router({
 	getByTaskId: protectedProcedure

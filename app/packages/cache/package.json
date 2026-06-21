@@ -1,5 +1,5 @@
 {
-	"name": "@mimir/cache",
+	"name": "@nexus-app/cache",
 	"version": "0.0.1",
 	"private": true,
 	"scripts": {
@@ -18,8 +18,8 @@
 		"./system-user-cache": "./src/system-user-cache.ts"
 	},
 	"dependencies": {
-		"@mimir/tsconfig": "workspace:*",
-		"@mimir/utils": "workspace:*",
+		"@nexus-app/tsconfig": "workspace:*",
+		"@nexus-app/utils": "workspace:*",
 		"@types/redis": "^4.0.11",
 		"redis": "^5.8.2",
 		"redlock-universal": "^0.6.3"

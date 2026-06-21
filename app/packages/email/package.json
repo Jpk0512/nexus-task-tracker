@@ -1,5 +1,5 @@
 {
-	"name": "@mimir/email",
+	"name": "@nexus-app/email",
 	"version": "1.0.0",
 	"private": true,
 	"exports": {
@@ -16,8 +16,8 @@
 		"start": "email start"
 	},
 	"dependencies": {
-		"@mimir/utils": "workspace:*",
-		"@mimir/tsconfig": "workspace:*",
+		"@nexus-app/utils": "workspace:*",
+		"@nexus-app/tsconfig": "workspace:*",
 		"@react-email/components": "1.0.1",
 		"@react-email/render": "2.0.0",
 		"@react-email/tailwind": "2.0.1",

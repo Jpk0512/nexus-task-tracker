@@ -1,5 +1,5 @@
 {
-	"extends": "@mimir/tsconfig/base.json",
+	"extends": "@nexus-app/tsconfig/base.json",
 	"include": ["emails", "components"],
 	"exclude": ["**/node_modules", "**/.*/", ".react-email"],
 	"compilerOptions": {

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { UIChatMessage } from "@api/ai/types";
 import type { IntegrationConfig, IntegrationName } from "@integration/registry";
-import { randomColor } from "@mimir/utils/random";
+import { randomColor } from "@nexus-app/utils/random";
 import { type SQL, sql } from "drizzle-orm";
 import {
 	bigint,

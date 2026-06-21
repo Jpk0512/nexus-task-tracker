@@ -1,7 +1,7 @@
 "use client";
 
-import { Button } from "@mimir/ui/button";
-import { ScrollArea, ScrollBar } from "@mimir/ui/scroll-area";
+import { Button } from "@nexus-app/ui/button";
+import { ScrollArea, ScrollBar } from "@nexus-app/ui/scroll-area";
 import type { ComponentProps } from "react";
 import { cn } from "@/lib/utils";
 

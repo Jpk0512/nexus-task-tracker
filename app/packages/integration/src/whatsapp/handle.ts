@@ -3,15 +3,15 @@ import { buildAppContext } from "@api/ai/agents/config/shared";
 import { messagingAgent } from "@api/ai/agents/messaging";
 import type { UIChatMessage } from "@api/ai/types";
 import { getUserContext } from "@api/ai/utils/get-user-context";
-import { getLinkedUserByExternalId } from "@mimir/db/queries/integrations";
+import { getLinkedUserByExternalId } from "@nexus-app/db/queries/integrations";
 import {
 	getAvailableTeams,
 	getUserById,
 	switchTeam,
-} from "@mimir/db/queries/users";
-import { trackMessage } from "@mimir/events/server";
-import { LocalDiskStorageAdapter } from "@mimir/storage";
-import { getApiUrl } from "@mimir/utils/envs";
+} from "@nexus-app/db/queries/users";
+import { trackMessage } from "@nexus-app/events/server";
+import { LocalDiskStorageAdapter } from "@nexus-app/storage";
+import { getApiUrl } from "@nexus-app/utils/envs";
 import { experimental_transcribe, type UIMessage } from "ai";
 import mime from "mime-types";
 import { Twilio, twiml } from "twilio";

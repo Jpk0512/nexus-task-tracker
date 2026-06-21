@@ -1,5 +1,5 @@
 "use client";
-import type { RouterOutputs } from "@mimir/trpc";
+import type { RouterOutputs } from "@nexus-app/trpc";
 import { createContext, useContext, useMemo } from "react";
 
 type User = RouterOutputs["users"]["getCurrent"];

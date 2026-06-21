@@ -1,6 +1,6 @@
 "use client";
 
-import { Form, FormControl, FormField, FormItem } from "@mimir/ui/form";
+import { Form, FormControl, FormField, FormItem } from "@nexus-app/ui/form";
 import { useMutation } from "@tanstack/react-query";
 import type { Editor as EditorInstance } from "@tiptap/react";
 import { FileTextIcon } from "lucide-react";

@@ -1,4 +1,4 @@
-import { createTask } from "@mimir/db/queries/tasks";
+import { createTask } from "@nexus-app/db/queries/tasks";
 import type { MimraiMcpServer } from "../server";
 import type { McpContext } from "./build-mcp";
 import { CreateTaskInputSchema, hasScope } from "./schemas";

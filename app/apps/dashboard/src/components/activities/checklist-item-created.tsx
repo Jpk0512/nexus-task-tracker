@@ -1,6 +1,6 @@
 "use client";
 
-import type { RouterOutputs } from "@mimir/trpc";
+import type { RouterOutputs } from "@nexus-app/trpc";
 import { formatRelative } from "date-fns";
 import { DotIcon } from "lucide-react";
 import { AssigneeAvatar } from "@/components/asignee-avatar";

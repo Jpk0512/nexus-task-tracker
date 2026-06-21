@@ -1,5 +1,5 @@
-import { getTeamById } from "@mimir/db/queries/teams";
-import { getUserById } from "@mimir/db/queries/users";
+import { getTeamById } from "@nexus-app/db/queries/teams";
+import { getUserById } from "@nexus-app/db/queries/users";
 import { HTTPException } from "hono/http-exception";
 import { type ChatUserContext, chatCache } from "../chat-cache";
 

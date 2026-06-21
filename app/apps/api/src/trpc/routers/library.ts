@@ -14,13 +14,13 @@ import {
 } from "node:fs";
 import { join, relative, resolve, sep } from "node:path";
 import { protectedProcedure, router } from "@api/trpc/init";
-import { db } from "@mimir/db/client";
+import { db } from "@nexus-app/db/client";
 import {
 	libraryEntries,
 	libraryEntryProjects,
 	libraryEntryTags,
 	librarySources,
-} from "@mimir/db/schema";
+} from "@nexus-app/db/schema";
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { pgTable, text, timestamp } from "drizzle-orm/pg-core";

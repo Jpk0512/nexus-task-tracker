@@ -1,4 +1,4 @@
-import { sendSmtpEmail } from "@mimir/integration/smtp";
+import { sendSmtpEmail } from "@nexus-app/integration/smtp";
 import { tool } from "ai";
 import z from "zod";
 import { getToolContext } from "../agents/config/shared";

@@ -1,5 +1,5 @@
 import { fileStorageAdapter } from "@api/lib/storage-factory";
-import { getTaskById, updateTask } from "@mimir/db/queries/tasks";
+import { getTaskById, updateTask } from "@nexus-app/db/queries/tasks";
 import { tool } from "ai";
 import z from "zod";
 import { getToolContext } from "../agents/config/shared";

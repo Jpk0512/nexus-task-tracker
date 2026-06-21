@@ -5,7 +5,7 @@ import {
 	DropdownMenuContent,
 	DropdownMenuItem,
 	DropdownMenuTrigger,
-} from "@mimir/ui/dropdown-menu";
+} from "@nexus-app/ui/dropdown-menu";
 import { cn } from "@ui/lib/utils";
 import { useAgents } from "@/hooks/use-data";
 import { useChatStore } from "@/store/chat";

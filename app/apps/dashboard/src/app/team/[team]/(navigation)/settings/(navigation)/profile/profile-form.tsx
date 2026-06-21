@@ -1,6 +1,6 @@
-import { t } from "@mimir/locale";
-import { LOCALES } from "@mimir/locale/constants";
-import { Button } from "@mimir/ui/button";
+import { t } from "@nexus-app/locale";
+import { LOCALES } from "@nexus-app/locale/constants";
+import { Button } from "@nexus-app/ui/button";
 import {
 	Form,
 	FormControl,
@@ -8,16 +8,16 @@ import {
 	FormItem,
 	FormLabel,
 	FormMessage,
-} from "@mimir/ui/form";
-import { Input } from "@mimir/ui/input";
+} from "@nexus-app/ui/form";
+import { Input } from "@nexus-app/ui/input";
 import {
 	Select,
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
-} from "@mimir/ui/select";
-import { getApiUrl } from "@mimir/utils/envs";
+} from "@nexus-app/ui/select";
+import { getApiUrl } from "@nexus-app/utils/envs";
 import { useMutation } from "@tanstack/react-query";
 import {
 	ImagePlusIcon,

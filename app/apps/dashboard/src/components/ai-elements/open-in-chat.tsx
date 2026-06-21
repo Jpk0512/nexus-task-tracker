@@ -1,4 +1,4 @@
-import { Button } from "@mimir/ui/button";
+import { Button } from "@nexus-app/ui/button";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -6,7 +6,7 @@ import {
 	DropdownMenuLabel,
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
-} from "@mimir/ui/dropdown-menu";
+} from "@nexus-app/ui/dropdown-menu";
 import {
 	ChevronDownIcon,
 	ExternalLinkIcon,

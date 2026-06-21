@@ -1,5 +1,5 @@
 "use client";
-import type { RouterOutputs } from "@mimir/trpc";
+import type { RouterOutputs } from "@nexus-app/trpc";
 import { ProjectIcon } from "@/components/project-icon";
 import { Response } from "../../chat/response";
 import { ProjectBoardShareable } from "./board";

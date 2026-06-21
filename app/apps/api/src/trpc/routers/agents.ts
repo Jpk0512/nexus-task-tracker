@@ -12,11 +12,11 @@ import {
 	updateAgentSchema,
 } from "@api/schemas/agents";
 import { protectedProcedure, router } from "@api/trpc/init";
-import { db } from "@mimir/db/client";
+import { db } from "@nexus-app/db/client";
 import {
 	deleteAgentMemory,
 	getAgentMemories,
-} from "@mimir/db/queries/agent-memories";
+} from "@nexus-app/db/queries/agent-memories";
 import {
 	addDocumentToAgent,
 	createAgent,
@@ -26,13 +26,13 @@ import {
 	getDocumentsForAgent,
 	removeDocumentFromAgent,
 	updateAgent,
-} from "@mimir/db/queries/agents";
-import { getMimirUser } from "@mimir/db/queries/users";
+} from "@nexus-app/db/queries/agents";
+import { getMimirUser } from "@nexus-app/db/queries/users";
 import {
 	formatToolName,
 	getModels,
 	HIDDEN_AGENT_INTEGRATIONS,
-} from "@mimir/utils/agents";
+} from "@nexus-app/utils/agents";
 import type { Tool } from "ai";
 import { and, desc, eq } from "drizzle-orm";
 import { pgTable, text, timestamp } from "drizzle-orm/pg-core";

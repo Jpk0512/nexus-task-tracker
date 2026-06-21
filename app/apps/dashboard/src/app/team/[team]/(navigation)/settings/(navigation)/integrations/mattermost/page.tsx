@@ -4,7 +4,7 @@ import {
 	CardDescription,
 	CardHeader,
 	CardTitle,
-} from "@mimir/ui/card";
+} from "@nexus-app/ui/card";
 import { notFound } from "next/navigation";
 import { IntegrationForm } from "@/components/integrations/components";
 import { UninstallIntegrationCard } from "@/components/integrations/uninstall-card";

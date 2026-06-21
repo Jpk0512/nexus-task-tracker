@@ -1,13 +1,13 @@
 "use client";
-import { Button } from "@mimir/ui/button";
+import { Button } from "@nexus-app/ui/button";
 import {
 	Command,
 	CommandGroup,
 	CommandInput,
 	CommandItem,
 	CommandList,
-} from "@mimir/ui/command";
-import { Popover, PopoverContent, PopoverTrigger } from "@mimir/ui/popover";
+} from "@nexus-app/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@nexus-app/ui/popover";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { EyeIcon, EyeOffIcon, PlusIcon } from "lucide-react";
 import { AssigneeAvatar } from "@/components/asignee-avatar";

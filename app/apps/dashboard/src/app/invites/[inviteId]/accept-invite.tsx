@@ -1,8 +1,8 @@
 "use client";
 
-import type { RouterOutputs } from "@mimir/trpc";
-import { Button } from "@mimir/ui/button";
-import { Card, CardContent } from "@mimir/ui/card";
+import type { RouterOutputs } from "@nexus-app/trpc";
+import { Button } from "@nexus-app/ui/button";
+import { Card, CardContent } from "@nexus-app/ui/card";
 import { useMutation } from "@tanstack/react-query";
 import { CheckCircleIcon, Loader2Icon } from "lucide-react";
 import { useRouter } from "next/navigation";

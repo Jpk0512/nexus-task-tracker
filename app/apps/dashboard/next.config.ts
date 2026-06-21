@@ -18,7 +18,7 @@ const nextConfig: NextConfig = {
 			"usehooks-ts",
 		],
 	},
-	transpilePackages: ["@mimir/ui"],
+	transpilePackages: ["@nexus-app/ui"],
 	images: {
 		dangerouslyAllowLocalIP: process.env.NODE_ENV !== "production",
 		remotePatterns: [

@@ -10,7 +10,7 @@ import {
 	PromptInputTextarea,
 	PromptInputToolbar,
 	PromptInputTools,
-} from "@mimir/ui/prompt-input-new";
+} from "@nexus-app/ui/prompt-input-new";
 import type { Editor as EditorInstance } from "@tiptap/react";
 import { useRef } from "react";
 import { useChatParams } from "@/hooks/use-chat-params";

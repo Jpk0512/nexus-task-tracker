@@ -1,7 +1,7 @@
 "use client";
-import { t } from "@mimir/locale";
-import { Card, CardContent, CardHeader, CardTitle } from "@mimir/ui/card";
-import { Skeleton } from "@mimir/ui/skeleton";
+import { t } from "@nexus-app/locale";
+import { Card, CardContent, CardHeader, CardTitle } from "@nexus-app/ui/card";
+import { Skeleton } from "@nexus-app/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
 import { TeamForm } from "@/components/forms/team-form";
 import { trpc } from "@/utils/trpc";

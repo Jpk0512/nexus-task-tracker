@@ -12,23 +12,23 @@ import {
 import { getAllTools } from "@api/ai/tools/tool-registry";
 import type { UIChatMessage } from "@api/ai/types";
 import { getUserContext } from "@api/ai/utils/get-user-context";
-import { createActivity, getActivities } from "@mimir/db/queries/activities";
-import { getAgentByUserId } from "@mimir/db/queries/agents";
+import { createActivity, getActivities } from "@nexus-app/db/queries/activities";
+import { getAgentByUserId } from "@nexus-app/db/queries/agents";
 import {
 	getChatById,
 	saveChat,
 	saveChatMessage,
-} from "@mimir/db/queries/chats";
-import { getChecklistItems } from "@mimir/db/queries/checklists";
+} from "@nexus-app/db/queries/chats";
+import { getChecklistItems } from "@nexus-app/db/queries/checklists";
 import {
 	addTaskExecutionUsageMetrics,
 	createTaskExecution,
 	getTaskExecutionByTaskId,
 	updateTaskExecution,
-} from "@mimir/db/queries/task-executions";
-import { createTaskComment, getTaskById } from "@mimir/db/queries/tasks";
-import { getTeamById } from "@mimir/db/queries/teams";
-import { getMimirUser } from "@mimir/db/queries/users";
+} from "@nexus-app/db/queries/task-executions";
+import { createTaskComment, getTaskById } from "@nexus-app/db/queries/tasks";
+import { getTeamById } from "@nexus-app/db/queries/teams";
+import { getMimirUser } from "@nexus-app/db/queries/users";
 import { convertToModelMessages, generateId, stepCountIs } from "ai";
 import { defineJob, logger } from "../../init";
 

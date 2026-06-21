@@ -1,5 +1,5 @@
 "use client";
-import { t } from "@mimir/locale";
+import { t } from "@nexus-app/locale";
 import {
 	BellIcon,
 	BotIcon,

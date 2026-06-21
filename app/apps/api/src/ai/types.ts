@@ -1,4 +1,4 @@
-import type { IntegrationName } from "@mimir/integration/registry";
+import type { IntegrationName } from "@nexus-app/integration/registry";
 import type { UIMessage } from "ai";
 import type { MessageDataParts } from "./tools/tool-registry";
 import type { ContextItem } from "./utils/format-context-items";

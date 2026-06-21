@@ -1,4 +1,4 @@
-import { randomColor } from "@mimir/utils/random";
+import { randomColor } from "@nexus-app/utils/random";
 import { motion } from "motion/react";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";

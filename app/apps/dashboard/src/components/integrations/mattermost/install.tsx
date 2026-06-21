@@ -1,6 +1,6 @@
 "use client";
-import { Alert, AlertDescription, AlertTitle } from "@mimir/ui/alert";
-import { Button } from "@mimir/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@nexus-app/ui/alert";
+import { Button } from "@nexus-app/ui/button";
 import {
 	Form,
 	FormControl,
@@ -8,8 +8,8 @@ import {
 	FormItem,
 	FormLabel,
 	FormMessage,
-} from "@mimir/ui/form";
-import { Input } from "@mimir/ui/input";
+} from "@nexus-app/ui/form";
+import { Input } from "@nexus-app/ui/input";
 import { useMutation } from "@tanstack/react-query";
 import { CheckCircle2Icon, Loader2Icon, XCircleIcon } from "lucide-react";
 import { useState } from "react";

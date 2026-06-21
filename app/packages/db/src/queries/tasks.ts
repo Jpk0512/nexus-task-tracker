@@ -1,5 +1,5 @@
-import type { MagicTaskAction } from "@mimir/utils/pr-reviews";
-import { getTaskPermalink } from "@mimir/utils/tasks";
+import type { MagicTaskAction } from "@nexus-app/utils/pr-reviews";
+import { getTaskPermalink } from "@nexus-app/utils/tasks";
 import { subDays } from "date-fns";
 import {
 	and,

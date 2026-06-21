@@ -1,5 +1,5 @@
 import { sendNotificationJob } from "@jobs/jobs/notifications/send-notification-job";
-import { getChannelName, realtime } from "@mimir/realtime";
+import { getChannelName, realtime } from "@nexus-app/realtime";
 import {
 	and,
 	desc,

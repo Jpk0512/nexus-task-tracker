@@ -1,13 +1,13 @@
 import { roleScopes } from "@api/lib/scopes";
 import { switchTeamSchema, updateUserProfileSchema } from "@api/schemas/users";
 import { protectedProcedure, router } from "@api/trpc/init";
-import { teamCache } from "@mimir/cache/teams-cache";
-import { userCache } from "@mimir/cache/users-cache";
+import { teamCache } from "@nexus-app/cache/teams-cache";
+import { userCache } from "@nexus-app/cache/users-cache";
 import {
 	getCurrentUser,
 	switchTeam,
 	updateUser,
-} from "@mimir/db/queries/users";
+} from "@nexus-app/db/queries/users";
 
 export const usersRouter = router({
 	getCurrent: protectedProcedure

@@ -11,7 +11,7 @@ import {
 	getProjectHealthUpdateById,
 	getProjectHealthUpdates,
 	updateProjectHealthUpdate,
-} from "@mimir/db/queries/project-health-updates";
+} from "@nexus-app/db/queries/project-health-updates";
 import z from "zod";
 
 export const projectHealthUpdatesRouter = router({

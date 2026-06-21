@@ -13,7 +13,7 @@ import {
 	getIntakeById,
 	getIntakes,
 	updateIntake,
-} from "@mimir/db/queries/intakes";
+} from "@nexus-app/db/queries/intakes";
 
 export const intakesRouter = router({
 	get: protectedProcedure

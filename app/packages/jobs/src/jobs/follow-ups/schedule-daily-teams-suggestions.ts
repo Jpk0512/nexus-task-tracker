@@ -1,5 +1,5 @@
 import { TZDate } from "@date-fns/tz";
-import { autopilotSettings, teams } from "@mimir/db/schema";
+import { autopilotSettings, teams } from "@nexus-app/db/schema";
 import { eq } from "drizzle-orm";
 import { defineJob, enqueue, getDb, logger, registerCron } from "../../init";
 import { generateTeamSuggestionsJob } from "./generate-team-suggestions-job";

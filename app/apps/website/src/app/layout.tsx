@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Noto_Sans_Runic } from "next/font/google";
 import Providers from "@/components/providers";
 import "../../index.css";
-import { Provider as OpenPanelProvider } from "@mimir/events/client";
+import { Provider as OpenPanelProvider } from "@nexus-app/events/client";
 import { Footer } from "@/components/footer";
 import { Navbar } from "@/components/navbar";
 

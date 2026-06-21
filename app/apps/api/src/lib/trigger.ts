@@ -1,2 +1,2 @@
-// Trigger.dev removed — local in-process scheduler in @mimir/jobs/init
+// Trigger.dev removed — local in-process scheduler in @nexus-app/jobs/init
 export const trigger: undefined = undefined;

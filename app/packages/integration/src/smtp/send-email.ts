@@ -1,7 +1,7 @@
 import {
 	getIntegrationByType,
 	getLinkedUserByUserId,
-} from "@mimir/db/queries/integrations";
+} from "@nexus-app/db/queries/integrations";
 import nodemailer from "nodemailer";
 
 interface SendSmtpEmailParams {

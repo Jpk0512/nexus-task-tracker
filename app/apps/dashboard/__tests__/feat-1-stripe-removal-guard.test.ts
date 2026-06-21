@@ -12,9 +12,9 @@
  *   3. payments.ts + stripe webhook + billing router + plan-feature imports DELETED
  *   4. billingRouter removed from routers/index.ts
  *   5. All stripeClient/billing calls removed from teams router + job types
- *   6. Gating replaced with open access (no @mimir/billing imports anywhere in app/)
+ *   6. Gating replaced with open access (no @nexus-app/billing imports anywhere in app/)
  *   7. Drizzle migration exists: drops credit_ledger + credit_balance + billing columns
- *   8. Guard: grep -rn stripeClient | @mimir/billing | new Stripe across app/ = 0 production refs
+ *   8. Guard: grep -rn stripeClient | @nexus-app/billing | new Stripe across app/ = 0 production refs
  *
  * Excluded from scans:
  *   - node_modules, .next, dist, build, .turbo, .pre-nexus* dirs
@@ -266,10 +266,10 @@ describe("TASK-006 Stripe removal guard", () => {
 	});
 
 	// ---------------------------------------------------------------------------
-	// 8. @mimir/billing removed from integration package.json
+	// 8. @nexus-app/billing removed from integration package.json
 	// ---------------------------------------------------------------------------
 
-	test("@mimir/billing dependency removed from app/packages/integration/package.json", () => {
+	test("@nexus-app/billing dependency removed from app/packages/integration/package.json", () => {
 		const pkgPath = join(APP_ROOT, "packages", "integration", "package.json");
 		const content = readFileSync(pkgPath, "utf8");
 		const pkg = JSON.parse(content) as {
@@ -277,17 +277,17 @@ describe("TASK-006 Stripe removal guard", () => {
 			devDependencies?: Record<string, string>;
 		};
 		const hasDep = Boolean(
-			pkg.dependencies?.["@mimir/billing"] ??
-				pkg.devDependencies?.["@mimir/billing"],
+			pkg.dependencies?.["@nexus-app/billing"] ??
+				pkg.devDependencies?.["@nexus-app/billing"],
 		);
 		expect(
 			hasDep,
-			`@mimir/billing still listed in ${relative(APP_ROOT, pkgPath)} — remove it`,
+			`@nexus-app/billing still listed in ${relative(APP_ROOT, pkgPath)} — remove it`,
 		).toBe(false);
 	});
 
 	// ---------------------------------------------------------------------------
-	// 9. Guard: zero stripeClient | @mimir/billing | new Stripe production refs in app/
+	// 9. Guard: zero stripeClient | @nexus-app/billing | new Stripe production refs in app/
 	//    (mirrors the acceptance criterion: grep -rn returns 0)
 	// ---------------------------------------------------------------------------
 
@@ -304,14 +304,14 @@ describe("TASK-006 Stripe removal guard", () => {
 		expect(hits, message).toHaveLength(0);
 	});
 
-	test("zero @mimir/billing import references across app/ production source", () => {
+	test("zero @nexus-app/billing import references across app/ production source", () => {
 		const BILLING_IMPORT_RE = /@mimir\/billing/;
 		const hits = scanForPattern(APP_ROOT, BILLING_IMPORT_RE);
 
 		const message =
 			hits.length === 0
 				? "No matches"
-				: `Found ${hits.length} file(s) with @mimir/billing references:\n` +
+				: `Found ${hits.length} file(s) with @nexus-app/billing references:\n` +
 					formatHits(hits);
 
 		expect(hits, message).toHaveLength(0);
@@ -352,7 +352,7 @@ describe("TASK-006 Stripe removal guard", () => {
 		).toBe(false);
 	});
 
-	test("app/apps/api/src/trpc/routers/teams.ts has no @mimir/billing imports", () => {
+	test("app/apps/api/src/trpc/routers/teams.ts has no @nexus-app/billing imports", () => {
 		const teamsPath = join(
 			APP_ROOT,
 			"apps",
@@ -366,11 +366,11 @@ describe("TASK-006 Stripe removal guard", () => {
 		const hasBilling = /@mimir\/billing/.test(content);
 		expect(
 			hasBilling,
-			"teams.ts still imports from @mimir/billing — remove checkLimit, createTrialSubscription, updateSubscriptionUsage imports and all call sites",
+			"teams.ts still imports from @nexus-app/billing — remove checkLimit, createTrialSubscription, updateSubscriptionUsage imports and all call sites",
 		).toBe(false);
 	});
 
-	test("agent job files have no @mimir/billing imports", () => {
+	test("agent job files have no @nexus-app/billing imports", () => {
 		const agentJobsDir = join(
 			APP_ROOT,
 			"..",
@@ -388,7 +388,7 @@ describe("TASK-006 Stripe removal guard", () => {
 		const message =
 			hits.length === 0
 				? "No matches"
-				: `Found ${hits.length} agent job file(s) with @mimir/billing references:\n` +
+				: `Found ${hits.length} agent job file(s) with @nexus-app/billing references:\n` +
 					formatHits(hits);
 
 		expect(hits, message).toHaveLength(0);

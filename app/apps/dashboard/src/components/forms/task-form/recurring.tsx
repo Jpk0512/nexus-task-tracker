@@ -1,7 +1,7 @@
 import {
 	cronToRecurrenceEditor,
 	recurrenceEditorToCron,
-} from "@mimir/utils/recurrence";
+} from "@nexus-app/utils/recurrence";
 import { PopoverClose } from "@radix-ui/react-popover";
 import { Button } from "@ui/components/ui/button";
 import { Calendar } from "@ui/components/ui/calendar";

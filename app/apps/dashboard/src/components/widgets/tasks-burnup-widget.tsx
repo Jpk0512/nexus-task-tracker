@@ -1,12 +1,12 @@
 "use client";
 import { UTCDate } from "@date-fns/utc";
-import { Card, CardContent } from "@mimir/ui/card";
+import { Card, CardContent } from "@nexus-app/ui/card";
 import {
 	type ChartConfig,
 	ChartContainer,
 	ChartTooltip,
 	ChartTooltipContent,
-} from "@mimir/ui/chart";
+} from "@nexus-app/ui/chart";
 import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@ui/components/ui/skeleton";
 import { format, sub } from "date-fns";

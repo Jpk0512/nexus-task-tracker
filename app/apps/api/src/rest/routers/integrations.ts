@@ -3,10 +3,10 @@ import {
 	associeteIntegrationUserSchema,
 } from "@api/schemas/integrations";
 import { OpenAPIHono } from "@hono/zod-openapi";
-import { db } from "@mimir/db/client";
-import { integrationUserLink } from "@mimir/db/schema";
-import { sendMattermostNotification } from "@mimir/integration/mattermost";
-import { sendWhatsappNotification } from "@mimir/integration/whatsapp";
+import { db } from "@nexus-app/db/client";
+import { integrationUserLink } from "@nexus-app/db/schema";
+import { sendMattermostNotification } from "@nexus-app/integration/mattermost";
+import { sendWhatsappNotification } from "@nexus-app/integration/whatsapp";
 import { and, eq, type SQL } from "drizzle-orm";
 import type { Context } from "../types";
 

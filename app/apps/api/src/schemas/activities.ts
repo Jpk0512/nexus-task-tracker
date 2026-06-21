@@ -1,4 +1,4 @@
-import { activityStatusEnum, activityTypeEnum } from "@mimir/db/schema";
+import { activityStatusEnum, activityTypeEnum } from "@nexus-app/db/schema";
 import z from "zod";
 
 export const getActivitiesSchema = z.object({

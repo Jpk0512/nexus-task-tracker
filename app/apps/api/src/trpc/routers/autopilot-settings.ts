@@ -3,7 +3,7 @@ import { protectedProcedure, router } from "@api/trpc/init";
 import {
 	getAutopilotSettingsByTeamId,
 	upsertAutopilotSettings,
-} from "@mimir/db/queries/autopilot-settings";
+} from "@nexus-app/db/queries/autopilot-settings";
 
 export const autopilotSettingsRouter = router({
 	get: protectedProcedure.query(async ({ ctx, input: _input }) => {

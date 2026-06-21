@@ -1,4 +1,4 @@
-import { projectStatusEnum } from "@mimir/db/schema";
+import { projectStatusEnum } from "@nexus-app/db/schema";
 import z from "zod";
 import { paginationSchema } from "./base";
 

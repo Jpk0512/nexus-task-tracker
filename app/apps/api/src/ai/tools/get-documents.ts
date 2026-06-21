@@ -1,4 +1,4 @@
-import { getDocuments } from "@mimir/db/queries/documents";
+import { getDocuments } from "@nexus-app/db/queries/documents";
 import { tool } from "ai";
 import z from "zod";
 import { getToolContext } from "../agents/config/shared";

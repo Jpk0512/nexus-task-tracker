@@ -1,15 +1,15 @@
 "use client";
-import { t } from "@mimir/locale";
-import { DEFAULT_LOCALE, LOCALES } from "@mimir/locale/constants";
-import { getTimezones } from "@mimir/locale/timezones";
-import { Button } from "@mimir/ui/button";
+import { t } from "@nexus-app/locale";
+import { DEFAULT_LOCALE, LOCALES } from "@nexus-app/locale/constants";
+import { getTimezones } from "@nexus-app/locale/timezones";
+import { Button } from "@nexus-app/ui/button";
 import {
 	Command,
 	CommandEmpty,
 	CommandGroup,
 	CommandInput,
 	CommandItem,
-} from "@mimir/ui/command";
+} from "@nexus-app/ui/command";
 import {
 	Form,
 	FormControl,
@@ -18,18 +18,18 @@ import {
 	FormItem,
 	FormLabel,
 	FormMessage,
-} from "@mimir/ui/form";
-import { Input } from "@mimir/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@mimir/ui/popover";
+} from "@nexus-app/ui/form";
+import { Input } from "@nexus-app/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@nexus-app/ui/popover";
 import {
 	Select,
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
-} from "@mimir/ui/select";
-import { Textarea } from "@mimir/ui/textarea";
-import { generateTeamSlug } from "@mimir/utils/teams";
+} from "@nexus-app/ui/select";
+import { Textarea } from "@nexus-app/ui/textarea";
+import { generateTeamSlug } from "@nexus-app/utils/teams";
 import { PopoverClose } from "@radix-ui/react-popover";
 import { useMutation } from "@tanstack/react-query";
 import { ChevronDown, Loader2 } from "lucide-react";

@@ -6,10 +6,10 @@ import {
 } from "@api/ai/agents/task-assistant";
 import type { UIChatMessage } from "@api/ai/types";
 import { getUserContext } from "@api/ai/utils/get-user-context";
-import { db } from "@mimir/db/client";
-import { getChatById, saveChatMessage } from "@mimir/db/queries/chats";
-import { createTaskComment } from "@mimir/db/queries/tasks";
-import { getMimirUser } from "@mimir/db/queries/users";
+import { db } from "@nexus-app/db/client";
+import { getChatById, saveChatMessage } from "@nexus-app/db/queries/chats";
+import { createTaskComment } from "@nexus-app/db/queries/tasks";
+import { getMimirUser } from "@nexus-app/db/queries/users";
 import {
 	activities,
 	labels,
@@ -19,7 +19,7 @@ import {
 	statuses,
 	tasks,
 	users,
-} from "@mimir/db/schema";
+} from "@nexus-app/db/schema";
 import type { UIMessage } from "ai";
 import { and, asc, eq, or } from "drizzle-orm";
 

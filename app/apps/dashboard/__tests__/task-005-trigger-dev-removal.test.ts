@@ -412,7 +412,7 @@ describe("TASK-005 — local scheduler: recurring job enqueues and fires in-proc
 		// Given: the new local scheduler is exported from packages/jobs/src/init.ts
 		// When: we enqueue a job with a very short delay (0ms / immediate)
 		// Then: the job function executes and the handle has a string id
-		const INIT_MODULE = "@mimir/jobs" + "/init";
+		const INIT_MODULE = "@nexus-app/jobs" + "/init";
 		const { enqueue } = (await import(/* @vite-ignore */ INIT_MODULE)) as {
 			enqueue: (
 				jobName: string,
@@ -436,7 +436,7 @@ describe("TASK-005 — local scheduler: recurring job enqueues and fires in-proc
 		// Given: the new local scheduler exposes a registerCron or scheduleCron API
 		// When: we register a job with a valid cron expression
 		// Then: registration succeeds (no exception) and returns a job descriptor
-		const INIT_MODULE = "@mimir/jobs" + "/init";
+		const INIT_MODULE = "@nexus-app/jobs" + "/init";
 		const scheduler = (await import(/* @vite-ignore */ INIT_MODULE)) as {
 			registerCron?: (
 				id: string,

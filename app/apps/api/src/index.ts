@@ -1,6 +1,6 @@
 import { trpcServer } from "@hono/trpc-server";
 import { OpenAPIHono } from "@hono/zod-openapi";
-import { initIntegrations } from "@mimir/integration/init";
+import { initIntegrations } from "@nexus-app/integration/init";
 import "dotenv/config";
 import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";

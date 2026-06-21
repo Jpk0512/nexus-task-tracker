@@ -1,6 +1,6 @@
-import { Dialog, DialogContent, DialogTrigger } from "@mimir/ui/dialog";
-import { FormField, FormLabel } from "@mimir/ui/form";
-import { getApiUrl } from "@mimir/utils/envs";
+import { Dialog, DialogContent, DialogTrigger } from "@nexus-app/ui/dialog";
+import { FormField, FormLabel } from "@nexus-app/ui/form";
+import { getApiUrl } from "@nexus-app/utils/envs";
 import { DialogTitle } from "@radix-ui/react-dialog";
 import {
 	ContextMenu,

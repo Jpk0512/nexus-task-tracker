@@ -1,6 +1,6 @@
 "use client";
 
-import type { RealtimeEvents } from "@mimir/realtime";
+import type { RealtimeEvents } from "@nexus-app/realtime";
 import { createRealtime } from "@upstash/realtime/client";
 import { useMemo } from "react";
 import { useUser } from "@/components/user-provider";

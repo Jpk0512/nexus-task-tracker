@@ -1,4 +1,4 @@
-import type { AppRouter } from "@mimir/api/trpc";
+import type { AppRouter } from "@nexus-app/api/trpc";
 import { QueryCache, QueryClient } from "@tanstack/react-query";
 import {
 	createTRPCClient,

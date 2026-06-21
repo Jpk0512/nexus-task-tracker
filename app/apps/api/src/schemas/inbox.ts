@@ -1,4 +1,4 @@
-import type { CreateTaskInput } from "@mimir/db/queries/tasks";
+import type { CreateTaskInput } from "@nexus-app/db/queries/tasks";
 import z from "zod";
 import { paginationSchema } from "./base";
 

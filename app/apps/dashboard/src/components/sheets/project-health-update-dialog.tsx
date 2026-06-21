@@ -5,7 +5,7 @@ import {
 	DialogContent,
 	DialogHeader,
 	DialogTitle,
-} from "@mimir/ui/dialog";
+} from "@nexus-app/ui/dialog";
 import { useQuery } from "@tanstack/react-query";
 import { useProjectHealthUpdateParams } from "@/hooks/use-project-health-update-params";
 import { trpc } from "@/utils/trpc";

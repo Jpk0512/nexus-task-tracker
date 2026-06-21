@@ -1,4 +1,4 @@
-import { generateTeamPrefix } from "@mimir/utils/teams";
+import { generateTeamPrefix } from "@nexus-app/utils/teams";
 import { eq, isNull } from "drizzle-orm";
 import { generateUniqueTeamSlug } from "src/queries/teams";
 import { db } from "./../";

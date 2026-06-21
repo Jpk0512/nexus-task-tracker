@@ -1,5 +1,5 @@
 "use client";
-import { getAppUrl } from "@mimir/utils/envs";
+import { getAppUrl } from "@nexus-app/utils/envs";
 import { Badge } from "@ui/components/ui/badge";
 import { Button } from "@ui/components/ui/button";
 import {

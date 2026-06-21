@@ -1,4 +1,4 @@
-import { getEmailUrl } from "@mimir/utils/envs";
+import { getEmailUrl } from "@nexus-app/utils/envs";
 import { Img, Link, Section } from "@react-email/components";
 
 const baseUrl = getEmailUrl();

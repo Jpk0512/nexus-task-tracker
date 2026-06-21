@@ -1,5 +1,5 @@
 {
-	"name": "@mimir/realtime",
+	"name": "@nexus-app/realtime",
 	"version": "0.0.1",
 	"private": true,
 	"scripts": {
@@ -18,7 +18,7 @@
 	},
 	"devDependencies": {
 		"@mattermost/types": "^10.12.0",
-		"@mimir/tsconfig": "workspace:*",
+		"@nexus-app/tsconfig": "workspace:*",
 		"@types/bun": "latest"
 	}
 }

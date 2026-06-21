@@ -1,4 +1,4 @@
-import { importStatusEnum } from "@mimir/db/schema";
+import { importStatusEnum } from "@nexus-app/db/schema";
 import z from "zod";
 
 export const getImportsSchema = z.object({

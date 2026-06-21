@@ -1,4 +1,4 @@
-import { LocalDiskStorageAdapter } from "@mimir/storage";
+import { LocalDiskStorageAdapter } from "@nexus-app/storage";
 
 let _adapter: LocalDiskStorageAdapter | null = null;
 

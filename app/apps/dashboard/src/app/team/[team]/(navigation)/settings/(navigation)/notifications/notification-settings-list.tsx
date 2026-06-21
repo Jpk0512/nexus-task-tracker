@@ -1,12 +1,12 @@
 "use client";
-import { t } from "@mimir/locale";
-import { Card, CardContent, CardDescription, CardHeader } from "@mimir/ui/card";
+import { t } from "@nexus-app/locale";
+import { Card, CardContent, CardDescription, CardHeader } from "@nexus-app/ui/card";
 import {
 	Collapsible,
 	CollapsibleContent,
 	CollapsibleTrigger,
-} from "@mimir/ui/collapsible";
-import { Switch } from "@mimir/ui/switch";
+} from "@nexus-app/ui/collapsible";
+import { Switch } from "@nexus-app/ui/switch";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ChevronsUpDownIcon } from "lucide-react";
 import { queryClient, trpc } from "@/utils/trpc";

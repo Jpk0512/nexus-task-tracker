@@ -1,4 +1,4 @@
-import { type Avatar, AvatarFallback, AvatarImage } from "@mimir/ui/avatar";
+import { type Avatar, AvatarFallback, AvatarImage } from "@nexus-app/ui/avatar";
 import type { UIMessage } from "ai";
 import { cva, type VariantProps } from "class-variance-authority";
 import { Facehash } from "facehash";

@@ -1,4 +1,4 @@
-import { taskSuggestionsStatusEnum } from "@mimir/db/schema";
+import { taskSuggestionsStatusEnum } from "@nexus-app/db/schema";
 import z from "zod";
 
 export const acceptTaskSuggestionSchema = z.object({

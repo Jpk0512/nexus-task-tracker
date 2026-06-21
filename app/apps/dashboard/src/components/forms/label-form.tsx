@@ -1,5 +1,5 @@
 "use client";
-import { Button } from "@mimir/ui/button";
+import { Button } from "@nexus-app/ui/button";
 import {
 	ColorPicker,
 	ColorPickerAlphaSlider,
@@ -10,7 +10,7 @@ import {
 	ColorPickerInput,
 	ColorPickerSwatch,
 	ColorPickerTrigger,
-} from "@mimir/ui/color-picker";
+} from "@nexus-app/ui/color-picker";
 import {
 	Form,
 	FormControl,
@@ -18,9 +18,9 @@ import {
 	FormItem,
 	FormLabel,
 	FormMessage,
-} from "@mimir/ui/form";
-import { Input } from "@mimir/ui/input";
-import { Textarea } from "@mimir/ui/textarea";
+} from "@nexus-app/ui/form";
+import { Input } from "@nexus-app/ui/input";
+import { Textarea } from "@nexus-app/ui/textarea";
 import { useMutation } from "@tanstack/react-query";
 import { z } from "zod";
 import { useLabelParams } from "@/hooks/use-task-label-params";

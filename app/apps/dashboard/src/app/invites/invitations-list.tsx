@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@mimir/ui/button";
+import { Button } from "@nexus-app/ui/button";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { CheckIcon, Loader2Icon } from "lucide-react";

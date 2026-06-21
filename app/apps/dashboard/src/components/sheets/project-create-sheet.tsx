@@ -4,7 +4,7 @@ import {
 	DialogContent,
 	DialogHeader,
 	DialogTitle,
-} from "@mimir/ui/dialog";
+} from "@nexus-app/ui/dialog";
 import { useProjectParams } from "@/hooks/use-project-params";
 import { ProjectForm } from "../forms/project-form/form";
 

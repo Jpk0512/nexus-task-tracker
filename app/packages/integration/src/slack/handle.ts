@@ -5,11 +5,11 @@ import { getUserContext } from "@api/ai/utils/get-user-context";
 import {
 	getIntegrationByType,
 	getLinkedUserByExternalId,
-} from "@mimir/db/queries/integrations";
-import { getUserById } from "@mimir/db/queries/users";
-import { trackMessage } from "@mimir/events/server";
-import { LocalDiskStorageAdapter } from "@mimir/storage";
-import { getApiUrl } from "@mimir/utils/envs";
+} from "@nexus-app/db/queries/integrations";
+import { getUserById } from "@nexus-app/db/queries/users";
+import { trackMessage } from "@nexus-app/events/server";
+import { LocalDiskStorageAdapter } from "@nexus-app/storage";
+import { getApiUrl } from "@nexus-app/utils/envs";
 import { webApi } from "@slack/bolt";
 import type { UIMessage } from "ai";
 import mime from "mime-types";

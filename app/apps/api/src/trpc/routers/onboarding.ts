@@ -4,13 +4,13 @@ import {
 	stringifyWorkflow,
 	workflowSuggestion,
 } from "@api/utils/workflow";
-import { createDefaultLabels, createLabel } from "@mimir/db/queries/labels";
+import { createDefaultLabels, createLabel } from "@nexus-app/db/queries/labels";
 import {
 	createDefaultStatuses,
 	createStatus,
-} from "@mimir/db/queries/statuses";
-import { updateTeam } from "@mimir/db/queries/teams";
-import { getAvailableTeams } from "@mimir/db/queries/users";
+} from "@nexus-app/db/queries/statuses";
+import { updateTeam } from "@nexus-app/db/queries/teams";
+import { getAvailableTeams } from "@nexus-app/db/queries/users";
 import z from "zod";
 
 export const onboardingRouter = router({

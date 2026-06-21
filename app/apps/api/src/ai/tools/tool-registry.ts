@@ -3,9 +3,9 @@ import type { UserIntegrationInfo } from "@api/ai/types";
 import {
 	getMcpServers,
 	getMcpServerUserTokens,
-} from "@mimir/db/queries/mcp-servers";
-import type { McpServerConfig } from "@mimir/db/schema";
-import type { IntegrationName } from "@mimir/integration/registry";
+} from "@nexus-app/db/queries/mcp-servers";
+import type { McpServerConfig } from "@nexus-app/db/schema";
+import type { IntegrationName } from "@nexus-app/integration/registry";
 import type { Tool } from "ai";
 import { getUserAvailableIntegrations } from "../agents/agent-factory";
 import { resolveValidMcpToken } from "../utils/mcp-token-refresh";

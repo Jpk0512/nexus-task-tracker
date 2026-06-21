@@ -1,6 +1,6 @@
 import { openai } from "@ai-sdk/openai";
-import { db } from "@mimir/db/client";
-import { chatMessages } from "@mimir/db/schema";
+import { db } from "@nexus-app/db/client";
+import { chatMessages } from "@nexus-app/db/schema";
 import { generateText } from "ai";
 import { and, eq, gt } from "drizzle-orm";
 

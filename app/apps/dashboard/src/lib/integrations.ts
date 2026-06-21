@@ -1,4 +1,4 @@
-import { getApiUrl } from "@mimir/utils/envs";
+import { getApiUrl } from "@nexus-app/utils/envs";
 
 export const getSlackInstallUrl = () => {
 	const url = new URL("https://slack.com/oauth/v2/authorize");

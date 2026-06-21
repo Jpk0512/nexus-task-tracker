@@ -1,6 +1,6 @@
 // You can find the list of extensions here: https://tiptap.dev/docs/editor/extensions/functionality
 
-import { getApiUrl } from "@mimir/utils/envs";
+import { getApiUrl } from "@nexus-app/utils/envs";
 import FileHandler from "@tiptap/extension-file-handler";
 import Image from "@tiptap/extension-image";
 import Link from "@tiptap/extension-link";

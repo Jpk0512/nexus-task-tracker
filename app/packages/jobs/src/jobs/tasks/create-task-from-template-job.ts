@@ -1,5 +1,5 @@
-import { createTask } from "@mimir/db/queries/tasks";
-import { checklistItems, labelsOnTasks, tasks } from "@mimir/db/schema";
+import { createTask } from "@nexus-app/db/queries/tasks";
+import { checklistItems, labelsOnTasks, tasks } from "@nexus-app/db/schema";
 import { and, eq } from "drizzle-orm";
 import { defineJob, getDb, logger } from "../../init";
 

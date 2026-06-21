@@ -1,4 +1,4 @@
-import type { RouterOutputs } from "@mimir/trpc";
+import type { RouterOutputs } from "@nexus-app/trpc";
 import { cn } from "@ui/lib/utils";
 import { StatusIcon } from "@/components/status-icon";
 import { PropertyChecklist } from "@/components/tasks-view/properties/task-properties-components";

@@ -1,4 +1,4 @@
-import { updateTask } from "@mimir/db/queries/tasks";
+import { updateTask } from "@nexus-app/db/queries/tasks";
 import type { MimraiMcpServer } from "../server";
 import type { McpContext } from "./build-mcp";
 import { hasScope, UpdateTaskInputSchema } from "./schemas";

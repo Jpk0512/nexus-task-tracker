@@ -1,6 +1,6 @@
 "use client";
 
-import * as Kanban from "@mimir/ui/kanban";
+import * as Kanban from "@nexus-app/ui/kanban";
 import { AnimatePresence } from "motion/react";
 import { useMemo, useRef } from "react";
 import { BoardColumn } from "./column";

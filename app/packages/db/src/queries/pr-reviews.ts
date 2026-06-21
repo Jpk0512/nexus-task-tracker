@@ -1,4 +1,4 @@
-import { extractMagicTaskActions } from "@mimir/utils/pr-reviews";
+import { extractMagicTaskActions } from "@nexus-app/utils/pr-reviews";
 import {
 	and,
 	arrayContains,

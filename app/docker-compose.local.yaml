@@ -1,4 +1,4 @@
-# Local-dev stack for Nexus. Storage is local (@mimir/storage); no external
+# Local-dev stack for Nexus. Storage is local (@nexus-app/storage); no external
 # Supabase stack required. Bring this stack up with:
 #
 #   docker compose -f docker-compose.local.yaml up -d --build

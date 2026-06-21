@@ -7,7 +7,7 @@ import {
 	acceptTaskSuggestion,
 	getTasksSuggestions,
 	rejectTaskSuggestion,
-} from "@mimir/db/queries/tasks-suggestions";
+} from "@nexus-app/db/queries/tasks-suggestions";
 import { protectedProcedure, router } from "../init";
 
 export const tasksSuggestionsRouter = router({

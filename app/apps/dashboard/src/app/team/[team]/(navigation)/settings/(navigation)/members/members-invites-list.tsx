@@ -1,14 +1,14 @@
 "use client";
-import { t } from "@mimir/locale";
-import { Button } from "@mimir/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@mimir/ui/card";
+import { t } from "@nexus-app/locale";
+import { Button } from "@nexus-app/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@nexus-app/ui/card";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
 	DropdownMenuTrigger,
-} from "@mimir/ui/dropdown-menu";
-import { getAppUrl } from "@mimir/utils/envs";
+} from "@nexus-app/ui/dropdown-menu";
+import { getAppUrl } from "@nexus-app/utils/envs";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { CopyIcon, EllipsisIcon } from "lucide-react";

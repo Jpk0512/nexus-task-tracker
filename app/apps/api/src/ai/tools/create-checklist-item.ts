@@ -1,4 +1,4 @@
-import { createChecklistItem } from "@mimir/db/queries/checklists";
+import { createChecklistItem } from "@nexus-app/db/queries/checklists";
 import { tool } from "ai";
 import z from "zod";
 import { getToolContext } from "../agents/config/shared";

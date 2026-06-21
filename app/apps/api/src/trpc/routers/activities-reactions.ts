@@ -11,7 +11,7 @@ import {
 	getActivityReactions,
 	getActivityReactionsSummary,
 	toggleActivityReaction,
-} from "@mimir/db/queries/activity-reactions";
+} from "@nexus-app/db/queries/activity-reactions";
 
 export const activitiesReactionsRouter = router({
 	get: protectedProcedure

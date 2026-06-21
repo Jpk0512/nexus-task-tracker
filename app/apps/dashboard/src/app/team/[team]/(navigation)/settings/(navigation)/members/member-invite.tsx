@@ -1,6 +1,6 @@
 "use client";
-import { t } from "@mimir/locale";
-import { Card, CardContent, CardDescription, CardHeader } from "@mimir/ui/card";
+import { t } from "@nexus-app/locale";
+import { Card, CardContent, CardDescription, CardHeader } from "@nexus-app/ui/card";
 import { MemberInviteForm } from "@/components/forms/member-invite-form";
 import { useScopes } from "@/hooks/use-scopes";
 

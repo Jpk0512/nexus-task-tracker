@@ -26,7 +26,7 @@ import {
 	leaveTeam,
 	updateMember,
 	updateTeam,
-} from "@mimir/db/queries/teams";
+} from "@nexus-app/db/queries/teams";
 import {
 	acceptTeamInvite,
 	createTeamInvite,
@@ -34,9 +34,9 @@ import {
 	getTeamInviteById,
 	getTeamInvites,
 	getTeamInvitesByEmail,
-} from "@mimir/db/queries/user-invites";
-import { getAvailableTeams } from "@mimir/db/queries/users";
-import { InviteEmail } from "@mimir/email/emails/invite";
+} from "@nexus-app/db/queries/user-invites";
+import { getAvailableTeams } from "@nexus-app/db/queries/users";
+import { InviteEmail } from "@nexus-app/email/emails/invite";
 import z from "zod";
 
 export const teamsRouter = router({

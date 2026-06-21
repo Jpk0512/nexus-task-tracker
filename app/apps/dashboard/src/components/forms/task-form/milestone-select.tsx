@@ -1,5 +1,5 @@
-import { DataSelectInput } from "@mimir/ui/data-select-input";
-import { FormControl, FormField, FormItem } from "@mimir/ui/form";
+import { DataSelectInput } from "@nexus-app/ui/data-select-input";
+import { FormControl, FormField, FormItem } from "@nexus-app/ui/form";
 import { useFormContext } from "react-hook-form";
 import { MilestoneIcon } from "@/components/milestone-icon";
 import { trpc } from "@/utils/trpc";

@@ -1,4 +1,4 @@
-import { Button } from "@mimir/ui/button";
+import { Button } from "@nexus-app/ui/button";
 import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";

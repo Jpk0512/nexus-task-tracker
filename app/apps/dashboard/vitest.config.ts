@@ -5,7 +5,7 @@ import { defineConfig } from "vitest/config";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Vite 8 transforms with oxc (rolldown), not esbuild. The project tsconfig sets
-// jsx:"preserve" (via @mimir/tsconfig/nextjs.json); under that setting Vite's
+// jsx:"preserve" (via @nexus-app/tsconfig/nextjs.json); under that setting Vite's
 // import-analysis step runs es-module-lexer over raw, unconverted JSX and throws
 // ("content contains invalid JS syntax … do not set jsx to preserve"). Setting
 // oxc.jsx.runtime="automatic" overrides the inherited jsx:"preserve" so .tsx
@@ -22,11 +22,11 @@ export default defineConfig({
 		alias: {
 			"@": path.resolve(__dirname, "./src"),
 			"@ui": path.resolve(__dirname, "../../packages/ui/src"),
-			"@mimir/jobs/init": path.resolve(
+			"@nexus-app/jobs/init": path.resolve(
 				__dirname,
 				"../../packages/jobs/src/init.ts",
 			),
-			"@mimir/jobs": path.resolve(
+			"@nexus-app/jobs": path.resolve(
 				__dirname,
 				"../../packages/jobs/src/index.ts",
 			),

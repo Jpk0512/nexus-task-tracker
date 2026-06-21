@@ -6,7 +6,7 @@
 // surface.
 
 import { protectedProcedure, router } from "@api/trpc/init";
-import { db } from "@mimir/db/client";
+import { db } from "@nexus-app/db/client";
 import {
 	documents,
 	inbox,
@@ -17,7 +17,7 @@ import {
 	tasks as tasksTable,
 	todoAttachments,
 	todos,
-} from "@mimir/db/schema";
+} from "@nexus-app/db/schema";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 

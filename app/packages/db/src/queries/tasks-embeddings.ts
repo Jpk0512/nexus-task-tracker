@@ -1,4 +1,4 @@
-import { generateTaskEmbedding } from "@mimir/embedding/embeddings/task";
+import { generateTaskEmbedding } from "@nexus-app/embedding/embeddings/task";
 import { and, desc, eq, not, sql } from "drizzle-orm";
 import { db } from "../index";
 import { statuses, taskEmbeddings, tasks } from "../schema";

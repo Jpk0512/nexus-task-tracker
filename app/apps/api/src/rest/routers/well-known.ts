@@ -1,5 +1,5 @@
 import { OpenAPIHono } from "@hono/zod-openapi";
-import { getApiUrl } from "@mimir/utils/envs";
+import { getApiUrl } from "@nexus-app/utils/envs";
 import type { Context } from "../types";
 
 const wellKnownRouter = new OpenAPIHono<Context>();

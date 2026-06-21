@@ -2,7 +2,7 @@ import { Client4 } from "@mattermost/client";
 import {
 	getIntegrationByType,
 	getLinkedUserByUserId,
-} from "@mimir/db/queries/integrations";
+} from "@nexus-app/db/queries/integrations";
 
 export const sendMattermostNotification = async ({
 	teamId,

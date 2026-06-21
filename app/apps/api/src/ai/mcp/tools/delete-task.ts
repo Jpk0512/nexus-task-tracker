@@ -1,4 +1,4 @@
-import { deleteTask } from "@mimir/db/queries/tasks";
+import { deleteTask } from "@nexus-app/db/queries/tasks";
 import type { MimraiMcpServer } from "../server";
 import type { McpContext } from "./build-mcp";
 import { DeleteTaskInputSchema, hasScope } from "./schemas";

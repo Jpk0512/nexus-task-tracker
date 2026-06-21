@@ -1,8 +1,8 @@
-import { tasks, triggers } from "@mimir/db/schema";
+import { tasks, triggers } from "@nexus-app/db/schema";
 import {
 	isSystemTriggerType,
 	SYSTEM_TRIGGER_TYPES,
-} from "@mimir/utils/system-triggers";
+} from "@nexus-app/utils/system-triggers";
 import { and, eq } from "drizzle-orm";
 import { defineJob, enqueue, getDb, logger } from "../../init";
 import { createTaskFromTemplateJob } from "./create-task-from-template-job";

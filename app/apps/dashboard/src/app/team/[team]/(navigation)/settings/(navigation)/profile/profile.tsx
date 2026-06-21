@@ -1,5 +1,5 @@
 "use client";
-import { Card, CardContent, CardHeader, CardTitle } from "@mimir/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@nexus-app/ui/card";
 import { useUser } from "@/components/user-provider";
 import { ProfileForm } from "./profile-form";
 

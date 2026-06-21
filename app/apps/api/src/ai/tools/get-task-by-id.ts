@@ -1,4 +1,4 @@
-import { getTaskById } from "@mimir/db/queries/tasks";
+import { getTaskById } from "@nexus-app/db/queries/tasks";
 import { tool } from "ai";
 import { htmlToText } from "html-to-text";
 import z from "zod";

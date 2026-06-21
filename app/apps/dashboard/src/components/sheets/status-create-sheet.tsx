@@ -5,7 +5,7 @@ import {
 	SheetDescription,
 	SheetHeader,
 	SheetTitle,
-} from "@mimir/ui/sheet";
+} from "@nexus-app/ui/sheet";
 import {
 	Dialog,
 	DialogContent,

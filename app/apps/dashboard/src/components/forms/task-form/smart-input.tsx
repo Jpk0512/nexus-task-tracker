@@ -1,4 +1,4 @@
-import { Button } from "@mimir/ui/button";
+import { Button } from "@nexus-app/ui/button";
 import { useMutation } from "@tanstack/react-query";
 import { CheckIcon } from "lucide-react";
 import { useState } from "react";

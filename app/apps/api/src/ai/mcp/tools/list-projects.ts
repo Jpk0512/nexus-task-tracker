@@ -1,4 +1,4 @@
-import { getProjects } from "@mimir/db/queries/projects";
+import { getProjects } from "@nexus-app/db/queries/projects";
 import type { MimraiMcpServer } from "../server";
 import type { McpContext } from "./build-mcp";
 import { hasScope, ListProjectsInputSchema } from "./schemas";

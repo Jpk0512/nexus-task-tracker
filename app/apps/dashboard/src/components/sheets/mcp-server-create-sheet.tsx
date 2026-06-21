@@ -6,7 +6,7 @@ import {
 	DialogDescription,
 	DialogHeader,
 	DialogTitle,
-} from "@mimir/ui/dialog";
+} from "@nexus-app/ui/dialog";
 import { useMcpServerParams } from "@/hooks/use-mcp-server-params";
 import { McpServerForm } from "../forms/mcp-server-form";
 

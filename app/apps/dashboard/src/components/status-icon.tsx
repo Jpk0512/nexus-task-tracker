@@ -1,4 +1,4 @@
-import type { RouterOutputs } from "@mimir/trpc";
+import type { RouterOutputs } from "@nexus-app/trpc";
 import { cn } from "@ui/lib/utils";
 import {
 	CircleCheckIcon,

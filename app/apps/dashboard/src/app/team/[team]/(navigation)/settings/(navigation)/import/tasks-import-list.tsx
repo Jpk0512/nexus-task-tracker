@@ -1,7 +1,7 @@
 "use client";
-import { Badge } from "@mimir/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@mimir/ui/card";
-import { getApiUrl } from "@mimir/utils/envs";
+import { Badge } from "@nexus-app/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@nexus-app/ui/card";
+import { getApiUrl } from "@nexus-app/utils/envs";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";

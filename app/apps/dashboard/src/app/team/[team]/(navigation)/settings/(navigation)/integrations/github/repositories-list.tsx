@@ -1,33 +1,33 @@
 "use client";
-import type { RouterOutputs } from "@mimir/trpc";
-import { Button } from "@mimir/ui/button";
+import type { RouterOutputs } from "@nexus-app/trpc";
+import { Button } from "@nexus-app/ui/button";
 import {
 	Card,
 	CardContent,
 	CardDescription,
 	CardHeader,
 	CardTitle,
-} from "@mimir/ui/card";
-import { Checkbox } from "@mimir/ui/checkbox";
+} from "@nexus-app/ui/card";
+import { Checkbox } from "@nexus-app/ui/checkbox";
 import {
 	Command,
 	CommandGroup,
 	CommandInput,
 	CommandItem,
-} from "@mimir/ui/command";
+} from "@nexus-app/ui/command";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
 	DropdownMenuTrigger,
-} from "@mimir/ui/dropdown-menu";
-import { Input } from "@mimir/ui/input";
+} from "@nexus-app/ui/dropdown-menu";
+import { Input } from "@nexus-app/ui/input";
 import {
 	Popover,
 	PopoverAnchor,
 	PopoverContent,
 	PopoverTrigger,
-} from "@mimir/ui/popover";
+} from "@nexus-app/ui/popover";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Alert, AlertDescription } from "@ui/components/ui/alert";
 import {

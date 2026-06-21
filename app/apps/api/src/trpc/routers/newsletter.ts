@@ -1,5 +1,5 @@
-import { db } from "@mimir/db/client";
-import { newsletter } from "@mimir/db/schema";
+import { db } from "@nexus-app/db/client";
+import { newsletter } from "@nexus-app/db/schema";
 import z from "zod";
 import { publicProcedure, router } from "../init";
 

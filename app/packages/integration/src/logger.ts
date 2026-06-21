@@ -1,5 +1,5 @@
-import { db } from "@mimir/db/client";
-import { integrationLogs } from "@mimir/db/schema";
+import { db } from "@nexus-app/db/client";
+import { integrationLogs } from "@nexus-app/db/schema";
 
 export const log = ({
 	integrationId,

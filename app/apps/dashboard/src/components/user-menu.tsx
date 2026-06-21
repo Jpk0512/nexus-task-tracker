@@ -1,4 +1,4 @@
-import { Button } from "@mimir/ui/button";
+import { Button } from "@nexus-app/ui/button";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -6,8 +6,8 @@ import {
 	DropdownMenuLabel,
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
-} from "@mimir/ui/dropdown-menu";
-import { Skeleton } from "@mimir/ui/skeleton";
+} from "@nexus-app/ui/dropdown-menu";
+import { Skeleton } from "@nexus-app/ui/skeleton";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";

@@ -1,5 +1,5 @@
 "use client";
-import { Button } from "@mimir/ui/button";
+import { Button } from "@nexus-app/ui/button";
 import {
 	Form,
 	FormControl,
@@ -7,8 +7,8 @@ import {
 	FormField,
 	FormItem,
 	FormLabel,
-} from "@mimir/ui/form";
-import { Textarea } from "@mimir/ui/textarea";
+} from "@nexus-app/ui/form";
+import { Textarea } from "@nexus-app/ui/textarea";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import z from "zod";

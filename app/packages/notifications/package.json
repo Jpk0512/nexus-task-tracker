@@ -1,5 +1,5 @@
 {
-	"name": "@mimir/notifications",
+	"name": "@nexus-app/notifications",
 	"version": "0.0.1",
 	"private": true,
 	"scripts": {
@@ -14,7 +14,7 @@
 	},
 	"dependencies": {},
 	"devDependencies": {
-		"@mimir/tsconfig": "workspace:*",
+		"@nexus-app/tsconfig": "workspace:*",
 		"@types/bun": "latest"
 	}
 }

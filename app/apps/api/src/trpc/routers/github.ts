@@ -19,7 +19,7 @@ import {
 	getConnectedRepositoryByRepoId,
 	removeTasksFromPullRequestPlan,
 	updateConnectedRepository,
-} from "@mimir/db/queries/github";
+} from "@nexus-app/db/queries/github";
 import {
 	getIntegrationById,
 	getIntegrationByType,
@@ -27,9 +27,9 @@ import {
 	getLinkedUsers,
 	installIntegration,
 	linkUserToIntegration,
-} from "@mimir/db/queries/integrations";
-import { getPrReviews, getPrReviewsCount } from "@mimir/db/queries/pr-reviews";
-import { syncTeamPrReviewsJob } from "@mimir/jobs/pull-request-reviews/sync-team-pr-reviews-job";
+} from "@nexus-app/db/queries/integrations";
+import { getPrReviews, getPrReviewsCount } from "@nexus-app/db/queries/pr-reviews";
+import { syncTeamPrReviewsJob } from "@nexus-app/jobs/pull-request-reviews/sync-team-pr-reviews-job";
 import { Octokit } from "octokit";
 
 export const githubRouter = router({

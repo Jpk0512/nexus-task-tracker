@@ -1,5 +1,5 @@
 "use client";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@mimir/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@nexus-app/ui/sheet";
 import { useLabelParams } from "@/hooks/use-task-label-params";
 import { LabelForm } from "../forms/label-form";
 

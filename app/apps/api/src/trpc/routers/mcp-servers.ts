@@ -12,7 +12,7 @@ import {
 	getMcpServerById,
 	getMcpServers,
 	updateMcpServer,
-} from "@mimir/db/queries/mcp-servers";
+} from "@nexus-app/db/queries/mcp-servers";
 
 export const mcpServersRouter = router({
 	list: protectedProcedure

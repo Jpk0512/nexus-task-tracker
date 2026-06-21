@@ -1,5 +1,5 @@
 {
-	"name": "@mimir/tsconfig",
+	"name": "@nexus-app/tsconfig",
 	"private": true,
 	"version": "1.0.0",
 	"files": [

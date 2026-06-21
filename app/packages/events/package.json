@@ -1,5 +1,5 @@
 {
-	"name": "@mimir/events",
+	"name": "@nexus-app/events",
 	"version": "0.0.1",
 	"private": true,
 	"scripts": {
@@ -13,7 +13,7 @@
 		"./client": "./src/client.tsx"
 	},
 	"dependencies": {
-		"@mimir/tsconfig": "workspace:*",
+		"@nexus-app/tsconfig": "workspace:*",
 		"@openpanel/nextjs": "^1.0.8",
 		"@openpanel/sdk": "^1.0.0",
 		"react": "19.2.3",

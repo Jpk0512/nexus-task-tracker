@@ -1,5 +1,5 @@
 "use client";
-import { Card, CardContent, CardDescription, CardHeader } from "@mimir/ui/card";
+import { Card, CardContent, CardDescription, CardHeader } from "@nexus-app/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import {
 	type ChartConfig,

@@ -1,4 +1,4 @@
-import { getStatuses } from "@mimir/db/queries/statuses";
+import { getStatuses } from "@nexus-app/db/queries/statuses";
 import type { MimraiMcpServer } from "../server";
 import type { McpContext } from "./build-mcp";
 import { hasScope, ListStatusesInputSchema } from "./schemas";

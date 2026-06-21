@@ -1,6 +1,6 @@
 import { openai } from "@ai-sdk/openai";
 import { TZDate } from "@date-fns/tz";
-import { createActivity } from "@mimir/db/queries/activities";
+import { createActivity } from "@nexus-app/db/queries/activities";
 import {
 	autopilotSettings,
 	milestones,
@@ -9,8 +9,8 @@ import {
 	tasks,
 	tasksDependencies,
 	teams,
-} from "@mimir/db/schema";
-import { getAppUrl } from "@mimir/utils/envs";
+} from "@nexus-app/db/schema";
+import { getAppUrl } from "@nexus-app/utils/envs";
 import { generateText, Output } from "ai";
 import { format } from "date-fns";
 import {

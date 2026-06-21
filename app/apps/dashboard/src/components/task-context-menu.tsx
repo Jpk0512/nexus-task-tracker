@@ -1,5 +1,5 @@
-import type { RouterOutputs } from "@mimir/trpc";
-import { Checkbox } from "@mimir/ui/checkbox";
+import type { RouterOutputs } from "@nexus-app/trpc";
+import { Checkbox } from "@nexus-app/ui/checkbox";
 import {
 	ContextMenu,
 	ContextMenuContent,
@@ -9,8 +9,8 @@ import {
 	ContextMenuSubContent,
 	ContextMenuSubTrigger,
 	ContextMenuTrigger,
-} from "@mimir/ui/context-menu";
-import { LabelBadge } from "@mimir/ui/label-badge";
+} from "@nexus-app/ui/context-menu";
+import { LabelBadge } from "@nexus-app/ui/label-badge";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
 	BoxIcon,

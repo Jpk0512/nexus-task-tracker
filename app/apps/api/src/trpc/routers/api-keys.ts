@@ -5,8 +5,8 @@ import {
 	listApiKeysSchema,
 } from "@api/schemas/api-keys";
 import { protectedProcedure, router } from "@api/trpc/init";
-import { db } from "@mimir/db/client";
-import { apikey } from "@mimir/db/schema";
+import { db } from "@nexus-app/db/client";
+import { apikey } from "@nexus-app/db/schema";
 import { TRPCError } from "@trpc/server";
 import { and, eq } from "drizzle-orm";
 

@@ -4,7 +4,7 @@ import {
 	DialogContent,
 	DialogHeader,
 	DialogTitle,
-} from "@mimir/ui/dialog";
+} from "@nexus-app/ui/dialog";
 import { useQuery } from "@tanstack/react-query";
 import { useAgentParams } from "@/hooks/use-agent-params";
 import { trpc } from "@/utils/trpc";

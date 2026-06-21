@@ -1,6 +1,6 @@
 "use client";
 
-import type { RouterOutputs } from "@mimir/trpc";
+import type { RouterOutputs } from "@nexus-app/trpc";
 import { AssigneeAvatar } from "@/components/asignee-avatar";
 import { ActivityReactions } from "./activity-reactions";
 import type { Activity } from "./types";

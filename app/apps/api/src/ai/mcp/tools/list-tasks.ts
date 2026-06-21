@@ -1,4 +1,4 @@
-import { getTasks } from "@mimir/db/queries/tasks";
+import { getTasks } from "@nexus-app/db/queries/tasks";
 import type { MimraiMcpServer } from "../server";
 import type { McpContext } from "./build-mcp";
 import { hasScope, ListTasksInputSchema, truncateText } from "./schemas";

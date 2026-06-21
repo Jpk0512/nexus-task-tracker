@@ -1,4 +1,4 @@
-import { AGENT_DEFAULT_MODEL, getModels } from "@mimir/utils/agents";
+import { AGENT_DEFAULT_MODEL, getModels } from "@nexus-app/utils/agents";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Alert, AlertTitle } from "@ui/components/ui/alert";
 import { Button } from "@ui/components/ui/button";

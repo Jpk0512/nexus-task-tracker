@@ -1,4 +1,4 @@
-import { getShareablePermalink } from "@mimir/utils/shareable";
+import { getShareablePermalink } from "@nexus-app/utils/shareable";
 import { useMutation } from "@tanstack/react-query";
 import { Alert, AlertDescription } from "@ui/components/ui/alert";
 import { Button } from "@ui/components/ui/button";

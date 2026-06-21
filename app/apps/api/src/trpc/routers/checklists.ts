@@ -10,7 +10,7 @@ import {
 	deleteChecklistItem,
 	getChecklistItems,
 	updateChecklistItem,
-} from "@mimir/db/queries/checklists";
+} from "@nexus-app/db/queries/checklists";
 
 export const checklistsRouter = router({
 	get: protectedProcedure

@@ -6,7 +6,7 @@ import {
 	DialogDescription,
 	DialogHeader,
 	DialogTitle,
-} from "@mimir/ui/dialog";
+} from "@nexus-app/ui/dialog";
 import { useQuery } from "@tanstack/react-query";
 import { useMcpServerParams } from "@/hooks/use-mcp-server-params";
 import { trpc } from "@/utils/trpc";

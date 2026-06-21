@@ -1,5 +1,5 @@
 "use client";
-import type { RouterOutputs } from "@mimir/trpc";
+import type { RouterOutputs } from "@nexus-app/trpc";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { FolderIcon, FolderKanbanIcon } from "lucide-react";
 import Link from "next/link";

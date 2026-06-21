@@ -1,7 +1,7 @@
 import {
 	type IntegrationConfig,
 	integrationsRegistry,
-} from "@mimir/integration/registry";
+} from "@nexus-app/integration/registry";
 import z from "zod/v4";
 
 export const installIntegrationSchema = z.object({

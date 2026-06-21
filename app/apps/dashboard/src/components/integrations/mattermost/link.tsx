@@ -1,5 +1,5 @@
 "use client";
-import { Alert, AlertDescription, AlertTitle } from "@mimir/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@nexus-app/ui/alert";
 import { useQuery } from "@tanstack/react-query";
 import { InfoIcon } from "lucide-react";
 import { trpc } from "@/utils/trpc";

@@ -1,5 +1,5 @@
 {
-	"extends": "@mimir/tsconfig/base.json",
+	"extends": "@nexus-app/tsconfig/base.json",
 	"include": ["./src/**/*.ts"],
 	"compilerOptions": {
 		"baseUrl": ".",

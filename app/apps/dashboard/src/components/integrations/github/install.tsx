@@ -1,7 +1,7 @@
 "use client";
-import { Button } from "@mimir/ui/button";
-import { Form } from "@mimir/ui/form";
-import { getApiUrl } from "@mimir/utils/envs";
+import { Button } from "@nexus-app/ui/button";
+import { Form } from "@nexus-app/ui/form";
+import { getApiUrl } from "@nexus-app/utils/envs";
 import { useMutation } from "@tanstack/react-query";
 import { Alert, AlertDescription } from "@ui/components/ui/alert";
 import { useState } from "react";

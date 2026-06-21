@@ -18,7 +18,7 @@ import {
 } from "@api/schemas/tasks";
 import { protectedProcedure, router } from "@api/trpc/init";
 import { buildSmartCompletePrompt } from "@api/utils/smart-complete";
-import { db } from "@mimir/db/client";
+import { db } from "@nexus-app/db/client";
 import {
 	bulkDeleteTask,
 	bulkUpdateTask,
@@ -36,11 +36,11 @@ import {
 	updateTask,
 	updateTaskComment,
 	updateTaskDescription,
-} from "@mimir/db/queries/tasks";
-import { getDuplicateTaskEmbedding } from "@mimir/db/queries/tasks-embeddings";
-import { getMemberById } from "@mimir/db/queries/teams";
-import { trackTaskCreated } from "@mimir/events/server";
-import { syncRecurringTaskSchedule } from "@mimir/jobs/tasks/create-recurring-task-job";
+} from "@nexus-app/db/queries/tasks";
+import { getDuplicateTaskEmbedding } from "@nexus-app/db/queries/tasks-embeddings";
+import { getMemberById } from "@nexus-app/db/queries/teams";
+import { trackTaskCreated } from "@nexus-app/events/server";
+import { syncRecurringTaskSchedule } from "@nexus-app/jobs/tasks/create-recurring-task-job";
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq } from "drizzle-orm";
 import { pgTable, text, timestamp } from "drizzle-orm/pg-core";

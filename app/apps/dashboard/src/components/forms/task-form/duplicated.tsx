@@ -1,5 +1,5 @@
-import { Popover, PopoverContent, PopoverTrigger } from "@mimir/ui/popover";
-import { ScrollArea } from "@mimir/ui/scroll-area";
+import { Popover, PopoverContent, PopoverTrigger } from "@nexus-app/ui/popover";
+import { ScrollArea } from "@nexus-app/ui/scroll-area";
 import { useQuery } from "@tanstack/react-query";
 import { Layers2Icon, Loader2Icon } from "lucide-react";
 import { useEffect } from "react";

@@ -1,5 +1,5 @@
 {
-	"name": "@mimir/locale",
+	"name": "@nexus-app/locale",
 	"version": "1.0.0",
 	"main": "src/index.ts",
 	"private": true,
@@ -15,7 +15,7 @@
 		"zustand": "^5.0.8"
 	},
 	"devDependencies": {
-		"@mimir/tsconfig": "workspace:*",
+		"@nexus-app/tsconfig": "workspace:*",
 		"typescript": "^5.9.2"
 	},
 	"exports": {

@@ -18,21 +18,21 @@
 		"clean:stale-js": "find apps/dashboard apps/api apps/website apps/desktop packages -type d \\( -name node_modules -o -name .next -o -name .turbo -o -name dist -o -name out \\) -prune -o -type f -name '*.js' -print | xargs -I{} sh -c 'if [ -f \"${1%.js}.ts\" ] || [ -f \"${1%.js}.tsx\" ]; then rm -f \"$1\" \"${1%.js}.js.map\" \"${1%.js}.d.ts\" && echo \"deleted $1\"; fi; exit 0' _ {}",
 		"check": "biome check --write .",
 		"predev": "bun run clean:stale-js",
-		"dev": "turbo dev -F @mimir/dashboard -F @mimir/api -F @mimir/trpc",
+		"dev": "turbo dev -F @nexus-app/dashboard -F @nexus-app/api -F @nexus-app/trpc",
 		"prebuild": "bun run clean:stale-js",
-		"build": "turbo build --filter=!@mimir/website",
+		"build": "turbo build --filter=!@nexus-app/website",
 		"check-types": "turbo check-types",
 		"predev:dashboard": "bun run clean:stale-js",
-		"dev:dashboard": "turbo -F @mimir/dashboard dev",
+		"dev:dashboard": "turbo -F @nexus-app/dashboard dev",
 		"predev:api": "bun run clean:stale-js",
-		"dev:api": "turbo -F @mimir/api -F @mimir/trpc dev",
+		"dev:api": "turbo -F @nexus-app/api -F @nexus-app/trpc dev",
 		"predev:website": "bun run clean:stale-js",
-		"dev:website": "turbo -F @mimir/website dev",
-		"db:push": "turbo -F @mimir/db db:push"
+		"dev:website": "turbo -F @nexus-app/website dev",
+		"db:push": "turbo -F @nexus-app/db db:push"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.2.0",
-		"@mimir/tsconfig": "workspace:*",
+		"@nexus-app/tsconfig": "workspace:*",
 		"turbo": "^2.7.3",
 		"typescript": "^5.9.2"
 	},

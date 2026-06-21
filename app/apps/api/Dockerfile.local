@@ -18,7 +18,7 @@ RUN bun add -g turbo
 FROM turbo-cli AS builder
 WORKDIR /app
 COPY . .
-RUN turbo prune @mimir/api --docker
+RUN turbo prune @nexus-app/api --docker
 
 FROM base AS installer
 WORKDIR /app

@@ -7,7 +7,7 @@
  *   (b) removes googleapis dep from all workspace packages
  *   (c) removes @sentry from all workspace packages + config files
  *   (d) removes posthog-js / posthog-node from all workspace packages
- *   (e) stubs or removes @mimir/notifications (no @mimir/integration external-transport imports)
+ *   (e) stubs or removes @nexus-app/notifications (no @nexus-app/integration external-transport imports)
  *
  * Acceptance criteria pinned:
  *   1. zero googleapis references across the whole app/ tree (excl. node_modules/dist/__tests__)
@@ -15,7 +15,7 @@
  *   3. zero posthog references across the whole app/ tree
  *   4. rest/routers/gmail.ts router file DELETED
  *   5. rest/routers/google-calendar.ts router file DELETED
- *   6. @mimir/notifications/src/index.ts does NOT import @mimir/integration/* (no external-transport)
+ *   6. @nexus-app/notifications/src/index.ts does NOT import @nexus-app/integration/* (no external-transport)
  *
  * Excluded from scans:
  *   - node_modules, .next, dist, build, .turbo, __tests__ directories
@@ -227,12 +227,12 @@ describe("TASK-007 P6 integrations-trim guard", () => {
 	});
 
 	// ---------------------------------------------------------------------------
-	// 6. @mimir/notifications/src/index.ts — no @mimir/integration external-transport imports
+	// 6. @nexus-app/notifications/src/index.ts — no @nexus-app/integration external-transport imports
 	//    After P6, sendNotification must be a pure stub with no Google/chat transport
-	//    binding — removing the @mimir/integration import chain (which drags in googleapis).
+	//    binding — removing the @nexus-app/integration import chain (which drags in googleapis).
 	// ---------------------------------------------------------------------------
 
-	test("@mimir/notifications/src/index.ts does not import from @mimir/integration", () => {
+	test("@nexus-app/notifications/src/index.ts does not import from @nexus-app/integration", () => {
 		const notificationsIndexPath = join(
 			APP_ROOT,
 			"packages",
@@ -254,7 +254,7 @@ describe("TASK-007 P6 integrations-trim guard", () => {
 
 		expect(
 			hasIntegrationImport,
-			"@mimir/notifications/src/index.ts still imports from @mimir/integration — " +
+			"@nexus-app/notifications/src/index.ts still imports from @nexus-app/integration — " +
 				"sendNotification must be stubbed with no external-transport dependency " +
 				"(remove sendMattermostNotification + sendWhatsappNotification imports)",
 		).toBe(false);

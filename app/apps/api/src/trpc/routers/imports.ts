@@ -1,6 +1,6 @@
 import { getImportsSchema } from "@api/schemas/imports";
 import { protectedProcedure, router } from "@api/trpc/init";
-import { getImports } from "@mimir/db/queries/imports";
+import { getImports } from "@nexus-app/db/queries/imports";
 
 export const importsRouter = router({
 	get: protectedProcedure

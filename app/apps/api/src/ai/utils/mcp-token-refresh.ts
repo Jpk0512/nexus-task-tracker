@@ -1,5 +1,5 @@
-import { updateMcpServerUserToken } from "@mimir/db/queries/mcp-servers";
-import type { McpServerConfig } from "@mimir/db/schema";
+import { updateMcpServerUserToken } from "@nexus-app/db/queries/mcp-servers";
+import type { McpServerConfig } from "@nexus-app/db/schema";
 
 /**
  * Buffer in seconds — refresh tokens that expire within this window.

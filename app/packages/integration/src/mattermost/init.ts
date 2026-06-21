@@ -5,17 +5,17 @@ import type { UIChatMessage } from "@api/ai/types";
 import { getUserContext } from "@api/ai/utils/get-user-context";
 import { Client4, type WebSocketMessage } from "@mattermost/client";
 import type { UserProfile } from "@mattermost/types/users";
-import { integrationsCache } from "@mimir/cache/integrations-cache";
-import { db } from "@mimir/db/client";
-import { getChatById, saveChatMessage } from "@mimir/db/queries/chats";
+import { integrationsCache } from "@nexus-app/cache/integrations-cache";
+import { db } from "@nexus-app/db/client";
+import { getChatById, saveChatMessage } from "@nexus-app/db/queries/chats";
 import {
 	getIntegrationByType,
 	getLinkedUserByExternalId,
-} from "@mimir/db/queries/integrations";
-import { integrations } from "@mimir/db/schema";
-import { trackMessage } from "@mimir/events/server";
-import { LocalDiskStorageAdapter } from "@mimir/storage";
-import { getApiUrl } from "@mimir/utils/envs";
+} from "@nexus-app/db/queries/integrations";
+import { integrations } from "@nexus-app/db/schema";
+import { trackMessage } from "@nexus-app/events/server";
+import { LocalDiskStorageAdapter } from "@nexus-app/storage";
+import { getApiUrl } from "@nexus-app/utils/envs";
 import type { UIMessage } from "ai";
 import { fetch } from "bun";
 import { eq } from "drizzle-orm";

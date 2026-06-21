@@ -1,6 +1,6 @@
 "use client";
 
-import type { RouterOutputs } from "@mimir/trpc";
+import type { RouterOutputs } from "@nexus-app/trpc";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { create } from "zustand";
 import { useTasksViewContext } from "@/components/tasks-view/tasks-view";

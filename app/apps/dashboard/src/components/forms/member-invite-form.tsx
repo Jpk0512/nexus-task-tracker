@@ -1,14 +1,14 @@
 "use client";
-import { t } from "@mimir/locale";
-import { Button } from "@mimir/ui/button";
+import { t } from "@nexus-app/locale";
+import { Button } from "@nexus-app/ui/button";
 import {
 	Form,
 	FormControl,
 	FormField,
 	FormItem,
 	FormLabel,
-} from "@mimir/ui/form";
-import { Input } from "@mimir/ui/input";
+} from "@nexus-app/ui/form";
+import { Input } from "@nexus-app/ui/input";
 import { useMutation } from "@tanstack/react-query";
 import { Loader2Icon } from "lucide-react";
 import { toast } from "sonner";

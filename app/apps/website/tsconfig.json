@@ -1,5 +1,5 @@
 {
-	"extends": "@mimir/tsconfig/nextjs.json",
+	"extends": "@nexus-app/tsconfig/nextjs.json",
 	"compilerOptions": {
 		"baseUrl": ".",
 		"paths": {

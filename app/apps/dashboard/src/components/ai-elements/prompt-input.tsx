@@ -1,20 +1,20 @@
 "use client";
 
-import { Button } from "@mimir/ui/button";
+import { Button } from "@nexus-app/ui/button";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
 	DropdownMenuTrigger,
-} from "@mimir/ui/dropdown-menu";
+} from "@nexus-app/ui/dropdown-menu";
 import {
 	Select,
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
-} from "@mimir/ui/select";
-import { Textarea } from "@mimir/ui/textarea";
+} from "@nexus-app/ui/select";
+import { Textarea } from "@nexus-app/ui/textarea";
 import type { ChatStatus, FileUIPart } from "ai";
 import {
 	ImageIcon,

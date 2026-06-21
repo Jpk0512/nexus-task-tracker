@@ -16,7 +16,7 @@ import {
 	getTaskViews,
 	setDefaultTaskView,
 	updateTaskView,
-} from "@mimir/db/queries/task-views";
+} from "@nexus-app/db/queries/task-views";
 
 export const taskViewsRouter = router({
 	get: protectedProcedure

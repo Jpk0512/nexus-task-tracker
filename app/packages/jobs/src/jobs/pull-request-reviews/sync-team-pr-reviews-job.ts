@@ -1,9 +1,9 @@
-import { getConnectedRepositories } from "@mimir/db/queries/github";
+import { getConnectedRepositories } from "@nexus-app/db/queries/github";
 import {
 	getIntegrationByType,
 	getLinkedUsers,
-} from "@mimir/db/queries/integrations";
-import { syncPrReview } from "@mimir/db/queries/pr-reviews";
+} from "@nexus-app/db/queries/integrations";
+import { syncPrReview } from "@nexus-app/db/queries/pr-reviews";
 import { Octokit } from "octokit";
 import { defineJob, logger } from "../../init";
 

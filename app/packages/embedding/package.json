@@ -1,5 +1,5 @@
 {
-	"name": "@mimir/embedding",
+	"name": "@nexus-app/embedding",
 	"private": true,
 	"scripts": {
 		"clean": "rm -rf .turbo node_modules",
@@ -14,15 +14,15 @@
 	},
 	"dependencies": {
 		"@date-fns/utc": "^2.1.1",
-		"@mimir/cache": "workspace:*",
-		"@mimir/logger": "workspace:*",
-		"@mimir/utils": "workspace:*",
+		"@nexus-app/cache": "workspace:*",
+		"@nexus-app/logger": "workspace:*",
+		"@nexus-app/utils": "workspace:*",
 		"ai": "6.0.64",
 		"date-fns": "^4.1.0",
 		"string-strip-html": "^13.5.0"
 	},
 	"devDependencies": {
-		"@mimir/tsconfig": "workspace:*",
+		"@nexus-app/tsconfig": "workspace:*",
 		"@types/bun": "latest"
 	}
 }

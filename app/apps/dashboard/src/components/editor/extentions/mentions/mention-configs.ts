@@ -1,4 +1,4 @@
-import type { RouterOutputs } from "@mimir/trpc";
+import type { RouterOutputs } from "@nexus-app/trpc";
 import { trpc } from "@/utils/trpc";
 import type {
 	DocumentMentionEntity,

@@ -4,7 +4,7 @@ import {
 	getNotificationSettings,
 	getUserNotificationPreferences,
 	upsertNotificationSetting,
-} from "@mimir/db/queries/notification-settings";
+} from "@nexus-app/db/queries/notification-settings";
 import {
 	bulkUpdateNotificationSettingsSchema,
 	getNotificationSettingsSchema,

@@ -1,7 +1,7 @@
 "use client";
 
-import { t } from "@mimir/locale";
-import type { RouterOutputs } from "@mimir/trpc";
+import { t } from "@nexus-app/locale";
+import type { RouterOutputs } from "@nexus-app/trpc";
 import { BaseActivity } from "./base-activity";
 import type { Activity } from "./types";
 

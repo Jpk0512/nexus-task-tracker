@@ -1,6 +1,6 @@
 "use client";
 
-import type { RouterOutputs } from "@mimir/trpc";
+import type { RouterOutputs } from "@nexus-app/trpc";
 import { useQuery } from "@tanstack/react-query";
 import { type NodeViewProps, NodeViewWrapper } from "@tiptap/react";
 import { Skeleton } from "@ui/components/ui/skeleton";

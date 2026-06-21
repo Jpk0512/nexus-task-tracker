@@ -1,5 +1,5 @@
 import { protectedProcedure, router } from "@api/trpc/init";
-import { globalSearch } from "@mimir/db/queries/global-search";
+import { globalSearch } from "@nexus-app/db/queries/global-search";
 import z from "zod";
 
 export const globalSearchRouter = router({

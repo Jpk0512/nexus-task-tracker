@@ -1,6 +1,6 @@
 "use client";
 
-import { Skeleton } from "@mimir/ui/skeleton";
+import { Skeleton } from "@nexus-app/ui/skeleton";
 import { DocumentForm } from "@/components/documents/document-form";
 import { useDocument } from "@/hooks/use-data";
 import { useUser } from "../user-provider";

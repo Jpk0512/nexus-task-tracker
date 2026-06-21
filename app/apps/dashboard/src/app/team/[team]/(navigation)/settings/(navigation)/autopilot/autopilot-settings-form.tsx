@@ -1,12 +1,12 @@
 "use client";
-import { Button } from "@mimir/ui/button";
+import { Button } from "@nexus-app/ui/button";
 import {
 	Card,
 	CardContent,
 	CardDescription,
 	CardHeader,
 	CardTitle,
-} from "@mimir/ui/card";
+} from "@nexus-app/ui/card";
 import {
 	Form,
 	FormControl,
@@ -15,8 +15,8 @@ import {
 	FormItem,
 	FormLabel,
 	FormMessage,
-} from "@mimir/ui/form";
-import { Switch } from "@mimir/ui/switch";
+} from "@nexus-app/ui/form";
+import { Switch } from "@nexus-app/ui/switch";
 import { useMutation } from "@tanstack/react-query";
 import { cn } from "@ui/lib/utils";
 import {

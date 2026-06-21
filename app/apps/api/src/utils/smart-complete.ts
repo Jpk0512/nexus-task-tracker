@@ -1,7 +1,7 @@
 import { getUserContext } from "@api/ai/utils/get-user-context";
 import { TZDate } from "@date-fns/tz";
-import { getSmartCompleteContext } from "@mimir/db/queries/tasks";
-import { priorityEnum } from "@mimir/db/schema";
+import { getSmartCompleteContext } from "@nexus-app/db/queries/tasks";
+import { priorityEnum } from "@nexus-app/db/schema";
 import z from "zod";
 
 export const buildSmartCompletePrompt = async ({

@@ -4,14 +4,14 @@ import {
 	updateMilestoneSchema,
 } from "@api/schemas/milestones";
 import { protectedProcedure, router } from "@api/trpc/init";
-import { db } from "@mimir/db/client";
+import { db } from "@nexus-app/db/client";
 import {
 	createMilestone,
 	deleteMilestone,
 	getMilestoneById,
 	getMilestones,
 	updateMilestone,
-} from "@mimir/db/queries/milestones";
+} from "@nexus-app/db/queries/milestones";
 import { TRPCError } from "@trpc/server";
 import { and, eq } from "drizzle-orm";
 import { pgTable, text } from "drizzle-orm/pg-core";

@@ -1,5 +1,5 @@
 "use client";
-import { Input } from "@mimir/ui/input";
+import { Input } from "@nexus-app/ui/input";
 import { SearchIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useDebounceCallback } from "usehooks-ts";

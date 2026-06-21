@@ -3,11 +3,11 @@ import {
 	priorityEnum,
 	shareablePolicyEnum,
 	statusTypeEnum,
-} from "@mimir/db/schema";
+} from "@nexus-app/db/schema";
 import {
 	cronToRecurrenceEditor,
 	isValidTaskRecurrenceCron,
-} from "@mimir/utils/recurrence";
+} from "@nexus-app/utils/recurrence";
 import z from "zod";
 import { paginationSchema } from "./base";
 

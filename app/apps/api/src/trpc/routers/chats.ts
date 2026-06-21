@@ -8,7 +8,7 @@ import {
 	deleteChat,
 	getChatById,
 	getChatHistory,
-} from "@mimir/db/queries/chats";
+} from "@nexus-app/db/queries/chats";
 
 export const chatRouter = router({
 	get: protectedProcedure.input(getChatSchema).query(async ({ ctx, input }) => {

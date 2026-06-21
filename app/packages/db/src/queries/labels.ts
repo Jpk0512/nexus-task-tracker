@@ -1,4 +1,4 @@
-import { randomColor } from "@mimir/utils/random";
+import { randomColor } from "@nexus-app/utils/random";
 import { and, count, eq, type SQL } from "drizzle-orm";
 import { db } from "..";
 import { labels, labelsOnTasks, tasks } from "../schema";

@@ -1,6 +1,6 @@
-import { updateTaskExecution } from "@mimir/db/queries/task-executions";
-import type { TaskExecutionMemory } from "@mimir/db/schema";
-import type { IntegrationName } from "@mimir/integration/registry";
+import { updateTaskExecution } from "@nexus-app/db/queries/task-executions";
+import type { TaskExecutionMemory } from "@nexus-app/db/schema";
+import type { IntegrationName } from "@nexus-app/integration/registry";
 import { tool } from "ai";
 import z from "zod";
 import { type AppContext, getToolContext } from "./config/shared";

@@ -7,7 +7,7 @@ import {
 	updateProjectSchema,
 } from "@api/schemas/projects";
 import { protectedProcedure, router } from "@api/trpc/init";
-import { db } from "@mimir/db/client";
+import { db } from "@nexus-app/db/client";
 import {
 	addProjectMember,
 	cloneProject,
@@ -20,7 +20,7 @@ import {
 	getProjectsForTimeline,
 	removeProjectMember,
 	updateProject,
-} from "@mimir/db/queries/projects";
+} from "@nexus-app/db/queries/projects";
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { boolean, pgTable, text, timestamp } from "drizzle-orm/pg-core";

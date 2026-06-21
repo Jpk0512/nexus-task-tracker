@@ -1,14 +1,14 @@
-import { Button } from "@mimir/ui/button";
-import { Checkbox } from "@mimir/ui/checkbox";
+import { Button } from "@nexus-app/ui/button";
+import { Checkbox } from "@nexus-app/ui/checkbox";
 import {
 	Command,
 	CommandEmpty,
 	CommandGroup,
 	CommandInput,
 	CommandItem,
-} from "@mimir/ui/command";
-import { LabelBadge } from "@mimir/ui/label-badge";
-import { Popover, PopoverContent, PopoverTrigger } from "@mimir/ui/popover";
+} from "@nexus-app/ui/command";
+import { LabelBadge } from "@nexus-app/ui/label-badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@nexus-app/ui/popover";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { PlusIcon } from "lucide-react";
 import { useState } from "react";

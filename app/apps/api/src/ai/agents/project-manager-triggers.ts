@@ -1,7 +1,7 @@
 import type { ProjectManagerTrigger } from "@api/ai/agents/project-manager";
-import { db } from "@mimir/db/client";
-import { isSystemUser } from "@mimir/db/queries/agent-triggers";
-import { statuses, tasks } from "@mimir/db/schema";
+import { db } from "@nexus-app/db/client";
+import { isSystemUser } from "@nexus-app/db/queries/agent-triggers";
+import { statuses, tasks } from "@nexus-app/db/schema";
 import { and, eq } from "drizzle-orm";
 
 /**
@@ -260,7 +260,7 @@ export async function evaluateMilestoneCompletion({
 	}
 
 	// Fetch milestone name
-	const { milestones } = await import("@mimir/db/schema");
+	const { milestones } = await import("@nexus-app/db/schema");
 	const [milestone] = await db
 		.select({ id: milestones.id, name: milestones.name })
 		.from(milestones)

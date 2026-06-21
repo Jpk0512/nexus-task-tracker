@@ -15,7 +15,7 @@ import {
 	getStatuses,
 	reorderStatuses,
 	updateStatus,
-} from "@mimir/db/queries/statuses";
+} from "@nexus-app/db/queries/statuses";
 
 export const statusesRouter = router({
 	get: protectedProcedure

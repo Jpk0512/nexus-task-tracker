@@ -1,6 +1,6 @@
-import { getTasks } from "@mimir/db/queries/tasks";
-import { statusTypeEnum } from "@mimir/db/schema";
-import { getTaskPermalink } from "@mimir/utils/tasks";
+import { getTasks } from "@nexus-app/db/queries/tasks";
+import { statusTypeEnum } from "@nexus-app/db/schema";
+import { getTaskPermalink } from "@nexus-app/utils/tasks";
 import { tool } from "ai";
 import z from "zod";
 import { getToolContext } from "../agents/config/shared";

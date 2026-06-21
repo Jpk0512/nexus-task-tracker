@@ -1,5 +1,5 @@
 {
-	"name": "@mimir/utils",
+	"name": "@nexus-app/utils",
 	"version": "1.0.0",
 	"main": "src/index.ts",
 	"private": true,
@@ -16,7 +16,7 @@
 		"tokenlens": "^1.3.1"
 	},
 	"devDependencies": {
-		"@mimir/tsconfig": "workspace:*",
+		"@nexus-app/tsconfig": "workspace:*",
 		"@types/node": "^20",
 		"typescript": "^5.9.2"
 	},

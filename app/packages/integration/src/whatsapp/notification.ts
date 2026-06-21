@@ -1,7 +1,7 @@
 import {
 	getLinkedUserByExternalId,
 	getLinkedUserByUserId,
-} from "@mimir/db/queries/integrations";
+} from "@nexus-app/db/queries/integrations";
 import { Twilio } from "twilio";
 
 export const sendWhatsappNotification = async ({

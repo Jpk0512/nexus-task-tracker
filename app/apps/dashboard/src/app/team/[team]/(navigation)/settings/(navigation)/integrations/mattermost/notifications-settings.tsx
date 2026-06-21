@@ -1,14 +1,14 @@
 "use client";
-import { Button } from "@mimir/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@mimir/ui/card";
+import { Button } from "@nexus-app/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@nexus-app/ui/card";
 import {
 	Form,
 	FormControl,
 	FormField,
 	FormItem,
 	FormLabel,
-} from "@mimir/ui/form";
-import { Input } from "@mimir/ui/input";
+} from "@nexus-app/ui/form";
+import { Input } from "@nexus-app/ui/input";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Loader2Icon } from "lucide-react";
 import { useEffect } from "react";

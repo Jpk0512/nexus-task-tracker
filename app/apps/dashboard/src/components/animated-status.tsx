@@ -1,6 +1,6 @@
 "use client";
 
-import { TextShimmer } from "@mimir/ui/text-shimmer";
+import { TextShimmer } from "@nexus-app/ui/text-shimmer";
 import { AnimatePresence, motion } from "motion/react";
 
 interface AnimatedStatusProps {

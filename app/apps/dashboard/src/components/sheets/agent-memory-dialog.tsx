@@ -6,7 +6,7 @@ import {
 	DialogDescription,
 	DialogHeader,
 	DialogTitle,
-} from "@mimir/ui/dialog";
+} from "@nexus-app/ui/dialog";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Badge } from "@ui/components/ui/badge";
 import { Button } from "@ui/components/ui/button";

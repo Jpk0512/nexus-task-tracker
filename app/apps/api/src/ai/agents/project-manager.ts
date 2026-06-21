@@ -1,6 +1,6 @@
-import { updateProjectExecution } from "@mimir/db/queries/project-executions";
-import type { ProjectExecutionMemory } from "@mimir/db/schema";
-import type { IntegrationName } from "@mimir/integration/registry";
+import { updateProjectExecution } from "@nexus-app/db/queries/project-executions";
+import type { ProjectExecutionMemory } from "@nexus-app/db/schema";
+import type { IntegrationName } from "@nexus-app/integration/registry";
 import { tool } from "ai";
 import z from "zod";
 import { type AppContext, getToolContext } from "./config/shared";

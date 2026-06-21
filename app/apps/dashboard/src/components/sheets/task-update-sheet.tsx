@@ -4,8 +4,8 @@ import {
 	DialogContent,
 	DialogHeader,
 	DialogTitle,
-} from "@mimir/ui/dialog";
-import { Skeleton } from "@mimir/ui/skeleton";
+} from "@nexus-app/ui/dialog";
+import { Skeleton } from "@nexus-app/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@ui/lib/utils";
 import { useTaskParams } from "@/hooks/use-task-params";

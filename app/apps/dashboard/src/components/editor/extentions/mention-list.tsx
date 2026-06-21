@@ -1,4 +1,4 @@
-import type { RouterOutputs } from "@mimir/trpc";
+import type { RouterOutputs } from "@nexus-app/trpc";
 import type { SuggestionProps } from "@tiptap/suggestion";
 import { useEffect, useImperativeHandle, useMemo, useState } from "react";
 import { AssigneeAvatar } from "@/components/asignee-avatar";

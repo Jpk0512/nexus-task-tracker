@@ -1,6 +1,6 @@
-import { Avatar, AvatarFallback, AvatarImage } from "@mimir/ui/avatar";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@mimir/ui/tooltip";
-import { getContrast } from "@mimir/utils/random";
+import { Avatar, AvatarFallback, AvatarImage } from "@nexus-app/ui/avatar";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@nexus-app/ui/tooltip";
+import { getContrast } from "@nexus-app/utils/random";
 import { Facehash } from "facehash";
 import { UserIcon } from "lucide-react";
 import { cn } from "@/lib/utils";

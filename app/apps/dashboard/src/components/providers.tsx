@@ -1,6 +1,6 @@
 "use client";
 
-import { getApiUrl } from "@mimir/utils/envs";
+import { getApiUrl } from "@nexus-app/utils/envs";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { RealtimeProvider } from "@upstash/realtime/client";

@@ -1,5 +1,5 @@
 "use client";
-import type { RouterOutputs } from "@mimir/trpc";
+import type { RouterOutputs } from "@nexus-app/trpc";
 import { Checkbox } from "@ui/components/ui/checkbox";
 import { cn } from "@ui/lib/utils";
 import { LayersIcon } from "lucide-react";

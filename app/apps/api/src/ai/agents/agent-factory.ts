@@ -1,8 +1,8 @@
 import type { UserIntegrationInfo } from "@api/ai/types";
-import { getAgentById } from "@mimir/db/queries/agents";
-import { getLinkedUsers } from "@mimir/db/queries/integrations";
-import type { IntegrationName } from "@mimir/integration/registry";
-import { AGENT_DEFAULT_MODEL } from "@mimir/utils/agents";
+import { getAgentById } from "@nexus-app/db/queries/agents";
+import { getLinkedUsers } from "@nexus-app/db/queries/integrations";
+import type { IntegrationName } from "@nexus-app/integration/registry";
+import { AGENT_DEFAULT_MODEL } from "@nexus-app/utils/agents";
 import type { Tool } from "ai";
 import { integrationToolRegistry } from "../tools/tool-registry";
 import { type AgentConfig, createAgent } from "./config/agent";

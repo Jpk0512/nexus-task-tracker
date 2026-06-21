@@ -1,4 +1,4 @@
-import type { integrations } from "@mimir/db/schema";
+import type { integrations } from "@nexus-app/db/schema";
 import { initMattermost, initMattermostSingle } from "./mattermost/init";
 import { initSlack } from "./slack";
 

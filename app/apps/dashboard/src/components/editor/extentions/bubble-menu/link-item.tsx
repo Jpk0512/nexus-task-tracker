@@ -1,7 +1,7 @@
 "use client";
 
-import { Button } from "@mimir/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@mimir/ui/popover";
+import { Button } from "@nexus-app/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@nexus-app/ui/popover";
 import type { Editor } from "@tiptap/react";
 import { Link2Icon, Link2OffIcon } from "lucide-react";
 import { useRef, useState } from "react";

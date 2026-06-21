@@ -16,7 +16,7 @@
  *          The root navigation layout does NOT directly import FocusSessionLoader.
  *   AC3 — ProjectRelationshipsSidebar gates all useQuery calls on the sidebar
  *          being expanded (section components only rendered after collapsed guard).
- *   AC4 — apps/website (@mimir/website) is excluded from the turbo build
+ *   AC4 — apps/website (@nexus-app/website) is excluded from the turbo build
  *          pipeline (root package.json build script or turbo.json).
  *   AC5 — dashboard tsconfig.json is valid JSON with compilerOptions.
  */
@@ -269,9 +269,9 @@ describe("AC4 — website excluded from turbo build", () => {
 	/**
 	 * GIVEN the root package.json build script
 	 * WHEN it is read
-	 * THEN it must exclude @mimir/website via --filter=!@mimir/website
+	 * THEN it must exclude @nexus-app/website via --filter=!@nexus-app/website
 	 */
-	test("turbo build pipeline excludes @mimir/website via filter or override", () => {
+	test("turbo build pipeline excludes @nexus-app/website via filter or override", () => {
 		const turboPath = join(APP_ROOT, "turbo.json");
 		const pkgPath = join(APP_ROOT, "package.json");
 
@@ -282,7 +282,7 @@ describe("AC4 — website excluded from turbo build", () => {
 		const pkgContent = readFileSync(pkgPath, "utf8");
 
 		const turboHasWebsiteExclusion =
-			turboContent.includes("@mimir/website") ||
+			turboContent.includes("@nexus-app/website") ||
 			turboContent.includes("apps/website");
 
 		const pkg = JSON.parse(pkgContent) as {
@@ -290,7 +290,7 @@ describe("AC4 — website excluded from turbo build", () => {
 		};
 		const buildScript = pkg.scripts?.build ?? "";
 		const pkgExcludesWebsite =
-			buildScript.includes("!@mimir/website") ||
+			buildScript.includes("!@nexus-app/website") ||
 			buildScript.includes("!./apps/website") ||
 			buildScript.includes("!apps/website");
 

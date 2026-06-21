@@ -11,8 +11,8 @@ import {
 	getActivities,
 	getActivitiesCount,
 	hasNewActivities,
-} from "@mimir/db/queries/activities";
-import { getChannelName, subscribeToEvents } from "@mimir/realtime";
+} from "@nexus-app/db/queries/activities";
+import { getChannelName, subscribeToEvents } from "@nexus-app/realtime";
 import z from "zod";
 
 export const activitiesRouter = router({
