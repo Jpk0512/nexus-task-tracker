@@ -13,7 +13,7 @@ import {
 	sql,
 } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
-import { jsonBuildObject } from "src/utils/drizzle";
+import { jsonBuildObject } from "../utils/drizzle";
 import { db } from "..";
 import {
 	activities,

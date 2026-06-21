@@ -1,4 +1,4 @@
-import type { teamRoleEnum } from "@nexus-app/db/schema/schemas";
+import type { teamRoleEnum } from "@nexus-app/db/schema";
 import type { InferEnum } from "drizzle-orm/";
 
 export const SCOPES = ["team:write"] as const;

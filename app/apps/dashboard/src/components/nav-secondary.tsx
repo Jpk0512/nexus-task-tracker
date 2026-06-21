@@ -10,7 +10,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type * as React from "react";
 import { useUser } from "@/components/user-provider";
-import type { NavItem } from "./app-sidebar";
+import type { NavItem } from "./app-sidebar/main";
 
 export function NavSecondary({
 	items,

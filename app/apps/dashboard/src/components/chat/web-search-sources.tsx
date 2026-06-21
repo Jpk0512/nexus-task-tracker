@@ -2,7 +2,7 @@
 
 import { Avatar, AvatarFallback, AvatarImage } from "@ui/components/ui/avatar";
 import { cn } from "@ui/lib/utils";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import type { ComponentProps } from "react";
 import { useEffect, useState } from "react";

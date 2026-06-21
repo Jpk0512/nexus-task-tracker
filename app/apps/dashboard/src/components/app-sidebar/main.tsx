@@ -8,11 +8,18 @@ import {
 	useSidebar,
 } from "@ui/components/ui/sidebar";
 import { cn } from "@ui/lib/utils";
+import type { LucideIcon } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { TeamSwitcher } from "../team-switcher";
 import { SidebarFocus } from "./sidebar-focus";
 import { SidebarProjects } from "./sidebar-projects";
 import { SidebarWorkspace } from "./sidebar-workspace";
+
+export type NavItem = {
+	title: string;
+	url: string;
+	icon: LucideIcon;
+};
 
 export function AppSidebar() {
 	const { open } = useSidebar();

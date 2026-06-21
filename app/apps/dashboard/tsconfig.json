@@ -5,7 +5,10 @@
 		"paths": {
 			"@/*": ["./src/*"],
 			"@api/*": ["../api/src/*"],
-			"@ui/*": ["../../packages/ui/src/*"]
+			"@ui/*": ["../../packages/ui/src/*"],
+			"@integration/*": ["../../packages/integration/src/*"],
+			"@notifications/*": ["../../packages/notifications/src/*"],
+			"@jobs/*": ["../../packages/jobs/src/*"]
 		},
 		"strict": true,
 		"strictNullChecks": false,
