@@ -3,6 +3,8 @@
 Version: 1.0  
 Status: ACTIVE — the renderer and detector are implemented and covered by tests; additive changes only.
 
+> **Reconciliation note (2026-06-20):** This is a Nexus-package design contract for the installer's stack-profile renderer/detector — it describes how `nexus-stack.json` drives token rendering and file inclusion, NOT the Nexus app's product posture. The Token Vocabulary "Source field" example values below were verified against this project's live `.memory/nexus-stack.json` and match it exactly (`frontend.framework=next`, `ui_lib=shadcn`, `data.db=postgres`, `data.vector=pgvector`, `ai_layer=vercel-ai-sdk-v4`, `package_manager=bun`, `mcp_server_dir=mcp-server`). The `integration_targets` example (`supabase, slack, trigger.dev, posthog`) is a verbatim echo of that profile field — it documents the renderer's input, not active app integrations (Supabase was rolled back; these are stubbed/removed in the local-only app — see `docs/ARCHITECTURE.md` and `docs/STATE_OF_NEXUS.md`).
+
 ---
 
 ## Purpose

@@ -1,117 +1,134 @@
 # State of Nexus — Source of Truth
 
-Last updated: 2026-05-17 (iter 9 rebrand).
+Last updated: 2026-06-20 (FEAT-002 ship + @nexus-app rename + security sweep). Nexus orchestrator v1.13.0.
 
 ## What this is
 
-Nexus is a single-user, local-only task tracker. UI styled after Linear, lifting features from Notion. Postgres + pgvector single-container backend. Bun + Turbo monorepo with Next.js dashboard + Hono/tRPC API + MCP server. Orchestrated by the Nexus AI agent plugin (.claude/, .memory/). Never deployed to the internet — runs entirely on the user's laptop.
+Nexus is a single-user, local-only task & knowledge tracker. UI styled after Linear, lifting features from Notion/Obsidian. Postgres + pgvector single-container backend. Bun + Turbo monorepo with a Next.js 15 dashboard + Hono/tRPC API + a standalone stdio MCP server. Orchestrated by the Nexus AI agent plugin (`.claude/`, `.memory/`). Never deployed to the internet — runs entirely on the owner's laptop.
 
-The project was downloaded from a public GitHub repo (originally a multi-tenant SaaS task tracker called Mimrai), then customized over iters 1-8. The rebrand to "Nexus" landed in iter 9.
+The project was downloaded from a public GitHub repo (originally a multi-tenant SaaS task tracker called Mimrai), rebranded to "Nexus" in iter 9, then **repurposed in FEAT-001** from a SaaS into a local-only, API-accessed personal app (billing/Stripe and the SaaS layers removed). **FEAT-002** then added four personal-assistant capabilities: Todos, Knowledge vault, Prompt library, and the MCP server.
 
-## Stack (as of iter 9)
+## Stack (current — v1.13.0)
 
 | Layer | Tech |
 |---|---|
 | Runtime | Bun 1.2 |
-| Monorepo | Turborepo |
-| Frontend | Next.js 15 App Router + React + Tailwind + Shadcn UI |
-| Backend | Hono + tRPC (`app/apps/api`) |
-| Database | Postgres (pgvector/pgvector:pg16, single container) + Drizzle ORM |
+| Monorepo | Turborepo. Workspace scope **`@nexus-app/*`** (renamed from `@mimir/*`, commit `60e3bd5`, TASK-009 — see DEC-014 below). |
+| Frontend | Next.js 15 App Router + React + Tailwind + Shadcn UI + Tiptap + dnd-kit |
+| Backend | Hono + tRPC (`app/apps/api`) + REST route handlers for webhooks/MCP auth |
+| Database | Postgres (`pgvector/pgvector:pg16`, single container) + Drizzle ORM |
 | Cache | Redis 7 (local container) |
-| Auth | Better Auth library installed but bypassed via `NEXUS_LOCAL_DEV=1` (hardcoded user) |
+| Auth | Better Auth installed but bypassed via `NEXUS_LOCAL_DEV=1` (hardcoded user) |
 | Lint/format | Biome |
-| Vector embeddings | pgvector (table exists; vectors not populated yet) |
+| AI layer | Vercel AI SDK v4 |
+| Vector embeddings | pgvector (`task_embeddings` table) |
+| Billing | **REMOVED in FEAT-001** (migration `0002_drop_billing.sql`; no billing code remains) |
 | Tracing | None (Sentry stubbed) |
 | Background jobs | Trigger.dev stubbed |
 | Email | Resend stubbed |
 | Analytics | OpenPanel stubbed |
-| Billing | Stripe stubbed |
-| Orchestration | Nexus plugin (Claude Code agent system) |
-| MCP server | `mcp-server/` — Bun project, single-file dist |
+| Orchestration | Nexus plugin (Claude Code agent system), v1.13.0 |
+| MCP server | `mcp-server/` — Bun stdio project, `dist/` build; identity `nexus` v0.1.0; 11 tools |
+| Type-check | `tsc` baseline at **0 errors** |
 
-## Containers
+## FEAT-002 capabilities (shipped)
 
-| Container (per compose) | Image | Host port | Notes |
-|---|---|---|---|
-| `nexus-postgres` | pgvector/pgvector:pg16 | 55432 | Renamed from `mimrai-postgres` in iter 9; running containers still named `mimrai-*` until next `docker compose up` |
-| `nexus-redis` | redis:7-alpine | 56379 | Same |
-| `nexus-api` | (built locally) | 3003 | Same |
-| `nexus-dashboard` | (built locally) | 5179 | Same |
+- **Todos** (`todos`, `todo_attachments`) — daily-driver capture, team/user-scoped, dashboard `/todos`, MCP `add_todo`/`list_todos`/`check_todo`.
+- **Knowledge vault** — Obsidian-compatible: `[[wiki-links]]` → `knowledge_links` backlink graph; full-text search over `knowledge_notes.content_fts` (generated tsvector + GIN). Host vault mounted read-write at `/Users/john.keeney/nexus-knowledge`. MCP `search_knowledge`/`read_note`/`write_note`.
+- **Prompt library** — versioned prompts under products (auto-seeded `kbuddy`), `{{var}}` auto-detection + copy-filled interpolation, atomic version bumps, team-scoped project picker. MCP `list_prompts`/`get_prompt`.
+- **MCP server** — standalone Bun stdio server talking directly to Postgres. 11 tools: `add_todo`, `list_todos`, `check_todo`, `list_tasks_due_soon`, `list_projects`, `search_knowledge`, `read_note`, `write_note`, `list_prompts`, `get_prompt`, `add_task`. Registered in `~/.claude/mcp.json` as an owner-approved manual step.
 
-Compose volume: `mimrai-pg-data` (live: `app_mimrai-pg-data`). Not renamed in iter 9 — would orphan the database. Volume rename + container restart deferred.
+## Security model
 
-## Migrations done (chronological)
+- All tRPC mutations + sensitive reads team-scoped to `ctx.user.teamId`.
+- Cross-tenant IDORs swept and fixed (TASK-032 closed four read IDORs in the tasks router; prompts `setProject` rejects out-of-team `projectId`).
+- `createCallerFactory` behavioral harness: `app/apps/api/src/__tests__/task-029-idor-caller-harness.test.ts` asserts foreign-team READ/WRITE rejection.
+- OAuth tokens AES-GCM-256 encrypted at rest: `app/packages/utils/src/token-crypto.ts`.
+- Webhooks verify signatures: `app/apps/api/src/rest/webhooks/{github,slack,twilio}.ts`.
 
-| Iter | Migration | Rationale |
+## Schema
+
+Drizzle schema: `app/packages/db/src/schema.ts`. Knowledge tables (`knowledge_vaults`, `knowledge_notes` incl. `content_fts`, `knowledge_links`, `knowledge_notes_on_tasks`) and the FTS column/index now live here. Migration `0002_drop_billing.sql` is an intentional one-way billing-table drop (FEAT-001).
+
+## Run / topology
+
+Stack is `app/docker-compose.local.yaml`:
+
+```sh
+cd app
+docker compose -f docker-compose.local.yaml up -d --build
+```
+
+| Service | Image | Host port |
 |---|---|---|
-| 1 | Upstream app moved into `/Users/john.keeney/nexus-task-tracker/app/` | Wrap in local-dev shell |
-| 2 | Nexus orchestrator + memory layer installed alongside app | Agent-driven workflow |
-| 2 | Postgres image swapped: `postgres:16` → `pgvector/pgvector:pg16` | Drizzle uses `vector` type for embeddings |
-| 3 | Adopted Supabase 13-container stack | Wanted auth/storage/realtime |
-| 4 | Auth bypassed via `NEXUS_LOCAL_DEV=1`; all external services stubbed | Single-user local doesn't need them |
-| 5 | Kanban + tasks shipped | Core feature |
-| 6 | Mermaid editor | Notion-style page feature |
-| 7 | Rolled back Supabase → single-container pgvector | Only Postgres + pgvector were used |
-| 8 | a11y sweep + perf (skeletons + optimistic) + 46-tab work (sticky save, label counts, scope chips) | Polish |
-| 9 | Rebrand mimrai → Nexus + doc cleanup + this doc | Source-of-truth hygiene |
+| `nexus-postgres` | `pgvector/pgvector:pg16` | 55432 |
+| `nexus-redis` | `redis:7-alpine` | 56379 |
+| `nexus-api` | built from `apps/api/Dockerfile.local` | 3003 |
+| `nexus-dashboard` | built from `apps/dashboard/Dockerfile.dev` | 5179 |
+
+Dashboard at http://localhost:5179, API at http://localhost:3003. See `docs/LOCAL_DEV.md`.
 
 ## In scope
 
-- Single-user, local-only task tracking
-- Linear-style UI / Notion-style page editor
-- MCP-accessible (Claude can read/write tasks via the MCP server)
-- Nexus orchestrator runs sub-agents (forge / lens / scout / quill) for development
+- Single-user, local-only task + knowledge tracking
+- Linear-style UI / Notion- & Obsidian-style editors
+- MCP-accessible (Claude reads/writes todos, tasks, projects, knowledge, prompts via the MCP server)
+- Nexus orchestrator runs sub-agents for development
 
 ## Out of scope (permanent)
 
 - Deployment to the internet
-- Multi-tenant / multi-user / teams
-- Billing / payments (Stripe stubbed forever)
-- OAuth providers for tenants
-- Email sending (Resend stubbed forever)
-- Background jobs in production (Trigger.dev stubbed forever)
-- Marketing website (`app/apps/website/` remains as upstream artifact, flagged for future deletion)
+- Multi-user onboarding / public SaaS (the multi-tenant data model remains internally, with tenant isolation enforced, but no public signup)
+- Billing / payments (**removed** in FEAT-001, not merely stubbed)
+- Email sending (Resend stubbed)
+- Background jobs in production (Trigger.dev stubbed)
+- Marketing website (`app/apps/website/` remains as upstream artifact, flagged for deletion)
 
-## Deferred to future iters
+## Migrations done (chronological)
 
-### Project-name string holdouts (require coordinated changes)
-- Rename `NEXUS_LOCAL_DEV` env var complete (Phase 0 done)
-- Rename `NEXUS_SSR_SERVER_URL` env var complete (Phase 0 done)
-- Rename volume `mimrai-pg-data` → `nexus-pg-data` (would orphan `app_mimrai-pg-data`; requires data migration via pg_dump/restore or rename SQL)
-- Rename Postgres credentials `POSTGRES_USER/PW/DB=mimrai` → `nexus` (would invalidate connection from running containers; requires SQL `ALTER USER` + `ALTER DATABASE` + container restart)
-- Rename Docker image tag `local-mimrai/node:20-alpine` → `local-nexus/node:20-alpine` (cosmetic; takes effect on next rebuild)
-- Rename seed email literals complete (Phase 0 done: `dev@nexus.local`, `{teamId}-main@nexus.local`; live DB rows may need re-seed)
-- Rename MCP wire-protocol identifiers (tool names `mimrai_*`, scope strings `mimrai:tasks:*`, server `name: "mimrai-mcp-server"`, OAuth `client_id: "mimrai"`, JWT audience `mimrai.com`) — these are runtime contracts; any MCP client already configured against the current API would break. Schedule as a "MCP wire rebrand" iter that coordinates client-side updates.
+| Iter / Feat | Migration | Rationale |
+|---|---|---|
+| 1 | Upstream app moved into `app/` | Wrap in local-dev shell |
+| 2 | Nexus orchestrator + memory layer installed | Agent-driven workflow |
+| 2 | Postgres image `postgres:16` → `pgvector/pgvector:pg16` | Drizzle `vector` type for embeddings |
+| 3 | Adopted Supabase 13-container stack | Wanted auth/storage/realtime |
+| 4 | Auth bypassed via `NEXUS_LOCAL_DEV=1`; external services stubbed | Single-user local |
+| 5 | Kanban + tasks shipped | Core feature |
+| 6 | Mermaid editor | Notion-style page feature |
+| 7 | Rolled back Supabase → single-container pgvector | Only Postgres + pgvector were used |
+| 8 | a11y sweep + perf + 46-tab polish | Polish |
+| 9 | Rebrand mimrai → Nexus + doc cleanup | Source-of-truth hygiene |
+| FEAT-001 | Repurpose SaaS → local-only; drop billing (`0002_drop_billing.sql`); API-accessed | Personal daily driver |
+| FEAT-002 | Todos, Knowledge vault (wiki-links/backlinks/FTS), Prompt library, MCP server | Personal-assistant capabilities |
+| TASK-009 | `@mimir/*` → `@nexus-app/*` across 403 files (`60e3bd5`) | Namespace consistency (DEC-014) |
+| (sweep) | Cross-tenant IDOR sweep + caller harness; OAuth AES-GCM at rest; webhook signature verification; tsc baseline → 0 | Security + type hygiene |
 
-### Code/dir cleanups (scope grew beyond iter 9)
-- Delete `app/apps/website/` (34 .tsx files: hero, pricing, waitlist, policy, sitemap — upstream marketing site, never deployed)
-- Delete `app/apps/desktop/` (3 mimrai-named config files — desktop wrapper not in use)
-- Monorepo package namespace cleanup (`@mimir/*` is a pre-existing typo from the upstream app; rename to `@nexus/*` requires touching imports across the whole monorepo)
+## DEC-014 supersedes DEC-002 (scope rename)
 
-### Known pre-existing TS debt (surfaced in iter 9 LSP run, not introduced by rebrand)
-- `mcp-server/server.ts` — missing `@types/node` (10 errors on `node:fs`, `node:path`, `process`). Fix: add `@types/node` to mcp-server's devDependencies.
-- `app/packages/db/src/scan-library.ts` — 8 strict-null-check failures from optional split-array indexing.
-- `app/apps/dashboard/src/components/prompts/list-view.tsx` — 4 property-access errors on a `{ id: string }` type that should be wider.
-- `app/apps/api/src/utils/workflow.ts` — `generateObject` deprecated (AI SDK upgrade), `color` unused import.
-- `app/apps/dashboard/src/app/team/error.tsx` — unused `useEffect` + `reset` parameter.
-- `app/apps/dashboard/src/components/app-sidebar/main.tsx` — unused `Logo` import.
+DEC-002 originally chose to **keep** the upstream `@mimir/*` workspace scope (rename deemed too churny). DEC-014 supersedes it: the scope was renamed to `@nexus-app/*` across the monorepo (403 files, `60e3bd5`). DEC-002 remains in the record as historical context; it is no longer in force.
 
-These were verified pre-existing in iter 9 by diffing each affected file vs the iter-8 baseline `5a3c634` — every forge edit was a surgical 1-4 line string/comment rename, never at the error sites. `bun run check-types` was confirmed clean against the iter-8 baseline (failures predate this branch). Cleanup can land in a dedicated "TS debt sweep" iter.
+## Project-name string holdouts (still `mimrai`, intentionally deferred)
+
+These are runtime/data contracts left as-is to avoid orphaning the database or breaking connections:
+
+- Root `app/package.json` `"name": "mimir"` (cosmetic monorepo root name).
+- Postgres credentials/db `POSTGRES_USER/PASSWORD/DB=mimrai` and `DATABASE_URL` (renaming requires `ALTER USER`/`ALTER DATABASE` + container restart).
+- Compose volume `mimrai-pg-data` (renaming would orphan the live volume; needs pg_dump/restore).
+- These are isolated to infra credentials/volume identity, NOT application code — the `@nexus-app/*` code scope is fully renamed.
 
 ## Pointers
 
-- Canonical docs: `docs/CONSTITUTION.md`, `docs/ARCHITECTURE.md`, `docs/LOCAL_DEV.md`, `docs/agents/{CONTRACT,TEAM,TEST_CONTRACT,SKILL_MAP}.md`
-- Project memory: `.memory/project.db` (sqlite) + `.memory/files/` (file-based)
-- Agent personas: `.claude/agents/` (forge, lens, scout, quill, quill-py, nexus-orchestrator)
-- Skills: `.claude/skills/`
-- MCP server: `mcp-server/`
-- Archived: `docs/archive/upstream/supabase-stack/`, `docs/archive/upstream/app-{README,AGENTS}.md`, `docs/archive/templates/nexus-orchestrator/`
+- Canonical docs: `docs/CONSTITUTION.md`, `docs/ARCHITECTURE.md`, `docs/STACK-PROFILE.md`, `docs/LOCAL_DEV.md`, `docs/features/FEAT-001-*.md`, `docs/features/FEAT-002-*.md`, `docs/agents/{CONTRACT,TEAM,TEST_CONTRACT,SKILL_MAP}.md`
+- Project memory: `.memory/project.db` (sqlite) + `.memory/files/`; version in `.memory/.nexus-version`
+- MCP server: `mcp-server/` (`server.ts`, `install.ts`, tests)
+- Schema: `app/packages/db/src/schema.ts`
+- Archived: `docs/archive/upstream/`, `docs/archive/templates/nexus-orchestrator/`
 
 ## If you find another stale reference
 
 ```
 cd /Users/john.keeney/nexus-task-tracker
-/opt/homebrew/bin/rg -i 'mimrai' --type-not lock -l
+/opt/homebrew/bin/rg -i 'mimrai' --type-not lock -l   # infra holdouts only; @mimir code scope is gone
 ```
 
-Anything outside the deferred list is fair game to rename. Update this doc with the iter you cleaned it.
+Application-code `@mimir` references are 0. Remaining `mimrai` hits are the infra credential/volume holdouts listed above — coordinate any rename with a DB migration.
