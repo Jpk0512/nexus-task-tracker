@@ -108,15 +108,16 @@ app.post(validateGithubWebhook, async (c) => {
 						statusId: plan.statusId,
 					});
 				} catch (error) {
-					log(
-						connectedRepository.integrationId,
-						"error",
-						`Error updating task ${plan.taskId} to status ${plan.statusId} for team ${teamId}`,
-						{
+					log({
+						integrationId: connectedRepository.integrationId,
+						level: "error",
+						key: "task-update-error",
+						message: `Error updating task ${plan.taskId} to status ${plan.statusId} for team ${teamId}`,
+						details: {
 							taskId: plan.taskId,
 							statusId: plan.statusId,
 						},
-					);
+					});
 					console.error("Error updating task:", error);
 				}
 				await updatePullRequestPlanStatus({

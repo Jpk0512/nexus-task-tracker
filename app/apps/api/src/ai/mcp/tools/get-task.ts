@@ -73,9 +73,9 @@ Requires scope: mimrai:tasks:read`,
 					permalinkId: task.permalinkId,
 					priority: task.priority,
 					dueDate: task.dueDate,
-					status: task.status,
-					assignee: task.assignee,
-					project: task.project,
+					statusId: task.statusId,
+					assigneeId: task.assigneeId,
+					projectId: task.projectId,
 					milestone: task.milestone,
 					labels: task.labels,
 					checklist: task.checklistSummary,
@@ -90,7 +90,7 @@ Requires scope: mimrai:tasks:read`,
 
 				let text: string;
 				if (params.responseFormat === "markdown") {
-					text = `## Task: ${output.title}\n\n**ID:** ${output.id}\n**Status:** ${output.status?.name || "Unknown"}\n**Assignee:** ${output.assignee?.name || "Unassigned"}\n**Priority:** ${output.priority || "None"}\n**Due Date:** ${output.dueDate || "None"}\n\n${output.description ? `**Description:**\n${output.description}\n\n` : ""}${output.labels?.length ? `**Labels:** ${output.labels.map((l) => l.name).join(", ")}\n\n` : ""}**Created:** ${output.createdAt}\n**Updated:** ${output.updatedAt}`;
+					text = `## Task: ${output.title}\n\n**ID:** ${output.id}\n**Status ID:** ${output.statusId || "Unknown"}\n**Assignee ID:** ${output.assigneeId || "Unassigned"}\n**Priority:** ${output.priority || "None"}\n**Due Date:** ${output.dueDate || "None"}\n\n${output.description ? `**Description:**\n${output.description}\n\n` : ""}${output.labels?.length ? `**Labels:** ${output.labels.map((l) => l.name).join(", ")}\n\n` : ""}**Created:** ${output.createdAt}\n**Updated:** ${output.updatedAt}`;
 				} else {
 					text = truncateText(JSON.stringify(output, null, 2));
 				}

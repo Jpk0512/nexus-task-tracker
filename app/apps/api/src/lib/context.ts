@@ -47,7 +47,6 @@ export async function createContext({ context }: CreateContextOptions) {
 				"local-dev seed user missing — run packages/db/src/seed-local-dev.ts",
 			);
 		}
-		// @ts-expect-error
 		return { session: null };
 	}
 

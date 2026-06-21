@@ -70,9 +70,9 @@ Requires scope: mimrai:tasks:read`,
 						permalinkId: task.permalinkId,
 						priority: task.priority,
 						dueDate: task.dueDate,
-						status: task.status,
-						assignee: task.assignee,
-						project: task.project,
+						statusId: task.statusId,
+						assigneeId: task.assigneeId,
+						projectId: task.projectId,
 						milestone: task.milestone,
 						labels: task.labels,
 						createdAt: task.createdAt,
@@ -90,7 +90,7 @@ Requires scope: mimrai:tasks:read`,
 					const taskList = output.tasks
 						.map(
 							(task) =>
-								`- **${task.title}** (${task.id})\n  Status: ${task.status?.name || "Unknown"}, Assignee: ${task.assignee?.name || "Unassigned"}, Priority: ${task.priority || "None"}`,
+								`- **${task.title}** (${task.id})\n  Status ID: ${task.statusId || "Unknown"}, Assignee ID: ${task.assigneeId || "Unassigned"}, Priority: ${task.priority || "None"}`,
 						)
 						.join("\n\n");
 					text = `## Tasks\n\n${taskList}\n\n**Pagination:** ${output.pagination.hasNextPage ? "More tasks available" : "End of results"}`;

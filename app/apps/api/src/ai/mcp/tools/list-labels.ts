@@ -27,7 +27,7 @@ Requires scope: mimrai:tasks:read`,
 				openWorldHint: false,
 			},
 		},
-		async () => {
+		async (params) => {
 			const ctx = getContext();
 
 			if (!hasScope(ctx, "mimrai:tasks:read")) {
