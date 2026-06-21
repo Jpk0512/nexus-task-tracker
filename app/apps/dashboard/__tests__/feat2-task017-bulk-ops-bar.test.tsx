@@ -132,41 +132,36 @@ describe("TASK-017 — BulkOpsBar mounts in TodosView on multi-select", () => {
 	 * it. The failing suite exit proves the test is real and pinned. Remove
 	 * test.fails() once Forge verifies the mount is permanent (TASK-017 done).
 	 */
-	test.fails(
+	test(
 		"GWT: selecting a todo causes BulkOpsBar to render the bulk-actions region",
 		async () => {
 			await seedSelection([TODO_ID_1]);
 
 			render(<BulkOpsBar surface="todos" noun="todo" />);
 
-			// The region must be present — BulkOpsBar renders it when count >= 1.
 			const region = screen.getByRole("region", { name: /bulk actions/i });
 			expect(region).toBeInTheDocument();
 		},
 	);
 
-	test.fails(
+	test(
 		"GWT: selecting multiple todos shows a count badge with the correct number",
 		async () => {
 			await seedSelection([TODO_ID_1, TODO_ID_2]);
 
 			render(<BulkOpsBar surface="todos" noun="todo" />);
 
-			// The count badge inside the bar should read "2".
 			const region = screen.getByRole("region", { name: /bulk actions/i });
 			expect(region).toBeInTheDocument();
-			// Label text: "2 todos selected"
 			expect(region.textContent).toContain("2 todos selected");
 		},
 	);
 
-	test.fails(
+	test(
 		"GWT: with no todos selected, BulkOpsBar does NOT render the region",
 		async () => {
-			// Store is empty (no seedSelection call).
 			render(<BulkOpsBar surface="todos" noun="todo" />);
 
-			// Region must be absent when count === 0.
 			const region = screen.queryByRole("region", { name: /bulk actions/i });
 			expect(region).toBeNull();
 		},
