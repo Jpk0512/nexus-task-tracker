@@ -5,8 +5,10 @@
 > the exact code/message it emits, and how to recover**. Every row below is grounded in the hook
 > source under `.claude/hooks/` and the wiring in `.claude/settings.json`.
 >
-> Nexus is a **project orchestrator** for one product (Next.js/RSC + Tremor, Python Polars/DuckDB
-> ingestion, Dramatiq workers, FastMCP brokers). It **PLANs / DELEGATEs / VERIFIEs** and holds **no
+> Nexus is a **project orchestrator** for one product (a local-first task/knowledge app: Next.js/RSC
+> dashboard + tRPC/Hono api, Drizzle ORM over Postgres + pgvector, Redis, a stdio MCP server, plus the
+> FastMCP validation broker — there is no Tableau/DuckDB/Polars/Dramatiq/Tremor stack; that was
+> template boilerplate, see `docs/NEXUS-OPERATING-MANUAL.md` §1). It **PLANs / DELEGATEs / VERIFIEs** and holds **no
 > Write/Edit/NotebookEdit**. Its repo model is **session-branch**: personas work directly on the
 > branch the session was created from — the current/active branch at session start, detected at
 > runtime via `git branch --show-current` (it MAY be `main` or any other branch; some projects are
@@ -160,11 +162,11 @@ without a handoff under standing local-dev authorization.
 | `scout` | `investigate` | Read-only reconnaissance; never dispatches code-writing work. |
 | `forge-wire` | `implement_ui`, `implement_api` | Server-side API / server action implementer. Split from retired base `forge`. |
 | `forge-wire-pro` | `implement_ui`, `implement_api` | Escalation variant of `forge-wire` for complex/low-confidence work. |
-| `forge-ui` | `implement_ui`, `implement_api` | RSC / React / Tremor UI implementer. Split from retired base `forge`. |
+| `forge-ui` | `implement_ui`, `implement_api` | RSC / React / Tailwind UI implementer. Split from retired base `forge`. |
 | `forge-ui-pro` | `implement_ui`, `implement_api` | Escalation variant of `forge-ui`. |
-| `pipeline-data` | `implement_ingestion` | Polars/DuckDB data-transform implementer. Split from retired base `pipeline`. |
+| `pipeline-data` | `implement_ingestion` | Dataframe-transform + Postgres-write implementer. Split from retired base `pipeline`. |
 | `pipeline-data-pro` | `implement_ingestion` | Escalation variant of `pipeline-data`. |
-| `pipeline-async` | `implement_ingestion` | Dramatiq/Redis async-worker implementer. Split from retired base `pipeline`. |
+| `pipeline-async` | `implement_ingestion` | Async-worker / Redis implementer. Split from retired base `pipeline`. |
 | `pipeline-async-pro` | `implement_ingestion` | Escalation variant of `pipeline-async`. |
 | `atlas` | `implement_schema` | Database schema implementer (migrations, Atlas schema). |
 | `hermes` | `implement_wiring`, `implement_api` | Cross-service wiring and FastMCP broker implementer. |
