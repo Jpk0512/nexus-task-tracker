@@ -2,11 +2,6 @@
 # on this host) so we don't depend on pulling oven/bun. Bun is installed
 # inside the container via its official install script.
 #
-# bun install --production is safe for the api: Bun strips TypeScript
-# natively at runtime, so no separate tsc step is needed. devDeps
-# (@nexus-app/tsconfig, @types/bun, typescript, @types/*) are build-time
-# only and not needed at runtime.
-#
 # DO NOT use in production — apps/api/Dockerfile is the canonical upstream one.
 
 FROM local-mimrai/node:20-alpine AS base
@@ -28,7 +23,7 @@ RUN turbo prune @nexus-app/api --docker
 FROM base AS installer
 WORKDIR /app
 COPY --from=builder /app/out/json/ .
-RUN bun install --production
+RUN bun install
 
 FROM installer AS runner
 WORKDIR /app
