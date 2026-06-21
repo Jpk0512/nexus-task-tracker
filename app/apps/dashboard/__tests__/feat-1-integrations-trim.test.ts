@@ -249,7 +249,7 @@ describe("TASK-007 P6 integrations-trim guard", () => {
 			return;
 		}
 
-		const INTEGRATION_IMPORT_RE = /@mimir\/integration/;
+		const INTEGRATION_IMPORT_RE = /@nexus-app\/integration/;
 		const hasIntegrationImport = INTEGRATION_IMPORT_RE.test(content);
 
 		expect(
