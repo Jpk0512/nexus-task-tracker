@@ -110,7 +110,7 @@ const tools = [
 	{
 		name: "search_knowledge",
 		description:
-			"Full-text search the Obsidian-compatible knowledge vault. Returns matching notes with title + path + a short snippet.",
+			"Keyword/substring search the Obsidian-compatible knowledge vault. Matches note title and path via ILIKE, then scans file bodies for the same substring. Returns matching notes with title + path + a short snippet. (Not full-text / ranked — use specific keywords for best results.)",
 		inputSchema: {
 			type: "object",
 			properties: {
@@ -210,7 +210,7 @@ async function projectIdByName(name: string): Promise<string | null> {
 }
 
 // ── tool handlers ────────────────────────────────────────────────────────
-const handlers: Record<string, (input: any) => Promise<unknown>> = {
+export const handlers: Record<string, (input: any) => Promise<unknown>> = {
 	async add_todo(input) {
 		const schema = z.object({
 			content: z.string().min(1),
@@ -441,8 +441,10 @@ const handlers: Record<string, (input: any) => Promise<unknown>> = {
 			throw new Error(`prompt ${product_slug}/${prompt_slug} not found`);
 		const row = r.rows[0];
 		if (vars && row.content) {
-			row.content = row.content.replace(/\{\{(\w+)\}\}/g, (_match: string, key: string) =>
-				Object.prototype.hasOwnProperty.call(vars, key) ? vars[key]! : `{{${key}}}`,
+			// Match spaced placeholders too: {{ name }} as well as {{name}}.
+			// Trim the captured key so both forms map to the same var lookup.
+			row.content = row.content.replace(/\{\{\s*(\w+)\s*\}\}/g, (_match: string, key: string) =>
+				Object.prototype.hasOwnProperty.call(vars, key.trim()) ? vars[key.trim()]! : _match,
 			);
 		}
 		return row;
