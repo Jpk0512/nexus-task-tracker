@@ -12,6 +12,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import pg from "pg";
 import { z } from "zod";
+import { nanoid } from "nanoid";
 
 const TEAM_ID = process.env.NEXUS_TEAM_ID ?? "local-dev-team";
 const USER_ID = process.env.NEXUS_USER_ID ?? "local-dev-user";
@@ -177,7 +178,7 @@ const tools = [
 				title: { type: "string", description: "Task title" },
 				project_slug: { type: "string", description: "Project slug or name to attach the task to" },
 				due_date: { type: "string", description: "Optional ISO-8601 due date (e.g. '2026-07-01')" },
-				priority: { type: "string", enum: ["no_priority", "urgent", "high", "medium", "low"], description: "Optional priority level" },
+				priority: { type: "string", enum: ["urgent", "high", "medium", "low"], description: "Optional priority level" },
 				status_name: { type: "string", description: "Optional status name (e.g. 'In Progress')" },
 			},
 			required: ["title", "project_slug"],
@@ -433,13 +434,17 @@ const handlers: Record<string, (input: any) => Promise<unknown>> = {
 			title: z.string().min(1),
 			project_slug: z.string(),
 			due_date: z.string().optional(),
-			priority: z.enum(["no_priority", "urgent", "high", "medium", "low"]).optional(),
+			priority: z.enum(["urgent", "high", "medium", "low"]).optional(),
 			status_name: z.string().optional(),
 		});
 		const { title, project_slug, due_date, priority, status_name } = schema.parse(input);
 		const projectId = await projectIdByName(project_slug);
 		if (!projectId) throw new Error(`project matching '${project_slug}' not found`);
-		// Resolve optional status_id from the project's statuses
+
+		// Resolve status_id: named lookup first, then project default, then team default.
+		// tasks.status_id is NOT NULL — never insert null.
+		// Auth-error shape (Postgres 23502 not-null violation):
+		//   { severity: "ERROR", code: "23502", column: "status_id", table: "tasks" }
 		let statusId: string | null = null;
 		if (status_name) {
 			const sr = await pool.query(
@@ -447,19 +452,54 @@ const handlers: Record<string, (input: any) => Promise<unknown>> = {
 				[TEAM_ID, status_name],
 			);
 			statusId = sr.rows[0]?.id ?? null;
+			if (!statusId) throw new Error(`status '${status_name}' not found for team`);
+		} else {
+			// Fall back to the first status allowed for this project.
+			// statuses.project_ids is text[] — empty means team-wide; non-empty means
+			// project-scoped. Prefer project-specific, then team-wide, ordered by "order".
+			const dr = await pool.query(
+				`SELECT id FROM statuses
+				 WHERE team_id=$1
+				   AND (project_ids = '{}' OR $2 = ANY(project_ids))
+				 ORDER BY (project_ids = '{}') ASC, "order" ASC NULLS LAST
+				 LIMIT 1`,
+				[TEAM_ID, projectId],
+			);
+			statusId = dr.rows[0]?.id ?? null;
 		}
-		const id = nid("tsk");
-		// Generate a permalink_id (short numeric sequence within project)
+		if (!statusId) throw new Error(`no default status found for project '${project_slug}' — pass status_name`);
+
+		// permalink_id: nanoid(12) with uniqueness retry (mirrors generateTaskPermalinkId).
+		// tasks.permalink_id is NOT NULL UNIQUE.
+		async function genPermalinkId(size = 12): Promise<string> {
+			const value = nanoid(size);
+			const { rows } = await pool.query(
+				`SELECT 1 FROM tasks WHERE permalink_id=$1 LIMIT 1`,
+				[value],
+			);
+			return rows.length > 0 ? genPermalinkId(size + 1) : value;
+		}
+		const permalinkId = await genPermalinkId();
+
+		// Team-scoped sequence + order (mirrors getNextTaskSequence: WHERE team_id=...).
+		// tasks.order is NOT NULL (default 6000 when table is empty).
 		const seqRow = await pool.query(
-			`SELECT COALESCE(MAX(sequence), 0) + 1 AS next FROM tasks WHERE project_id=$1`,
-			[projectId],
+			`SELECT COALESCE(MAX(sequence), 0) + 1 AS next_seq,
+			        COALESCE(MAX("order"), 5999) + 1 AS next_order
+			 FROM tasks WHERE team_id=$1`,
+			[TEAM_ID],
 		);
-		const sequence = seqRow.rows[0]?.next ?? 1;
+		const sequence: number = seqRow.rows[0]?.next_seq ?? 1;
+		const order: number = seqRow.rows[0]?.next_order ?? 6000;
+
+		const id = nid("tsk");
 		await pool.query(
 			`INSERT INTO tasks
-				(id, team_id, title, project_id, status_id, priority, due_date, sequence, created_at, updated_at)
-				VALUES ($1,$2,$3,$4,$5,$6,$7,$8,now(),now())`,
-			[id, TEAM_ID, title, projectId, statusId, priority ?? "no_priority", due_date ?? null, sequence],
+				(id, team_id, title, project_id, status_id, priority, due_date,
+				 sequence, permalink_id, "order", created_at, updated_at)
+				VALUES ($1,$2,$3,$4,$5,COALESCE($6::task_priority,'medium'::task_priority),$7,$8,$9,$10,now(),now())`,
+			[id, TEAM_ID, title, projectId, statusId, priority ?? null, due_date ?? null,
+			 sequence, permalinkId, order],
 		);
 		return { id, title, projectId, sequence };
 	},

@@ -155,7 +155,8 @@ async function invokeAddTask(
 	const projectId: string = projRow.rows[0]?.id;
 	if (!projectId) throw new Error(`project matching '${input.project_slug}' not found`);
 
-	// Resolve optional status_id (same as server.ts:444-449)
+	// Resolve status_id: named lookup, then project default, then team-wide fallback.
+	// Mirrors fixed server.ts add_task — status_id is NOT NULL, never null.
 	let statusId: string | null = null;
 	if (input.status_name) {
 		const sr = await pool.query(
@@ -163,33 +164,59 @@ async function invokeAddTask(
 			[TEST_TEAM_ID, input.status_name],
 		);
 		statusId = sr.rows[0]?.id ?? null;
+		if (!statusId) throw new Error(`status '${input.status_name}' not found for team`);
+	} else {
+		// statuses.project_ids text[] — empty = team-wide, non-empty = project-scoped.
+		const dr = await pool.query(
+			`SELECT id FROM statuses
+			 WHERE team_id=$1
+			   AND (project_ids = '{}' OR $2 = ANY(project_ids))
+			 ORDER BY (project_ids = '{}') ASC, "order" ASC NULLS LAST
+			 LIMIT 1`,
+			[TEST_TEAM_ID, projectId],
+		);
+		statusId = dr.rows[0]?.id ?? null;
 	}
+	if (!statusId) throw new Error(`no default status found for project '${input.project_slug}'`);
 
-	// Generate id and sequence — EXACTLY as server.ts 200c588 does it:
-	//   id:       nid("tsk")  → "tsk_<random>"
-	//   sequence: MAX WHERE project_id=... (PROJECT-scoped — the bug)
-	//   missing:  permalink_id, order
+	// permalink_id: nanoid(12) with uniqueness retry (mirrors generateTaskPermalinkId).
+	async function genPermalinkId(size = 12): Promise<string> {
+		const value = nanoid(size);
+		const { rows } = await pool.query(
+			`SELECT 1 FROM tasks WHERE permalink_id=$1 LIMIT 1`,
+			[value],
+		);
+		return rows.length > 0 ? genPermalinkId(size + 1) : value;
+	}
+	const permalinkId = await genPermalinkId();
+
+	// Team-scoped sequence + order (mirrors fixed server.ts: WHERE team_id=...).
 	const id = `tsk_${Math.random().toString(36).slice(2, 10)}`;
 	const seqRow = await pool.query(
-		`SELECT COALESCE(MAX(sequence), 0) + 1 AS next FROM tasks WHERE project_id=$1`,
-		[projectId],
+		`SELECT COALESCE(MAX(sequence), 0) + 1 AS next_seq,
+		        COALESCE(MAX("order"), 5999) + 1 AS next_order
+		 FROM tasks WHERE team_id=$1`,
+		[TEST_TEAM_ID],
 	);
-	const sequence: number = seqRow.rows[0]?.next ?? 1;
+	const sequence: number = seqRow.rows[0]?.next_seq ?? 1;
+	const order: number = seqRow.rows[0]?.next_order ?? 6000;
 
-	// Replicate server.ts 200c588 INSERT verbatim (the buggy version):
 	await pool.query(
 		`INSERT INTO tasks
-			(id, team_id, title, project_id, status_id, priority, due_date, sequence, created_at, updated_at)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,now(),now())`,
+			(id, team_id, title, project_id, status_id, priority, due_date,
+			 sequence, permalink_id, "order", created_at, updated_at)
+			VALUES ($1,$2,$3,$4,$5,COALESCE($6::task_priority,'medium'::task_priority),$7,$8,$9,$10,now(),now())`,
 		[
 			id,
 			TEST_TEAM_ID,
 			input.title,
 			projectId,
 			statusId,
-			input.priority ?? "no_priority",
+			input.priority ?? null,
 			input.due_date ?? null,
 			sequence,
+			permalinkId,
+			order,
 		],
 	);
 
