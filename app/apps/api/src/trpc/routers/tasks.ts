@@ -414,7 +414,8 @@ export const tasksRouter = router({
 	getLinkedDocuments: protectedProcedure
 		.input(z.object({ taskId: z.string() }))
 		.query(async ({ input, ctx }) => {
-			await assertTaskTeam(input.taskId, ctx.user.teamId!);
+			const task = await assertTaskTeam(input.taskId, ctx.user.teamId!);
+			if (!task) throw new TRPCError({ code: "NOT_FOUND" });
 			const rows = await db
 				.select({
 					id: documentsRef.id,
@@ -474,7 +475,8 @@ export const tasksRouter = router({
 	getLinkedKnowledgeNotes: protectedProcedure
 		.input(z.object({ taskId: z.string() }))
 		.query(async ({ input, ctx }) => {
-			await assertTaskTeam(input.taskId, ctx.user.teamId!);
+			const task = await assertTaskTeam(input.taskId, ctx.user.teamId!);
+			if (!task) throw new TRPCError({ code: "NOT_FOUND" });
 			const rows = await db
 				.select({
 					id: knowledgeNotesRef.id,
@@ -547,7 +549,8 @@ export const tasksRouter = router({
 			}),
 		)
 		.query(async ({ input, ctx }) => {
-			await assertTaskTeam(input.taskId, ctx.user.teamId!);
+			const task = await assertTaskTeam(input.taskId, ctx.user.teamId!);
+			if (!task) throw new TRPCError({ code: "NOT_FOUND" });
 			const rows = await db
 				.select({
 					id: knowledgeNotesRef.id,
@@ -625,7 +628,8 @@ export const tasksRouter = router({
 			}),
 		)
 		.query(async ({ input, ctx }) => {
-			await assertTaskTeam(input.taskId, ctx.user.teamId!);
+			const task = await assertTaskTeam(input.taskId, ctx.user.teamId!);
+			if (!task) throw new TRPCError({ code: "NOT_FOUND" });
 			const rows = await db
 				.select({
 					id: libraryEntriesRef.id,
