@@ -36,25 +36,36 @@ export type ToolHeaderProps = {
 	className?: string;
 };
 
+type KnownState =
+	| "input-streaming"
+	| "input-available"
+	| "output-available"
+	| "output-error";
+
 const getStatusBadge = (status: ToolUIPart["state"]) => {
-	const labels = {
+	const labels: Record<KnownState, string> = {
 		"input-streaming": "Pending",
 		"input-available": "Running",
 		"output-available": "Completed",
 		"output-error": "Error",
-	} as const;
+	};
 
-	const icons = {
+	const icons: Record<KnownState, React.ReactElement> = {
 		"input-streaming": <CircleIcon className="size-4" />,
 		"input-available": <ClockIcon className="size-4 animate-pulse" />,
 		"output-available": <CheckCircleIcon className="size-4 text-green-600" />,
 		"output-error": <XCircleIcon className="size-4 text-red-600" />,
-	} as const;
+	};
+
+	const knownStatus = status as KnownState;
+	const icon = icons[knownStatus];
+	const label = labels[knownStatus];
+	if (!icon || !label) return null;
 
 	return (
 		<Badge className="gap-1.5 rounded-full text-xs" variant="secondary">
-			{icons[status]}
-			{labels[status]}
+			{icon}
+			{label}
 		</Badge>
 	);
 };

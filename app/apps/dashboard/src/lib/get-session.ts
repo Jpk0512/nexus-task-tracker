@@ -9,7 +9,7 @@ const LOCAL_DEV_USER = {
 	email: "dev@mimrai.local",
 	name: "Local Dev",
 	emailVerified: true,
-	image: null,
+	image: null as string | null,
 	teamId: "local-dev-team",
 	teamSlug: "local-dev",
 	locale: "en-US",

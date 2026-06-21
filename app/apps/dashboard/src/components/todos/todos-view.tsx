@@ -960,8 +960,8 @@ export function TodosView() {
 	);
 	const checkMut = useMutation(
 		trpc.todos.check.mutationOptions({
-			onMutate: ({ id }: { id: string }) =>
-				applyTodoCheckedOptimistic(id, true),
+			onMutate: (vars): unknown =>
+				applyTodoCheckedOptimistic((vars as { id?: string })?.id ?? "", true),
 			onError: (e: { message?: string }, _vars: unknown, ctx: unknown) => {
 				rollbackTodos(ctx as any);
 				toast.error(e?.message ?? "Couldn't check todo");
@@ -972,8 +972,8 @@ export function TodosView() {
 	);
 	const uncheckMut = useMutation(
 		trpc.todos.uncheck.mutationOptions({
-			onMutate: ({ id }: { id: string }) =>
-				applyTodoCheckedOptimistic(id, false),
+			onMutate: (vars): unknown =>
+				applyTodoCheckedOptimistic((vars as { id?: string })?.id ?? "", false),
 			onError: (e: { message?: string }, _vars: unknown, ctx: unknown) => {
 				rollbackTodos(ctx as any);
 				toast.error(e?.message ?? "Couldn't uncheck todo");

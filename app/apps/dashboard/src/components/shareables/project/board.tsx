@@ -3,12 +3,26 @@ import { cn } from "@ui/lib/utils";
 import { StatusIcon } from "@/components/status-icon";
 import { PropertyChecklist } from "@/components/tasks-view/properties/task-properties-components";
 
+type RawTask = NonNullable<RouterOutputs["tasks"]["get"]["data"]>[number];
+
+type StatusShape = {
+	id: string;
+	name: string;
+	type: "done" | "backlog" | "to_do" | "in_progress" | "review";
+	description: string;
+	order: number;
+};
+
+type BoardTask = RawTask & { status?: StatusShape };
+
 export const ProjectBoardShareable = ({
 	tasks,
 }: {
-	tasks: NonNullable<RouterOutputs["tasks"]["get"]>;
+	tasks: RouterOutputs["tasks"]["get"];
 }) => {
-	const groupedTasks = tasks.data.reduce(
+	const items = (tasks.data ?? []) as BoardTask[];
+
+	const groupedTasks = items.reduce(
 		(groups, task) => {
 			const column = task.status?.name || "Uncategorized";
 			if (!groups[column]) {
@@ -23,7 +37,7 @@ export const ProjectBoardShareable = ({
 		{} as Record<
 			string,
 			{
-				tasks: typeof tasks.data;
+				tasks: BoardTask[];
 				order: number;
 			}
 		>,
@@ -34,7 +48,7 @@ export const ProjectBoardShareable = ({
 	);
 
 	const findColumnByName = (name: string) => {
-		return tasks.data.find((task) => task.status?.name === name)?.status;
+		return items.find((task) => task.status?.name === name)?.status;
 	};
 
 	const renderColumnIcon = (name: string) => {

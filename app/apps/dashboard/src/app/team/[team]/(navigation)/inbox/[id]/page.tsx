@@ -8,5 +8,6 @@ type Props = {
 
 export default async function Page({ params }: Props) {
 	const { id } = await params;
-	return <InboxView inboxId={id} />;
+	void id;
+	return <InboxView />;
 }

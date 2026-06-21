@@ -50,7 +50,7 @@ export const ZenModeView = () => {
 					{currentTask.title}
 				</h1>
 				<div className="mb-0">
-					<ZenModeLabels {...currentTask} />
+					<ZenModeLabels labels={[]} />
 				</div>
 				<div className="my-6 h-px w-full bg-gradient-to-r from-transparent via-muted to-transparent" />
 				<ZenModeContent />

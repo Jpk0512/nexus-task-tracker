@@ -1,6 +1,11 @@
 "use client";
 import { t } from "@nexus-app/locale";
-import { Card, CardContent, CardDescription, CardHeader } from "@nexus-app/ui/card";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+} from "@nexus-app/ui/card";
 import {
 	Collapsible,
 	CollapsibleContent,
@@ -117,7 +122,12 @@ export const NotificationSettingsList = () => {
 																		},
 																	);
 																	updateSetting({
-																		channel: option.channel,
+																		// API schema omits whatsapp; cast at this boundary.
+																		channel: option.channel as
+																			| "mattermost"
+																			| "push"
+																			| "email"
+																			| "in_app",
 																		enabled: value,
 																		notificationType: setting.type,
 																	});

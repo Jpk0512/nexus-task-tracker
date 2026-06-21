@@ -18,7 +18,7 @@ export default async function TaskPage({ params }: Props) {
 		.query({
 			id: taskId,
 		})
-		.catch(() => null);
+		.catch((): null => null);
 
 	if (!task) {
 		// Task may be missing during prefetch (hover) or after delete — render

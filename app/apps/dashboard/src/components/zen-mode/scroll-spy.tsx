@@ -11,8 +11,9 @@ export const ZenModeScrollSpy = () => {
 		if (!content) return [];
 		if (!contentRef.current) return [];
 		if (!contentRendered) return [];
-		const headings =
-			contentRef.current?.querySelectorAll("h1, h2, h3, h4, h5, h6") || [];
+		const headings: NodeListOf<Element> =
+			contentRef.current?.querySelectorAll("h1, h2, h3, h4, h5, h6") ??
+			([] as unknown as NodeListOf<Element>);
 		return Array.from(headings).map((heading) => ({
 			id: heading.id,
 			element: heading,

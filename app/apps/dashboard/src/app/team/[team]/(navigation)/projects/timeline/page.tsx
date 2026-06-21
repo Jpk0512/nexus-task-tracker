@@ -63,7 +63,9 @@ export default function Page() {
 
 		queryClient.setQueryData(
 			trpc.projects.getById.queryKey({ id: projectId }),
-			project,
+			// Prefill cache with partial data from the timeline list; shape differs
+			// from getById but is sufficient for the panel preview.
+			project as any,
 		);
 		setParams({ projectId });
 	};

@@ -12,6 +12,14 @@ import { DEFAULT_VIEWS } from "./default-views";
 
 export type TaskView = RouterOutputs["taskViews"]["get"]["data"][number];
 
+type ViewItemShape = Pick<
+	TaskView,
+	"id" | "name" | "description" | "filters"
+> & {
+	projectId?: string | null;
+	project?: TaskView["project"] | null;
+};
+
 export const ViewsList = ({ projectId }: { projectId?: string }) => {
 	const { data: views } = useInfiniteQuery(
 		trpc.taskViews.get.infiniteQueryOptions(
@@ -46,7 +54,7 @@ export const ViewItem = ({
 	view,
 	projectId: propProjectId,
 }: {
-	view: TaskView;
+	view: ViewItemShape;
 	projectId?: string;
 }) => {
 	const user = useUser();

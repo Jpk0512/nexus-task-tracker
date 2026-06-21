@@ -44,7 +44,11 @@ import type { GlobalSearchItem } from "./types";
 //
 // We keep the "All" tab as the default so muscle-memory (Cmd+K → type → Enter)
 // still works.
-const TAB_DEFS = [
+const TAB_DEFS: ReadonlyArray<{
+	id: string;
+	label: string;
+	types: readonly string[] | null;
+}> = [
 	{ id: "all", label: "All", types: null }, // null = no filter
 	{ id: "tasks", label: "Tasks", types: ["task"] },
 	{ id: "documents", label: "Documents", types: ["document", "knowledge"] },

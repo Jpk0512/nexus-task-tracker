@@ -1,6 +1,11 @@
 "use client";
-import type { IntegrationName } from "@nexus-app/integration/registry";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@nexus-app/ui/sheet";
+import type { IntegrationName } from "@integration/registry";
+import {
+	Sheet,
+	SheetContent,
+	SheetHeader,
+	SheetTitle,
+} from "@nexus-app/ui/sheet";
 import { useQuery } from "@tanstack/react-query";
 import { useIntegrationParams } from "@/hooks/use-integration-params";
 import { trpc } from "@/utils/trpc";
@@ -28,11 +33,7 @@ export const IntegrationInstallSheet = () => {
 				</SheetHeader>
 				{integration && (
 					<div className="px-4">
-						<IntegrationForm
-							type={installType as IntegrationName}
-							id={integration.installedIntegration?.id}
-							linkUser={Boolean(linkUser)}
-						/>
+						<IntegrationForm type={installType as IntegrationName} />
 					</div>
 				)}
 			</SheetContent>
