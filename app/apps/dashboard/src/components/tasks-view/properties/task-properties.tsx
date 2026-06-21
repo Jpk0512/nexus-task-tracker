@@ -1,8 +1,8 @@
-import type { RouterOutputs } from "@nexus-app/trpc";
 import { memo } from "react";
+import type { EnrichedTask } from "@/hooks/use-data";
 import { PropertiesComponents } from "./task-properties-components";
 
-export type Task = RouterOutputs["tasks"]["get"]["data"][number];
+export type Task = EnrichedTask;
 export const propertiesList = Object.keys(
 	PropertiesComponents,
 ) as Array<PropertyKey>;

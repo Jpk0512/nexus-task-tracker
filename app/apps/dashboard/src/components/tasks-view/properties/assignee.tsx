@@ -16,9 +16,9 @@ import { useDebounceValue } from "usehooks-ts";
 import { cn } from "@/lib/utils";
 import { queryClient, trpc } from "@/utils/trpc";
 import { Assignee, AssigneeAvatar } from "../../asignee-avatar";
-import type { KanbanTask } from "../kanban/kanban-task";
+import type { EnrichedTask } from "@/hooks/use-data";
 
-export const TaskPropertyAssignee = ({ task }: { task: KanbanTask }) => {
+export const TaskPropertyAssignee = ({ task }: { task: EnrichedTask }) => {
 	const [search, setSearch] = useState("");
 	const [debouncedSearch] = useDebounceValue(search, 300);
 	const { data, isLoading } = useQuery(

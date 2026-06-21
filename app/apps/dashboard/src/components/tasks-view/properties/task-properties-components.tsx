@@ -153,7 +153,7 @@ const PropertyMilestone = memo(function PropertyMilestone({
 
 const PropertyAssignee = memo(function PropertyAssignee({
 	task,
-}: PropertyComponentProps<Task>) {
+}: PropertyComponentProps<EnrichedTask>) {
 	return <TaskPropertyAssignee task={task} />;
 });
 

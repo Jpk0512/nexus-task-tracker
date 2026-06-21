@@ -1,6 +1,6 @@
 import { evaluateTaskSignals } from "@nexus-app/utils/tasks";
 import { cn } from "@ui/lib/utils";
-import type { KanbanTask } from "./kanban-task";
+import type { EnrichedTask } from "@/hooks/use-data";
 
 const classNames = {
 	overdue: "border-1 border-red-500 text-red-500 -rotate-15",
@@ -8,8 +8,12 @@ const classNames = {
 	inactive: "border-1 border-zinc-500 text-zinc-500",
 };
 
-export const KanbanTaskStamp = ({ task }: { task: KanbanTask }) => {
-	const activeSignals = evaluateTaskSignals(task);
+export const KanbanTaskStamp = ({ task }: { task: EnrichedTask }) => {
+	const activeSignals = evaluateTaskSignals({
+		dueDate: task.dueDate ?? null,
+		priority: task.priority ?? null,
+		updatedAt: task.updatedAt ?? null,
+	});
 	const firstSignal = activeSignals[0];
 
 	if (!firstSignal) {

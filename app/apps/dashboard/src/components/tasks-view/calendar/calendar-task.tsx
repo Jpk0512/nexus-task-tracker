@@ -2,14 +2,14 @@
 
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import type { RouterOutputs } from "@nexus-app/trpc";
 import { useTaskPanel } from "@/components/panels/task-panel";
+import type { EnrichedTask } from "@/hooks/use-data";
 import { TaskProperty } from "@/components/tasks-view/properties/task-properties";
 import { useTaskParams } from "@/hooks/use-task-params";
 import { cn } from "@/lib/utils";
 import { queryClient, trpc } from "@/utils/trpc";
 
-export type CalendarTaskType = RouterOutputs["tasks"]["get"]["data"][number];
+export type CalendarTaskType = EnrichedTask;
 
 // Determine background color based on priority
 const getPriorityColor = (priority: string | null) => {

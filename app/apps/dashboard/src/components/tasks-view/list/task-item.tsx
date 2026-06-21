@@ -1,9 +1,9 @@
 "use client";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
-import type { RouterOutputs } from "@nexus-app/trpc";
 import { Checkbox } from "@ui/components/ui/checkbox";
 import { memo, useCallback } from "react";
 import { StatusChangedChip } from "@/components/status-changed-chip";
+import type { EnrichedTask } from "@/hooks/use-data";
 import { useUser } from "@/components/user-provider";
 import { cn } from "@/lib/utils";
 import {
@@ -13,7 +13,7 @@ import {
 import type { PropertyKey } from "../properties/task-properties";
 import { TaskProperty } from "../properties/task-properties";
 
-type Task = RouterOutputs["tasks"]["get"]["data"][number];
+type Task = EnrichedTask;
 
 interface TaskItemProps {
 	task: Task;
