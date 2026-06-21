@@ -6,7 +6,8 @@
   "scripts": {
     "start": "bun run server.ts",
     "build": "bun build server.ts --outfile dist/index.js --target bun",
-    "check-types": "tsc --noEmit"
+    "check-types": "tsc --noEmit",
+    "install:mcp": "bun run install.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.20.0",
