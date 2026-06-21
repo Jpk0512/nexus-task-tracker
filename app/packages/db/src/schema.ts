@@ -2472,6 +2472,62 @@ export const libraryEntryProjects = pgTable(
 	],
 );
 
+// ── Knowledge vault tables (FEAT-002) ────────────────────────────────────
+//
+// Source of truth for the Obsidian-compatible vault feature. Previously
+// declared inline in routers/knowledge.ts — moved here so drizzle migration
+// diff can see them and so the join table below can hold a real FK.
+
+export const knowledgeVaults = pgTable("knowledge_vaults", {
+	id: text("id").primaryKey(),
+	teamId: text("team_id").notNull(),
+	label: text("label").notNull(),
+	rootPath: text("root_path").notNull(),
+	isDefault: boolean("is_default").notNull().default(true),
+	lastScannedAt: timestamp("last_scanned_at", {
+		withTimezone: true,
+		mode: "string",
+	}),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
+		.notNull()
+		.defaultNow(),
+});
+
+export const knowledgeNotes = pgTable("knowledge_notes", {
+	id: text("id").primaryKey(),
+	vaultId: text("vault_id").notNull(),
+	relativePath: text("relative_path").notNull(),
+	absolutePath: text("absolute_path").notNull(),
+	name: text("name").notNull(),
+	parentDir: text("parent_dir"),
+	content: text("content"),
+	frontmatter: jsonb("frontmatter"),
+	fileSha: text("file_sha").notNull(),
+	lastSeenAt: timestamp("last_seen_at", { withTimezone: true, mode: "string" }),
+	lastEditedAt: timestamp("last_edited_at", {
+		withTimezone: true,
+		mode: "string",
+	}),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
+		.notNull()
+		.defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" })
+		.notNull()
+		.defaultNow(),
+});
+
+// Wiki-link graph edges. to_note_id is nullable — unresolved links and
+// post-delete SET NULL edges.
+export const knowledgeLinks = pgTable("knowledge_links", {
+	id: text("id").primaryKey(),
+	fromNoteId: text("from_note_id").notNull(),
+	toNoteId: text("to_note_id"),
+	linkText: text("link_text").notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
+		.notNull()
+		.defaultNow(),
+});
+
 // ── iter-4 task<->doc / task<->knowledge join tables ─────────────────────
 //
 // These were created via psql migrations and previously declared inline in
@@ -2531,6 +2587,11 @@ export const knowledgeNotesOnTasks = pgTable(
 			columns: [table.taskId],
 			foreignColumns: [tasks.id],
 			name: "knowledge_notes_on_tasks_task_id_fkey",
+		}).onDelete("cascade"),
+		foreignKey({
+			columns: [table.noteId],
+			foreignColumns: [knowledgeNotes.id],
+			name: "knowledge_notes_on_tasks_note_id_fkey",
 		}).onDelete("cascade"),
 	],
 );

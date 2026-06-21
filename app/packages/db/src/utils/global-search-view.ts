@@ -2,6 +2,8 @@ import { sql } from "drizzle-orm";
 import { pgTable, pgView, QueryBuilder, text } from "drizzle-orm/pg-core";
 import {
 	documents,
+	knowledgeNotes,
+	knowledgeVaults,
 	libraryEntries,
 	librarySources,
 	milestones,
@@ -9,22 +11,6 @@ import {
 	tasks,
 	todos,
 } from "../schema";
-
-// Knowledge + Prompt tables live as inline pgTable() definitions in their
-// respective TRPC routers (api/src/trpc/routers/{knowledge,prompts}.ts).
-// We mirror just the columns we need here so drizzle's QueryBuilder can
-// reach them when building the UNION ALL search view.
-const knowledgeNotes = pgTable("knowledge_notes", {
-	id: text("id").primaryKey(),
-	vaultId: text("vault_id").notNull(),
-	relativePath: text("relative_path").notNull(),
-	name: text("name").notNull(),
-});
-
-const knowledgeVaults = pgTable("knowledge_vaults", {
-	id: text("id").primaryKey(),
-	teamId: text("team_id").notNull(),
-});
 
 const prompts = pgTable("prompts", {
 	id: text("id").primaryKey(),

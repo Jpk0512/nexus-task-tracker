@@ -15,89 +15,16 @@ import { dirname, join, relative, resolve, sep } from "node:path";
 import { extractLinks, resolveLinks } from "@api/lib/wiki-link-parser";
 import { protectedProcedure, router } from "@api/trpc/init";
 import { db } from "@nexus-app/db/client";
+import {
+	knowledgeLinks,
+	knowledgeNotes,
+	knowledgeNotesOnTasks as knowledgeNotesOnTasksRef,
+	knowledgeVaults,
+	tasks as tasksRef,
+} from "@nexus-app/db/schema";
 import { TRPCError } from "@trpc/server";
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
-import { boolean, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 import { z } from "zod/v3";
-
-// Inline table definitions (mirror the raw SQL DDL we ran). Kept here
-// instead of in schema.ts so the api can be reasoned about without touching
-// the big shared schema file each iteration.
-const knowledgeVaults = pgTable("knowledge_vaults", {
-	id: text("id").primaryKey(),
-	teamId: text("team_id").notNull(),
-	label: text("label").notNull(),
-	rootPath: text("root_path").notNull(),
-	isDefault: boolean("is_default").notNull().default(true),
-	lastScannedAt: timestamp("last_scanned_at", {
-		withTimezone: true,
-		mode: "string",
-	}),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
-		.notNull()
-		.defaultNow(),
-});
-
-const knowledgeNotes = pgTable("knowledge_notes", {
-	id: text("id").primaryKey(),
-	vaultId: text("vault_id").notNull(),
-	relativePath: text("relative_path").notNull(),
-	absolutePath: text("absolute_path").notNull(),
-	name: text("name").notNull(),
-	parentDir: text("parent_dir"),
-	content: text("content"),
-	frontmatter: jsonb("frontmatter"),
-	fileSha: text("file_sha").notNull(),
-	lastSeenAt: timestamp("last_seen_at", {
-		withTimezone: true,
-		mode: "string",
-	}),
-	lastEditedAt: timestamp("last_edited_at", {
-		withTimezone: true,
-		mode: "string",
-	}),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
-		.notNull()
-		.defaultNow(),
-	updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" })
-		.notNull()
-		.defaultNow(),
-});
-
-// Wiki-link graph edges (M-002 / FEAT-002 Wave 1).
-// to_note_id is nullable — unresolved links and post-delete SET NULL edges.
-// Exported so the Wave-2 scanner and backlinks endpoint can import it.
-export const knowledgeLinks = pgTable("knowledge_links", {
-	id: text("id").primaryKey(),
-	fromNoteId: text("from_note_id").notNull(),
-	toNoteId: text("to_note_id"),
-	linkText: text("link_text").notNull(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
-		.notNull()
-		.defaultNow(),
-});
-
-// Local refs for the reverse-direction backlinks query (iter-10 Round F).
-// Mirror only the columns we read.
-const knowledgeNotesOnTasksRef = pgTable("knowledge_notes_on_tasks", {
-	id: text("id").primaryKey(),
-	taskId: text("task_id").notNull(),
-	noteId: text("note_id").notNull(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
-		.notNull()
-		.defaultNow(),
-});
-
-const tasksRef = pgTable("tasks", {
-	id: text("id").primaryKey(),
-	title: text("title").notNull(),
-	permalinkId: text("permalink_id").notNull(),
-	teamId: text("team_id").notNull(),
-	projectId: text("project_id"),
-	updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" })
-		.notNull()
-		.defaultNow(),
-});
 
 const ALLOWED_ROOT = process.env.LIBRARY_ALLOWED_ROOT;
 
