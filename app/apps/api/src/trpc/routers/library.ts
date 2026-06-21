@@ -612,9 +612,22 @@ export const libraryRouter = router({
 
 	addTag: protectedProcedure
 		.input(z.object({ entryId: z.string(), tag: z.string().min(1).max(50) }))
-		.mutation(async ({ input }) => {
+		.mutation(async ({ input, ctx }) => {
 			const tag = input.tag.trim().toLowerCase();
 			if (!tag) return { ok: true };
+			// Verify the entry belongs to this team via its source before mutating.
+			const [e] = await db
+				.select({ id: libraryEntries.id })
+				.from(libraryEntries)
+				.innerJoin(librarySources, eq(librarySources.id, libraryEntries.sourceId))
+				.where(
+					and(
+						eq(libraryEntries.id, input.entryId),
+						eq(librarySources.teamId, ctx.user.teamId!),
+					),
+				)
+				.limit(1);
+			if (!e) throw new TRPCError({ code: "NOT_FOUND" });
 			await db
 				.insert(libraryEntryTags)
 				.values({ entryId: input.entryId, tag })
@@ -624,7 +637,20 @@ export const libraryRouter = router({
 
 	removeTag: protectedProcedure
 		.input(z.object({ entryId: z.string(), tag: z.string() }))
-		.mutation(async ({ input }) => {
+		.mutation(async ({ input, ctx }) => {
+			// Verify the entry belongs to this team via its source before mutating.
+			const [e] = await db
+				.select({ id: libraryEntries.id })
+				.from(libraryEntries)
+				.innerJoin(librarySources, eq(librarySources.id, libraryEntries.sourceId))
+				.where(
+					and(
+						eq(libraryEntries.id, input.entryId),
+						eq(librarySources.teamId, ctx.user.teamId!),
+					),
+				)
+				.limit(1);
+			if (!e) throw new TRPCError({ code: "NOT_FOUND" });
 			await db
 				.delete(libraryEntryTags)
 				.where(
@@ -644,7 +670,20 @@ export const libraryRouter = router({
 				note: z.string().optional(),
 			}),
 		)
-		.mutation(async ({ input }) => {
+		.mutation(async ({ input, ctx }) => {
+			// Verify the entry belongs to this team via its source before mutating.
+			const [e] = await db
+				.select({ id: libraryEntries.id })
+				.from(libraryEntries)
+				.innerJoin(librarySources, eq(librarySources.id, libraryEntries.sourceId))
+				.where(
+					and(
+						eq(libraryEntries.id, input.entryId),
+						eq(librarySources.teamId, ctx.user.teamId!),
+					),
+				)
+				.limit(1);
+			if (!e) throw new TRPCError({ code: "NOT_FOUND" });
 			await db
 				.insert(libraryEntryProjects)
 				.values({
@@ -659,7 +698,20 @@ export const libraryRouter = router({
 
 	unlinkProject: protectedProcedure
 		.input(z.object({ entryId: z.string(), projectId: z.string() }))
-		.mutation(async ({ input }) => {
+		.mutation(async ({ input, ctx }) => {
+			// Verify the entry belongs to this team via its source before mutating.
+			const [e] = await db
+				.select({ id: libraryEntries.id })
+				.from(libraryEntries)
+				.innerJoin(librarySources, eq(librarySources.id, libraryEntries.sourceId))
+				.where(
+					and(
+						eq(libraryEntries.id, input.entryId),
+						eq(librarySources.teamId, ctx.user.teamId!),
+					),
+				)
+				.limit(1);
+			if (!e) throw new TRPCError({ code: "NOT_FOUND" });
 			await db
 				.delete(libraryEntryProjects)
 				.where(
