@@ -174,7 +174,7 @@ export const githubRouter = router({
 				repositoryId: input.repositoryId,
 				integrationId: input.integrationId,
 				repositoryName: input.repositoryName,
-				installationId: integration.config.installationId,
+				installationId: Number((integration.config as { installationId?: string }).installationId),
 				teamId: ctx.user.teamId!,
 				userId: ctx.user.id,
 			});

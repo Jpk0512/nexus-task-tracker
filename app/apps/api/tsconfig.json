@@ -24,10 +24,13 @@
 		"jsxImportSource": "react",
 		"baseUrl": ".",
 		"paths": {
-			"@api/*": ["src/*"]
+			"@api/*": ["src/*"],
+			"@integration/*": ["../../packages/integration/src/*"],
+			"@notifications/*": ["../../packages/notifications/src/*"],
+			"@jobs/*": ["../../packages/jobs/src/*"]
 		},
 		"types": ["@types/bun"]
 	},
-	"include": ["src/**/*.ts"],
+	"include": ["src/**/*.ts", "../../packages/jobs/src/types.d.ts"],
 	"exclude": ["**/node_modules", "**/.*/"]
 }

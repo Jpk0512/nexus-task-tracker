@@ -147,6 +147,7 @@ export const integrationsRouter = router({
 				teamId: ctx.user.teamId!,
 				userId: ctx.user.id,
 				...input,
+				integrationType: input.integrationType as IntegrationName,
 			});
 		}),
 
@@ -186,7 +187,7 @@ export const integrationsRouter = router({
 		)
 		.mutation(async ({ ctx, input }) => {
 			return await uninstallIntegration({
-				type: input.type,
+				type: input.type as IntegrationName,
 				teamId: ctx.user.teamId!,
 			});
 		}),

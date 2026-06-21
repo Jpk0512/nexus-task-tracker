@@ -9,7 +9,7 @@ import { LocalDiskStorageAdapter } from "@nexus-app/storage";
 import { randomColor } from "@nexus-app/utils/random";
 import { generateText, Output } from "ai";
 import * as cptable from "xlsx/dist/cpexcel.full.mjs";
-import * as XLSX from "xlsx/xlsx.mjs";
+import * as XLSX from "xlsx";
 import z from "zod";
 import { defineJob, logger } from "../../init";
 

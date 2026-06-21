@@ -1,5 +1,5 @@
-declare module "xlsx/dist/cpexcel.full.mjs";
-
-declare module "xlsx/xlsx.mjs" {
-	export * from "xlsx";
+declare module "xlsx/dist/cpexcel.full.mjs" {
+	export const version: string;
+	export const cptable: Record<number, { d: string; enc: Record<string, number> }>;
 }
+

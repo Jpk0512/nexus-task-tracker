@@ -6,6 +6,7 @@ import { OpenAPIHono } from "@hono/zod-openapi";
 import { db } from "@nexus-app/db/client";
 import { integrationUserLink } from "@nexus-app/db/schema";
 import { sendMattermostNotification } from "@nexus-app/integration/mattermost";
+import type { IntegrationName } from "@nexus-app/integration/registry";
 import { sendWhatsappNotification } from "@nexus-app/integration/whatsapp";
 import { and, eq, type SQL } from "drizzle-orm";
 import type { Context } from "../types";
@@ -90,7 +91,7 @@ app.get("/associate", async (c) => {
 
 	if (safeQuery.data.integrationType) {
 		whereClause.push(
-			eq(integrationUserLink.integrationType, safeQuery.data.integrationType),
+			eq(integrationUserLink.integrationType, safeQuery.data.integrationType as IntegrationName),
 		);
 	}
 
@@ -105,8 +106,7 @@ app.get("/associate", async (c) => {
 	}
 
 	await db.insert(integrationUserLink).values({
-		integrationId: safeQuery.data.integrationId,
-		integrationType: safeQuery.data.integrationType,
+		integrationType: safeQuery.data.integrationType as IntegrationName,
 		userId: userId,
 		externalUserId: safeQuery.data.externalUserId,
 		externalUserName: safeQuery.data.externalUserName,

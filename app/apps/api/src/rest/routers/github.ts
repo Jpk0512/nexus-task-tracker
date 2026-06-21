@@ -48,7 +48,7 @@ app.get("/plans/:planId/cancel", async (c) => {
 	}
 
 	const octokit = new Octokit({
-		auth: integration.config.token,
+		auth: (integration.config as { token?: string }).token,
 	});
 
 	await cancelPullRequestPlan({
