@@ -723,9 +723,10 @@ export const knowledgeRouter = router({
 				)
 				.limit(1);
 			if (!existing) throw new TRPCError({ code: "NOT_FOUND" });
+			const normalizedPath = safeResolve(input.root_path);
 			const [updated] = await db
 				.update(knowledgeVaults)
-				.set({ rootPath: input.root_path })
+				.set({ rootPath: normalizedPath })
 				.where(eq(knowledgeVaults.id, input.vaultId))
 				.returning();
 			return updated;
