@@ -20,12 +20,12 @@
 | **TASK-022** — Dashboard 500: next/dynamic ssr:false in Server Component layout (P7 latent, surfaced by rebuild) | done |  | 2026-06-20 |
 | **TASK-023** — Seed script not idempotent: tasks block aborts on populated DB (duplicate permalink_id) | planned |  | 2026-06-20 |
 
-## FEAT-002 — Next Features (1/9 done, 11%)
+## FEAT-002 — Next Features (2/11 done, 18%)
 
 | Task | Status | Owner | Updated |
 |------|--------|-------|---------|
 | **TASK-011** — Todos CRUD + drag-reorder + tags + project scope + attachments | in_progress | forge-ui+forge-wire+palette+quill-ts | 2026-06-18 |
-| **TASK-012** — Knowledge vault: Obsidian-compatible, wiki links, backlinks, FTS | in_progress | forge-wire+forge-ui+palette+quill-ts | 2026-06-20 |
+| **TASK-012** — Knowledge vault: Obsidian-compatible, wiki links, backlinks, FTS | done | forge-wire+forge-ui+palette+quill-ts | 2026-06-20 |
 | **TASK-013** — Prompt library: variable detection, versioning, kbuddy seed | done | forge-ui+forge-wire+palette+quill-ts | 2026-06-20 |
 | **TASK-014** — stdio MCP server wrapping todos/knowledge/prompts/tasks | planned | hermes+quill-ts | 2026-06-18 |
 | **TASK-017** — Todos bulk-selection bar: mount BulkOpsBar in todos-view | planned |  | 2026-06-20 |
@@ -33,6 +33,8 @@
 | **TASK-019** — MCP check_todo fuzzy/content search (id_or_search) | planned |  | 2026-06-20 |
 | **TASK-020** — Prompts list: clickable project-filter badge (Palette spec) | planned |  | 2026-06-20 |
 | **TASK-021** — Vault backend DB-integration tests (FTS rank, scan link-population, listBacklinks team-scope) | planned |  | 2026-06-20 |
+| **TASK-024** — TASK-012 polish: auto-save in-flight mutex (knowledge note editor) | todo | forge-ui | 2026-06-20 |
+| **TASK-025** — TASK-012 polish: optional safeResolve fail-fast in knowledge.updateVault | todo | forge-wire | 2026-06-20 |
 
 ## Infrastructure / Housekeeping (0/1 done, 0%)
 

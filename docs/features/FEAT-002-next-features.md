@@ -93,7 +93,7 @@ Given: the Completed group rendered as a Collapsible
 When: the owner expands it with default motion preferences, and separately under `prefers-reduced-motion`
 Then: with default preferences it animates open over 150ms; under `prefers-reduced-motion` it opens instantly.
 
-### TASK-012 → — Knowledge vault
+### TASK-012 ✓ — Knowledge vault
 
 **Wiki-link creates a knowledge_links row on scan**
 Given: a vault note whose content contains `[[Another Note]]`
