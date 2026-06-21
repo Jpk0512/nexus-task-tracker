@@ -2,7 +2,7 @@
 
 > Auto-synced from `.memory/project.db`. Do not edit by hand.
 
-## FEAT-001 — Repurpose Nexus (9/13 done, 69%)
+## FEAT-001 — Repurpose Nexus (12/13 done, 92%)
 
 | Task | Status | Owner | Updated |
 |------|--------|-------|---------|
@@ -15,29 +15,31 @@
 | **TASK-007** — P6 trim: Google integration + analytics/Sentry + notifications | done |  | 2026-06-18 |
 | **TASK-008** — P7 dashboard heaviness + website turbo-isolate | done |  | 2026-06-18 |
 | **TASK-009** — P8 optional @mimir->@nexus-app rename | planned |  | 2026-06-16 |
-| **TASK-010** — Pre-existing biome lint debt cleanup (apps/api) | planned |  | 2026-06-16 |
-| **TASK-015** — Restore or retire execute-pm-agent-job (no-op stub after credit-gating removal in P5) | planned |  | 2026-06-18 |
+| **TASK-010** — Pre-existing biome lint debt cleanup (apps/api) | done |  | 2026-06-21 |
+| **TASK-015** — Restore or retire execute-pm-agent-job (no-op stub after credit-gating removal in P5) | done |  | 2026-06-21 |
 | **TASK-022** — Dashboard 500: next/dynamic ssr:false in Server Component layout (P7 latent, surfaced by rebuild) | done |  | 2026-06-20 |
-| **TASK-023** — Seed script not idempotent: tasks block aborts on populated DB (duplicate permalink_id) | planned |  | 2026-06-20 |
+| **TASK-023** — Seed script not idempotent: tasks block aborts on populated DB (duplicate permalink_id) | done |  | 2026-06-21 |
 
-## FEAT-002 — Next Features (2/11 done, 18%)
+## FEAT-002 — Next Features (12/13 done, 92%)
 
 | Task | Status | Owner | Updated |
 |------|--------|-------|---------|
-| **TASK-011** — Todos CRUD + drag-reorder + tags + project scope + attachments | in_progress | forge-ui+forge-wire+palette+quill-ts | 2026-06-18 |
+| **TASK-011** — Todos CRUD + drag-reorder + tags + project scope + attachments | done | forge-ui+forge-wire+palette+quill-ts | 2026-06-21 |
 | **TASK-012** — Knowledge vault: Obsidian-compatible, wiki links, backlinks, FTS | done | forge-wire+forge-ui+palette+quill-ts | 2026-06-20 |
 | **TASK-013** — Prompt library: variable detection, versioning, kbuddy seed | done | forge-ui+forge-wire+palette+quill-ts | 2026-06-20 |
-| **TASK-014** — stdio MCP server wrapping todos/knowledge/prompts/tasks | planned | hermes+quill-ts | 2026-06-18 |
-| **TASK-017** — Todos bulk-selection bar: mount BulkOpsBar in todos-view | planned |  | 2026-06-20 |
-| **TASK-018** — MCP server install automation into ~/.claude/mcp.json | planned |  | 2026-06-20 |
-| **TASK-019** — MCP check_todo fuzzy/content search (id_or_search) | planned |  | 2026-06-20 |
-| **TASK-020** — Prompts list: clickable project-filter badge (Palette spec) | planned |  | 2026-06-20 |
-| **TASK-021** — Vault backend DB-integration tests (FTS rank, scan link-population, listBacklinks team-scope) | planned |  | 2026-06-20 |
-| **TASK-024** — TASK-012 polish: auto-save in-flight mutex (knowledge note editor) | todo | forge-ui | 2026-06-20 |
-| **TASK-025** — TASK-012 polish: optional safeResolve fail-fast in knowledge.updateVault | todo | forge-wire | 2026-06-20 |
+| **TASK-014** — stdio MCP server wrapping todos/knowledge/prompts/tasks | done | hermes+quill-ts | 2026-06-21 |
+| **TASK-017** — Todos bulk-selection bar: mount BulkOpsBar in todos-view | done |  | 2026-06-21 |
+| **TASK-018** — MCP server install automation into ~/.claude/mcp.json | done |  | 2026-06-21 |
+| **TASK-019** — MCP check_todo fuzzy/content search (id_or_search) | done |  | 2026-06-21 |
+| **TASK-020** — Prompts list: clickable project-filter badge (Palette spec) | done |  | 2026-06-21 |
+| **TASK-021** — Vault backend DB-integration tests (FTS rank, scan link-population, listBacklinks team-scope) | done |  | 2026-06-21 |
+| **TASK-024** — TASK-012 polish: auto-save in-flight mutex (knowledge note editor) | done | forge-ui | 2026-06-21 |
+| **TASK-025** — TASK-012 polish: optional safeResolve fail-fast in knowledge.updateVault | done | forge-wire | 2026-06-21 |
+| **TASK-026** — Provision dashboard RTL/jsdom test harness (enable behavioral component tests) | done | forge-ui+forge-wire | 2026-06-21 |
+| **TASK-027** — Drive dashboard/api project-wide tsc baseline to zero (92 pre-existing errors) | todo | forge-ui+forge-wire | 2026-06-21 |
 
-## Infrastructure / Housekeeping (0/1 done, 0%)
+## Infrastructure / Housekeeping (1/1 done, 100%)
 
 | Task | Status | Owner | Updated |
 |------|--------|-------|---------|
-| **TASK-016** — Repo hygiene: gitignore/remove Nexus-install backup dirt | planned |  | 2026-06-20 |
+| **TASK-016** — Repo hygiene: gitignore/remove Nexus-install backup dirt | done |  | 2026-06-21 |

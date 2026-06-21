@@ -56,7 +56,7 @@ Given: a saved prompt under the `kbuddy` product
 When: an MCP client calls `list_prompts` and then `get_prompt(productSlug, promptSlug)`
 Then: `list_prompts` includes the prompt and `get_prompt` returns its content (with variables filled when `vars` is supplied).
 
-### TASK-011 → — Todos
+### TASK-011 ✓ — Todos
 
 **Quick-add at top, check moves to Completed**
 Given: the todos page open with the header `+` input focused
@@ -135,7 +135,7 @@ Given: the knowledge settings page at `/team/[team]/settings/knowledge`
 When: the owner changes the vault `root_path` and saves
 Then: the new path is written to `knowledge_vaults.root_path` and persists across reload.
 
-### TASK-014 — MCP server
+### TASK-014 ✓ — MCP server
 
 **Type check and build succeed**
 Given: the `mcp-server/` project source
