@@ -4,7 +4,7 @@
 
 Build four personal-assistant capabilities on top of the now-local Nexus app (FEAT-001), in dependency order: **Todos → Knowledge vault → Prompt library → MCP server**. The first three are user-facing dashboard pages; the fourth wraps all of them in a standalone stdio MCP server so Claude can drive them as a personal assistant.
 
-**Stack:** Bun + Turborepo monorepo under `app/`; `apps/api` (Hono + tRPC + AI SDK), `apps/dashboard` (Next 15 App Router, Tiptap editor, dnd-kit, shadcn/ui); Postgres/pgvector + Redis local via docker-compose. New standalone `mcp-server/` Node project (built with `bun build` → `dist/index.js`).
+**Stack:** Bun + Turborepo monorepo under `app/` (packages scoped `@nexus-app/*`); `apps/api` (Hono + tRPC + AI SDK), `apps/dashboard` (Next 15 App Router, Tiptap editor, dnd-kit, shadcn/ui); Postgres/pgvector + Redis local via `app/docker-compose.local.yaml` (dashboard on host `:5179`, api on `:3003`). New standalone `mcp-server/` Bun project at the repo root (built with `bun run build` → `dist/index.js`), installed into `~/.claude/mcp.json` via `bun run install:mcp`.
 
 **Why now:** FEAT-001 stripped the SaaS layers and made the app local-only and API-accessed. The owner now wants daily-driver capture (todos), an Obsidian-backed second brain (knowledge), a versioned prompt library, and a single MCP surface that exposes all three to any Claude Code session. The data tables for todos, todo_attachments, prompt_products, prompts, prompt_versions, knowledge_vaults, and knowledge_notes already exist in the schema; this feature adds only the wiki-link graph table and the FTS column for knowledge, then layers UI + the MCP wrapper on top.
 
@@ -173,7 +173,7 @@ Then: only todos belonging to the configured team are returned; other teams' tod
 
 - `Article I` (TDD): UI-behavior tasks (TASK-011, TASK-012, TASK-013) and the MCP task (TASK-014) require feat-2-tagged Quill tests written before Forge/Pipeline implement — quick-add ordering, check-to-Completed move, drag-persist, variable auto-detection, FTS ranking, wiki-link row creation, path-escape rejection, and team-scoping isolation are all asserted by tests first. Schema work (the `knowledge_links` table + `content_fts` GIN index) is verified by the Verification SQL in this spec, executed by Pipeline.
 - `Article X` (RCA): the knowledge scanner change documents its full blast radius (which notes re-scan, how `to_note_id` resolves on rename/delete) before merge; no silent link deletion — orphaned `knowledge_links` rows are nulled, not dropped, when a target disappears.
-- `Article XII` (deploy via human handoff): each implementation phase ends with a `## Deploy step` block naming the Docker restart action (api + dashboard) + the verification command; the owner approves before rebuild; Nexus does not deploy autonomously. The `mcp-server` build (`bun run build`) and `~/.claude/mcp.json` registration are an owner-approved manual step.
+- `Article XII` (deploy via human handoff): each implementation phase ends with a `## Deploy step` block naming the Docker restart action (api + dashboard) + the verification command; the owner approves before rebuild; Nexus does not deploy autonomously. The `mcp-server` build (`bun run build`) and `~/.claude/mcp.json` registration are an owner-approved step — TASK-018 shipped an idempotent installer (`bun run install:mcp`, with `DRY_RUN=1` support and a timestamped backup of the existing `mcp.json`) so the registration is automated rather than hand-edited.
 - `Article XIII` (parallel-first): TASK-013 (prompts), TASK-011 (todos), and TASK-012 (knowledge) touch disjoint route subtrees and tables and may be dispatched in parallel where the dependency graph allows; TASK-014 (MCP) depends on all three tRPC surfaces and is sequenced last. The single schema migration (knowledge_links + content_fts) is a one-shot Pipeline dispatch that gates TASK-012's FTS search and backlinks.
 - `Article XIV` (session-branch commit-as-checkpoint): one focused commit per task on the session branch; each commit is the rollback unit; no per-task feature branches; sub-agents commit and do not push.
 
@@ -194,6 +194,8 @@ Then: only todos belonging to the configured team are returned; other teams' tod
 **Knowledge vault on disk:** Obsidian-compatible markdown directory bind-mounted into the api container (Library-style scoped mount). Default root `/Users/john.keeney/nexus-knowledge`. Scanner indexes files into `knowledge_notes`, extracts `[[wiki links]]` into `knowledge_links`, and maintains `content_fts` for ranked search. `.obsidian/` is ignored.
 
 **Editor reuse:** Tiptap component with the mermaid node + slash menu (already built for docs) is reused by todo `note` attachments and the knowledge note editor. Todo `doc_link` attachments embed `LibraryDetailView` inline.
+
+**Security model (as shipped):** all tRPC mutations and sensitive reads across the new `todos.*` / `prompts.*` / `knowledge.*` surfaces are team-scoped on `ctx.user.teamId` — cross-tenant IDORs surfaced during this feature were swept and fixed (e.g. `setProject` rejects a `projectId` that does not belong to the caller's team; `list_todos`/backlinks are team-isolated). The api ships a `createCallerFactory` behavioral test harness (`app/apps/api/src/__tests__/task-029-idor-caller-harness.test.ts`, TASK-029) that asserts team-scoping / IDOR isolation at the procedure level. OAuth integration tokens are AES-GCM encrypted at rest (`app/packages/utils/src/token-crypto.ts`); inbound webhooks (GitHub, Slack) verify request signatures before processing. The MCP server enforces the same boundary at the edge via `NEXUS_TEAM_ID` and rejects `write_note` paths that escape the configured knowledge root.
 
 ---
 
@@ -235,7 +237,7 @@ These tables already exist in `app/packages/db/src/schema.ts` and are documented
 --   UNIQUE(vault_id, relative_path).
 ```
 
-### NEW schema (this feature) — forward-only migration M-002
+### NEW schema (this feature) — forward-only Drizzle migration (`0003_knowledge_links_and_fts.sql`)
 
 Two changes, both for TASK-012 (knowledge vault):
 
@@ -301,9 +303,11 @@ DROP TABLE IF EXISTS knowledge_links;
 
 ### Apply plan (Pipeline executes — Atlas cannot run these)
 
-1. `alembic revision -m "feat-002 knowledge_links + content_fts"` (or the project's Drizzle migration generate), pasting the `upgrade()` / `downgrade()` bodies above.
-2. Review the generated revision.
-3. `alembic upgrade head` (or `drizzle-kit migrate`).
+This is a Drizzle-managed Postgres schema (`drizzle-kit`), not Alembic. The change shipped as a hand-authored SQL migration:
+
+1. Add `knowledgeLinks` + the `knowledgeNotes.contentFts` generated column to `app/packages/db/src/schema.ts`.
+2. Author the forward migration `app/packages/db/migrations/0003_knowledge_links_and_fts.sql` (the `upgrade()` body above).
+3. Apply with `drizzle-kit migrate` (or `db:push` for local dev) and run the Verification SQL below.
 
 ### Verification SQL (Pipeline runs and reports back)
 
@@ -346,7 +350,7 @@ SELECT count(*) FROM knowledge_links WHERE link_text = 'Another Note';
 
 ## Test Strategy
 
-**Schema (M-002):** verified by the Verification SQL above, executed by Pipeline (`\d` structure checks, `EXPLAIN` index-usage checks, and the link-count assertion).
+**Schema (`0003_knowledge_links_and_fts.sql`):** verified by the Verification SQL above, executed by Pipeline (`\d` structure checks, `EXPLAIN` index-usage checks, and the link-count assertion). Additionally, TASK-021 added DB-integration tests (FTS rank, scan link-population, team-scoped `listBacklinks`).
 
 **TASK-011 / TASK-012 / TASK-013 (UI behavior):** feat-2-tagged Quill tests (Vitest + RTL) written before Forge implements — quick-add inserts at top + clears input; check moves row to Completed; `prefers-reduced-motion` skips the animation; drag reorder rewrites `order` and persists; tag/project pill filters; variable auto-detection from `{{...}}`; "Copy filled" interpolation; "Save as new version" writes a `prompt_versions` row and bumps the badge; `setProject` rejects a foreign-team project; wiki-link scan writes a `knowledge_links` row; FTS search returns ranked results; resolved/unresolved link coloring; auto-save within 500ms.
 

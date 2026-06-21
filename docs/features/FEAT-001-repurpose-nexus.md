@@ -2,7 +2,7 @@
 
 ## Overview / Goal
 
-Strip the old mimrai multi-tenant SaaS task-tracker into a LOCAL-ONLY, single-user, API-accessed personal app renamed "Nexus", later wrapped in Electron by the owner. Remove external/SaaS services, replace storage locally, rename brand+paths+env, reduce heaviness. Internal package scope `@mimir/*` is KEPT (only brand text renamed).
+Strip the old mimrai multi-tenant SaaS task-tracker into a LOCAL-ONLY, single-user, API-accessed personal app renamed "Nexus", later wrapped in Electron by the owner. Remove external/SaaS services, replace storage locally, rename brand+paths+env, reduce heaviness. The internal package scope was renamed `@mimir/*` → `@nexus-app/*` in P8 (TASK-009, commit `60e3bd5`, DEC-014 supersedes DEC-002's keep-`@mimir` decision).
 
 **Stack:** Bun + Turborepo monorepo under `app/`; apps `api` (Hono + tRPC + AI SDK), `dashboard` (Next 15), `website` (keep, isolate), `desktop` (Electron, keep for later); Postgres/pgvector + Redis local via docker-compose.
 
@@ -25,7 +25,7 @@ Then: `grep -r "createAdminClient\|@supabase/supabase-js" app/apps app/packages`
 **Stripe complete removal**
 Given: 29 stripeClient calls across billing router, teams router, webhook handler, plan-feature middleware, and 2 job types
 When: Phase 5 Stripe teardown completes (all 10 dependent files cleared, `app/packages/billing/` deleted, `stripe` dep removed)
-Then: `grep -r "stripeClient\|@mimir/billing\|stripe" app/apps app/packages` returns zero matches, and team create/update/delete succeed without billing side effects
+Then: `grep -r "stripeClient\|@nexus-app/billing\|stripe" app/apps app/packages` returns zero matches, and team create/update/delete succeed without billing side effects
 
 **Env-flag rename**
 Given: `MIMRAI_LOCAL_DEV` and `NEXT_PUBLIC_MIMRAI_LOCAL_DEV` are read in 7 shared packages and set in docker-compose.local.yaml (3 lines) and `.env.example` (2 lines)
@@ -56,7 +56,7 @@ Then: `docker compose config` parses cleanly with no missing bind-mount warnings
 
 ## Architecture Summary
 
-**Monorepo layout:** Bun + Turborepo; root `app/` workspace with 4 apps and 16 shared packages under `@mimir/*`.
+**Monorepo layout:** Bun + Turborepo; root `app/` workspace with 4 apps (`api`, `dashboard`, `website`, `desktop`) and shared packages under `@nexus-app/*` (renamed from `@mimir/*` in P8 — see DEC-014).
 
 | App | Runtime | Role | Decision |
 |---|---|---|---|
@@ -71,7 +71,7 @@ Then: `docker compose config` parses cleanly with no missing bind-mount warnings
 
 **Auth:** Better Auth session check (`apps/api/src/rest/middleware/auth.ts`) already handles both authenticated sessions and `MIMRAI_LOCAL_DEV` local-dev-user bypass. Phase 3 replaces `MIMRAI_LOCAL_DEV` bypass with a static API token gate (`NEXUS_API_TOKEN`).
 
-**Scope kept:** `@mimir/*` internal package scope is kept (886 import refs; break risk exceeds rename value for a local-only app). Only user-facing brand text and env-flag names change. If scope rename is ever desired, it targets P8 and is explicitly deferred.
+**Scope renamed (P8 executed):** the internal package scope was renamed `@mimir/*` → `@nexus-app/*` (TASK-009, commit `60e3bd5`, 2026-06-21; ~403 files touched). DEC-014 supersedes DEC-002's original keep-`@mimir` decision — once the app was committed to as a long-lived local-only product, the brand-aligned scope was worth the coordinated rename. Env-flag and user-facing brand text were renamed earlier in P0.
 
 ---
 
@@ -163,7 +163,7 @@ Then: `docker compose config` parses cleanly with no missing bind-mount warnings
 - `plan-feature.ts` middleware deleted; all 4 integration routers + 2 job types that import it updated
 - `apps/api/src/trpc/routers/teams.ts` — all `stripeClient.customers.*` calls removed; team CRUD succeeds
 - Drizzle migration: `customerId`, `subscriptionId`, `canceledAt` columns NULLed in `teams` table; `credit_ledger` and `credit_balance` tables dropped (confirm no dashboard UI depends on them before drop)
-- feat-1 guard test: `grep -r "stripeClient\|@mimir/billing\|stripe" app/apps app/packages` returns zero matches
+- feat-1 guard test: `grep -r "stripeClient\|@nexus-app/billing\|stripe" app/apps app/packages` returns zero matches (the implemented guard, `app/apps/dashboard/__tests__/feat-1-stripe-removal-guard.test.ts`, asserts absence of `stripeClient` / `@nexus-app/billing` / `new Stripe` under the current scope)
 
 ---
 
@@ -193,16 +193,16 @@ Then: `docker compose config` parses cleanly with no missing bind-mount warnings
 
 ---
 
-### P8 — Optional @mimir scope rename (deferred)
+### P8 — @mimir → @nexus-app scope rename (DONE)
 
-**Goal:** If desired, rename internal `@mimir/*` package scope to `@nexus-app/*` (not `@nexus/*` — collision with orchestrator framework). This is explicitly deferred; the 886-ref rename is high-risk for zero user-facing value in a local-only app.
+**Goal:** Rename internal `@mimir/*` package scope to `@nexus-app/*` (not `@nexus/*` — collision with orchestrator framework).
 
-**Acceptance criteria (when/if activated):**
-- All 20 `package.json` files updated; all 886 import statements updated in single coordinated pass
+**Acceptance criteria:**
+- All workspace `package.json` files updated; all import statements updated in a single coordinated pass
 - `bun install` + `rtk tsc` + `rtk lint` pass with zero type errors
 - No remaining `@mimir/` import refs in source
 
-**Status: DEFERRED — do not implement until owner explicitly unlocks P8.**
+**Status: DONE — TASK-009, commit `60e3bd5` (2026-06-21), ~403 files renamed `@mimir/` → `@nexus-app/`. This reverses the original P8 "deferred" stance: DEC-014 superseded DEC-002's keep-`@mimir` decision once Nexus was committed to as a long-lived product.**
 
 ---
 
@@ -292,7 +292,7 @@ DROP TYPE IF EXISTS plans;
 
 - `app/packages/storage/__tests__/feat-1-file-storage-adapter.test.ts` — unit tests for FileStorageAdapter upload/getPublicUrl/delete against a temp STORAGE_ROOT
 - `app/apps/api/src/__tests__/feat-1-auth-token.test.ts` — middleware accepts valid NEXUS_API_TOKEN, rejects invalid
-- `app/apps/api/src/__tests__/feat-1-stripe-removal-guard.test.ts` — asserts zero import of `stripeClient` or `@mimir/billing` in compiled output
+- `app/apps/dashboard/__tests__/feat-1-stripe-removal-guard.test.ts` — asserts the billing package is deleted and zero import of `stripeClient` or `@nexus-app/billing` remains in production source
 - `app/apps/api/src/__tests__/feat-1-supabase-removal-guard.test.ts` — asserts zero import of `@supabase/supabase-js` or `createAdminClient` in compiled output
 - `app/packages/jobs/__tests__/feat-1-local-scheduler.test.ts` — recurring job enqueues and fires without Trigger.dev
 
@@ -306,6 +306,10 @@ Guard tests (grep-assertion pattern): run as part of `rtk lint` or as standalone
 
 **DEC-002** (gate-locked owner decisions): storage = local-disk FileStorageAdapter with `STORAGE_ROOT` env var; auth = static API token (`NEXUS_API_TOKEN`) + keep dashboard Better Auth cookie sessions; scope = KEEP `@mimir/*` (brand text rename only); integrations = KEEP GitHub + chat (Slack/Mattermost/WhatsApp), REMOVE Google (Gmail + Google Calendar).
 
+> **SUPERSEDED (scope clause only):** the `scope = KEEP @mimir/*` decision was reversed by **DEC-014**. The package scope was renamed `@mimir/*` → `@nexus-app/*` in P8 (TASK-009, commit `60e3bd5`, 2026-06-21). All other DEC-002 clauses (storage / auth / integrations) stand.
+
+**DEC-014** (scope rename): rename internal package scope `@mimir/*` → `@nexus-app/*` across the workspace (~403 files, commit `60e3bd5`). Supersedes DEC-002's keep-`@mimir` clause — once the app was adopted as a long-lived local-only product, the brand-aligned scope justified the one-time coordinated rename. `@nexus-app/*` (not `@nexus/*`) avoids collision with the Nexus orchestrator framework.
+
 **Path mappings:**
 - Repository: `/Users/john.keeney/mimrai` → `/Users/john.keeney/nexus-task-tracker`
 - Knowledge vault: `/Users/john.keeney/mimrai-knowledge` → `/Users/john.keeney/nexus-knowledge`
@@ -316,7 +320,7 @@ Guard tests (grep-assertion pattern): run as part of `rtk lint` or as standalone
 
 | Item | Reason |
 |---|---|
-| `@mimir/*` package scope | 886 refs; break risk exceeds value for local-only app; deferred to P8 (explicitly gated) |
+| ~~`@mimir/*` package scope~~ | RENAMED to `@nexus-app/*` in P8 (TASK-009, commit `60e3bd5`); DEC-014 superseded the original keep-`@mimir` stance. No longer do-not-touch. |
 | `mimrai-pg-data` Docker volume | Renaming orphans live database data |
 | `mimrai` internal DB user/name/password | DB internals; low-priority; rename requires DB migration and is out of scope |
 | Sibling-app bind-mounts in docker-compose | `/Users/john.keeney/ai-interaction-dash/.claude` and `/Users/john.keeney/elevenlabs-eval-dash/.claude` — external apps, not in scope |
