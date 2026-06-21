@@ -87,19 +87,34 @@ function* walkText(dir: string): Generator<string> {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// Module-level file cache — walk APP_ROOT exactly once so parallel test
+// workers don't race on repeated filesystem traversals (de-flake fix).
+// ---------------------------------------------------------------------------
+
+function buildFileCache(rootDir: string): Map<string, string> {
+	const cache = new Map<string, string>();
+	for (const filePath of walkText(rootDir)) {
+		try {
+			cache.set(filePath, readFileSync(filePath, "utf8"));
+		} catch {
+			// skip unreadable / binary files
+		}
+	}
+	return cache;
+}
+
+const FILE_CACHE: Map<string, string> = buildFileCache(APP_ROOT);
+
 function scanForPattern(
 	rootDir: string,
 	pattern: RegExp,
 ): Array<{ file: string; lines: number[] }> {
 	const hits: Array<{ file: string; lines: number[] }> = [];
 
-	for (const filePath of walkText(rootDir)) {
-		let content: string;
-		try {
-			content = readFileSync(filePath, "utf8");
-		} catch {
-			continue;
-		}
+	for (const [filePath, content] of FILE_CACHE) {
+		// Only include files under the requested rootDir
+		if (!filePath.startsWith(rootDir)) continue;
 
 		if (!pattern.test(content)) continue;
 
@@ -305,7 +320,7 @@ describe("TASK-006 Stripe removal guard", () => {
 	});
 
 	test("zero @nexus-app/billing import references across app/ production source", () => {
-		const BILLING_IMPORT_RE = /@mimir\/billing/;
+		const BILLING_IMPORT_RE = /@nexus-app\/billing/;
 		const hits = scanForPattern(APP_ROOT, BILLING_IMPORT_RE);
 
 		const message =
@@ -363,7 +378,7 @@ describe("TASK-006 Stripe removal guard", () => {
 			"teams.ts",
 		);
 		const content = readFileSync(teamsPath, "utf8");
-		const hasBilling = /@mimir\/billing/.test(content);
+		const hasBilling = /@nexus-app\/billing/.test(content);
 		expect(
 			hasBilling,
 			"teams.ts still imports from @nexus-app/billing — remove checkLimit, createTrialSubscription, updateSubscriptionUsage imports and all call sites",
@@ -382,7 +397,7 @@ describe("TASK-006 Stripe removal guard", () => {
 			"agent-jobs",
 		);
 		// Scan just the agent-jobs dir (contains the 2 job types with billing refs)
-		const BILLING_RE = /@mimir\/billing/;
+		const BILLING_RE = /@nexus-app\/billing/;
 		const hits = scanForPattern(agentJobsDir, BILLING_RE);
 
 		const message =
