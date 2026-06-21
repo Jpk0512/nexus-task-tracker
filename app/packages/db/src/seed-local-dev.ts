@@ -480,7 +480,7 @@ async function main() {
 				updatedAt: nowIso,
 				statusChangedAt: now,
 			} as any)
-			.onConflictDoNothing({ target: tasks.id });
+			.onConflictDoNothing();
 	}
 
 	console.log("[seed-local-dev] documents…");
