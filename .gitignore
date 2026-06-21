@@ -74,3 +74,16 @@ prism/__pycache__/
 prism/.ruff_cache/
 prism/.prism/
 prism/.env
+
+# Nexus-install backup artifacts
+*.tar.gz
+*.pre-nexus.*
+.claude.backup-*
+.prism-bak-*
+CLAUDE.pre-nexus.md.*
+
+# Nexus runtime state (machine-local, not versioned)
+.memory/files/
+.memory/subagent-returns/
+.claude/agent-memory/
+.cursor/
