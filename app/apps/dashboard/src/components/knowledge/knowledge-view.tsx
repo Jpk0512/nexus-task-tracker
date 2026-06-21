@@ -168,6 +168,9 @@ export function KnowledgeView() {
 	// Debounce timer + the latest editor content/sha, kept in refs so the
 	// blur-triggered timeout always reads fresh values without re-binding.
 	const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+	// Single-flight mutex: skip if a save is already in progress so rapid
+	// blur/refocus cannot enqueue two concurrent knowledge.update mutations.
+	const saveInFlight = useRef(false);
 	const draftRef = useRef("");
 	const shaRef = useRef<string | null>(null);
 
@@ -264,8 +267,10 @@ export function KnowledgeView() {
 	// DEC-010. The header indicator alone narrates; nothing blocks the writer.
 	const updateAsync = updateMut.mutateAsync;
 	const autoSave = useCallback(async () => {
+		if (saveInFlight.current) return;
 		const id = selectedId;
 		if (!id) return;
+		saveInFlight.current = true;
 		const content = draftRef.current;
 		setAutoSaveState("saving");
 		try {
@@ -278,6 +283,7 @@ export function KnowledgeView() {
 			if (!isConflict) {
 				setAutoSaveState("idle");
 				toast.error(err instanceof Error ? err.message : "Save failed");
+				saveInFlight.current = false;
 				return;
 			}
 			setAutoSaveState("conflict");
@@ -299,6 +305,8 @@ export function KnowledgeView() {
 			} catch {
 				setAutoSaveState("idle");
 			}
+		} finally {
+			saveInFlight.current = false;
 		}
 	}, [selectedId, updateAsync, qc, refetchList, refetchNote]);
 

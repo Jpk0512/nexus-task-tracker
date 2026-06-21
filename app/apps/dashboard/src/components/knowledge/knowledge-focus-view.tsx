@@ -37,6 +37,9 @@ export function KnowledgeFocusView({ noteId }: { noteId: string }) {
 	const draftRef = useRef("");
 	const shaRef = useRef<string | null>(null);
 	const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+	// Single-flight mutex: skip if a save is already in progress so rapid
+	// blur/refocus cannot enqueue two concurrent knowledge.update mutations.
+	const saveInFlight = useRef(false);
 
 	const noteQuery = useQuery({
 		...trpc.knowledge.getById.queryOptions({ id: noteId }),
@@ -96,6 +99,8 @@ export function KnowledgeFocusView({ noteId }: { noteId: string }) {
 	// Auto-save: blur → ≤500ms debounce → update. CONFLICT → re-fetch fresh sha
 	// via getById and re-save (last-write-wins). No modal, no conflict toast.
 	const autoSave = useCallback(async () => {
+		if (saveInFlight.current) return;
+		saveInFlight.current = true;
 		setAutoSaveState("saving");
 		try {
 			await updateAsync({
@@ -110,6 +115,7 @@ export function KnowledgeFocusView({ noteId }: { noteId: string }) {
 			if (!isConflict) {
 				setAutoSaveState("idle");
 				toast.error(err instanceof Error ? err.message : "Save failed");
+				saveInFlight.current = false;
 				return;
 			}
 			setAutoSaveState("conflict");
@@ -129,6 +135,8 @@ export function KnowledgeFocusView({ noteId }: { noteId: string }) {
 			} catch {
 				setAutoSaveState("idle");
 			}
+		} finally {
+			saveInFlight.current = false;
 		}
 	}, [noteId, updateAsync, qc, refetchNote]);
 
