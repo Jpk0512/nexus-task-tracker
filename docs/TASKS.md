@@ -1,6 +1,13 @@
 # Tasks
 
-> Auto-synced from `.memory/project.db`. Do not edit by hand.
+> Auto-synced from `.memory/project.db` by `.memory/sync_docs.py`. Do not edit the table by hand.
+>
+> Docs-audit reconciliation (2026-06-21): index verified against the live DB and repo —
+> 38 tasks, scope is `@nexus-app/*` (renamed from `@mimir/*`, commit `60e3bd5`; DEC-014 supersedes
+> DEC-002's keep-`@mimir`), billing/Stripe removed (no billing code; TASK-006), FEAT-002 shipped
+> (Todos, Knowledge vault, Prompt library, stdio MCP server — local-only via `app/docker-compose.local.yaml`).
+> Open tasks are exactly TASK-028, TASK-030, TASK-031; all other TASK-011..038 are done.
+> The lone `@mimir/billing` string below is TASK-030's title naming the *fix target* `@nexus-app/billing`.
 
 ## FEAT-001 — Repurpose Nexus (13/13 done, 100%)
 
