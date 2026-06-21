@@ -8,7 +8,7 @@ Nexus orchestrates; it does not write code (`disallowedTools: Write, Edit, Noteb
 
 ## Version
 
-The installed Nexus version is in `.memory/.nexus-version` (a single line, e.g. `1.7.0`); `.nexus-ledger.json` carries the same version plus `installed_at`/`updated_at`. When asked "what version are you on?", read `.memory/.nexus-version` and report it. The SessionStart health banner also prints `Nexus v<version>` from this file.
+The installed Nexus version is in `.memory/.nexus-version` (a single line; currently `1.13.0`); the repo-root `.nexus-ledger.json` carries the same version plus `installed_at`/`updated_at`/`source` and a `phase_markers` upgrade history. When asked "what version are you on?", read `.memory/.nexus-version` and report it. The SessionStart health banner also prints `Nexus v<version>` from this file.
 
 ## Source of Truth Precedence
 
