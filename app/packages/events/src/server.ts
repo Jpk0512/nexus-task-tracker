@@ -2,18 +2,18 @@ import { OpenPanel } from "@openpanel/sdk";
 
 const LOCAL_DEV = process.env.NEXUS_LOCAL_DEV === "1";
 
-function createOpenPanelStub(): any {
-	const handler = (event?: string, _props?: unknown) => {
+function createOpenPanelStub(): OpenPanel {
+	const handler = (event?: string, _props?: unknown): undefined => {
 		console.log(`[stub:openpanel] track ${event ?? ""}`);
 		return undefined;
 	};
 	return new Proxy(
-		{},
+		{} as OpenPanel,
 		{
 			get: (_t, prop) => {
 				if (prop === "then") return undefined;
 				if (prop === "track") return handler;
-				return (..._args: unknown[]) => undefined;
+				return (..._args: unknown[]): undefined => undefined;
 			},
 		},
 	);

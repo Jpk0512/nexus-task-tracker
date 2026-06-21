@@ -2,27 +2,37 @@ import { Redis } from "@upstash/redis";
 
 const LOCAL_DEV = process.env.NEXUS_LOCAL_DEV === "1";
 
+interface StubSubscriber {
+	on(event: string, handler: (...args: unknown[]) => void): StubSubscriber;
+	off(event: string): StubSubscriber;
+	subscribe(...channels: string[]): Promise<StubSubscriber>;
+	psubscribe(...patterns: string[]): Promise<StubSubscriber>;
+	unsubscribe(): Promise<StubSubscriber>;
+	punsubscribe(): Promise<StubSubscriber>;
+	quit(): Promise<undefined>;
+}
+
 // Stub subscriber that satisfies the @upstash/redis pub-sub shape: callers
 // invoke `.on("subscribe" | "message" | "psubscribe", handler)` and
 // `.subscribe(channel)` / `.unsubscribe()`. We just no-op everything.
-function makeStubSubscriber(): any {
-	const handlers = new Map<string, Array<(...args: any[]) => void>>();
-	const self = {
-		on: (event: string, handler: (...args: any[]) => void) => {
+function makeStubSubscriber(): StubSubscriber {
+	const handlers = new Map<string, Array<(...args: unknown[]) => void>>();
+	const self: StubSubscriber = {
+		on: (event: string, handler: (...args: unknown[]) => void): StubSubscriber => {
 			const list = handlers.get(event) ?? [];
 			list.push(handler);
 			handlers.set(event, list);
 			return self;
 		},
-		off: (event: string) => {
+		off: (event: string): StubSubscriber => {
 			handlers.delete(event);
 			return self;
 		},
-		subscribe: async (..._channels: string[]) => self,
-		psubscribe: async (..._patterns: string[]) => self,
-		unsubscribe: async () => self,
-		punsubscribe: async () => self,
-		quit: async () => undefined,
+		subscribe: async (..._channels: string[]): Promise<StubSubscriber> => self,
+		psubscribe: async (..._patterns: string[]): Promise<StubSubscriber> => self,
+		unsubscribe: async (): Promise<StubSubscriber> => self,
+		punsubscribe: async (): Promise<StubSubscriber> => self,
+		quit: async (): Promise<undefined> => undefined,
 	};
 	return self;
 }
@@ -113,25 +123,25 @@ function makeLocalRedis(): any {
 		subscribe: () => makeStubSubscriber(),
 		psubscribe: () => makeStubSubscriber(),
 		pipeline: () => ({
-			exec: async () => [],
-			get: function () {
+			exec: async (): Promise<unknown[]> => [],
+			get: function (): typeof this {
 				return this;
 			},
-			set: function () {
+			set: function (): typeof this {
 				return this;
 			},
-			del: function () {
+			del: function (): typeof this {
 				return this;
 			},
 		}),
-		multi: () => ({ exec: async () => [] }),
+		multi: () => ({ exec: async (): Promise<unknown[]> => [] }),
 	};
 
 	return new Proxy(impl, {
 		get: (target, prop) => {
 			if (prop in target) return (target as any)[prop];
 			// Default: any unknown method returns null.
-			return async () => null;
+			return async (): Promise<null> => null;
 		},
 	});
 }

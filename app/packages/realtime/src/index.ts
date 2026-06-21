@@ -8,15 +8,12 @@ import { schema } from "./events";
 import { redis } from "./redis-client";
 
 const opts = { schema, redis };
-// @ts-expect-error upstash realtime types are broken
 export const realtime = new Realtime(opts);
 export type RealtimeEvents = InferRealtimeEvents<typeof realtime>;
 
 // create a helper function to subscribe to events as an async iterator
 export async function* subscribeToEvents<
-	// @ts-expect-error upstash realtime types are broken
 	T extends EventPath<typeof opts>,
-	// @ts-expect-error upstash realtime types are broken
 	R extends EventData<typeof opts, T>,
 >(opts: {
 	events: T[];
