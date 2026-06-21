@@ -259,7 +259,7 @@ export const getTasksCompletionRate = async ({
 		.groupBy(sql`DATE(created_at.date)`)
 		.orderBy(asc(sql`DATE(created_at.date)`));
 
-	return data.map((item) => ({
+	return data.map((item: { date: Date; completedCount: number }) => ({
 		date: format(new UTCDate(item.date), "yyyy-MM-dd"),
 		completedCount: Number(item.completedCount),
 	}));

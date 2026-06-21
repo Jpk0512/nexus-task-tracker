@@ -956,7 +956,7 @@ export const createDefaultTasks = async ({
 	labelId: string;
 	assigneeId: string;
 	teamId: string;
-}) => {
+}): Promise<[]> => {
 	const defaultTasks = [
 		{
 			title: "Welcome to Mimir!",

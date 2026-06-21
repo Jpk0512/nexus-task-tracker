@@ -302,7 +302,7 @@ export const getDocuments = async ({
 	if (search || (labelIds && labelIds.length > 0) || !tree) {
 		// If searching or filtering by labels, return flat list without tree structure
 		return {
-			data: allDocs.map((doc) => ({ ...doc, children: [] })),
+			data: allDocs.map((doc) => ({ ...doc, children: [] as DocumentTreeNode[] })),
 			nextCursor,
 		};
 	}

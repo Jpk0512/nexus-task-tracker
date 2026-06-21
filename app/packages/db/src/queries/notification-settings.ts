@@ -1,6 +1,7 @@
 import {
 	getNotificationTypeByType,
 	getUserSettingsNotificationTypes,
+	type NotificationType,
 } from "@notifications/notifications-types";
 import { and, eq } from "drizzle-orm";
 import { db } from "./../index";
@@ -155,7 +156,7 @@ export async function getUserNotificationPreferences(
 	// Get notification types that should appear in user settings
 	const notificationTypes = getUserSettingsNotificationTypes();
 
-	return notificationTypes.map((notificationType) => {
+	return notificationTypes.map((notificationType: NotificationType) => {
 		const channels = notificationType.channels as NotificationChannel[];
 		return {
 			type: notificationType.type,
