@@ -2,7 +2,7 @@
 
 > Auto-synced from `.memory/project.db`. Do not edit by hand.
 
-## FEAT-001 — Repurpose Nexus (12/13 done, 92%)
+## FEAT-001 — Repurpose Nexus (13/13 done, 100%)
 
 | Task | Status | Owner | Updated |
 |------|--------|-------|---------|
@@ -14,13 +14,13 @@
 | **TASK-006** — P5 Stripe/billing COMPLETE removal | done |  | 2026-06-18 |
 | **TASK-007** — P6 trim: Google integration + analytics/Sentry + notifications | done |  | 2026-06-18 |
 | **TASK-008** — P7 dashboard heaviness + website turbo-isolate | done |  | 2026-06-18 |
-| **TASK-009** — P8 optional @mimir->@nexus-app rename | planned |  | 2026-06-16 |
+| **TASK-009** — P8 optional @mimir->@nexus-app rename | done |  | 2026-06-21 |
 | **TASK-010** — Pre-existing biome lint debt cleanup (apps/api) | done |  | 2026-06-21 |
 | **TASK-015** — Restore or retire execute-pm-agent-job (no-op stub after credit-gating removal in P5) | done |  | 2026-06-21 |
 | **TASK-022** — Dashboard 500: next/dynamic ssr:false in Server Component layout (P7 latent, surfaced by rebuild) | done |  | 2026-06-20 |
 | **TASK-023** — Seed script not idempotent: tasks block aborts on populated DB (duplicate permalink_id) | done |  | 2026-06-21 |
 
-## FEAT-002 — Next Features (12/13 done, 92%)
+## FEAT-002 — Next Features (13/13 done, 100%)
 
 | Task | Status | Owner | Updated |
 |------|--------|-------|---------|
@@ -36,7 +36,7 @@
 | **TASK-024** — TASK-012 polish: auto-save in-flight mutex (knowledge note editor) | done | forge-ui | 2026-06-21 |
 | **TASK-025** — TASK-012 polish: optional safeResolve fail-fast in knowledge.updateVault | done | forge-wire | 2026-06-21 |
 | **TASK-026** — Provision dashboard RTL/jsdom test harness (enable behavioral component tests) | done | forge-ui+forge-wire | 2026-06-21 |
-| **TASK-027** — Drive dashboard/api project-wide tsc baseline to zero (92 pre-existing errors) | todo | forge-ui+forge-wire | 2026-06-21 |
+| **TASK-027** — Drive dashboard/api project-wide tsc baseline to zero (92 pre-existing errors) | done | forge-ui+forge-wire | 2026-06-21 |
 
 ## Infrastructure / Housekeeping (1/1 done, 100%)
 
