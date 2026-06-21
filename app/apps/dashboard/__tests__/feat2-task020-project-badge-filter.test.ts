@@ -75,7 +75,7 @@ describe("AC-1 — project badge is rendered as a <button> element", () => {
 	 * Currently list-view.tsx wraps the badge in a <span> — this test will FAIL
 	 * until Forge replaces that <span> with a <button>.
 	 */
-	test.fails(
+	test(
 		"project badge element in list-view.tsx is a <button>, not a bare <span>",
 		() => {
 			const src = readListView();
@@ -107,20 +107,20 @@ describe("AC-2 — PromptListView holds a projectFilter state variable", () => {
 	 *
 	 * Currently no such state exists — this test is RED.
 	 */
-	test.fails(
+	test(
 		"list-view.tsx declares a projectFilter (or equivalent) useState",
 		() => {
 			const src = readListView();
 
-			// Match any useState that captures a variable whose name contains
+			// Match any destructure that captures a variable whose name contains
 			// "projectFilter" or "activeProject" or "projectFilterId".
 			expect(src).toMatch(
-				/useState[^;]*\]\s*=\s*useState[^;]*\n?[^;]*(?:projectFilter|activeProject|projectFilterId)/,
+				/\[(?:projectFilter|activeProjectId|projectFilterId)[^\]]*\]\s*=\s*useState/,
 			);
 		},
 	);
 
-	test.fails(
+	test(
 		"projectFilter state variable is used as a setter target — setProjectFilter or equivalent",
 		() => {
 			const src = readListView();
@@ -145,7 +145,7 @@ describe("AC-3 — filtered memo filters by projectFilter when set", () => {
 	 * Currently the filtered memo only filters by search text and sorts by
 	 * updatedAt/name — no projectId axis. This test is RED.
 	 */
-	test.fails(
+	test(
 		"filtered memo in list-view.tsx includes a projectId filter branch",
 		() => {
 			const src = readListView();
@@ -160,7 +160,7 @@ describe("AC-3 — filtered memo filters by projectFilter when set", () => {
 		},
 	);
 
-	test.fails(
+	test(
 		"the projectFilter state variable is listed in the filtered useMemo dependency array",
 		() => {
 			const src = readListView();
@@ -190,7 +190,7 @@ describe("AC-4 — active-filter pill is rendered in the header when projectFilt
 	 * appears "in the list header (alongside existing search/sort controls)".
 	 * No such pill exists today — this test is RED.
 	 */
-	test.fails(
+	test(
 		"list-view.tsx conditionally renders a filter-active pill (projectFilter && ...)",
 		() => {
 			const src = readListView();
@@ -203,7 +203,7 @@ describe("AC-4 — active-filter pill is rendered in the header when projectFilt
 		},
 	);
 
-	test.fails(
+	test(
 		"the filter-active pill includes a clear affordance (onClick sets filter to null)",
 		() => {
 			const src = readListView();

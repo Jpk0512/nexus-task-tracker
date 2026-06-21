@@ -36,6 +36,7 @@ import {
 	SearchIcon,
 	ShuffleIcon,
 	Trash2Icon,
+	XIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -336,6 +337,7 @@ export function PromptListView({ productSlug, team }: Props) {
 	const [name, setName] = useState("");
 	const [search, setSearch] = useState("");
 	const [sortBy, setSortBy] = useState<"updated" | "name">("updated");
+	const [projectFilter, setProjectFilter] = useState<string | null>(null);
 
 	const invalidatePrompts = () => {
 		qc.invalidateQueries({ queryKey: [["prompts", "getPrompts"]] });
@@ -369,6 +371,7 @@ export function PromptListView({ productSlug, team }: Props) {
 	const filtered = useMemo(() => {
 		const q = search.trim().toLowerCase();
 		const list = prompts.filter((p) => {
+			if (projectFilter && p.projectId !== projectFilter) return false;
 			if (!q) return true;
 			if (p.name.toLowerCase().includes(q)) return true;
 			return (p.tags ?? []).some((t) => t.toLowerCase().includes(q));
@@ -383,7 +386,7 @@ export function PromptListView({ productSlug, team }: Props) {
 			);
 		}
 		return sorted;
-	}, [prompts, search, sortBy]);
+	}, [prompts, search, sortBy, projectFilter]);
 
 	const submitInline = () => {
 		if (!product) return;
@@ -445,6 +448,22 @@ export function PromptListView({ productSlug, team }: Props) {
 							<SelectItem value="name">Name</SelectItem>
 						</SelectContent>
 					</Select>
+					{projectFilter && (
+						<button
+							type="button"
+							onClick={() => setProjectFilter(null)}
+							className="project-badge flex h-[22px] items-center gap-1.5 rounded-full border border-primary/50 bg-primary/[0.08] px-2 font-normal text-[11px] text-foreground transition-colors duration-150 ease-out hover:border-destructive/50 hover:bg-destructive/[0.06]"
+						>
+							<span
+								className="inline-block h-[6px] w-[6px] shrink-0 rounded-full"
+								style={{ background: tagColor(projectFilter) }}
+							/>
+							<span className="max-w-[120px] truncate">
+								{prompts.find((p) => p.projectId === projectFilter)?.projectName ?? "Project"}
+							</span>
+							<XIcon className="ml-0.5 size-[12px] text-muted-foreground" />
+						</button>
+					)}
 					<div className="ml-auto flex items-center gap-2 text-muted-foreground text-xs">
 						<Badge variant="outline" className="font-normal">
 							{filtered.length} prompt{filtered.length === 1 ? "" : "s"}
@@ -528,7 +547,23 @@ export function PromptListView({ productSlug, team }: Props) {
 										v{p.version}
 									</Badge>
 									{p.projectId && (
-										<span className="pointer-events-auto relative z-10 flex h-[18px] items-center gap-1 rounded-full border border-border px-[7px] font-normal text-[10px] text-muted-foreground">
+										<button
+											type="button"
+											onClick={(e) => {
+												e.preventDefault();
+												e.stopPropagation();
+												setProjectFilter(
+													projectFilter === p.projectId ? null : p.projectId,
+												);
+											}}
+											className={`project-badge pointer-events-auto relative z-10 flex h-[18px] cursor-pointer items-center gap-1 rounded-full border px-[7px] font-normal text-[10px] transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/50 ${
+												projectFilter === p.projectId
+													? "border-primary/50 bg-primary/[0.08] text-foreground"
+													: "border-border bg-transparent text-muted-foreground hover:border-primary/50 hover:bg-primary/[0.06] hover:text-foreground"
+											}`}
+											aria-pressed={projectFilter === p.projectId}
+											aria-label={`Filter by project ${p.projectName ?? "Unknown project"}`}
+										>
 											<span
 												className="inline-block h-[5px] w-[5px] shrink-0 rounded-full"
 												style={{ background: tagColor(p.projectId) }}
@@ -536,7 +571,7 @@ export function PromptListView({ productSlug, team }: Props) {
 											<span className="max-w-[80px] truncate">
 												{p.projectName ?? "Unknown project"}
 											</span>
-										</span>
+										</button>
 									)}
 								</div>
 								{/* col 2: tags */}
