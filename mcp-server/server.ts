@@ -158,8 +158,29 @@ const tools = [
 			properties: {
 				product_slug: { type: "string" },
 				prompt_slug: { type: "string" },
+				vars: {
+					type: "object",
+					additionalProperties: { type: "string" },
+					description: "Optional map of variable name → value to substitute {{var}} placeholders in the prompt content.",
+				},
 			},
 			required: ["product_slug", "prompt_slug"],
+		},
+	},
+	{
+		name: "add_task",
+		description:
+			"Create a new project task with a title and project. Tasks are the heavy-weight work items with due dates, priority, and status — distinct from checklist to-dos.",
+		inputSchema: {
+			type: "object",
+			properties: {
+				title: { type: "string", description: "Task title" },
+				project_slug: { type: "string", description: "Project slug or name to attach the task to" },
+				due_date: { type: "string", description: "Optional ISO-8601 due date (e.g. '2026-07-01')" },
+				priority: { type: "string", enum: ["no_priority", "urgent", "high", "medium", "low"], description: "Optional priority level" },
+				status_name: { type: "string", description: "Optional status name (e.g. 'In Progress')" },
+			},
+			required: ["title", "project_slug"],
 		},
 	},
 ] as const;
@@ -293,7 +314,7 @@ const handlers: Record<string, (input: any) => Promise<unknown>> = {
 				WHERE v.team_id=$1 AND (n.name ILIKE $2 OR n.relative_path ILIKE $2)
 				ORDER BY n.last_edited_at DESC NULLS LAST LIMIT $3`,
 			[TEAM_ID, `%${query}%`, limit],
-		).catch((e) => {
+		).catch((e: Error) => {
 			log(`knowledge db lookup skipped: ${e.message}`);
 			return { rows: [] as any[] };
 		});
@@ -380,8 +401,12 @@ const handlers: Record<string, (input: any) => Promise<unknown>> = {
 	},
 
 	async get_prompt(input) {
-		const { product_slug, prompt_slug } = z
-			.object({ product_slug: z.string(), prompt_slug: z.string() })
+		const { product_slug, prompt_slug, vars } = z
+			.object({
+				product_slug: z.string(),
+				prompt_slug: z.string(),
+				vars: z.record(z.string()).optional(),
+			})
 			.parse(input);
 		const r = await pool.query(
 			`SELECT pr.name, pr.content, pr.notes, pr.variables, pr.version, pr.updated_at,
@@ -394,7 +419,49 @@ const handlers: Record<string, (input: any) => Promise<unknown>> = {
 		);
 		if (r.rowCount === 0)
 			throw new Error(`prompt ${product_slug}/${prompt_slug} not found`);
-		return r.rows[0];
+		const row = r.rows[0];
+		if (vars && row.content) {
+			row.content = row.content.replace(/\{\{(\w+)\}\}/g, (_match: string, key: string) =>
+				Object.prototype.hasOwnProperty.call(vars, key) ? vars[key]! : `{{${key}}}`,
+			);
+		}
+		return row;
+	},
+
+	async add_task(input) {
+		const schema = z.object({
+			title: z.string().min(1),
+			project_slug: z.string(),
+			due_date: z.string().optional(),
+			priority: z.enum(["no_priority", "urgent", "high", "medium", "low"]).optional(),
+			status_name: z.string().optional(),
+		});
+		const { title, project_slug, due_date, priority, status_name } = schema.parse(input);
+		const projectId = await projectIdByName(project_slug);
+		if (!projectId) throw new Error(`project matching '${project_slug}' not found`);
+		// Resolve optional status_id from the project's statuses
+		let statusId: string | null = null;
+		if (status_name) {
+			const sr = await pool.query(
+				`SELECT id FROM statuses WHERE team_id=$1 AND lower(name)=lower($2) LIMIT 1`,
+				[TEAM_ID, status_name],
+			);
+			statusId = sr.rows[0]?.id ?? null;
+		}
+		const id = nid("tsk");
+		// Generate a permalink_id (short numeric sequence within project)
+		const seqRow = await pool.query(
+			`SELECT COALESCE(MAX(sequence), 0) + 1 AS next FROM tasks WHERE project_id=$1`,
+			[projectId],
+		);
+		const sequence = seqRow.rows[0]?.next ?? 1;
+		await pool.query(
+			`INSERT INTO tasks
+				(id, team_id, title, project_id, status_id, priority, due_date, sequence, created_at, updated_at)
+				VALUES ($1,$2,$3,$4,$5,$6,$7,$8,now(),now())`,
+			[id, TEAM_ID, title, projectId, statusId, priority ?? "no_priority", due_date ?? null, sequence],
+		);
+		return { id, title, projectId, sequence };
 	},
 };
 
