@@ -243,32 +243,36 @@ export function LibraryDetailView({ entryId, readOnly = false }: Props) {
 					{tags.map((t) => (
 						<Badge key={t} variant="outline" className="gap-1 font-normal">
 							{t}
-							<button
-								type="button"
-								onClick={() =>
-									removeTagMut.mutate({ entryId: entry.id, tag: t })
-								}
-								className="hover:text-destructive"
-							>
-								<XIcon className="size-3" />
-							</button>
+							{readOnly ? null : (
+								<button
+									type="button"
+									onClick={() =>
+										removeTagMut.mutate({ entryId: entry.id, tag: t })
+									}
+									className="hover:text-destructive"
+								>
+									<XIcon className="size-3" />
+								</button>
+							)}
 						</Badge>
 					))}
-					<form
-						onSubmit={(e) => {
-							e.preventDefault();
-							if (newTag.trim())
-								addTagMut.mutate({ entryId: entry.id, tag: newTag.trim() });
-						}}
-						className="flex items-center"
-					>
-						<Input
-							value={newTag}
-							onChange={(e) => setNewTag(e.target.value)}
-							placeholder="+ tag"
-							className="h-6 w-24 text-xs"
-						/>
-					</form>
+					{readOnly ? null : (
+						<form
+							onSubmit={(e) => {
+								e.preventDefault();
+								if (newTag.trim())
+									addTagMut.mutate({ entryId: entry.id, tag: newTag.trim() });
+							}}
+							className="flex items-center"
+						>
+							<Input
+								value={newTag}
+								onChange={(e) => setNewTag(e.target.value)}
+								placeholder="+ tag"
+								className="h-6 w-24 text-xs"
+							/>
+						</form>
+					)}
 				</div>
 
 				<div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
@@ -286,41 +290,45 @@ export function LibraryDetailView({ entryId, readOnly = false }: Props) {
 									className="gap-1 font-normal"
 								>
 									{proj?.name ?? link.projectId}
-									<button
-										type="button"
-										onClick={() =>
-											unlinkProjectMut.mutate({
-												entryId: entry.id,
-												projectId: link.projectId,
-											})
-										}
-										className="hover:text-destructive"
-									>
-										<XIcon className="size-3" />
-									</button>
+									{readOnly ? null : (
+										<button
+											type="button"
+											onClick={() =>
+												unlinkProjectMut.mutate({
+													entryId: entry.id,
+													projectId: link.projectId,
+												})
+											}
+											className="hover:text-destructive"
+										>
+											<XIcon className="size-3" />
+										</button>
+									)}
 								</Badge>
 							);
 						},
 					)}
-					{availableProjects.length > 0 && (
-						<Select
-							value=""
-							onValueChange={(v) =>
-								linkProjectMut.mutate({ entryId: entry.id, projectId: v })
-							}
-						>
-							<SelectTrigger className="h-6 w-32 text-xs">
-								<SelectValue placeholder="+ link project" />
-							</SelectTrigger>
-							<SelectContent>
-								{availableProjects.map((p) => (
-									<SelectItem key={p.id} value={p.id}>
-										{p.name}
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
-					)}
+					{readOnly
+						? null
+						: availableProjects.length > 0 && (
+								<Select
+									value=""
+									onValueChange={(v) =>
+										linkProjectMut.mutate({ entryId: entry.id, projectId: v })
+									}
+								>
+									<SelectTrigger className="h-6 w-32 text-xs">
+										<SelectValue placeholder="+ link project" />
+									</SelectTrigger>
+									<SelectContent>
+										{availableProjects.map((p) => (
+											<SelectItem key={p.id} value={p.id}>
+												{p.name}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+							)}
 				</div>
 
 				{/* Tab strip */}

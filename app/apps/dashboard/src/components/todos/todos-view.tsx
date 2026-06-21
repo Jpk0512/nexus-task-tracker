@@ -486,7 +486,9 @@ function AttachmentsModal({
 									className="min-h-[8rem] rounded border border-border bg-background p-2 text-xs"
 								/>
 							) : a.kind === "doc_link" && a.docId ? (
-								<LibraryDetailView entryId={a.docId} readOnly />
+								<div className="max-h-64 overflow-y-auto">
+									<LibraryDetailView entryId={a.docId} readOnly />
+								</div>
 							) : null}
 							<div className="mt-2 flex items-center justify-between">
 								<div className="flex items-center gap-2">
