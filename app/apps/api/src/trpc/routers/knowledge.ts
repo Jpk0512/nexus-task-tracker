@@ -178,6 +178,29 @@ function* walk(root: string): Generator<string> {
 	}
 }
 
+// Re-index all outbound wiki-links for a single note.
+// Deletes existing edges for fromNoteId, then inserts fresh resolved ones.
+// allNotes must cover the full vault so resolution is consistent.
+async function reindexNoteLinks(
+	noteId: string,
+	body: string,
+	allNotes: { id: string; relativePath: string }[],
+) {
+	const parsed = extractLinks(body);
+	const resolved = resolveLinks(parsed, allNotes);
+	await db.delete(knowledgeLinks).where(eq(knowledgeLinks.fromNoteId, noteId));
+	if (resolved.length > 0) {
+		await db.insert(knowledgeLinks).values(
+			resolved.map(({ linkText, toNoteId }, i) => ({
+				id: `kl-${createHash("sha256").update(`${noteId}:${i}:${linkText}`).digest("hex").slice(0, 16)}`,
+				fromNoteId: noteId,
+				toNoteId: toNoteId ?? null,
+				linkText,
+			})),
+		);
+	}
+}
+
 async function scanVault(vaultId: string) {
 	const [v] = await db
 		.select()
@@ -278,31 +301,17 @@ async function scanVault(vaultId: string) {
 				.where(eq(knowledgeNotes.id, noteId))
 				.limit(1);
 			if (!note) continue;
-			const body = note.content ?? "";
-			const parsed = extractLinks(body);
-			const resolved = resolveLinks(parsed, allNotes);
-
-			// Remove stale outbound edges for this note, then insert fresh ones.
-			await db
-				.delete(knowledgeLinks)
-				.where(eq(knowledgeLinks.fromNoteId, noteId));
-
-			if (resolved.length > 0) {
-				await db.insert(knowledgeLinks).values(
-					resolved.map(({ linkText, toNoteId }, i) => ({
-						id: `kl-${createHash("sha256").update(`${noteId}:${i}:${linkText}`).digest("hex").slice(0, 16)}`,
-						fromNoteId: noteId,
-						toNoteId: toNoteId ?? null,
-						linkText,
-					})),
-				);
-			}
+			await reindexNoteLinks(noteId, note.content ?? "", allNotes);
 		}
 	}
 
+	// Delete notes for this vault that were not seen in the current scan.
+	// When seen is empty (every .md was removed) we still must purge all rows —
+	// the `NOT IN (...)` form is skipped intentionally and replaced with a
+	// vault-wide delete to avoid an invalid empty-list SQL expression.
 	if (seen.length > 0) {
 		const stale = await db
-			.select({ id: knowledgeNotes.id, abs: knowledgeNotes.absolutePath })
+			.select({ id: knowledgeNotes.id })
 			.from(knowledgeNotes)
 			.where(
 				and(
@@ -313,6 +322,20 @@ async function scanVault(vaultId: string) {
 					)})`,
 				),
 			);
+		if (stale.length > 0) {
+			await db.delete(knowledgeNotes).where(
+				inArray(
+					knowledgeNotes.id,
+					stale.map((s) => s.id),
+				),
+			);
+			deleted = stale.length;
+		}
+	} else {
+		const stale = await db
+			.select({ id: knowledgeNotes.id })
+			.from(knowledgeNotes)
+			.where(eq(knowledgeNotes.vaultId, vaultId));
 		if (stale.length > 0) {
 			await db.delete(knowledgeNotes).where(
 				inArray(
@@ -496,10 +519,11 @@ export const knowledgeRouter = router({
 			const segs = rel.split(sep);
 			const name = (segs[segs.length - 1] ?? rel).replace(/\.md$/i, "");
 			const parentDir = segs.length > 1 ? segs.slice(0, -1).join(sep) : null;
+			const newId = `kn-${createHash("sha256").update(`${vaultId}:${rel}:${now}`).digest("hex").slice(0, 16)}`;
 			const [row] = await db
 				.insert(knowledgeNotes)
 				.values({
-					id: `kn-${createHash("sha256").update(`${vaultId}:${rel}:${now}`).digest("hex").slice(0, 16)}`,
+					id: newId,
 					vaultId,
 					relativePath: rel,
 					absolutePath: abs,
@@ -511,6 +535,14 @@ export const knowledgeRouter = router({
 					lastSeenAt: now,
 				} as any)
 				.returning();
+			const allNotes = await db
+				.select({
+					id: knowledgeNotes.id,
+					relativePath: knowledgeNotes.relativePath,
+				})
+				.from(knowledgeNotes)
+				.where(eq(knowledgeNotes.vaultId, vaultId));
+			await reindexNoteLinks(newId, initial, allNotes);
 			return row;
 		}),
 
@@ -577,6 +609,14 @@ export const knowledgeRouter = router({
 				} as any)
 				.where(eq(knowledgeNotes.id, n.id))
 				.returning();
+			const allNotes = await db
+				.select({
+					id: knowledgeNotes.id,
+					relativePath: knowledgeNotes.relativePath,
+				})
+				.from(knowledgeNotes)
+				.where(eq(knowledgeNotes.vaultId, n.vaultId));
+			await reindexNoteLinks(n.id, body, allNotes);
 			return updated;
 		}),
 
