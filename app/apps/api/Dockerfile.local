@@ -3,9 +3,6 @@
 # inside the container via its official install script.
 #
 # DO NOT use in production — apps/api/Dockerfile is the canonical upstream one.
-#
-# `bun install --production` is safe here: bun strips TypeScript natively so
-# @types/* packages are never needed at runtime, and there are no test devDeps.
 
 FROM local-mimrai/node:20-alpine AS base
 ENV PATH=/root/.bun/bin:$PATH
@@ -26,7 +23,7 @@ RUN turbo prune @nexus-app/api --docker
 FROM base AS installer
 WORKDIR /app
 COPY --from=builder /app/out/json/ .
-RUN bun install --production
+RUN bun install
 
 FROM installer AS runner
 WORKDIR /app
