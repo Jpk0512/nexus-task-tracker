@@ -123,7 +123,7 @@ export const handleSlackMessage = async ({
 		}
 
 		const appContext = buildAppContext(
-			{ ...userContext, integrationType: "slack" },
+			{ ...userContext, agentId: "", integrationType: "slack" },
 			chatId,
 		);
 

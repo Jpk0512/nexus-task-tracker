@@ -441,7 +441,7 @@ export const initMattermostSingle = async (
 									});
 
 									const appContext = buildAppContext(
-										{ ...userContext, integrationType: "mattermost" },
+										{ ...userContext, agentId: "", integrationType: "mattermost" },
 										threadId,
 									);
 

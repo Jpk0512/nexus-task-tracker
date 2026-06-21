@@ -43,6 +43,7 @@
 		"@nexus-app/tsconfig": "workspace:*",
 		"@types/bun": "latest",
 		"@types/mime-types": "^3.0.1",
+		"@types/nodemailer": "^8.0.1",
 		"@types/redis": "^4.0.11",
 		"@types/ws": "^8.18.1"
 	}

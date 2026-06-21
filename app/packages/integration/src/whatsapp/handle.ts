@@ -117,6 +117,7 @@ export const handleWhatsappMessage = async ({
 	const appContext = buildAppContext(
 		{
 			...userContext,
+			agentId: "",
 			integrationType: "whatsapp",
 		},
 		fromNumber,
