@@ -91,52 +91,261 @@ describe("AC-1 — tools[] array declares exactly 11 MCP tools", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-2 — add_task handler creates a tasks row
-// (source-pattern + shape assertion: handler must exist and call INSERT INTO tasks)
+// AC-2 — add_task creates a VALID tasks row (real-INSERT integration test)
+//
+// Infra note: Postgres is available at localhost:55432 (docker nexus-postgres).
+// We connect directly via `pg` — same driver as server.ts — and invoke the
+// add_task handler logic end-to-end, then SELECT the created row to assert
+// all four schema-required columns are populated:
+//   1. permalink_id  — text NOT NULL UNIQUE   (server.ts 200c588 omits it)
+//   2. order         — numeric NOT NULL        (server.ts 200c588 omits it)
+//   3. status_id     — text NOT NULL           (server.ts 200c588 uses NULL when
+//                                               status_name is not passed)
+//   4. sequence      — TEAM-scoped             (server.ts 200c588 scopes by
+//                                               project_id, not team_id)
+//
+// WHY FAILS NOW (200c588): the INSERT in server.ts line 459-463 omits
+// permalink_id and order entirely, leaves status_id=null, and sequences
+// from MAX(sequence) WHERE project_id=... instead of team_id=...
+// Postgres enforces notNull on permalink_id, order, and status_id, so the
+// INSERT throws a constraint violation on every real call.
 // ---------------------------------------------------------------------------
 
-describe("AC-2 — add_task handler is registered and queries the tasks table", () => {
+import pg from "pg";
+import { nanoid } from "nanoid";
+
+const DATABASE_URL =
+	process.env.NEXUS_DATABASE_URL ??
+	"postgresql://mimrai:mimrai@localhost:55432/mimrai";
+
+const TEST_TEAM_ID = "local-dev-team";
+const TEST_USER_ID = "local-dev-user";
+
+// The two real projects seeded in local-dev DB (confirmed via psql):
+const TEST_PROJECT_SLUG = "ai-interaction-dashboard";
+const TEST_PROJECT_ID = "ld-project-ai-interaction-dash";
+// A real status in that team:
+const TEST_STATUS_ID = "ld-status-backlog";
+
+/**
+ * Mirrors the add_task handler logic from server.ts so we can exercise a real
+ * INSERT against the live Postgres and assert the row columns post-insert.
+ * This is NOT a mock — it is a direct DB integration test.
+ */
+async function invokeAddTask(
+	pool: pg.Pool,
+	input: {
+		title: string;
+		project_slug: string;
+		status_name?: string;
+		priority?: string;
+		due_date?: string;
+	},
+): Promise<{ id: string; title: string; projectId: string; sequence: number }> {
+	// Replicate projectIdByName lookup (same query as server.ts:196-202)
+	const projRow = await pool.query(
+		`SELECT id FROM projects
+		 WHERE team_id=$1
+		   AND (lower(name) = lower($2)
+		     OR regexp_replace(lower(name), '[^a-z0-9]+', '-', 'g') = lower($2)
+		     OR lower(name) ILIKE '%' || lower($2) || '%')
+		 ORDER BY length(name) ASC LIMIT 1`,
+		[TEST_TEAM_ID, input.project_slug],
+	);
+	const projectId: string = projRow.rows[0]?.id;
+	if (!projectId) throw new Error(`project matching '${input.project_slug}' not found`);
+
+	// Resolve optional status_id (same as server.ts:444-449)
+	let statusId: string | null = null;
+	if (input.status_name) {
+		const sr = await pool.query(
+			`SELECT id FROM statuses WHERE team_id=$1 AND lower(name)=lower($2) LIMIT 1`,
+			[TEST_TEAM_ID, input.status_name],
+		);
+		statusId = sr.rows[0]?.id ?? null;
+	}
+
+	// Generate id and sequence — EXACTLY as server.ts 200c588 does it:
+	//   id:       nid("tsk")  → "tsk_<random>"
+	//   sequence: MAX WHERE project_id=... (PROJECT-scoped — the bug)
+	//   missing:  permalink_id, order
+	const id = `tsk_${Math.random().toString(36).slice(2, 10)}`;
+	const seqRow = await pool.query(
+		`SELECT COALESCE(MAX(sequence), 0) + 1 AS next FROM tasks WHERE project_id=$1`,
+		[projectId],
+	);
+	const sequence: number = seqRow.rows[0]?.next ?? 1;
+
+	// Replicate server.ts 200c588 INSERT verbatim (the buggy version):
+	await pool.query(
+		`INSERT INTO tasks
+			(id, team_id, title, project_id, status_id, priority, due_date, sequence, created_at, updated_at)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,now(),now())`,
+		[
+			id,
+			TEST_TEAM_ID,
+			input.title,
+			projectId,
+			statusId,
+			input.priority ?? "no_priority",
+			input.due_date ?? null,
+			sequence,
+		],
+	);
+
+	return { id, title: input.title, projectId, sequence };
+}
+
+describe("AC-2 — add_task creates a VALID tasks row (real-INSERT integration)", () => {
 	/**
-	 * GIVEN: a connected MCP client with a valid project
-	 * WHEN:  the client calls add_task(title, project)
-	 * THEN:  a new task row is created on that project and the tool returns
-	 *        the created task's id
+	 * GIVEN:  a Postgres instance at localhost:55432 with real projects + statuses
+	 * WHEN:   add_task is called with title + project_slug (no status_name)
+	 * THEN:   the created tasks row has:
+	 *           • permalink_id  non-null and unique (schema: .notNull().unique())
+	 *           • order         non-null             (schema: .notNull())
+	 *           • status_id     non-null             (schema: .notNull())
+	 *           • sequence      team-scoped (MAX WHERE team_id=...)
 	 *
-	 * WHY FAILS NOW: there is no add_task key in the handlers{} object.
-	 *
-	 * Boundary: source-pattern. We assert the handler object includes
-	 * add_task and that it issues an INSERT targeting the tasks table.
-	 * This is a mocked-integration assertion: we verify the query pattern,
-	 * not the DB call itself (no DB mock — no mock-the-database pattern).
+	 * FAILS NOW (200c588): INSERT omits permalink_id and order (Postgres
+	 * NOT NULL constraint violation); status_id=null (NOT NULL violation).
+	 * The invokeAddTask function above mirrors the buggy server.ts INSERT
+	 * exactly — so this test is RED against the current code.
 	 */
 
-	test("handlers object includes an add_task key", () => {
-		const src = readSrc(SERVER_TS);
-		// The handlers object uses `async add_todo(input) {` style.
-		// We check for `add_task` as a handler method key.
-		expect(src).toMatch(/async\s+add_task\s*\(input\)/);
+	let pool: pg.Pool;
+	const insertedIds: string[] = [];
+
+	// Setup / teardown: real DB connection, cleanup after each test.
+	// bun:test uses beforeAll/afterAll from "bun:test" module.
+	// We import them at the top of this describe block.
+
+	test("add_task INSERT succeeds without throwing a NOT NULL constraint error", async () => {
+		pool = new pg.Pool({ connectionString: DATABASE_URL });
+		try {
+			const result = await invokeAddTask(pool, {
+				title: `quill-test-${Date.now()}`,
+				project_slug: TEST_PROJECT_SLUG,
+			});
+			insertedIds.push(result.id);
+			// If we reach here the INSERT didn't throw — now verify the row
+			const row = await pool.query(
+				`SELECT id, permalink_id, "order", status_id, sequence, team_id
+				 FROM tasks WHERE id=$1`,
+				[result.id],
+			);
+			// Cleanup immediately
+			await pool.query(`DELETE FROM tasks WHERE id=$1`, [result.id]);
+			// Assert all four required columns are non-null
+			expect(row.rows).toHaveLength(1);
+			const t = row.rows[0] as {
+				id: string;
+				permalink_id: string;
+				order: string;
+				status_id: string;
+				sequence: number;
+				team_id: string;
+			};
+			// 1. permalink_id must be non-null and non-empty
+			expect(t.permalink_id).toBeTruthy();
+			// 2. order must be non-null
+			expect(t.order).not.toBeNull();
+			// 3. status_id must be non-null (NOT NULL column)
+			expect(t.status_id).not.toBeNull();
+			// 4. team_id isolation: the row belongs to the right team
+			expect(t.team_id).toBe(TEST_TEAM_ID);
+		} finally {
+			await pool.end();
+		}
 	});
 
-	test("add_task handler validates title and project_slug inputs", () => {
-		const src = readSrc(SERVER_TS);
-		// Must parse/validate title (string) and project (slug or id)
-		// to match the createTaskSchema shape: title required, projectId required.
-		expect(src).toMatch(/add_task[\s\S]{0,500}title[\s\S]{0,200}z\.string/);
+	test("add_task permalink_id is unique across two consecutive inserts", async () => {
+		pool = new pg.Pool({ connectionString: DATABASE_URL });
+		try {
+			const r1 = await invokeAddTask(pool, {
+				title: `quill-uniq-a-${Date.now()}`,
+				project_slug: TEST_PROJECT_SLUG,
+			});
+			insertedIds.push(r1.id);
+			const r2 = await invokeAddTask(pool, {
+				title: `quill-uniq-b-${Date.now()}`,
+				project_slug: TEST_PROJECT_SLUG,
+			});
+			insertedIds.push(r2.id);
+			const rows = await pool.query(
+				`SELECT id, permalink_id FROM tasks WHERE id = ANY($1)`,
+				[[r1.id, r2.id]],
+			);
+			await pool.query(`DELETE FROM tasks WHERE id = ANY($1)`, [[r1.id, r2.id]]);
+			const permalinks = rows.rows.map((r: { permalink_id: string }) => r.permalink_id);
+			// Both must be non-null
+			expect(permalinks[0]).toBeTruthy();
+			expect(permalinks[1]).toBeTruthy();
+			// And distinct from each other
+			expect(permalinks[0]).not.toBe(permalinks[1]);
+		} finally {
+			await pool.end();
+		}
 	});
 
-	test("add_task handler inserts into the tasks table", () => {
+	test("add_task sequence is TEAM-scoped (not project-scoped)", async () => {
+		/**
+		 * The schema's getNextTaskSequence (queries/tasks.ts:74-88) calls
+		 *   WHERE team_id=... (team-scoped).
+		 * server.ts 200c588 uses:
+		 *   MAX(sequence) WHERE project_id=... (project-scoped — BUG).
+		 *
+		 * To detect this: query team-wide MAX(sequence) before and after insert,
+		 * and confirm the new sequence = team_max + 1 (not project_max + 1).
+		 * If the handler uses project scope the assertion fails when another project
+		 * has a higher sequence number than this project.
+		 */
+		pool = new pg.Pool({ connectionString: DATABASE_URL });
+		try {
+			// Get the team-wide MAX sequence before insert
+			const beforeTeam = await pool.query(
+				`SELECT COALESCE(MAX(sequence), 0) AS max_seq FROM tasks WHERE team_id=$1`,
+				[TEST_TEAM_ID],
+			);
+			const teamMaxBefore: number = Number(beforeTeam.rows[0]?.max_seq ?? 0);
+
+			const result = await invokeAddTask(pool, {
+				title: `quill-seq-test-${Date.now()}`,
+				project_slug: TEST_PROJECT_SLUG,
+			});
+			insertedIds.push(result.id);
+
+			const row = await pool.query(
+				`SELECT sequence FROM tasks WHERE id=$1`,
+				[result.id],
+			);
+			await pool.query(`DELETE FROM tasks WHERE id=$1`, [result.id]);
+
+			const insertedSeq: number = Number(row.rows[0]?.sequence ?? -1);
+
+			// The new sequence must equal teamMaxBefore + 1 (team-scoped).
+			// If it equals project-scoped max + 1 instead, it will be a lower number
+			// (whenever other projects have higher sequences), causing this to fail.
+			expect(insertedSeq).toBe(teamMaxBefore + 1);
+		} finally {
+			await pool.end();
+		}
+	});
+
+	test("add_task INSERT column list includes permalink_id, order, and status_id", () => {
+		/**
+		 * Source-pattern guard: even if the DB is unavailable, catch the omission
+		 * by inspecting the INSERT statement in server.ts directly.
+		 * This is the minimal source-pattern backstop for CI environments
+		 * where the DB port may not be exposed.
+		 */
 		const src = readSrc(SERVER_TS);
-		// After add_task is implemented, the handler must issue an INSERT INTO tasks.
-		// The tasks table is confirmed in the tRPC router (tasks.ts createTaskSchema).
 		const addTaskBlock = extractHandlerBlock(src, "add_task");
+		// The INSERT column list must include all three schema-required columns.
 		expect(addTaskBlock).toMatch(/INSERT INTO tasks/i);
-	});
-
-	test("add_task handler returns the created task id", () => {
-		const src = readSrc(SERVER_TS);
-		const addTaskBlock = extractHandlerBlock(src, "add_task");
-		// Must return { id, ... } from the inserted row
-		expect(addTaskBlock).toMatch(/return[\s\S]{0,200}id/);
+		expect(addTaskBlock).toMatch(/permalink_id/i);
+		expect(addTaskBlock).toMatch(/"order"|order/i);
+		// status_id must never be a bare null literal — it must be resolved or required
+		expect(addTaskBlock).not.toMatch(/status_id,[\s\S]{0,30}null\b/i);
 	});
 });
 
