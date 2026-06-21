@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { z } from "zod/v3";
+import { z } from "zod";
 import { useMilestoneParams } from "@/hooks/use-milestone-params";
 import { useZodForm } from "@/hooks/use-zod-form";
 import { trpc } from "@/utils/trpc";

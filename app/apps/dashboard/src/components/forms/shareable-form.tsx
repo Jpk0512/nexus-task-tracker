@@ -29,8 +29,8 @@ import { queryClient, trpc } from "@/utils/trpc";
 const schema = z.object({
 	id: z.string().optional(),
 	resourceId: z.string(),
-	resourceType: z.string(),
-	policy: z.string(),
+	resourceType: z.enum(["task", "project"]),
+	policy: z.enum(["private", "public"]),
 	authorizedEmails: z.string().optional(),
 });
 

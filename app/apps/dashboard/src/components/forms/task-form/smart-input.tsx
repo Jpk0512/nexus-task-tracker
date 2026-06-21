@@ -16,29 +16,26 @@ export const SmartInput = () => {
 
 	const { mutate, isPending } = useMutation(
 		trpc.tasks.smartComplete.mutationOptions({
-			onSuccess: (data) => {
-				setExplanation(data.explanation);
+			onSuccess: (rawData) => {
+				const data = rawData as Record<string, unknown>;
+				setExplanation(typeof data.explanation === "string" ? data.explanation : null);
 
-				// clean up empty properties
-				if (data) {
-					for (const key in data) {
-						if (
-							(data as any)[key] === null ||
-							(data as any)[key] === "" ||
-							(Array.isArray((data as any)[key]) &&
-								(data as any)[key].length === 0)
-						) {
-							delete (data as any)[key];
-						}
+				for (const key in data) {
+					if (
+						data[key] === null ||
+						data[key] === "" ||
+						(Array.isArray(data[key]) && (data[key] as unknown[]).length === 0)
+					) {
+						delete data[key];
 					}
 				}
 
 				form.reset(
 					{
-						...data,
+						...(data as Partial<TaskFormValues>),
 						showSmartInput: false,
 						description: value,
-						title: data.title,
+						title: typeof data.title === "string" ? data.title : "",
 					},
 					{
 						keepDefaultValues: true,
