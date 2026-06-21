@@ -124,10 +124,12 @@ export const updateAgentMemory = async (input: UpdateAgentMemoryInput) => {
 };
 
 /**
- * Delete a memory entry by ID.
+ * Delete a memory entry by ID, scoped to the caller's team.
  */
-export const deleteAgentMemory = async (id: string) => {
-	await db.delete(agentMemories).where(eq(agentMemories.id, id));
+export const deleteAgentMemory = async (id: string, teamId: string) => {
+	await db
+		.delete(agentMemories)
+		.where(and(eq(agentMemories.id, id), eq(agentMemories.teamId, teamId)));
 };
 
 /**

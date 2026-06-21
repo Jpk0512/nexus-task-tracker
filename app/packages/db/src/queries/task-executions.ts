@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "../index";
 import {
 	type TaskExecutionMemory,
@@ -56,13 +56,13 @@ export const createTaskExecution = async (input: CreateTaskExecutionInput) => {
 };
 
 /**
- * Get a task execution by ID
+ * Get a task execution by task ID, scoped to the caller's team.
  */
-export const getTaskExecutionByTaskId = async (taskId: string) => {
+export const getTaskExecutionByTaskId = async (taskId: string, teamId: string) => {
 	const [execution] = await db
 		.select()
 		.from(taskExecutions)
-		.where(eq(taskExecutions.taskId, taskId))
+		.where(and(eq(taskExecutions.taskId, taskId), eq(taskExecutions.teamId, teamId)))
 		.limit(1);
 
 	return execution ?? null;
@@ -165,7 +165,11 @@ export const updateTaskExecutionMemory = async (
 	taskId: string,
 	memoryUpdates: Partial<TaskExecutionMemory>,
 ) => {
-	const execution = await getTaskExecutionByTaskId(taskId);
+	const [execution] = await db
+		.select()
+		.from(taskExecutions)
+		.where(eq(taskExecutions.taskId, taskId))
+		.limit(1);
 	if (!execution) return null;
 
 	const updatedMemory: TaskExecutionMemory = {

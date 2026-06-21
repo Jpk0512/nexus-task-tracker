@@ -205,8 +205,8 @@ export const agentsRouter = router({
 
 	deleteMemory: protectedProcedure
 		.input(deleteAgentMemorySchema)
-		.mutation(async ({ input }) => {
-			return deleteAgentMemory(input.id);
+		.mutation(async ({ ctx, input }) => {
+			return deleteAgentMemory(input.id, ctx.user.teamId!);
 		}),
 
 	getDocumentsForAgent: protectedProcedure

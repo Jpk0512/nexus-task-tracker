@@ -8,8 +8,8 @@ import {
 export const taskExecutionsRouter = router({
 	getByTaskId: protectedProcedure
 		.input(getTaskExecutionSchema)
-		.query(async ({ input }) => {
-			return getTaskExecutionByTaskId(input.taskId);
+		.query(async ({ ctx, input }) => {
+			return getTaskExecutionByTaskId(input.taskId, ctx.team.id);
 		}),
 
 	getLogsByTaskId: protectedProcedure

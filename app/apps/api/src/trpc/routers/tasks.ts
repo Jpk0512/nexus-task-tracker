@@ -112,6 +112,21 @@ const libraryEntriesRef = pgTable("library_entries", {
 		.defaultNow(),
 });
 
+// Minimal tasks ref for ownership checks on join-row mutations.
+const tasksRef = pgTable("tasks", {
+	id: text("id").primaryKey(),
+	teamId: text("team_id").notNull(),
+});
+
+const assertTaskTeam = async (taskId: string, teamId: string) => {
+	const [task] = await db
+		.select({ id: tasksRef.id })
+		.from(tasksRef)
+		.where(and(eq(tasksRef.id, taskId), eq(tasksRef.teamId, teamId)))
+		.limit(1);
+	return task ?? null;
+};
+
 export const tasksRouter = router({
 	get: protectedProcedure
 		.input(getTasksSchema.optional())
@@ -363,6 +378,8 @@ export const tasksRouter = router({
 	attachDocument: protectedProcedure
 		.input(z.object({ taskId: z.string(), documentId: z.string() }))
 		.mutation(async ({ ctx, input }) => {
+			const task = await assertTaskTeam(input.taskId, ctx.user.teamId!);
+			if (!task) throw new TRPCError({ code: "NOT_FOUND" });
 			const [row] = await db
 				.insert(documentsOnTasks)
 				.values({
@@ -380,7 +397,9 @@ export const tasksRouter = router({
 
 	detachDocument: protectedProcedure
 		.input(z.object({ taskId: z.string(), documentId: z.string() }))
-		.mutation(async ({ input }) => {
+		.mutation(async ({ ctx, input }) => {
+			const task = await assertTaskTeam(input.taskId, ctx.user.teamId!);
+			if (!task) throw new TRPCError({ code: "NOT_FOUND" });
 			await db
 				.delete(documentsOnTasks)
 				.where(
@@ -418,6 +437,8 @@ export const tasksRouter = router({
 	attachKnowledgeNote: protectedProcedure
 		.input(z.object({ taskId: z.string(), noteId: z.string() }))
 		.mutation(async ({ ctx, input }) => {
+			const task = await assertTaskTeam(input.taskId, ctx.user.teamId!);
+			if (!task) throw new TRPCError({ code: "NOT_FOUND" });
 			const [row] = await db
 				.insert(knowledgeNotesOnTasks)
 				.values({
@@ -435,7 +456,9 @@ export const tasksRouter = router({
 
 	detachKnowledgeNote: protectedProcedure
 		.input(z.object({ taskId: z.string(), noteId: z.string() }))
-		.mutation(async ({ input }) => {
+		.mutation(async ({ ctx, input }) => {
+			const task = await assertTaskTeam(input.taskId, ctx.user.teamId!);
+			if (!task) throw new TRPCError({ code: "NOT_FOUND" });
 			await db
 				.delete(knowledgeNotesOnTasks)
 				.where(
@@ -479,6 +502,8 @@ export const tasksRouter = router({
 	linkKnowledge: protectedProcedure
 		.input(z.object({ taskId: z.string(), noteId: z.string() }))
 		.mutation(async ({ ctx, input }) => {
+			const task = await assertTaskTeam(input.taskId, ctx.user.teamId!);
+			if (!task) throw new TRPCError({ code: "NOT_FOUND" });
 			const [row] = await db
 				.insert(knowledgeNotesOnTasks)
 				.values({
@@ -496,7 +521,9 @@ export const tasksRouter = router({
 
 	unlinkKnowledge: protectedProcedure
 		.input(z.object({ taskId: z.string(), noteId: z.string() }))
-		.mutation(async ({ input }) => {
+		.mutation(async ({ ctx, input }) => {
+			const task = await assertTaskTeam(input.taskId, ctx.user.teamId!);
+			if (!task) throw new TRPCError({ code: "NOT_FOUND" });
 			await db
 				.delete(knowledgeNotesOnTasks)
 				.where(
@@ -546,7 +573,9 @@ export const tasksRouter = router({
 
 	linkSkill: protectedProcedure
 		.input(z.object({ taskId: z.string(), skillId: z.string() }))
-		.mutation(async ({ input }) => {
+		.mutation(async ({ ctx, input }) => {
+			const task = await assertTaskTeam(input.taskId, ctx.user.teamId!);
+			if (!task) throw new TRPCError({ code: "NOT_FOUND" });
 			// Validate kind before insert so the join is semantically clean.
 			const [skill] = await db
 				.select({ id: libraryEntriesRef.id, kind: libraryEntriesRef.kind })
@@ -571,7 +600,9 @@ export const tasksRouter = router({
 
 	unlinkSkill: protectedProcedure
 		.input(z.object({ taskId: z.string(), skillId: z.string() }))
-		.mutation(async ({ input }) => {
+		.mutation(async ({ ctx, input }) => {
+			const task = await assertTaskTeam(input.taskId, ctx.user.teamId!);
+			if (!task) throw new TRPCError({ code: "NOT_FOUND" });
 			await db
 				.delete(taskSkills)
 				.where(

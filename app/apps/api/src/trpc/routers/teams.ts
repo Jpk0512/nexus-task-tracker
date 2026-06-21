@@ -109,8 +109,15 @@ export const teamsRouter = router({
 			team: false,
 		})
 		.input(getTeamInviteByIdSchema)
-		.query(async ({ input }) => {
-			return getTeamInviteById(input.inviteId);
+		.query(async ({ ctx, input }) => {
+			const invite = await getTeamInviteById(input.inviteId);
+			if (!invite) return invite;
+			const callerIsInvitee = invite.email === ctx.user.email;
+			const callerIsTeamMember = invite.teamId === ctx.user.teamId;
+			if (!callerIsInvitee && !callerIsTeamMember) {
+				return null;
+			}
+			return invite;
 		}),
 
 	getInvites: protectedProcedure
