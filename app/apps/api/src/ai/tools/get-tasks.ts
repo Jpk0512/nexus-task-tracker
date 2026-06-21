@@ -1,3 +1,5 @@
+import { getStatuses } from "@nexus-app/db/queries/statuses";
+import { getMembers } from "@nexus-app/db/queries/teams";
 import { getTasks } from "@nexus-app/db/queries/tasks";
 import { statusTypeEnum } from "@nexus-app/db/schema";
 import { getTaskPermalink } from "@nexus-app/utils/tasks";
@@ -67,29 +69,44 @@ export const getTasksTool = tool({
 					? [new Date(createdAtAfter), new Date(createdAtBefore)]
 					: undefined;
 
-			const result = await getTasks({
-				teamId: teamId,
-				assigneeId: assigneeId,
-				statusType,
-				view: "board",
-				cursor,
-				pageSize,
-				search,
-				statusChangedAt,
-				createdAt,
-			});
+			const [result, statusesResult, members] = await Promise.all([
+				getTasks({
+					teamId: teamId,
+					assigneeId: assigneeId,
+					statusType,
+					view: "board",
+					cursor,
+					pageSize,
+					search,
+					statusChangedAt,
+					createdAt,
+				}),
+				getStatuses({ pageSize: 100, teamId }),
+				getMembers({ teamId }),
+			]);
 
 			if (result.data.length === 0) {
 				yield { type: "text", text: "No tasks found." };
 				return;
 			}
 
+			const statusNameById = new Map(
+				statusesResult.data.map((s) => [s.id, s.name]),
+			);
+			const memberNameById = new Map(
+				members.map((m) => [m.id, m.name]),
+			);
+
 			const mappedData = result.data.map((task) => ({
 				id: task.id,
 				title: task.title,
 				priority: task.priority,
 				statusId: task.statusId,
+				statusName: statusNameById.get(task.statusId) ?? null,
 				assigneeId: task.assigneeId,
+				assigneeName: task.assigneeId
+					? (memberNameById.get(task.assigneeId) ?? null)
+					: null,
 				dueDate: task.dueDate,
 				createdAt: task.createdAt,
 				updatedAt: task.updatedAt,
