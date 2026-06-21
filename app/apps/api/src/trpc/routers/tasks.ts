@@ -413,7 +413,8 @@ export const tasksRouter = router({
 
 	getLinkedDocuments: protectedProcedure
 		.input(z.object({ taskId: z.string() }))
-		.query(async ({ input }) => {
+		.query(async ({ input, ctx }) => {
+			await assertTaskTeam(input.taskId, ctx.user.teamId!);
 			const rows = await db
 				.select({
 					id: documentsRef.id,
@@ -472,7 +473,8 @@ export const tasksRouter = router({
 
 	getLinkedKnowledgeNotes: protectedProcedure
 		.input(z.object({ taskId: z.string() }))
-		.query(async ({ input }) => {
+		.query(async ({ input, ctx }) => {
+			await assertTaskTeam(input.taskId, ctx.user.teamId!);
 			const rows = await db
 				.select({
 					id: knowledgeNotesRef.id,
@@ -544,7 +546,8 @@ export const tasksRouter = router({
 				limit: z.number().int().min(1).max(50).default(50),
 			}),
 		)
-		.query(async ({ input }) => {
+		.query(async ({ input, ctx }) => {
+			await assertTaskTeam(input.taskId, ctx.user.teamId!);
 			const rows = await db
 				.select({
 					id: knowledgeNotesRef.id,
@@ -621,7 +624,8 @@ export const tasksRouter = router({
 				limit: z.number().int().min(1).max(50).default(50),
 			}),
 		)
-		.query(async ({ input }) => {
+		.query(async ({ input, ctx }) => {
+			await assertTaskTeam(input.taskId, ctx.user.teamId!);
 			const rows = await db
 				.select({
 					id: libraryEntriesRef.id,
