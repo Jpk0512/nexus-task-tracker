@@ -1,16 +1,22 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { defineConfig } from "vitest/config";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-export default {
-	// esbuild.jsx:"automatic" converts to oxc jsx runtime:"automatic" via
-	// convertEsbuildConfigToOxcConfig, overriding tsconfig jsx:"preserve".
-	// Required so .tsx component files imported by tests are parseable by
-	// Vite's import analysis plugin (es-module-lexer fails on JSX with preserve).
-	esbuild: {
-		jsx: "automatic",
-		jsxImportSource: "react",
+// Vite 8 transforms with oxc (rolldown), not esbuild. The project tsconfig sets
+// jsx:"preserve" (via @mimir/tsconfig/nextjs.json); under that setting Vite's
+// import-analysis step runs es-module-lexer over raw, unconverted JSX and throws
+// ("content contains invalid JS syntax … do not set jsx to preserve"). Setting
+// oxc.jsx.runtime="automatic" overrides the inherited jsx:"preserve" so .tsx
+// modules are converted to plain JS before the lexer sees them — this is what
+// makes dashboard components actually render under the runner.
+export default defineConfig({
+	oxc: {
+		jsx: {
+			runtime: "automatic",
+			importSource: "react",
+		},
 	},
 	resolve: {
 		alias: {
@@ -27,6 +33,7 @@ export default {
 		},
 	},
 	test: {
-		environment: "node",
+		environment: "jsdom",
+		setupFiles: [path.resolve(__dirname, "./vitest.setup.ts")],
 	},
-};
+});

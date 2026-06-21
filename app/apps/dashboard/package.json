@@ -115,6 +115,7 @@
 	"devDependencies": {
 		"@mimir/realtime": "workspace:*",
 		"@mimir/trpc": "workspace:*",
+		"@vitejs/plugin-react": "^4.3.4",
 		"@tailwindcss/postcss": "^4.1.10",
 		"@tanstack/react-query-devtools": "^5.85.5",
 		"@testing-library/jest-dom": "^6.9.1",
@@ -131,6 +132,7 @@
 		"jsdom": "^29.1.1",
 		"tailwindcss": "^4.1.10",
 		"typescript": "^5.9.2",
-		"vite-tsconfig-paths": "^6.1.1"
+		"vite-tsconfig-paths": "^6.1.1",
+		"vitest": "^4.1.9"
 	}
 }

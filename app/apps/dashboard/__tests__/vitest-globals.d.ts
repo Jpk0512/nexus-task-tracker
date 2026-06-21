@@ -17,7 +17,7 @@ declare module "vitest" {
 	export function afterEach(fn: () => void | Promise<void>): void;
 
 	export const vi: {
-		fn: <T extends (...args: unknown[]) => unknown>(
+		fn: <T extends (...args: never[]) => unknown>(
 			impl?: T,
 		) => T & {
 			mockReturnValue: (v: unknown) => unknown;
@@ -37,6 +37,8 @@ declare module "vitest" {
 		toContain(item: unknown): R;
 		toBeTruthy(): R;
 		toBeFalsy(): R;
+		toBeNull(): R;
+		toBeDefined(): R;
 		toBeGreaterThan(expected: number): R;
 		toBeGreaterThanOrEqual(expected: number): R;
 		toBeLessThan(expected: number): R;
