@@ -2493,40 +2493,73 @@ export const knowledgeVaults = pgTable("knowledge_vaults", {
 		.defaultNow(),
 });
 
-export const knowledgeNotes = pgTable("knowledge_notes", {
-	id: text("id").primaryKey(),
-	vaultId: text("vault_id").notNull(),
-	relativePath: text("relative_path").notNull(),
-	absolutePath: text("absolute_path").notNull(),
-	name: text("name").notNull(),
-	parentDir: text("parent_dir"),
-	content: text("content"),
-	frontmatter: jsonb("frontmatter"),
-	fileSha: text("file_sha").notNull(),
-	lastSeenAt: timestamp("last_seen_at", { withTimezone: true, mode: "string" }),
-	lastEditedAt: timestamp("last_edited_at", {
-		withTimezone: true,
-		mode: "string",
-	}),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
-		.notNull()
-		.defaultNow(),
-	updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" })
-		.notNull()
-		.defaultNow(),
-});
+export const knowledgeNotes = pgTable(
+	"knowledge_notes",
+	{
+		id: text("id").primaryKey(),
+		vaultId: text("vault_id").notNull(),
+		relativePath: text("relative_path").notNull(),
+		absolutePath: text("absolute_path").notNull(),
+		name: text("name").notNull(),
+		parentDir: text("parent_dir"),
+		content: text("content"),
+		frontmatter: jsonb("frontmatter"),
+		fileSha: text("file_sha").notNull(),
+		lastSeenAt: timestamp("last_seen_at", {
+			withTimezone: true,
+			mode: "string",
+		}),
+		lastEditedAt: timestamp("last_edited_at", {
+			withTimezone: true,
+			mode: "string",
+		}),
+		createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
+			.notNull()
+			.defaultNow(),
+		updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" })
+			.notNull()
+			.defaultNow(),
+		contentFts: tsvector("content_fts").generatedAlwaysAs(
+			(): SQL =>
+				sql`setweight(to_tsvector('english', coalesce("name",'')), 'A') || setweight(to_tsvector('english', coalesce("content",'')), 'B')`,
+		),
+	},
+	(table) => [
+		index("idx_knowledge_notes_content_fts").using(
+			"gin",
+			table.contentFts.asc().nullsLast().op("tsvector_ops"),
+		),
+	],
+);
 
 // Wiki-link graph edges. to_note_id is nullable — unresolved links and
-// post-delete SET NULL edges.
-export const knowledgeLinks = pgTable("knowledge_links", {
-	id: text("id").primaryKey(),
-	fromNoteId: text("from_note_id").notNull(),
-	toNoteId: text("to_note_id"),
-	linkText: text("link_text").notNull(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
-		.notNull()
-		.defaultNow(),
-});
+// post-delete SET NULL edges survive as null (render red).
+export const knowledgeLinks = pgTable(
+	"knowledge_links",
+	{
+		id: text("id").primaryKey(),
+		fromNoteId: text("from_note_id").notNull(),
+		toNoteId: text("to_note_id"),
+		linkText: text("link_text").notNull(),
+		createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
+			.notNull()
+			.defaultNow(),
+	},
+	(table) => [
+		index("idx_knowledge_links_from_note_id").on(table.fromNoteId),
+		index("idx_knowledge_links_to_note_id").on(table.toNoteId),
+		foreignKey({
+			columns: [table.fromNoteId],
+			foreignColumns: [knowledgeNotes.id],
+			name: "knowledge_links_from_note_id_fkey",
+		}).onDelete("cascade"),
+		foreignKey({
+			columns: [table.toNoteId],
+			foreignColumns: [knowledgeNotes.id],
+			name: "knowledge_links_to_note_id_fkey",
+		}).onDelete("set null"),
+	],
+);
 
 // ── iter-4 task<->doc / task<->knowledge join tables ─────────────────────
 //
