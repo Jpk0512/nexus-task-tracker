@@ -14,7 +14,7 @@ export const getChecklistItemsTool = tool({
 	description: "Retrieve checklist items for a specific task.",
 	inputSchema: getChecklistItemsSchema,
 	execute: async function* (input, executionOptions) {
-		const { userId, teamId } = getToolContext(executionOptions);
+		const { userId: _userId, teamId } = getToolContext(executionOptions);
 
 		const [task] = await db
 			.select()

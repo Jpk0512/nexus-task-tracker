@@ -291,7 +291,7 @@ export const tasksRouter = router({
 	smartComplete: protectedProcedure
 		.input(smartCompleteSchema)
 		.mutation(async ({ input, ctx }) => {
-			const systemPrompt = await buildSmartCompletePrompt({
+			const _systemPrompt = await buildSmartCompletePrompt({
 				userPrompt: input.prompt,
 				userId: ctx.user.id,
 				teamId: ctx.user.teamId!,

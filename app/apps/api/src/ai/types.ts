@@ -5,6 +5,7 @@ import type { ContextItem } from "./utils/format-context-items";
 
 // Define UITools as a generic type to avoid circular dependencies
 // This will be properly typed when used with the actual tool registry
+// biome-ignore lint/suspicious/noExplicitAny: ai SDK UITools constraint requires `any` here
 export type UITools = Record<string, any>;
 
 // Define message metadata type
@@ -13,6 +14,7 @@ export type ChatMessageMetadata = {
 	webSearch?: boolean;
 	toolCall?: {
 		toolName: string;
+		// biome-ignore lint/suspicious/noExplicitAny: arbitrary tool params map
 		toolParams: Record<string, any>;
 	};
 	contextItems?: ContextItem[];

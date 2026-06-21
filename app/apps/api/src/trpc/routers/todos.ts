@@ -7,7 +7,7 @@ import { protectedProcedure, router } from "@api/trpc/init";
 import { db } from "@mimir/db/client";
 import { documents, projects, todoAttachments, todos } from "@mimir/db/schema";
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import { and, asc, eq, ilike, inArray, sql } from "drizzle-orm";
 import { z } from "zod/v3";
 
 const ORDER_STEP = 1000;
@@ -135,6 +135,7 @@ export const todosRouter = router({
 			if (input.tags !== undefined) patch.tags = input.tags;
 			const [row] = await db
 				.update(todos)
+				// biome-ignore lint/suspicious/noExplicitAny: drizzle set() partial patch requires any cast
 				.set(patch as any)
 				.where(and(eq(todos.id, input.id), eq(todos.teamId, ctx.user.teamId!)))
 				.returning();
@@ -157,6 +158,7 @@ export const todosRouter = router({
 					checkedAt: new Date().toISOString(),
 					order: newOrder,
 					updatedAt: new Date().toISOString(),
+					// biome-ignore lint/suspicious/noExplicitAny: drizzle set() literal patch requires any cast
 				} as any)
 				.where(and(eq(todos.id, input.id), eq(todos.teamId, ctx.user.teamId!)))
 				.returning();
@@ -183,6 +185,7 @@ export const todosRouter = router({
 					checkedAt: null,
 					order: newOrder,
 					updatedAt: new Date().toISOString(),
+					// biome-ignore lint/suspicious/noExplicitAny: drizzle set() literal patch requires any cast
 				} as any)
 				.where(and(eq(todos.id, input.id), eq(todos.teamId, ctx.user.teamId!)))
 				.returning();
@@ -216,6 +219,7 @@ export const todosRouter = router({
 					.set({
 						order: (i + 1) * ORDER_STEP,
 						updatedAt: new Date().toISOString(),
+						// biome-ignore lint/suspicious/noExplicitAny: drizzle set() literal patch requires any cast
 					} as any)
 					.where(eq(todos.id, valid[i]));
 			}
@@ -289,6 +293,7 @@ export const todosRouter = router({
 					content: input.content ?? null,
 					docId: input.kind === "doc_link" ? (input.docId ?? null) : null,
 					order,
+					// biome-ignore lint/suspicious/noExplicitAny: drizzle values() insert patch requires any cast
 				} as any)
 				.returning();
 			return row;
@@ -319,6 +324,7 @@ export const todosRouter = router({
 			if (input.content !== undefined) patch.content = input.content;
 			const [row] = await db
 				.update(todoAttachments)
+				// biome-ignore lint/suspicious/noExplicitAny: drizzle set() partial patch requires any cast
 				.set(patch as any)
 				.where(eq(todoAttachments.id, input.attachmentId))
 				.returning();

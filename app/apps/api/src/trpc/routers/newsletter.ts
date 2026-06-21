@@ -10,7 +10,7 @@ export const newsletterRouter = router({
 				email: z.string(),
 			}),
 		)
-		.mutation(async ({ input, ctx }) => {
+		.mutation(async ({ input, ctx: _ctx }) => {
 			const { email } = input;
 
 			try {

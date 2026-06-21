@@ -96,6 +96,7 @@ export const tagsRouter = router({
 
 			// drizzle's `execute` returns `{rows: ...}` for pg, plain array for
 			// some drivers. Normalise here so the consumer always sees an array.
+			// biome-ignore lint/suspicious/noExplicitAny: drizzle execute() returns driver-dependent shape
 			const data = (rows as any).rows ?? (rows as any);
 			return data as Array<{
 				tag: string;

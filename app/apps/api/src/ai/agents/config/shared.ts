@@ -1,10 +1,6 @@
 import type { ChatUserContext } from "@api/ai/chat-cache";
 import type { UIChatMessage } from "@api/ai/types";
 import {
-	type ContextItem,
-	formatLLMContextItems,
-} from "@api/ai/utils/format-context-items";
-import {
 	generateText,
 	InvalidToolInputError,
 	NoSuchToolError,

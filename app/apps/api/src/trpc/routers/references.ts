@@ -9,7 +9,6 @@ import { protectedProcedure, router } from "@api/trpc/init";
 import { db } from "@mimir/db/client";
 import {
 	documents,
-	documentsOnTasks,
 	inbox,
 	intakes,
 	knowledgeNotesOnTasks,

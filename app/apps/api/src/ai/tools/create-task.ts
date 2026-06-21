@@ -1,7 +1,6 @@
 import { createTask } from "@mimir/db/queries/tasks";
 import { trackTaskCreated } from "@mimir/events/server";
 import { syncRecurringTaskSchedule } from "@mimir/jobs/tasks/create-recurring-task-job";
-import { getTaskPermalink } from "@mimir/utils/tasks";
 import { tool } from "ai";
 import z from "zod";
 import { getToolContext } from "../agents/config/shared";

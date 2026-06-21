@@ -1,7 +1,6 @@
 import { openai } from "@ai-sdk/openai";
 import { statusTypeEnum } from "@mimir/db/schema";
 import { generateObject } from "ai";
-import { color } from "bun";
 import z from "zod";
 
 export const generateWorkflow = async ({

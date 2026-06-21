@@ -13,8 +13,12 @@ export const getTaskByIdTool = tool({
 	inputSchema: getTaskByIdToolSchema,
 	execute: async function* ({ id }, executionOptions) {
 		try {
-			const { userId, teamId, teamSlug, writer } =
-				getToolContext(executionOptions);
+			const {
+				userId,
+				teamId: _teamId,
+				teamSlug: _teamSlug,
+				writer,
+			} = getToolContext(executionOptions);
 
 			const result = await getTaskById(id, userId);
 			if (!result) {

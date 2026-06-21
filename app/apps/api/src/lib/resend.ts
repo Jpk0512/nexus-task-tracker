@@ -2,12 +2,14 @@ import { Resend } from "resend";
 
 const LOCAL_DEV = process.env.NEXUS_LOCAL_DEV === "1";
 
+// biome-ignore lint/suspicious/noExplicitAny: recursive stub returns untyped proxy
 function recursiveResendStub(label: string): any {
 	return new Proxy(() => {}, {
 		get: (_t, prop) => {
 			if (prop === "then") return undefined; // not a thenable
 			return recursiveResendStub(`${label}.${String(prop)}`);
 		},
+		// biome-ignore lint/suspicious/noExplicitAny: Proxy apply trap args are untyped by design
 		apply: (_t, _thisArg, args: any[]) => {
 			const first = args?.[0];
 			const subject =

@@ -1,5 +1,4 @@
 import { createMilestone } from "@mimir/db/queries/milestones";
-import { createProject, getProjects } from "@mimir/db/queries/projects";
 import { getAppUrl } from "@mimir/utils/envs";
 import { tool } from "ai";
 import z from "zod";
@@ -27,7 +26,7 @@ export const createMilestoneTool = tool({
 	inputSchema: createMilestoneToolSchema,
 	execute: async function* ({ ...input }, executionOptions) {
 		try {
-			const { userId, teamId } = getToolContext(executionOptions);
+			const { userId: _userId, teamId } = getToolContext(executionOptions);
 
 			const result = await createMilestone({
 				...input,

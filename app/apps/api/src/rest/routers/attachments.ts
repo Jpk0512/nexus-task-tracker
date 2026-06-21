@@ -5,7 +5,7 @@ import type { Context } from "../types";
 const app = new OpenAPIHono<Context>();
 
 app.post("/upload", async (c) => {
-	const session = c.get("session");
+	const _session = c.get("session");
 	const teamId = c.get("teamId");
 	const formData = await c.req.formData();
 	const file = formData.get("file") as File | null;

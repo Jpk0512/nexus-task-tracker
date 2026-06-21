@@ -6,7 +6,7 @@ import {
 } from "@mimir/db/queries/autopilot-settings";
 
 export const autopilotSettingsRouter = router({
-	get: protectedProcedure.query(async ({ ctx, input }) => {
+	get: protectedProcedure.query(async ({ ctx, input: _input }) => {
 		return getAutopilotSettingsByTeamId(ctx.user.teamId!);
 	}),
 

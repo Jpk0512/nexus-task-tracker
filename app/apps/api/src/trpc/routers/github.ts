@@ -99,7 +99,7 @@ export const githubRouter = router({
 	}),
 	getRemoteRepositories: protectedProcedure
 		.input(getRemoteRepositoriesSchema.optional())
-		.query(async ({ ctx, input }) => {
+		.query(async ({ ctx, input: _input }) => {
 			const link = await getLinkedUserByUserId({
 				integrationType: "github",
 				userId: ctx.user.id,
@@ -152,7 +152,7 @@ export const githubRouter = router({
 
 	getConnectedRepositories: protectedProcedure
 		.input(getColumnsSchema.optional())
-		.query(({ ctx, input }) => {
+		.query(({ ctx, input: _input }) => {
 			return getConnectedRepositories({
 				teamId: ctx.user.teamId!,
 			});

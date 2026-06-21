@@ -1,5 +1,4 @@
 import { getProjects } from "@mimir/db/queries/projects";
-import { z } from "zod";
 import type { MimraiMcpServer } from "../server";
 import type { McpContext } from "./build-mcp";
 import { hasScope, ListProjectsInputSchema } from "./schemas";

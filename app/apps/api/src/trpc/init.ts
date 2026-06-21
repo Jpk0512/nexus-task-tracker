@@ -64,6 +64,7 @@ export const protectedProcedure = t.procedure
 	.use(async ({ next }) => {
 		const result = await next();
 		if (!result.ok) {
+			// biome-ignore lint/suspicious/noExplicitAny: tRPC result error is untyped on failure path
 			console.error((result as any).error);
 		}
 		return result;

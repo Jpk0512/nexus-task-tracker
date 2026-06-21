@@ -233,7 +233,7 @@ export const createAgent = (config: AgentConfig) => {
 					writer.merge(
 						stream.toUIMessageStream({
 							sendReasoning: true,
-							messageMetadata({ part }) {
+							messageMetadata({ part: _part }) {
 								return {
 									agentId: params.context.agentId,
 								};

@@ -1,5 +1,4 @@
 import { getLabels } from "@mimir/db/queries/labels";
-import { z } from "zod";
 import type { MimraiMcpServer } from "../server";
 import type { McpContext } from "./build-mcp";
 import { hasScope, ListLabelsInputSchema } from "./schemas";

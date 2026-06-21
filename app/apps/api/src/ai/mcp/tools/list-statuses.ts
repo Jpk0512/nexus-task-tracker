@@ -1,5 +1,4 @@
 import { getStatuses } from "@mimir/db/queries/statuses";
-import { z } from "zod";
 import type { MimraiMcpServer } from "../server";
 import type { McpContext } from "./build-mcp";
 import { hasScope, ListStatusesInputSchema } from "./schemas";

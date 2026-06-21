@@ -49,7 +49,7 @@ export const widgetsRouter = router({
 			});
 		}),
 
-	tasksTodo: protectedProcedure.query(async ({ ctx, input }) => {
+	tasksTodo: protectedProcedure.query(async ({ ctx, input: _input }) => {
 		return getTasksTodo({
 			teamId: ctx.user.teamId!,
 		});

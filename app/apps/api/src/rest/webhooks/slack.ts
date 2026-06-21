@@ -57,6 +57,7 @@ app.post(verifySignature, async (c) => {
 					message: typedEvent.text,
 					messageId: typedEvent.client_msg_id,
 					threadTs: typedEvent.ts,
+					// biome-ignore lint/suspicious/noExplicitAny: Slack file attachment shape is not typed in SDK
 					attachments: typedEvent.files?.map((file: any) => ({
 						url: file.thumb_1024,
 						mimeType: file.mimetype,

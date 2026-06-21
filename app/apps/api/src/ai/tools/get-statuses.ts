@@ -10,8 +10,8 @@ export const getStatusesToolSchema = z.object({});
 export const getStatusesTool = tool({
 	description: "Get statuses from your task manager",
 	inputSchema: getStatusesToolSchema,
-	execute: async function* (input, executionOptions) {
-		const { userId, teamId } = getToolContext(executionOptions);
+	execute: async function* (_input, executionOptions) {
+		const { userId: _userId, teamId } = getToolContext(executionOptions);
 
 		const data = await db
 			.select({

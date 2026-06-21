@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import {
 	getConnectedRepositoryByInstallationId,
@@ -20,7 +21,6 @@ import type {
 	PushEvent,
 	WebhookEventName,
 } from "@octokit/webhooks-types";
-import crypto from "crypto";
 import type { MiddlewareHandler } from "hono";
 import { Octokit } from "octokit";
 import { protectedMiddleware } from "../middleware";

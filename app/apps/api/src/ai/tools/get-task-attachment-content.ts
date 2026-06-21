@@ -12,7 +12,11 @@ export const getTaskAttachmentContentTool = tool({
 	inputSchema: getTaskAttachmentContentToolSchema,
 	execute: async function* (input, executionOptions) {
 		try {
-			const { userId, behalfUserId, teamId } = getToolContext(executionOptions);
+			const {
+				userId: _userId,
+				behalfUserId: _behalfUserId,
+				teamId: _teamId,
+			} = getToolContext(executionOptions);
 
 			const file = await fetch(input.attachmentUrl);
 			const fileBuffer = await file.arrayBuffer();

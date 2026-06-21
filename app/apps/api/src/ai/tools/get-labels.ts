@@ -10,8 +10,8 @@ export const getLabelsToolSchema = z.object({});
 export const getLabelsTool = tool({
 	description: "Get labels for your tasks",
 	inputSchema: getLabelsToolSchema,
-	execute: async function* (input, executionOptions) {
-		const { userId, teamId } = getToolContext(executionOptions);
+	execute: async function* (_input, executionOptions) {
+		const { userId: _userId, teamId } = getToolContext(executionOptions);
 
 		yield { text: "Retrieving labels..." };
 

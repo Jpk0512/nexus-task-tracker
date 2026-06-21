@@ -4,7 +4,6 @@ import {
 } from "@api/schemas/integrations";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { db } from "@mimir/db/client";
-import { getIntegrationById } from "@mimir/db/queries/integrations";
 import { integrationUserLink } from "@mimir/db/schema";
 import { sendMattermostNotification } from "@mimir/integration/mattermost";
 import { sendWhatsappNotification } from "@mimir/integration/whatsapp";

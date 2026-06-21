@@ -17,6 +17,7 @@ app.post(async (c) => {
 		NumMedia: number;
 		[key: `MediaUrl${number}`]: string;
 		[key: `MediaContentType${number}`]: string;
+		// biome-ignore lint/suspicious/noExplicitAny: Hono parseBody returns untyped Record
 	} = (await c.req.parseBody()) as any;
 
 	if (process.env.NODE_ENV === "production") {

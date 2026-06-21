@@ -1,6 +1,5 @@
 import { getTasks } from "@mimir/db/queries/tasks";
 import { statusTypeEnum } from "@mimir/db/schema";
-import { getAppUrl } from "@mimir/utils/envs";
 import { getTaskPermalink } from "@mimir/utils/tasks";
 import { tool } from "ai";
 import z from "zod";
@@ -51,8 +50,12 @@ export const getTasksTool = tool({
 		executionOptions,
 	) {
 		try {
-			const { userId, teamId, teamSlug, writer } =
-				getToolContext(executionOptions);
+			const {
+				userId: _userId,
+				teamId,
+				teamSlug: _teamSlug,
+				writer,
+			} = getToolContext(executionOptions);
 
 			const statusChangedAt =
 				statusChangedAtAfter && statusChangedAtBefore

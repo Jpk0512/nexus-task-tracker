@@ -6,6 +6,7 @@ const messageSchema = z
 	.custom<UIChatMessage>((val) => {
 		if (typeof val !== "object" || val === null) return false;
 
+		// biome-ignore lint/suspicious/noExplicitAny: runtime shape validation requires any cast
 		const msg = val as any;
 
 		// Check required fields

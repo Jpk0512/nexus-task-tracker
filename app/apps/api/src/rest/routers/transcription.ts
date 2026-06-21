@@ -1,4 +1,3 @@
-import { gateway } from "@ai-sdk/gateway";
 import { openai } from "@ai-sdk/openai";
 import type { Context } from "@api/rest/types";
 import { OpenAPIHono } from "@hono/zod-openapi";
@@ -23,9 +22,9 @@ app.post("/", async (c) => {
 			return c.json({ success: false, error: validationResult.error }, 400);
 		}
 
-		const { audio, mimeType } = validationResult.data;
-		const teamId = c.get("teamId");
-		const session = c.get("session");
+		const { audio, mimeType: _mimeType } = validationResult.data;
+		const _teamId = c.get("teamId");
+		const _session = c.get("session");
 
 		// Convert base64 to buffer
 		const audioBuffer = Buffer.from(audio, "base64");

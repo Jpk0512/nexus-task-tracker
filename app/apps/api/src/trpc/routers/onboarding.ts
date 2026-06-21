@@ -22,7 +22,7 @@ export const onboardingRouter = router({
 				howIsYourWorkflow: z.string().min(1).optional(),
 			}),
 		)
-		.mutation(async ({ ctx, input }) => {
+		.mutation(async ({ ctx: _ctx, input }) => {
 			return generateWorkflow({
 				...input,
 			});

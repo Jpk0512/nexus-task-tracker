@@ -19,7 +19,7 @@ export const getMilestonesTool = tool({
 	inputSchema: getMilestonesToolSchema,
 	execute: async function* ({ search, ...input }, executionOptions) {
 		try {
-			const { userId, teamId } = getToolContext(executionOptions);
+			const { userId: _userId, teamId } = getToolContext(executionOptions);
 
 			const result = await getMilestones({
 				...input,

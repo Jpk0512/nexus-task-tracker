@@ -294,6 +294,7 @@ export const promptsRouter = router({
 					version: 1,
 					createdAt: now,
 					updatedAt: now,
+					// biome-ignore lint/suspicious/noExplicitAny: drizzle values() insert requires any cast
 				} as any)
 				.returning();
 			return row;
@@ -342,6 +343,7 @@ export const promptsRouter = router({
 							content: p.content,
 							notes: p.notes,
 							createdBy: ctx.user.id,
+							// biome-ignore lint/suspicious/noExplicitAny: drizzle values() insert requires any cast
 						} as any)
 						.onConflictDoNothing({
 							target: [promptVersions.promptId, promptVersions.version],
@@ -371,6 +373,7 @@ export const promptsRouter = router({
 			if (input.bumpVersion) patch.version = p.version + 1;
 			const [row] = await db
 				.update(prompts)
+				// biome-ignore lint/suspicious/noExplicitAny: drizzle set() partial patch requires any cast
 				.set(patch as any)
 				.where(eq(prompts.id, p.id))
 				.returning();
@@ -481,6 +484,7 @@ export const promptsRouter = router({
 				.set({
 					projectId: input.projectId,
 					updatedAt: new Date().toISOString(),
+					// biome-ignore lint/suspicious/noExplicitAny: drizzle set() literal patch requires any cast
 				} as any)
 				.where(eq(prompts.id, input.promptId));
 			return { ok: true };

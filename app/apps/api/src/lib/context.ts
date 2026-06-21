@@ -100,6 +100,7 @@ export async function createContext({ context }: CreateContextOptions) {
 	};
 
 	return {
+		// biome-ignore lint/suspicious/noExplicitAny: session type varies by auth provider shape
 		session: effectiveSession as any,
 		user: {
 			...user,

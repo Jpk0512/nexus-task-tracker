@@ -15,7 +15,7 @@ export const getProjectsTool = tool({
 	inputSchema: getProjectsToolSchema,
 	execute: async function* ({ search, cursor, pageSize }, executionOptions) {
 		try {
-			const { userId, teamId } = getToolContext(executionOptions);
+			const { userId: _userId, teamId } = getToolContext(executionOptions);
 
 			const result = await getProjects({
 				teamId: teamId,

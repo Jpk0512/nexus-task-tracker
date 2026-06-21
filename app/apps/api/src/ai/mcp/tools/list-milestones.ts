@@ -1,5 +1,4 @@
 import { getMilestones } from "@mimir/db/queries/milestones";
-import { z } from "zod";
 import type { MimraiMcpServer } from "../server";
 import type { McpContext } from "./build-mcp";
 import { hasScope, ListMilestonesInputSchema } from "./schemas";

@@ -177,10 +177,10 @@ async function scanOneSource(srcId: string) {
 		.limit(1);
 	if (!src) return { inserted: 0, updated: 0, unchanged: 0, deleted: 0 };
 
-	let inserted = 0,
-		updated = 0,
-		unchanged = 0,
-		deleted = 0;
+	let inserted = 0;
+	let updated = 0;
+	let unchanged = 0;
+	let deleted = 0;
 	const seen: string[] = [];
 	const real = safeResolve(src.rootPath);
 	if (!existsSync(real)) return { inserted, updated, unchanged, deleted };
@@ -231,6 +231,7 @@ async function scanOneSource(srcId: string) {
 					body,
 					fileSha: sha,
 					lastSeenAt: new Date().toISOString(),
+					// biome-ignore lint/suspicious/noExplicitAny: drizzle set() partial patch requires any cast
 				} as any)
 				.where(eq(libraryEntries.id, existing.id));
 			updated++;
@@ -246,6 +247,7 @@ async function scanOneSource(srcId: string) {
 				body,
 				fileSha: sha,
 				lastSeenAt: new Date().toISOString(),
+				// biome-ignore lint/suspicious/noExplicitAny: drizzle values() insert requires any cast
 			} as any);
 			inserted++;
 		}
@@ -599,6 +601,7 @@ export const libraryRouter = router({
 					fileSha: newSha,
 					lastEditedAt: new Date().toISOString(),
 					lastEditedBy: ctx.user.id,
+					// biome-ignore lint/suspicious/noExplicitAny: drizzle set() partial patch requires any cast
 				} as any)
 				.where(eq(libraryEntries.id, e.id))
 				.returning();
@@ -648,6 +651,7 @@ export const libraryRouter = router({
 					entryId: input.entryId,
 					projectId: input.projectId,
 					note: input.note ?? null,
+					// biome-ignore lint/suspicious/noExplicitAny: drizzle values() insert requires any cast
 				} as any)
 				.onConflictDoNothing();
 			return { ok: true };
@@ -720,6 +724,7 @@ export const libraryRouter = router({
 			if (Object.keys(patch).length === 0) return { ok: true };
 			await db
 				.update(librarySources)
+				// biome-ignore lint/suspicious/noExplicitAny: drizzle set() partial patch requires any cast
 				.set(patch as any)
 				.where(
 					and(

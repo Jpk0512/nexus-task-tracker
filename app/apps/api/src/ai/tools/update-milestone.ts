@@ -26,7 +26,7 @@ export const updateMilestoneTool = tool({
 	inputSchema: updateMilestoneToolSchema,
 	execute: async function* ({ ...input }, executionOptions) {
 		try {
-			const { userId, teamId } = getToolContext(executionOptions);
+			const { userId: _userId, teamId } = getToolContext(executionOptions);
 
 			const result = await updateMilestone({
 				...input,
