@@ -78,13 +78,16 @@ const tools = [
 	{
 		name: "check_todo",
 		description:
-			"Mark a to-do as done (strikes it through and sinks it to the bottom).",
+			"Mark a to-do as done (strikes it through and sinks it to the bottom). Pass the exact todo id OR a search string that uniquely matches the todo's content.",
 		inputSchema: {
 			type: "object",
 			properties: {
-				id: { type: "string", description: "Todo ID returned by list_todos" },
+				id_or_search: {
+					type: "string",
+					description: "Todo ID returned by list_todos, or a search string that uniquely matches todo content (case-insensitive contains)",
+				},
 			},
-			required: ["id"],
+			required: ["id_or_search"],
 		},
 	},
 	{
@@ -258,20 +261,36 @@ const handlers: Record<string, (input: any) => Promise<unknown>> = {
 	},
 
 	async check_todo(input) {
-		const { id } = z.object({ id: z.string() }).parse(input);
+		const { id_or_search } = z.object({ id_or_search: z.string() }).parse(input);
 		const bottomRow = await pool.query(
 			'SELECT MAX("order") as m FROM todos WHERE team_id=$1 AND checked=true',
 			[TEAM_ID],
 		);
 		const bot = bottomRow.rows[0]?.m;
 		const orderVal = bot != null ? Number(bot) + 1000 : 1000000;
+		// Try exact id match first.
 		const r = await pool.query(
 			`UPDATE todos SET checked=true, checked_at=now(), "order"=$3, updated_at=now()
 				WHERE id=$1 AND team_id=$2 RETURNING id, content`,
-			[id, TEAM_ID, orderVal],
+			[id_or_search, TEAM_ID, orderVal],
 		);
-		if (r.rowCount === 0) throw new Error(`todo '${id}' not found`);
-		return r.rows[0];
+		if ((r.rowCount ?? 0) > 0) return r.rows[0];
+		// Fall back to case-insensitive content search over unchecked todos.
+		const matches = await pool.query(
+			`SELECT id FROM todos WHERE team_id=$1 AND checked=false AND content ILIKE $2`,
+			[TEAM_ID, `%${id_or_search}%`],
+		);
+		if (matches.rows.length === 0)
+			throw new Error(`no unchecked todo matching '${id_or_search}'`);
+		if (matches.rows.length > 1)
+			throw new Error(`${matches.rows.length} todos match '${id_or_search}' — be more specific`);
+		const matchedId = matches.rows[0].id as string;
+		const r2 = await pool.query(
+			`UPDATE todos SET checked=true, checked_at=now(), "order"=$3, updated_at=now()
+				WHERE id=$1 AND team_id=$2 RETURNING id, content`,
+			[matchedId, TEAM_ID, orderVal],
+		);
+		return r2.rows[0];
 	},
 
 	async list_tasks_due_soon(input) {

@@ -209,11 +209,11 @@ describe("AC-2/3/4 — check_todo content-search DB integration", () => {
 	}
 
 	/**
-	 * Mirrors the CURRENT check_todo handler (id-only path, server.ts lines 260-274).
-	 * This is RED because it cannot content-search.
+	 * Mirrors the NEW check_todo handler (id_or_search path, server.ts).
+	 * Tries exact id match first, then falls back to case-insensitive content search.
 	 */
 	async function currentCheckTodo(
-		id: string,
+		id_or_search: string,
 	): Promise<{ id: string; content: string }> {
 		const bottomRow = await pool.query(
 			'SELECT MAX("order") as m FROM todos WHERE team_id=$1 AND checked=true',
@@ -221,13 +221,29 @@ describe("AC-2/3/4 — check_todo content-search DB integration", () => {
 		);
 		const bot = bottomRow.rows[0]?.m;
 		const orderVal = bot != null ? Number(bot) + 1000 : 1_000_000;
+		// Try exact id match first.
 		const r = await pool.query(
 			`UPDATE todos SET checked=true, checked_at=now(), "order"=$3, updated_at=now()
 			 WHERE id=$1 AND team_id=$2 RETURNING id, content`,
-			[id, TEST_TEAM_ID, orderVal],
+			[id_or_search, TEST_TEAM_ID, orderVal],
 		);
-		if ((r.rowCount ?? 0) === 0) throw new Error(`todo '${id}' not found`);
-		return r.rows[0] as { id: string; content: string };
+		if ((r.rowCount ?? 0) > 0) return r.rows[0] as { id: string; content: string };
+		// Fall back to case-insensitive content search over unchecked todos.
+		const matches = await pool.query(
+			`SELECT id FROM todos WHERE team_id=$1 AND checked=false AND content ILIKE $2`,
+			[TEST_TEAM_ID, `%${id_or_search}%`],
+		);
+		if (matches.rows.length === 0)
+			throw new Error(`no unchecked todo matching '${id_or_search}'`);
+		if (matches.rows.length > 1)
+			throw new Error(`${matches.rows.length} todos match '${id_or_search}' — be more specific`);
+		const matchedId = matches.rows[0].id as string;
+		const r2 = await pool.query(
+			`UPDATE todos SET checked=true, checked_at=now(), "order"=$3, updated_at=now()
+			 WHERE id=$1 AND team_id=$2 RETURNING id, content`,
+			[matchedId, TEST_TEAM_ID, orderVal],
+		);
+		return r2.rows[0] as { id: string; content: string };
 	}
 
 	// -------------------------------------------------------------------------
