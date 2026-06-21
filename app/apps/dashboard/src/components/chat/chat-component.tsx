@@ -10,7 +10,7 @@ export const ChatComponent = async ({ chatId }: { chatId?: string }) => {
 	return (
 		// @ts-expect-error Async Server Component
 		<ChatProvider initialMessages={chat?.messages || []} id={chatId || ""}>
-			<ChatInterface id={chatId} />
+			<ChatInterface />
 		</ChatProvider>
 	);
 };
