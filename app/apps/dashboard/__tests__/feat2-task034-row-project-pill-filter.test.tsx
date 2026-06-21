@@ -132,10 +132,11 @@ vi.mock("@tanstack/react-query", () => {
 		}),
 		useQuery: (opts: { queryKey?: unknown[]; input?: { projectId?: string; pageSize?: number; tag?: string } }) => {
 			const input = opts?.input;
-			// projects.get call: has pageSize, no projectId on the top-level call
+			// projects.get call: has pageSize — return empty so the project filter
+			// strip doesn't render and doesn't collide with the row pill button.
 			if (input && "pageSize" in input) {
 				return {
-					data: { data: [PROJECT_A, PROJECT_B] },
+					data: { data: [] as Project[] },
 					isLoading: false,
 					isFetching: false,
 				};
@@ -172,7 +173,7 @@ vi.mock("@/components/tasks/task-toolbar", () => ({
 	useToolbarGroupBy: () => ["none", () => {}] as const,
 }));
 vi.mock("@/hooks/use-jk-navigation", () => ({
-	useJkNavigation: () => ({ focusedId: null as string | null, setFocusedId: () => {} }),
+	useJkNavigation: () => ({ focusedId: null as string | null, setFocusedId: () => {}, isFocused: () => false }),
 }));
 vi.mock("@/hooks/use-shortcuts", () => ({ useShortcut: () => {} }));
 vi.mock("@/hooks/use-task-params", () => ({
@@ -229,7 +230,7 @@ describe("TASK-034 — row project pill is interactive and filters the todo list
 	 * WHEN the rendered DOM is inspected
 	 * THEN the project name appears as a role="button" element
 	 */
-	test.fails(
+	test(
 		"AC(a): row project pill is rendered as a button (not a static Badge)",
 		() => {
 			render(<TodosView />);
@@ -250,7 +251,7 @@ describe("TASK-034 — row project pill is interactive and filters the todo list
 	 * WHEN the user clicks the project pill on the Alpha Project row
 	 * THEN TODO_B ("Todo from Beta") is no longer in the document
 	 */
-	test.fails(
+	test(
 		"AC(b): clicking the row project pill filters the list to that project",
 		async () => {
 			const user = userEvent.setup();
