@@ -155,22 +155,26 @@ export async function getUserNotificationPreferences(
 	// Get notification types that should appear in user settings
 	const notificationTypes = getUserSettingsNotificationTypes();
 
-	return notificationTypes.map((notificationType) => ({
-		type: notificationType.type,
-		channels: notificationType.channels,
-		category: notificationType.category,
-		order: notificationType.order,
-		settings: notificationType.channels.map((channel) => {
-			const setting = userSettings.find(
-				(s) =>
-					s.notificationType === notificationType.type && s.channel === channel,
-			);
-			return {
-				channel,
-				enabled: setting?.enabled ?? true, // Default to enabled if no setting exists
-			};
-		}),
-	}));
+	return notificationTypes.map((notificationType) => {
+		const channels = notificationType.channels as NotificationChannel[];
+		return {
+			type: notificationType.type,
+			channels,
+			category: notificationType.category,
+			order: notificationType.order,
+			settings: channels.map((channel) => {
+				const setting = userSettings.find(
+					(s) =>
+						s.notificationType === notificationType.type &&
+						s.channel === channel,
+				);
+				return {
+					channel,
+					enabled: setting?.enabled ?? true,
+				};
+			}),
+		};
+	});
 }
 
 // Bulk update multiple notification settings
