@@ -1,6 +1,7 @@
 "use client";
-import type { IntegrationName } from "@nexus-app/integration/registry";
 import type { RouterOutputs } from "@nexus-app/trpc";
+
+type IntegrationName = "mattermost" | "github" | "whatsapp" | "slack" | "smtp";
 import { useQuery } from "@tanstack/react-query";
 import { Alert, AlertDescription } from "@ui/components/ui/alert";
 import { trpc } from "@/utils/trpc";

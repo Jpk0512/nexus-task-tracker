@@ -89,7 +89,8 @@ export function PromptProductsView() {
 		trpc.prompts.createPrompt.mutationOptions({
 			onSuccess: (created, vars) => {
 				const slug = (created as { slug: string }).slug;
-				const product = products.find((p) => p.id === vars.productId);
+				const input = vars as { productId?: string } | undefined;
+				const product = products.find((p) => p.id === input?.productId);
 				toast.success("Created prompt");
 				setInlineForProductId(null);
 				setInlinePromptName("");

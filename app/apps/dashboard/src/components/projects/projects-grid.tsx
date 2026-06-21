@@ -168,7 +168,7 @@ function StatusPill({ project }: { project: Project }) {
 		? "Archived"
 		: project.status === "completed"
 			? "Done"
-			: project.status === "paused"
+			: project.status === "on_hold"
 				? "Backlog"
 				: "Active";
 	const tone =

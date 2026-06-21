@@ -24,7 +24,7 @@ import dynamic from "next/dynamic";
 import { Dropdown } from "react-day-picker";
 import { useFormContext } from "react-hook-form";
 import { DependencyIcon } from "@/components/dependency-icon";
-import { PropertyStatus } from "@/components/tasks-view/properties/task-properties-components";
+import { StatusIcon } from "@/components/status-icon";
 import { useTaskDependencyParams } from "@/hooks/use-task-dependency-params";
 import { queryClient, trpc } from "@/utils/trpc";
 import type { TaskFormValues } from "./form-type";
@@ -200,9 +200,7 @@ const Item = ({
 			{dependency.task.title}
 
 			<div className="ml-auto flex items-center gap-2">
-				<PropertyStatus
-					task={{ id: dependency.task.id, status: dependency.status }}
-				/>
+				<StatusIcon type={dependency.status.type} className="size-3.5" />
 				<DropdownMenu>
 					<DropdownMenuTrigger asChild>
 						<Button type="button" variant={"ghost"} className="size-6! p-0">

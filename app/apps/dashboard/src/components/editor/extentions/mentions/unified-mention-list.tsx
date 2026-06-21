@@ -124,6 +124,8 @@ export function UnifiedMentionList(props: UnifiedMentionListProps) {
 			project: [],
 			milestone: [],
 			tool: tools,
+			knowledge: [],
+			prompt: [],
 		};
 
 		return groups;

@@ -3,6 +3,7 @@ import type { FilterOptions } from "../filters/types";
 
 export const inboxFilterOptions: FilterOptions = {
 	status: {
+		type: "select",
 		label: "Status",
 		multiple: true,
 		icon: <CircleDashedIcon className="size-4!" />,

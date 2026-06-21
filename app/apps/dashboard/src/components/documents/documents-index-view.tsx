@@ -550,7 +550,7 @@ export function DocumentsIndexView() {
 			parentDir: string | null;
 			updatedAt: string;
 		}>;
-		return items.map((n) => ({
+		return items.map((n): DocRow => ({
 			id: n.id,
 			name: n.name,
 			projectId: null,

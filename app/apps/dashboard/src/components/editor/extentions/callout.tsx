@@ -142,11 +142,3 @@ export const Callout = Node.create({
 	},
 });
 
-declare module "@tiptap/core" {
-	interface Commands<ReturnType> {
-		callout: {
-			setCallout: (attrs?: { variant?: CalloutVariant }) => ReturnType;
-			toggleCallout: (attrs?: { variant?: CalloutVariant }) => ReturnType;
-		};
-	}
-}

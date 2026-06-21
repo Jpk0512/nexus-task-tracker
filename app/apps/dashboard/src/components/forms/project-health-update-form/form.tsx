@@ -18,7 +18,7 @@ import {
 } from "@ui/components/ui/dropdown-menu";
 import { useRef } from "react";
 import { toast } from "sonner";
-import { z } from "zod/v3";
+import { z } from "zod";
 import { useProjectHealthUpdateParams } from "@/hooks/use-project-health-update-params";
 import { useZodForm } from "@/hooks/use-zod-form";
 import { trpc } from "@/utils/trpc";
