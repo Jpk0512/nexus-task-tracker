@@ -10,6 +10,23 @@ declare module "vitest" {
 	export namespace test {
 		export function fails(name: string, fn: () => void | Promise<void>): void;
 	}
+	export const it: typeof test;
+	export function beforeAll(fn: () => void | Promise<void>): void;
+	export function afterAll(fn: () => void | Promise<void>): void;
+	export function beforeEach(fn: () => void | Promise<void>): void;
+	export function afterEach(fn: () => void | Promise<void>): void;
+
+	export const vi: {
+		fn: <T extends (...args: unknown[]) => unknown>(
+			impl?: T,
+		) => T & {
+			mockReturnValue: (v: unknown) => unknown;
+			mockImplementation: (fn: T) => unknown;
+		};
+		mock: (path: string, factory?: () => unknown) => void;
+		clearAllMocks: () => void;
+		resetAllMocks: () => void;
+	};
 
 	interface Matchers<R = void> {
 		toHaveLength(length: number): R;
@@ -21,7 +38,11 @@ declare module "vitest" {
 		toBeTruthy(): R;
 		toBeFalsy(): R;
 		toBeGreaterThan(expected: number): R;
+		toBeGreaterThanOrEqual(expected: number): R;
 		toBeLessThan(expected: number): R;
+		toBeLessThanOrEqual(expected: number): R;
+		toThrow(expected?: string | RegExp | Error): R;
+		toBeInTheDocument(): R;
 		not: Matchers<R>;
 	}
 

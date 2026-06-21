@@ -113,18 +113,24 @@
 		"zustand": "^5.0.8"
 	},
 	"devDependencies": {
-		"@mimir/trpc": "workspace:*",
 		"@mimir/realtime": "workspace:*",
+		"@mimir/trpc": "workspace:*",
 		"@tailwindcss/postcss": "^4.1.10",
 		"@tanstack/react-query-devtools": "^5.85.5",
-		"@types/lodash": "^4.17.23",
+		"@testing-library/jest-dom": "^6.9.1",
+		"@testing-library/react": "^16.3.2",
+		"@testing-library/user-event": "^14.6.1",
 		"@types/html-to-text": "^9.0.4",
+		"@types/jsdom": "^28.0.3",
+		"@types/lodash": "^4.17.23",
 		"@types/ms": "^2.1.0",
 		"@types/node": "^20",
 		"@types/react": "19.2.1",
 		"@types/react-dom": "19.2.1",
 		"@types/react-syntax-highlighter": "^15.5.13",
+		"jsdom": "^29.1.1",
 		"tailwindcss": "^4.1.10",
-		"typescript": "^5.9.2"
+		"typescript": "^5.9.2",
+		"vite-tsconfig-paths": "^6.1.1"
 	}
 }
