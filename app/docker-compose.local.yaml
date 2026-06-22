@@ -79,12 +79,12 @@ services:
   dashboard:
     build:
       context: .
-      dockerfile: apps/dashboard/Dockerfile.dev
+      dockerfile: apps/dashboard/Dockerfile
     container_name: nexus-dashboard
     env_file:
       - .env.local
     environment:
-      NODE_ENV: development
+      NODE_ENV: production
       PORT: "3000"
       NEXT_PUBLIC_APP_URL: http://localhost:5179
       NEXT_PUBLIC_SERVER_URL: http://localhost:3003
