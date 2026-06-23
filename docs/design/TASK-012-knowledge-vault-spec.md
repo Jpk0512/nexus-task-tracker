@@ -7,6 +7,40 @@
 
 ---
 
+## 0. 2026-06-22 Amendment: Documents Hub
+
+**Scope:** `/team/[team]/documents` inside the Knowledge navigation section. This amendment does not redesign the global dashboard shell, Prompts, or the Obsidian-style Knowledge editor.
+
+The Documents tab should render as a full-width document hub, not as a persistent file-tree sidebar with a viewer. The global dashboard sidebar remains in place; the route-level `DocumentsSidebarLayout` is removed so the documents surface has enough width for browsing, filtering, and preview.
+
+Default layout:
+
+```
+┌─ Documents header ─────────────────────────────────────────────────┐
+│ Documents                                  [New] [j/k hint]         │
+│ Search  Scope segmented  View segmented  Group  Project Label Date │
+├─ Results ─────────────────────────────────┬─ Preview rail ─────────┤
+│ Group: Project / Team-wide / Personal     │ Selected/hovered doc    │
+│   row: title, project/path, labels, date   │ metadata, labels        │
+│   row: title, project/path, labels, date   │ content excerpt         │
+│                                           │ Open action             │
+└───────────────────────────────────────────┴────────────────────────┘
+```
+
+Design requirements:
+
+- Default view is **Grouped** by category: project buckets, Team-wide, and Personal Knowledge vault notes.
+- List rows are the primary enterprise scanning unit. Cards remain available as a secondary view, but not the default.
+- Search, source scope, project, label, updated-date, view mode, and group mode live in the header. Filters must not require a separate sidebar.
+- Desktop (`xl+`) shows a right preview rail. Hover, focus, or keyboard list focus should update preview without opening the document.
+- Mobile/tablet hides the preview rail and keeps rows navigable directly to the detail route.
+- Empty state keeps starter templates, but the page structure should still read as a document hub.
+- Document detail pages keep the focused editor layout with TOC/backlinks; they should not be framed by a document tree sidebar.
+
+Token usage follows the existing Linear dark-native ladder: `bg-background` canvas, `bg-card/40` preview rail, `border-border/60` dividers, `text-muted-foreground` metadata, `primary` only for the main Open/New action.
+
+---
+
 ## 1. Design Contract Principles (from `DESIGN.md` + `index.css`)
 
 The app is **dark-native** (`.dark` is always active; light tokens are edge-case-only). All tokens below resolve via CSS custom properties, so light mode is automatically covered by the `:root` block in `index.css`.

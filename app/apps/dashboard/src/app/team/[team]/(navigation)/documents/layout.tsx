@@ -1,5 +1,4 @@
 import { BreadcrumbSetter } from "@/components/breadcrumbs";
-import { DocumentsSidebarLayout } from "@/components/documents/documents-sidebar-layout";
 
 export default function DocumentsLayout({
 	children,
@@ -16,7 +15,7 @@ export default function DocumentsLayout({
 					},
 				]}
 			/>
-			<DocumentsSidebarLayout>{children}</DocumentsSidebarLayout>
+			{children}
 		</>
 	);
 }

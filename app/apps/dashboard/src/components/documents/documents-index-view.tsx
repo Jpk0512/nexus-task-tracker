@@ -8,6 +8,7 @@ import {
 	CollapsibleTrigger,
 } from "@ui/components/ui/collapsible";
 import { Input } from "@ui/components/ui/input";
+import { LabelBadge } from "@ui/components/ui/label-badge";
 import {
 	Select,
 	SelectContent,
@@ -17,18 +18,23 @@ import {
 } from "@ui/components/ui/select";
 import { cn } from "@ui/lib/utils";
 import {
+	ArrowRightIcon,
 	BookOpenIcon,
 	BrainIcon,
+	CalendarDaysIcon,
 	ChevronRightIcon,
 	ClockIcon,
 	FileTextIcon,
+	FilterIcon,
 	FolderIcon,
 	GlobeIcon,
 	LayoutGridIcon,
 	LayoutListIcon,
 	ListTreeIcon,
+	type LucideIcon,
 	PlusIcon,
 	SearchIcon,
+	TagsIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
@@ -66,13 +72,24 @@ import { trpc } from "@/utils/trpc";
 type Scope = "all" | "team" | "personal";
 type ViewMode = "list" | "grouped" | "cards";
 type GroupBy = "none" | "category" | "owner" | "recency";
+type UpdatedFilter = "all" | "today" | "week" | "month";
+type IconComponent = LucideIcon;
+
+type DocumentLabel = {
+	id: string;
+	name: string;
+	color: string | null;
+};
 
 type DocRow = {
 	id: string;
 	name: string | null;
 	icon?: string | null;
 	projectId: string | null;
+	projectName?: string | null;
+	parentId?: string | null;
 	updatedAt?: string | Date;
+	labels?: DocumentLabel[] | null;
 	// "team" = Drizzle-backed document; "personal" = knowledge-vault note.
 	// Used by the scope filter and to route to the right detail page.
 	source: "team" | "personal";
@@ -86,6 +103,9 @@ type DocRow = {
 const SCOPE_KEY = "nexus.documents.scope";
 const VIEW_MODE_KEY = "nexus.documents.viewMode";
 const GROUP_BY_KEY = "nexus.documents.groupBy";
+const PROJECT_FILTER_KEY = "nexus.documents.projectFilter";
+const LABEL_FILTER_KEY = "nexus.documents.labelFilter";
+const UPDATED_FILTER_KEY = "nexus.documents.updatedFilter";
 
 function readStored<T extends string>(
 	key: string,
@@ -103,6 +123,15 @@ function readStored<T extends string>(
 	return fallback;
 }
 
+function readStoredString(key: string, fallback: string): string {
+	if (typeof window === "undefined") return fallback;
+	try {
+		return window.localStorage.getItem(key) || fallback;
+	} catch {
+		return fallback;
+	}
+}
+
 function writeStored(key: string, value: string) {
 	if (typeof window === "undefined") return;
 	try {
@@ -110,6 +139,38 @@ function writeStored(key: string, value: string) {
 	} catch {
 		// see readStored — same swallow.
 	}
+}
+
+function formatDate(value?: string | Date | null): string {
+	if (!value) return "No edits yet";
+	return new Date(value).toLocaleDateString(undefined, {
+		month: "short",
+		day: "numeric",
+		year:
+			new Date(value).getFullYear() === new Date().getFullYear()
+				? undefined
+				: "numeric",
+	});
+}
+
+function updatedFilterMatches(
+	value: string | Date | undefined,
+	filter: UpdatedFilter,
+): boolean {
+	if (filter === "all") return true;
+	if (!value) return false;
+	const ts = new Date(value).getTime();
+	if (!Number.isFinite(ts)) return false;
+	const ageDays = (Date.now() - ts) / (24 * 60 * 60 * 1000);
+	if (filter === "today") return ageDays < 1;
+	if (filter === "week") return ageDays < 7;
+	return ageDays < 30;
+}
+
+function getDocHref(doc: DocRow, team: string): string {
+	return doc.source === "personal"
+		? `/team/${team}/knowledge?note=${encodeURIComponent(doc.id)}`
+		: `/team/${team}/documents/${doc.id}`;
 }
 
 // -------- Pagination ----------------------------------------------------
@@ -130,8 +191,9 @@ function GroupSection({
 	defaultOpen = true,
 	focusedId,
 	viewMode,
+	onPreview,
 }: {
-	icon: any;
+	icon: IconComponent;
 	title: string;
 	count: number;
 	docs: DocRow[];
@@ -139,6 +201,7 @@ function GroupSection({
 	defaultOpen?: boolean;
 	focusedId?: string | null;
 	viewMode: ViewMode;
+	onPreview?: (id: string | null) => void;
 }) {
 	const [visibleCount, setVisibleCount] = useState(GROUP_PAGE);
 	const visible = docs.slice(0, visibleCount);
@@ -170,6 +233,7 @@ function GroupSection({
 								doc={d}
 								team={team}
 								focused={focusedId === d.id}
+								onPreview={onPreview}
 							/>
 						))}
 					</div>
@@ -177,7 +241,12 @@ function GroupSection({
 					<ul className="pb-2">
 						{visible.map((d) => (
 							<li key={d.id} data-jk-row={d.id}>
-								<DocListItem doc={d} team={team} focused={focusedId === d.id} />
+								<DocListItem
+									doc={d}
+									team={team}
+									focused={focusedId === d.id}
+									onPreview={onPreview}
+								/>
 							</li>
 						))}
 					</ul>
@@ -202,43 +271,66 @@ function DocListItem({
 	doc,
 	team,
 	focused,
+	onPreview,
 }: {
 	doc: DocRow;
 	team: string;
 	focused: boolean;
+	onPreview?: (id: string | null) => void;
 }) {
-	const href =
-		doc.source === "personal"
-			? `/team/${team}/knowledge?note=${encodeURIComponent(doc.id)}`
-			: `/team/${team}/documents/${doc.id}`;
+	const href = getDocHref(doc, team);
+	const labels = doc.labels ?? [];
 	return (
 		<Link
 			href={href}
+			onMouseEnter={() => onPreview?.(doc.id)}
+			onMouseLeave={() => onPreview?.(null)}
+			onFocus={() => onPreview?.(doc.id)}
+			onBlur={() => onPreview?.(null)}
 			className={cn(
-				"flex items-center gap-2 px-10 py-1.5 text-[13px] text-foreground transition-colors hover:bg-accent/40",
+				"grid grid-cols-[minmax(0,1.5fr)_minmax(120px,0.8fr)_auto] items-center gap-4 rounded-md border border-transparent px-3 py-2 text-[13px] text-foreground transition-colors hover:border-border/70 hover:bg-accent/35 focus-visible:border-violet-400/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/40",
 				focused && "ring-2 ring-violet-400/40 ring-inset",
 			)}
 		>
-			{doc.source === "personal" ? (
-				<BrainIcon className="size-3.5 text-violet-500" />
-			) : (
-				<DocumentIcon
-					icon={doc.icon}
-					className="size-3.5"
-					hasChildren={false}
-				/>
-			)}
-			<span className="truncate font-[510] tracking-[-0.005em]">
-				{doc.name || "Untitled"}
-			</span>
-			{doc.updatedAt && (
-				<span className="ml-auto text-[11px] text-muted-foreground">
-					{new Date(doc.updatedAt).toLocaleDateString(undefined, {
-						month: "short",
-						day: "numeric",
-					})}
+			<span className="flex min-w-0 items-center gap-2">
+				{doc.source === "personal" ? (
+					<BrainIcon className="size-3.5 shrink-0 text-violet-500" />
+				) : (
+					<DocumentIcon
+						icon={doc.icon}
+						className="size-3.5 shrink-0"
+						hasChildren={false}
+					/>
+				)}
+				<span className="min-w-0">
+					<span className="block truncate font-[510] tracking-[-0.005em]">
+						{doc.name || "Untitled"}
+					</span>
+					<span className="block truncate text-[11px] text-muted-foreground/80">
+						{doc.source === "personal"
+							? doc.knowledgeRelativePath || "Knowledge vault"
+							: doc.projectName || "Team-wide"}
+					</span>
 				</span>
-			)}
+			</span>
+			<span className="hidden min-w-0 items-center gap-1.5 md:flex">
+				{labels.slice(0, 2).map((label) => (
+					<LabelBadge
+						key={label.id}
+						name={label.name}
+						color={label.color ?? undefined}
+						className="h-[18px] max-w-24 truncate px-1.5 font-normal text-[10px]"
+					/>
+				))}
+				{labels.length > 2 && (
+					<span className="text-[11px] text-muted-foreground">
+						+{labels.length - 2}
+					</span>
+				)}
+			</span>
+			<span className="text-right text-[11px] text-muted-foreground">
+				{formatDate(doc.updatedAt)}
+			</span>
 		</Link>
 	);
 }
@@ -247,20 +339,24 @@ function DocCard({
 	doc,
 	team,
 	focused,
+	onPreview,
 }: {
 	doc: DocRow;
 	team: string;
 	focused: boolean;
+	onPreview?: (id: string | null) => void;
 }) {
-	const href =
-		doc.source === "personal"
-			? `/team/${team}/knowledge?note=${encodeURIComponent(doc.id)}`
-			: `/team/${team}/documents/${doc.id}`;
+	const href = getDocHref(doc, team);
+	const labels = doc.labels ?? [];
 	return (
 		<Link
 			href={href}
+			onMouseEnter={() => onPreview?.(doc.id)}
+			onMouseLeave={() => onPreview?.(null)}
+			onFocus={() => onPreview?.(doc.id)}
+			onBlur={() => onPreview?.(null)}
 			className={cn(
-				"flex flex-col gap-2 rounded-md border border-border bg-card p-3 transition-colors hover:border-border/80 hover:bg-accent/30",
+				"flex min-h-[132px] flex-col gap-3 rounded-md border border-border bg-card p-3 transition-colors hover:border-border/80 hover:bg-accent/30 focus-visible:border-violet-400/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/40",
 				focused && "ring-2 ring-violet-400/40",
 			)}
 		>
@@ -279,17 +375,150 @@ function DocCard({
 				</span>
 			</div>
 			<div className="flex items-center justify-between text-[11px] text-muted-foreground">
-				<span className="capitalize">{doc.source}</span>
-				{doc.updatedAt && (
-					<span>
-						{new Date(doc.updatedAt).toLocaleDateString(undefined, {
-							month: "short",
-							day: "numeric",
-						})}
-					</span>
-				)}
+				<span className="truncate">
+					{doc.source === "personal"
+						? doc.knowledgeRelativePath || "Knowledge vault"
+						: doc.projectName || "Team-wide"}
+				</span>
+				<span className="shrink-0">{formatDate(doc.updatedAt)}</span>
+			</div>
+			<div className="mt-auto flex min-h-5 flex-wrap items-center gap-1.5">
+				{labels.slice(0, 3).map((label) => (
+					<LabelBadge
+						key={label.id}
+						name={label.name}
+						color={label.color ?? undefined}
+						className="h-[18px] max-w-24 truncate px-1.5 font-normal text-[10px]"
+					/>
+				))}
 			</div>
 		</Link>
+	);
+}
+
+function DocumentsPreviewRail({
+	doc,
+	team,
+}: {
+	doc: DocRow | null;
+	team: string;
+}) {
+	const documentQuery = useQuery({
+		...trpc.documents.getById.queryOptions({ id: doc?.id ?? "" }),
+		enabled: doc?.source === "team",
+		staleTime: 30_000,
+	});
+	const noteQuery = useQuery({
+		...trpc.knowledge.getById.queryOptions({ id: doc?.id ?? "" }),
+		enabled: doc?.source === "personal",
+		staleTime: 30_000,
+	});
+
+	if (!doc) {
+		return (
+			<aside className="flex h-full w-[336px] flex-col rounded-md border border-border/60 bg-card/30 p-4">
+				<div className="flex items-center gap-2 text-[12px] text-muted-foreground">
+					<FileTextIcon className="size-3.5" />
+					<span>Hover or focus a document to preview it here.</span>
+				</div>
+			</aside>
+		);
+	}
+
+	const href = getDocHref(doc, team);
+	const isPersonal = doc.source === "personal";
+	const isLoading =
+		(isPersonal && noteQuery.isFetching && !noteQuery.data) ||
+		(!isPersonal && documentQuery.isFetching && !documentQuery.data);
+	const content = isPersonal
+		? (noteQuery.data?.content ?? "")
+		: (documentQuery.data?.content ?? "");
+	const labels = isPersonal
+		? []
+		: (documentQuery.data?.labels ?? doc.labels ?? []);
+	const preview = content.trim()
+		? content.trim().slice(0, 900)
+		: "No preview content yet.";
+	const truncated = content.trim().length > 900;
+
+	return (
+		<aside className="flex h-full w-[336px] flex-col overflow-hidden rounded-md border border-border/60 bg-card/40">
+			<div className="border-border/60 border-b p-4">
+				<div className="flex items-start gap-2">
+					<div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md bg-accent/70">
+						{isPersonal ? (
+							<BrainIcon className="size-3.5 text-violet-500" />
+						) : (
+							<DocumentIcon
+								icon={doc.icon}
+								className="size-3.5"
+								hasChildren={false}
+							/>
+						)}
+					</div>
+					<div className="min-w-0 grow">
+						<h2 className="truncate font-[510] text-[14px] text-foreground tracking-[-0.01em]">
+							{doc.name || "Untitled"}
+						</h2>
+						<p className="mt-1 truncate text-[11px] text-muted-foreground">
+							{isPersonal
+								? doc.knowledgeRelativePath || "Knowledge vault"
+								: doc.projectName || "Team-wide"}
+						</p>
+					</div>
+				</div>
+				<div className="mt-3 grid grid-cols-2 gap-2 text-[11px]">
+					<div className="rounded-md border border-border/50 bg-background/40 p-2">
+						<div className="text-muted-foreground">Source</div>
+						<div className="mt-0.5 font-[510] text-foreground capitalize">
+							{isPersonal ? "Personal" : "Team"}
+						</div>
+					</div>
+					<div className="rounded-md border border-border/50 bg-background/40 p-2">
+						<div className="text-muted-foreground">Updated</div>
+						<div className="mt-0.5 font-[510] text-foreground">
+							{formatDate(doc.updatedAt)}
+						</div>
+					</div>
+				</div>
+				{labels.length > 0 && (
+					<div className="mt-3 flex flex-wrap gap-1.5">
+						{labels.slice(0, 5).map((label) => (
+							<LabelBadge
+								key={label.id}
+								name={label.name}
+								color={label.color ?? undefined}
+								className="h-[18px] max-w-28 truncate px-1.5 font-normal text-[10px]"
+							/>
+						))}
+					</div>
+				)}
+			</div>
+			<div className="min-h-0 grow overflow-y-auto p-4">
+				{isLoading ? (
+					<div className="space-y-2">
+						<div className="h-2 w-3/4 animate-pulse rounded bg-muted/60" />
+						<div className="h-2 w-full animate-pulse rounded bg-muted/60" />
+						<div className="h-2 w-5/6 animate-pulse rounded bg-muted/60" />
+						<div className="h-2 w-2/3 animate-pulse rounded bg-muted/60" />
+					</div>
+				) : (
+					<pre className="whitespace-pre-wrap break-words font-sans text-[12px] text-foreground/80 leading-[1.55]">
+						{preview}
+						{truncated && <span className="text-muted-foreground/70">...</span>}
+					</pre>
+				)}
+			</div>
+			<div className="border-border/60 border-t p-3">
+				<Link
+					href={href}
+					className="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-md bg-primary px-3 font-[510] text-[12px] text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+				>
+					Open
+					<ArrowRightIcon className="size-3.5" />
+				</Link>
+			</div>
+		</aside>
 	);
 }
 
@@ -375,7 +604,7 @@ function Segmented<T extends string>({
 }: {
 	value: T;
 	onChange: (next: T) => void;
-	options: ReadonlyArray<{ value: T; label: string; icon?: any }>;
+	options: ReadonlyArray<{ value: T; label: string; icon?: IconComponent }>;
 	ariaLabel: string;
 }) {
 	return (
@@ -418,6 +647,7 @@ export function DocumentsIndexView() {
 	const searchParams = useSearchParams();
 	const [search, setSearch] = useState("");
 	const [debouncedSearch] = useDebounceValue(search, 300);
+	const [previewId, setPreviewId] = useState<string | null>(null);
 
 	// State precedence — URL param > localStorage > default. URL only wins
 	// when explicitly present so deep links can pin a view without
@@ -441,7 +671,7 @@ export function DocumentsIndexView() {
 			: readStored<ViewMode>(
 					VIEW_MODE_KEY,
 					["list", "grouped", "cards"] as const,
-					"list",
+					"grouped",
 				),
 	);
 	const [groupBy, setGroupByState] = useState<GroupBy>(() =>
@@ -450,8 +680,21 @@ export function DocumentsIndexView() {
 			: readStored<GroupBy>(
 					GROUP_BY_KEY,
 					["none", "category", "owner", "recency"] as const,
-					"none",
+					"category",
 				),
+	);
+	const [projectFilter, setProjectFilterState] = useState<string>(() =>
+		readStoredString(PROJECT_FILTER_KEY, "all"),
+	);
+	const [labelFilter, setLabelFilterState] = useState<string>(() =>
+		readStoredString(LABEL_FILTER_KEY, "all"),
+	);
+	const [updatedFilter, setUpdatedFilterState] = useState<UpdatedFilter>(() =>
+		readStored<UpdatedFilter>(
+			UPDATED_FILTER_KEY,
+			["all", "today", "week", "month"] as const,
+			"all",
+		),
 	);
 
 	// Persist on change. Wrappers keep call-sites readable and ensure the
@@ -467,6 +710,18 @@ export function DocumentsIndexView() {
 	const setGroupBy = (g: GroupBy) => {
 		setGroupByState(g);
 		writeStored(GROUP_BY_KEY, g);
+	};
+	const setProjectFilter = (projectId: string) => {
+		setProjectFilterState(projectId);
+		writeStored(PROJECT_FILTER_KEY, projectId);
+	};
+	const setLabelFilter = (labelId: string) => {
+		setLabelFilterState(labelId);
+		writeStored(LABEL_FILTER_KEY, labelId);
+	};
+	const setUpdatedFilter = (next: UpdatedFilter) => {
+		setUpdatedFilterState(next);
+		writeStored(UPDATED_FILTER_KEY, next);
 	};
 
 	// Re-sync from URL when params change after mount (e.g. deep-link nav
@@ -494,18 +749,16 @@ export function DocumentsIndexView() {
 		) {
 			setGroupByState(urlGroup);
 		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [urlScope, urlView, urlGroup]);
+	}, [urlScope, urlView, urlGroup, scope, viewMode, groupBy]);
 
 	// Team documents (Drizzle-backed). Skip when scope=personal to avoid an
 	// unused network round-trip.
 	const { data: docsPage } = useQuery({
 		...trpc.documents.get.queryOptions({
 			pageSize: 100,
-			...(debouncedSearch
-				? { search: debouncedSearch }
-				: { tree: false as any }),
-		} as any),
+			tree: false,
+			...(debouncedSearch ? { search: debouncedSearch } : {}),
+		}),
 		enabled: scope !== "personal",
 	});
 
@@ -514,13 +767,20 @@ export function DocumentsIndexView() {
 	const { data: notesPage } = useQuery({
 		...trpc.knowledge.get.queryOptions({
 			...(debouncedSearch ? { search: debouncedSearch } : {}),
-		} as any),
+		}),
 		enabled: scope !== "team",
 	});
 
 	const { data: projects } = useQuery(
-		trpc.projects.get.queryOptions({ pageSize: 100 } as any),
+		trpc.projects.get.queryOptions({ pageSize: 100 }),
 	);
+
+	const projectsById = useMemo(() => {
+		const out = new Map<string, { id: string; name: string }>();
+		const items = (projects?.data ?? []) as Array<{ id: string; name: string }>;
+		for (const p of items) out.set(p.id, p);
+		return out;
+	}, [projects]);
 
 	const teamDocs = useMemo<DocRow[]>(() => {
 		if (scope === "personal") return [];
@@ -529,17 +789,22 @@ export function DocumentsIndexView() {
 			name: string | null;
 			icon?: string | null;
 			projectId: string | null;
+			parentId?: string | null;
 			updatedAt?: string | Date;
+			labels?: DocumentLabel[] | null;
 		}>;
 		return items.map((d) => ({
 			id: d.id,
 			name: d.name,
 			icon: d.icon,
 			projectId: d.projectId,
+			projectName: d.projectId ? projectsById.get(d.projectId)?.name : null,
+			parentId: d.parentId,
 			updatedAt: d.updatedAt,
+			labels: d.labels ?? [],
 			source: "team" as const,
 		}));
-	}, [docsPage, scope]);
+	}, [docsPage, scope, projectsById]);
 
 	const personalNotes = useMemo<DocRow[]>(() => {
 		if (scope === "team") return [];
@@ -550,33 +815,63 @@ export function DocumentsIndexView() {
 			parentDir: string | null;
 			updatedAt: string;
 		}>;
-		return items.map((n): DocRow => ({
-			id: n.id,
-			name: n.name,
-			projectId: null,
-			updatedAt: n.updatedAt,
-			source: "personal" as const,
-			knowledgeRelativePath: n.relativePath,
-		}));
+		return items.map(
+			(n): DocRow => ({
+				id: n.id,
+				name: n.name,
+				projectId: null,
+				updatedAt: n.updatedAt,
+				source: "personal" as const,
+				knowledgeRelativePath: n.relativePath,
+			}),
+		);
 	}, [notesPage, scope]);
 
 	const docs = useMemo<DocRow[]>(() => {
 		// Merge + sort by updatedAt desc so the union view feels like one
 		// timeline rather than two stacked lists.
-		const merged = [...teamDocs, ...personalNotes];
+		const merged = [...teamDocs, ...personalNotes].filter((d) => {
+			if (
+				projectFilter !== "all" &&
+				(d.source !== "team" ||
+					(projectFilter === "team-wide"
+						? d.projectId !== null
+						: d.projectId !== projectFilter))
+			) {
+				return false;
+			}
+			if (
+				labelFilter !== "all" &&
+				(d.source !== "team" ||
+					!(d.labels ?? []).some((label) => label.id === labelFilter))
+			) {
+				return false;
+			}
+			return updatedFilterMatches(d.updatedAt, updatedFilter);
+		});
 		return merged.sort((a, b) => {
 			const at = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
 			const bt = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
 			return bt - at;
 		});
-	}, [teamDocs, personalNotes]);
+	}, [teamDocs, personalNotes, projectFilter, labelFilter, updatedFilter]);
 
-	const projectsById = useMemo(() => {
-		const out = new Map<string, { id: string; name: string }>();
-		const items = (projects?.data ?? []) as Array<{ id: string; name: string }>;
-		for (const p of items) out.set(p.id, p);
-		return out;
-	}, [projects]);
+	const labelOptions = useMemo(() => {
+		const out = new Map<string, DocumentLabel>();
+		for (const doc of teamDocs) {
+			for (const label of doc.labels ?? []) {
+				out.set(label.id, label);
+			}
+		}
+		return Array.from(out.values()).sort((a, b) =>
+			a.name.localeCompare(b.name),
+		);
+	}, [teamDocs]);
+
+	const previewDoc = useMemo(
+		() => docs.find((d) => d.id === previewId) ?? docs[0] ?? null,
+		[docs, previewId],
+	);
 
 	const jkIds = useMemo(() => docs.map((d) => d.id), [docs]);
 	const docById = useMemo(() => {
@@ -606,7 +901,12 @@ export function DocumentsIndexView() {
 
 	// -------- Grouping --------------------------------------------------
 
-	type Group = { key: string; title: string; icon: any; docs: DocRow[] };
+	type Group = {
+		key: string;
+		title: string;
+		icon: IconComponent;
+		docs: DocRow[];
+	};
 
 	const groups = useMemo<Group[]>(() => {
 		if (viewMode !== "grouped") return [];
@@ -730,17 +1030,23 @@ export function DocumentsIndexView() {
 
 	// -------- Render ----------------------------------------------------
 
-	const isEmpty = docs.length === 0 && !debouncedSearch;
+	const hasActiveFilters =
+		Boolean(debouncedSearch) ||
+		projectFilter !== "all" ||
+		labelFilter !== "all" ||
+		updatedFilter !== "all";
+	const isEmpty =
+		teamDocs.length + personalNotes.length === 0 && !hasActiveFilters;
 
 	return (
 		<div className="flex h-full flex-col">
-			<header className="border-border border-b px-6 py-3">
-				<div className="flex items-baseline justify-between gap-4">
+			<header className="border-border border-b px-6 py-4">
+				<div className="flex flex-wrap items-start justify-between gap-4">
 					<div>
-						<h1 className="font-[510] text-[15px] text-foreground tracking-[-0.012em]">
+						<h1 className="font-[510] text-[18px] text-foreground tracking-[-0.012em]">
 							Documents
 						</h1>
-						<p className="mt-0.5 text-[12px] text-muted-foreground">
+						<p className="mt-1 max-w-2xl text-[12px] text-muted-foreground">
 							{scope === "personal"
 								? "Personal notes from your Knowledge vault."
 								: scope === "team"
@@ -748,11 +1054,29 @@ export function DocumentsIndexView() {
 									: "All your written work — team docs and personal notes."}
 						</p>
 					</div>
-					<JkHint />
+					<div className="flex items-center gap-3">
+						<JkHint />
+						<Link
+							href={`/team/${team}/documents/create`}
+							className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 font-[510] text-[12px] text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+						>
+							<PlusIcon className="size-3.5" />
+							New
+						</Link>
+					</div>
 				</div>
 
 				{/* Scope + view-mode + group-by toolbar. */}
-				<div className="mt-3 flex flex-wrap items-center gap-3">
+				<div className="mt-4 flex flex-wrap items-center gap-2">
+					<div className="relative mr-1 w-full max-w-sm sm:w-72">
+						<SearchIcon className="-translate-y-1/2 absolute top-1/2 left-2.5 size-3.5 text-muted-foreground" />
+						<Input
+							value={search}
+							onChange={(e) => setSearch(e.target.value)}
+							placeholder="Search documents…"
+							className="h-8 pl-8 text-[12px]"
+						/>
+					</div>
 					<Segmented<Scope>
 						ariaLabel="Document scope"
 						value={scope}
@@ -773,80 +1097,131 @@ export function DocumentsIndexView() {
 							{ value: "cards", label: "Cards", icon: LayoutGridIcon },
 						]}
 					/>
-					{viewMode === "grouped" && (
-						<Select
-							value={groupBy}
-							onValueChange={(v) => setGroupBy(v as GroupBy)}
-						>
-							<SelectTrigger className="h-7 w-[160px] text-[12px]">
-								<SelectValue placeholder="Group by" />
-							</SelectTrigger>
-							<SelectContent>
-								<SelectItem value="none">No grouping</SelectItem>
-								<SelectItem value="category">Group by category</SelectItem>
-								<SelectItem value="owner">Group by owner</SelectItem>
-								<SelectItem value="recency">Group by recency</SelectItem>
-							</SelectContent>
-						</Select>
-					)}
-					<div className="relative ml-auto w-full max-w-xs sm:w-auto">
-						<SearchIcon className="-translate-y-1/2 absolute top-1/2 left-2 size-3.5 text-muted-foreground" />
-						<Input
-							value={search}
-							onChange={(e) => setSearch(e.target.value)}
-							placeholder="Search documents…"
-							className="h-7 pl-7 text-[12px] sm:w-64"
-						/>
-					</div>
+					<Select
+						value={groupBy}
+						onValueChange={(v) => setGroupBy(v as GroupBy)}
+						disabled={viewMode !== "grouped"}
+					>
+						<SelectTrigger className="h-8 w-[164px] text-[12px]">
+							<ListTreeIcon className="mr-1.5 size-3.5 text-muted-foreground" />
+							<SelectValue placeholder="Group by" />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="none">No grouping</SelectItem>
+							<SelectItem value="category">Group by category</SelectItem>
+							<SelectItem value="owner">Group by owner</SelectItem>
+							<SelectItem value="recency">Group by recency</SelectItem>
+						</SelectContent>
+					</Select>
+					<Select value={projectFilter} onValueChange={setProjectFilter}>
+						<SelectTrigger className="h-8 w-[172px] text-[12px]">
+							<FilterIcon className="mr-1.5 size-3.5 text-muted-foreground" />
+							<SelectValue placeholder="Project" />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="all">All projects</SelectItem>
+							<SelectItem value="team-wide">Team-wide</SelectItem>
+							{Array.from(projectsById.values()).map((project) => (
+								<SelectItem key={project.id} value={project.id}>
+									{project.name}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+					<Select value={labelFilter} onValueChange={setLabelFilter}>
+						<SelectTrigger className="h-8 w-[156px] text-[12px]">
+							<TagsIcon className="mr-1.5 size-3.5 text-muted-foreground" />
+							<SelectValue placeholder="Label" />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="all">All labels</SelectItem>
+							{labelOptions.map((label) => (
+								<SelectItem key={label.id} value={label.id}>
+									{label.name}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+					<Select
+						value={updatedFilter}
+						onValueChange={(v) => setUpdatedFilter(v as UpdatedFilter)}
+					>
+						<SelectTrigger className="h-8 w-[148px] text-[12px]">
+							<CalendarDaysIcon className="mr-1.5 size-3.5 text-muted-foreground" />
+							<SelectValue placeholder="Updated" />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="all">Any time</SelectItem>
+							<SelectItem value="today">Today</SelectItem>
+							<SelectItem value="week">This week</SelectItem>
+							<SelectItem value="month">This month</SelectItem>
+						</SelectContent>
+					</Select>
 				</div>
 			</header>
 
-			<div className="grow overflow-y-auto">
-				{isEmpty ? (
-					<DocumentsEmptyState team={team} />
-				) : viewMode === "grouped" ? (
-					groups.map((g) => (
-						<GroupSection
-							key={g.key}
-							icon={g.icon}
-							title={g.title}
-							count={g.docs.length}
-							docs={g.docs}
-							team={team}
-							defaultOpen={true}
-							focusedId={jk.focusedId}
-							viewMode="list"
-						/>
-					))
-				) : viewMode === "cards" ? (
-					<div className="grid grid-cols-1 gap-3 p-6 sm:grid-cols-2 xl:grid-cols-3">
-						{docs.map((d) => (
-							<DocCard
-								key={d.id}
-								doc={d}
-								team={team}
-								focused={jk.focusedId === d.id}
-							/>
-						))}
-					</div>
-				) : (
-					<ul className="py-2">
-						{docs.map((d) => (
-							<li key={d.id} data-jk-row={d.id} className="px-4">
-								<DocListItem
+			<div className="flex min-h-0 grow">
+				<div className="min-w-0 grow overflow-y-auto">
+					{isEmpty ? (
+						<DocumentsEmptyState team={team} />
+					) : docs.length === 0 ? (
+						<div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
+							<FileTextIcon className="size-10 text-muted-foreground/60" />
+							<p className="font-[510] text-[13px] text-foreground">
+								No documents match these filters.
+							</p>
+							<p className="max-w-sm text-[12px] text-muted-foreground">
+								Adjust search, project, label, or updated date to widen the
+								result set.
+							</p>
+						</div>
+					) : viewMode === "grouped" ? (
+						<div className="px-6 py-4">
+							{groups.map((g) => (
+								<GroupSection
+									key={g.key}
+									icon={g.icon}
+									title={g.title}
+									count={g.docs.length}
+									docs={g.docs}
+									team={team}
+									defaultOpen={true}
+									focusedId={jk.focusedId}
+									viewMode="list"
+									onPreview={setPreviewId}
+								/>
+							))}
+						</div>
+					) : viewMode === "cards" ? (
+						<div className="grid grid-cols-1 gap-3 p-6 sm:grid-cols-2 xl:grid-cols-3">
+							{docs.map((d) => (
+								<DocCard
+									key={d.id}
 									doc={d}
 									team={team}
 									focused={jk.focusedId === d.id}
+									onPreview={setPreviewId}
 								/>
-							</li>
-						))}
-					</ul>
-				)}
-				{!isEmpty && docs.length === 0 && (
-					<div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
-						<p className="text-[13px] text-muted-foreground">
-							No matches for "{debouncedSearch}".
-						</p>
+							))}
+						</div>
+					) : (
+						<ul className="space-y-1 p-6">
+							{docs.map((d) => (
+								<li key={d.id} data-jk-row={d.id}>
+									<DocListItem
+										doc={d}
+										team={team}
+										focused={jk.focusedId === d.id}
+										onPreview={setPreviewId}
+									/>
+								</li>
+							))}
+						</ul>
+					)}
+				</div>
+				{!isEmpty && docs.length > 0 && (
+					<div className="hidden shrink-0 border-border/60 border-l px-4 py-4 xl:block">
+						<DocumentsPreviewRail doc={previewDoc} team={team} />
 					</div>
 				)}
 			</div>
