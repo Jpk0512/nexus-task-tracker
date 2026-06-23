@@ -1,13 +1,6 @@
 # Tasks
 
-> Auto-synced from `.memory/project.db` by `.memory/sync_docs.py`. Do not edit the table by hand.
->
-> Docs-audit reconciliation (2026-06-21): index verified against the live DB and repo —
-> 38 tasks, scope is `@nexus-app/*` (renamed from `@mimir/*`, commit `60e3bd5`; DEC-014 supersedes
-> DEC-002's keep-`@mimir`), billing/Stripe removed (no billing code; TASK-006), FEAT-002 shipped
-> (Todos, Knowledge vault, Prompt library, stdio MCP server — local-only via `app/docker-compose.local.yaml`).
-> Open tasks are exactly TASK-028, TASK-030, TASK-031; all other TASK-011..038 are done.
-> The lone `@mimir/billing` string below is TASK-030's title naming the *fix target* `@nexus-app/billing`.
+> Auto-synced from `.memory/project.db`. Do not edit by hand.
 
 ## FEAT-001 — Repurpose Nexus (13/13 done, 100%)
 
@@ -27,7 +20,7 @@
 | **TASK-022** — Dashboard 500: next/dynamic ssr:false in Server Component layout (P7 latent, surfaced by rebuild) | done |  | 2026-06-20 |
 | **TASK-023** — Seed script not idempotent: tasks block aborts on populated DB (duplicate permalink_id) | done |  | 2026-06-21 |
 
-## FEAT-002 — Next Features (14/16 done, 87%)
+## FEAT-002 — Next Features (17/17 done, 100%)
 
 | Task | Status | Owner | Updated |
 |------|--------|-------|---------|
@@ -44,16 +37,17 @@
 | **TASK-025** — TASK-012 polish: optional safeResolve fail-fast in knowledge.updateVault | done | forge-wire | 2026-06-21 |
 | **TASK-026** — Provision dashboard RTL/jsdom test harness (enable behavioral component tests) | done | forge-ui+forge-wire | 2026-06-21 |
 | **TASK-027** — Drive dashboard/api project-wide tsc baseline to zero (92 pre-existing errors) | done | forge-ui+forge-wire | 2026-06-21 |
-| **TASK-028** — Prod docker build: install production-only deps (vitest-4 native bindings flake the build) | todo | hermes | 2026-06-21 |
+| **TASK-028** — Prod docker build: install production-only deps (vitest-4 native bindings flake the build) | done | hermes | 2026-06-21 |
 | **TASK-029** — Build api tRPC-caller test harness + behavioral IDOR/team-scoping tests | done | forge-wire+quill-ts | 2026-06-21 |
-| **TASK-030** — FEAT-001 spec: update @mimir/billing grep-lines to @nexus-app/billing (DEC-014) | todo | forge-ui | 2026-06-21 |
+| **TASK-030** — FEAT-001 spec: update @mimir/billing grep-lines to @nexus-app/billing (DEC-014) | done | forge-ui | 2026-06-21 |
+| **TASK-039** — Knowledge tab redesign: grouped vault hub, filters, seeded notes, inspector | done | codex | 2026-06-23 |
 
 ## Infrastructure / Housekeeping (8/9 done, 88%)
 
 | Task | Status | Owner | Updated |
 |------|--------|-------|---------|
 | **TASK-016** — Repo hygiene: gitignore/remove Nexus-install backup dirt | done |  | 2026-06-21 |
-| **TASK-031** — PRISM setup: repoint safe-working-dir from prism/ install tree to project root | todo | hermes | 2026-06-21 |
+| **TASK-031** — PRISM setup: repoint safe-working-dir from prism/ install tree to project root | cancelled | hermes | 2026-06-21 |
 | **TASK-032** — SECURITY CRITICAL: cross-tenant IDORs in tasks.ts + agents.ts + task-executions + teams routers | done | forge-wire+quill-ts | 2026-06-21 |
 | **TASK-033** — TASK-012 bug: knowledge_links not re-indexed on in-app editor save; stale-note deletion skipped when vault emptied | done | forge-wire+quill-ts | 2026-06-21 |
 | **TASK-034** — TASK-011 GWT miss + a11y: row project pill not clickable to filter; filter pills missing focus ring | done | forge-ui+quill-ts | 2026-06-21 |
