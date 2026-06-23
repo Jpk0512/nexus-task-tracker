@@ -5,53 +5,43 @@ import { Badge } from "@ui/components/ui/badge";
 import { Button } from "@ui/components/ui/button";
 import { Input } from "@ui/components/ui/input";
 import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@ui/components/ui/select";
+import { cn } from "@ui/lib/utils";
+import {
 	AlertCircleIcon,
 	BookOpenIcon,
 	BrainIcon,
 	CalendarIcon,
 	CheckIcon,
-	EyeIcon,
-	EyeOffIcon,
 	FileTextIcon,
 	FolderIcon,
-	FolderOpenIcon,
 	FolderTreeIcon,
 	LayersIcon,
 	LightbulbIcon,
+	type LucideIcon,
 	PencilLineIcon,
 	PlusIcon,
 	RefreshCwIcon,
 	SaveIcon,
 	SearchIcon,
+	TagsIcon,
 	Trash2Icon,
 } from "lucide-react";
-import Link from "next/link";
-import { useParams, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { BacklinksPanel } from "@/components/backlinks/backlinks-panel";
 import { BlockEditor } from "@/components/editor/block-editor";
-import {
-	type KnowledgeNoteRow,
-	NoteGroup,
-} from "@/components/knowledge/note-group";
 import { WikiLinkInline } from "@/components/knowledge/wiki-link-inline";
 import { trpc } from "@/utils/trpc";
 
-// Knowledge tab — Obsidian vault editor. Linear-style left rail: grouped
-// collapsible sections by parent directory (Daily / Permanent / Drafts /
-// References / Projects / Ideas / Other), plus an empty-state CTA panel on the
-// right when no note is selected.
-
-type NoteListItem = {
-	id: string;
-	name: string;
-	relativePath: string;
-	parentDir: string | null;
-	updatedAt: string;
-};
-
-type GroupKey =
+type Category =
+	| "all"
 	| "daily"
 	| "permanent"
 	| "drafts"
@@ -59,12 +49,26 @@ type GroupKey =
 	| "projects"
 	| "ideas"
 	| "other";
+type ViewMode = "list" | "cards";
+type UpdatedFilter = "all" | "week" | "month";
+type InspectorMode = "preview" | "edit";
+type SaveState = "idle" | "dirty" | "saving" | "saved" | "conflict";
 
-type GroupDef = {
-	key: GroupKey;
+type Frontmatter = Record<string, unknown>;
+
+type NoteListItem = {
+	id: string;
+	name: string;
+	relativePath: string;
+	parentDir: string | null;
+	updatedAt: string;
+	frontmatter: Frontmatter | null;
+};
+
+type CategoryDef = {
+	key: Exclude<Category, "all">;
 	title: string;
-	icon: any;
-	// Predicate against the relativePath (forward-slash normalized).
+	icon: LucideIcon;
 	match: (path: string) => boolean;
 };
 
@@ -76,23 +80,21 @@ const RESERVED_TOP_DIRS = new Set([
 	"ideas",
 ]);
 
-const GROUPS: GroupDef[] = [
+const CATEGORY_DEFS: CategoryDef[] = [
 	{
 		key: "daily",
 		title: "Daily",
 		icon: CalendarIcon,
-		match: (p) => /^daily\//i.test(p),
+		match: (path) => /^daily\//i.test(path),
 	},
 	{
 		key: "permanent",
 		title: "Permanent",
 		icon: LayersIcon,
-		// Anything NOT in one of the reserved subtrees. Includes top-level files.
-		match: (p) => {
-			const first = p.split("/")[0]?.toLowerCase() ?? "";
+		match: (path) => {
+			const first = path.split("/")[0]?.toLowerCase() ?? "";
 			if (!first) return false;
-			// Top-level file (no slash) — treat as permanent.
-			if (!p.includes("/")) return true;
+			if (!path.includes("/")) return true;
 			return !RESERVED_TOP_DIRS.has(first);
 		},
 	},
@@ -100,236 +102,292 @@ const GROUPS: GroupDef[] = [
 		key: "drafts",
 		title: "Drafts",
 		icon: PencilLineIcon,
-		match: (p) => /^drafts\//i.test(p),
+		match: (path) => /^drafts\//i.test(path),
 	},
 	{
 		key: "references",
 		title: "References",
 		icon: BookOpenIcon,
-		match: (p) => /^references\//i.test(p),
+		match: (path) => /^references\//i.test(path),
 	},
 	{
 		key: "projects",
 		title: "Projects",
 		icon: FolderIcon,
-		match: (p) => /^projects\//i.test(p),
+		match: (path) => /^projects\//i.test(path),
 	},
 	{
 		key: "ideas",
 		title: "Ideas",
 		icon: LightbulbIcon,
-		match: (p) => /^ideas\//i.test(p),
+		match: (path) => /^ideas\//i.test(path),
+	},
+	{
+		key: "other",
+		title: "Other",
+		icon: FolderTreeIcon,
+		match: () => true,
 	},
 ];
-
-const OTHER_GROUP: GroupDef = {
-	key: "other",
-	title: "Other",
-	icon: FolderTreeIcon,
-	match: () => true,
-};
 
 function normalize(path: string): string {
 	return path.replace(/\\+/g, "/");
 }
 
-function classify(note: NoteListItem): GroupKey {
-	const p = normalize(note.relativePath);
-	for (const g of GROUPS) {
-		if (g.match(p)) return g.key;
+function classify(
+	note: Pick<NoteListItem, "relativePath">,
+): CategoryDef["key"] {
+	const path = normalize(note.relativePath);
+	for (const category of CATEGORY_DEFS) {
+		if (category.match(path)) return category.key;
 	}
 	return "other";
+}
+
+function formatDate(value?: string | Date | null): string {
+	if (!value) return "No edits yet";
+	return new Date(value).toLocaleDateString(undefined, {
+		month: "short",
+		day: "numeric",
+		year:
+			new Date(value).getFullYear() === new Date().getFullYear()
+				? undefined
+				: "numeric",
+	});
+}
+
+function updatedFilterMatches(value: string | Date, filter: UpdatedFilter) {
+	if (filter === "all") return true;
+	const ts = new Date(value).getTime();
+	if (!Number.isFinite(ts)) return false;
+	const ageDays = (Date.now() - ts) / (24 * 60 * 60 * 1000);
+	return filter === "week" ? ageDays < 7 : ageDays < 30;
+}
+
+function frontmatterString(
+	frontmatter: Frontmatter | null | undefined,
+	key: string,
+): string | null {
+	const value = frontmatter?.[key];
+	return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function frontmatterArray(
+	frontmatter: Frontmatter | null | undefined,
+	key: string,
+): string[] {
+	const value = frontmatter?.[key];
+	if (Array.isArray(value)) {
+		return value.filter((item): item is string => typeof item === "string");
+	}
+	if (typeof value === "string" && value.trim()) return [value.trim()];
+	return [];
+}
+
+function displayTitle(note: NoteListItem): string {
+	return (
+		frontmatterString(note.frontmatter, "title") || note.name || "Untitled"
+	);
+}
+
+function statusLabel(note: NoteListItem): string {
+	const explicit = frontmatterString(note.frontmatter, "status");
+	if (explicit) return explicit;
+	const category = classify(note);
+	if (category === "daily") return "daily";
+	if (category === "drafts") return "draft";
+	if (category === "references") return "reference";
+	if (category === "ideas") return "idea";
+	if (category === "projects") return "active";
+	return "note";
+}
+
+function buildFrontmatterContent(
+	frontmatter: Frontmatter | null,
+	body: string,
+): string {
+	if (!frontmatter || Object.keys(frontmatter).length === 0) return body;
+	const lines = ["---"];
+	for (const [key, value] of Object.entries(frontmatter)) {
+		if (Array.isArray(value)) {
+			lines.push(
+				`${key}: [${value.map((item) => JSON.stringify(item)).join(", ")}]`,
+			);
+		} else if (typeof value === "string") {
+			lines.push(
+				`${key}: ${/[:#]/.test(value) ? JSON.stringify(value) : value}`,
+			);
+		} else {
+			lines.push(`${key}: ${value}`);
+		}
+	}
+	lines.push("---", "", body);
+	return lines.join("\n");
+}
+
+function parseWikiLinks(
+	content: string,
+	notes: NoteListItem[],
+): Array<{ key: string; text: string; toNoteId: string | null }> {
+	const byBasename = new Map<string, string>();
+	for (const note of notes) {
+		const base = note.relativePath
+			.split("/")
+			.pop()!
+			.replace(/\.md$/i, "")
+			.toLowerCase();
+		if (!byBasename.has(base)) byBasename.set(base, note.id);
+		const nameKey = note.name.toLowerCase();
+		if (!byBasename.has(nameKey)) byBasename.set(nameKey, note.id);
+		const title = frontmatterString(note.frontmatter, "title");
+		if (title && !byBasename.has(title.toLowerCase())) {
+			byBasename.set(title.toLowerCase(), note.id);
+		}
+	}
+
+	const out: Array<{ key: string; text: string; toNoteId: string | null }> = [];
+	const seen = new Set<string>();
+	let index = 0;
+	for (const match of content.matchAll(/\[\[([^\]]+)\]\]/g)) {
+		const text = match[1].split("|")[0].trim();
+		const key = text.toLowerCase();
+		index++;
+		if (!text || seen.has(key)) continue;
+		seen.add(key);
+		out.push({
+			key: `${key}-${index}`,
+			text,
+			toNoteId: byBasename.get(key) ?? null,
+		});
+	}
+	return out;
 }
 
 export function KnowledgeView() {
 	const qc = useQueryClient();
 	const searchParams = useSearchParams();
-	const { team } = useParams<{ team: string }>();
 	const initialNoteId = searchParams?.get("note") ?? null;
 	const [search, setSearch] = useState("");
+	const [category, setCategory] = useState<Category>("all");
+	const [status, setStatus] = useState("all");
+	const [updatedFilter, setUpdatedFilter] = useState<UpdatedFilter>("all");
+	const [viewMode, setViewMode] = useState<ViewMode>("list");
 	const [selectedId, setSelectedId] = useState<string | null>(initialNoteId);
-	const [draft, setDraft] = useState("");
-	const [newPath, setNewPath] = useState("");
+	const [inspectorMode, setInspectorMode] = useState<InspectorMode>("preview");
 	const [showNew, setShowNew] = useState(false);
-	const [browseAll, setBrowseAll] = useState(false);
-	// "Manage categories" toggle — when off (default), empty groups are hidden
-	// to reduce sidebar clutter (per iter-10 visual-baseline). When on, all
-	// reserved categories render even when empty so the user can discover
-	// where new notes will land.
-	const [showAllCategories, setShowAllCategories] = useState(false);
-	const newPathInputRef = useRef<HTMLInputElement | null>(null);
-
-	// Auto-save state machine for the BlockEditor (GWT#5). The header-right
-	// indicator reflects this; "conflict" is transient — we re-fetch the disk
-	// sha and re-save (last-write-wins, DEC-010) rather than block the user.
-	const [autoSaveState, setAutoSaveState] = useState<
-		"idle" | "dirty" | "saving" | "saved" | "conflict"
-	>("idle");
-	// Debounce timer + the latest editor content/sha, kept in refs so the
-	// blur-triggered timeout always reads fresh values without re-binding.
-	const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-	// Single-flight mutex: skip if a save is already in progress so rapid
-	// blur/refocus cannot enqueue two concurrent knowledge.update mutations.
-	const saveInFlight = useRef(false);
+	const [newPath, setNewPath] = useState("");
+	const [draft, setDraft] = useState("");
+	const [saveState, setSaveState] = useState<SaveState>("idle");
 	const draftRef = useRef("");
 	const shaRef = useRef<string | null>(null);
-	// Stable ref to autoSave so the trailing-edge setTimeout closure always
-	// invokes the latest version without a circular useCallback dep.
-	const autoSaveRef = useRef<() => Promise<void>>(async () => {});
+	const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const saveInFlight = useRef(false);
 
-	const listQuery = useQuery(
-		trpc.knowledge.get.queryOptions({ search: search || undefined }),
+	const listInput = useMemo(
+		() => ({
+			...(search.trim() ? { search: search.trim() } : {}),
+		}),
+		[search],
 	);
+	const listQuery = useQuery({
+		...trpc.knowledge.get.queryOptions(listInput),
+		enabled: true,
+	});
+	const notes = (listQuery.data?.notes ?? []) as NoteListItem[];
+	const selectedNote = notes.find((note) => note.id === selectedId) ?? null;
+
+	useEffect(() => {
+		if (!selectedId && notes.length > 0) {
+			setSelectedId(notes[0]!.id);
+		}
+	}, [notes, selectedId]);
+
 	const noteQuery = useQuery({
 		...trpc.knowledge.getById.queryOptions({ id: selectedId ?? "" }),
 		enabled: !!selectedId,
 	});
 
+	const refetchList = useCallback(() => {
+		void qc.invalidateQueries({ queryKey: trpc.knowledge.get.queryKey() });
+	}, [qc]);
+	const refetchNote = useCallback(() => {
+		void qc.invalidateQueries({ queryKey: trpc.knowledge.getById.queryKey() });
+	}, [qc]);
+
 	useEffect(() => {
-		if (noteQuery.data) {
-			// Construct file content from frontmatter + body (round-tripped).
-			const fm = noteQuery.data.frontmatter as Record<string, unknown> | null;
-			const lines: string[] = [];
-			if (fm && Object.keys(fm).length > 0) {
-				lines.push("---");
-				for (const [k, v] of Object.entries(fm)) {
-					if (Array.isArray(v)) {
-						lines.push(`${k}: [${v.map((x) => JSON.stringify(x)).join(", ")}]`);
-					} else if (typeof v === "string") {
-						lines.push(`${k}: ${/[:#]/.test(v) ? JSON.stringify(v) : v}`);
-					} else {
-						lines.push(`${k}: ${v}`);
-					}
-				}
-				lines.push("---");
-				lines.push("");
-			}
-			lines.push(noteQuery.data.content ?? "");
-			const next = lines.join("\n");
-			setDraft(next);
-			draftRef.current = next;
-			shaRef.current = noteQuery.data.fileSha;
-			setAutoSaveState("idle");
-		}
-	}, [noteQuery.data?.id, noteQuery.data?.fileSha]);
+		if (!noteQuery.data) return;
+		const next = buildFrontmatterContent(
+			(noteQuery.data.frontmatter as Frontmatter | null) ?? null,
+			noteQuery.data.content ?? "",
+		);
+		setDraft(next);
+		draftRef.current = next;
+		shaRef.current = noteQuery.data.fileSha;
+		setSaveState("idle");
+	}, [noteQuery.data?.id, noteQuery.data?.fileSha, noteQuery.data]);
 
-	const refetchList = () =>
-		qc.invalidateQueries({ queryKey: [["knowledge", "get"]] });
-	const refetchNote = () =>
-		qc.invalidateQueries({ queryKey: [["knowledge", "getById"]] });
-
-	const scanMut = useMutation(
-		trpc.knowledge.scan.mutationOptions({
-			onSuccess: (data) => {
-				const total = (
-					data as {
-						results: Array<{
-							inserted: number;
-							updated: number;
-							deleted: number;
-						}>;
-					}
-				).results.reduce((n, r) => n + r.inserted + r.updated + r.deleted, 0);
-				toast.success(
-					total === 0
-						? "Vault is up to date"
-						: `Re-scanned (${total} change${total === 1 ? "" : "s"})`,
-				);
-				refetchList();
-				refetchNote();
-			},
-			onError: (e) => toast.error(e.message),
-		}),
-	);
-	const createMut = useMutation(
-		trpc.knowledge.create.mutationOptions({
-			onSuccess: (note) => {
-				toast.success(`Created ${(note as any).relativePath}`);
-				setShowNew(false);
-				setNewPath("");
-				setSelectedId((note as any).id);
-				refetchList();
-			},
-			onError: (e) => toast.error(e.message),
-		}),
-	);
 	const updateMut = useMutation(
 		trpc.knowledge.update.mutationOptions({
 			onSuccess: () => {
-				toast.success("Saved to disk");
 				refetchList();
 				refetchNote();
 			},
-			onError: (e) => toast.error(e.message),
+			onError: (error) => toast.error(error.message),
 		}),
 	);
-
-	// Auto-save (GWT#5): blur fires the knowledge.update mutation after a 500ms
-	// debounce. A CONFLICT (disk sha moved under us) re-fetches the live sha via
-	// getById and re-saves the editor content immediately — last-write-wins,
-	// DEC-010. The header indicator alone narrates; nothing blocks the writer.
 	const updateAsync = updateMut.mutateAsync;
 	const autoSave = useCallback(async () => {
-		if (saveInFlight.current) return;
-		const id = selectedId;
-		if (!id) return;
+		if (!selectedId || saveInFlight.current) return;
 		saveInFlight.current = true;
 		const content = draftRef.current;
-		setAutoSaveState("saving");
+		setSaveState("saving");
 		try {
-			await updateAsync({ id, content, expectedSha: shaRef.current ?? "" });
-			setAutoSaveState("saved");
+			await updateAsync({
+				id: selectedId,
+				content,
+				expectedSha: shaRef.current ?? "",
+			});
+			setSaveState("saved");
 			refetchList();
 			refetchNote();
-		} catch (err) {
-			const isConflict = err instanceof Error && /CONFLICT/i.test(err.message);
+		} catch (error) {
+			const isConflict =
+				error instanceof Error && /CONFLICT/i.test(error.message);
 			if (!isConflict) {
-				setAutoSaveState("idle");
-				toast.error(err instanceof Error ? err.message : "Save failed");
-				saveInFlight.current = false;
+				setSaveState("idle");
+				toast.error(error instanceof Error ? error.message : "Save failed");
 				return;
 			}
-			setAutoSaveState("conflict");
-			// Re-fetch the current note (fresh fileSha) and re-save (LWW).
-			try {
-				const fresh = await qc.fetchQuery(
-					trpc.knowledge.getById.queryOptions({ id }),
-				);
-				const freshSha = (fresh as { fileSha?: string } | undefined)?.fileSha;
-				shaRef.current = freshSha ?? null;
-				await updateAsync({
-					id,
-					content: draftRef.current,
-					expectedSha: freshSha ?? "",
-				});
-				setAutoSaveState("saved");
-				refetchList();
-				refetchNote();
-			} catch {
-				setAutoSaveState("idle");
-			}
+			setSaveState("conflict");
+			const fresh = await qc.fetchQuery(
+				trpc.knowledge.getById.queryOptions({ id: selectedId }),
+			);
+			shaRef.current = fresh.fileSha;
+			await updateAsync({
+				id: selectedId,
+				content: draftRef.current,
+				expectedSha: fresh.fileSha,
+			});
+			setSaveState("saved");
+			refetchList();
+			refetchNote();
 		} finally {
 			saveInFlight.current = false;
-			// Trailing-edge guard: if the user edited while this save was in-flight
-			// the early-return above silently dropped that content. Re-arm a save so
-			// the newest draft is never silently discarded.
 			if (draftRef.current !== content) {
-				setAutoSaveState("dirty");
+				setSaveState("dirty");
 				if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
 				autoSaveTimer.current = setTimeout(() => {
-					void autoSaveRef.current();
+					void autoSave();
 				}, 500);
 			}
 		}
 	}, [selectedId, updateAsync, qc, refetchList, refetchNote]);
-	autoSaveRef.current = autoSave;
 
-	// "Saved" indicator fades back to idle after 2s (palette §3 indicator spec).
 	useEffect(() => {
-		if (autoSaveState !== "saved") return;
-		const t = setTimeout(() => setAutoSaveState("idle"), 2000);
-		return () => clearTimeout(t);
-	}, [autoSaveState]);
+		if (saveState !== "saved") return;
+		const timeout = setTimeout(() => setSaveState("idle"), 2000);
+		return () => clearTimeout(timeout);
+	}, [saveState]);
 
 	useEffect(
 		() => () => {
@@ -338,593 +396,732 @@ export function KnowledgeView() {
 		[],
 	);
 
+	const scanMut = useMutation(
+		trpc.knowledge.scan.mutationOptions({
+			onSuccess: (data) => {
+				const total = data.results.reduce(
+					(count, result) =>
+						count + result.inserted + result.updated + result.deleted,
+					0,
+				);
+				toast.success(
+					total === 0
+						? "Vault is up to date"
+						: `Re-scanned (${total} change${total === 1 ? "" : "s"})`,
+				);
+				refetchList();
+				refetchNote();
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+
+	const createMut = useMutation(
+		trpc.knowledge.create.mutationOptions({
+			onSuccess: (note) => {
+				toast.success(`Created ${note.relativePath}`);
+				setShowNew(false);
+				setNewPath("");
+				setSelectedId(note.id);
+				setInspectorMode("edit");
+				refetchList();
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+
 	const deleteMut = useMutation(
 		trpc.knowledge.delete.mutationOptions({
 			onSuccess: () => {
-				toast.success("Deleted");
+				toast.success("Deleted note");
 				setSelectedId(null);
 				refetchList();
 			},
-			onError: (e) => toast.error(e.message),
+			onError: (error) => toast.error(error.message),
 		}),
 	);
 
 	const promoteMut = useMutation(
 		trpc.documents.create.mutationOptions({
-			onSuccess: (doc: any) => {
-				toast.success(`Promoted to document: ${doc?.name ?? "Untitled"}`);
-				// Mark the source knowledge note with frontmatter linking the new doc.
-				qc.invalidateQueries({ queryKey: [["documents", "get"]] });
+			onSuccess: (doc) => {
+				toast.success(`Promoted to document: ${doc.name}`);
+				void qc.invalidateQueries({ queryKey: [["documents", "get"]] });
 			},
-			onError: (e) => toast.error(e.message),
+			onError: (error) => toast.error(error.message),
 		}),
 	);
 
-	const notes = (listQuery.data?.notes ?? []) as NoteListItem[];
+	const statusOptions = useMemo(() => {
+		const values = new Set<string>();
+		for (const note of notes) values.add(statusLabel(note));
+		return Array.from(values).sort();
+	}, [notes]);
 
-	// Frontmatter title isn't returned by the list query, so we look it up from
-	// the currently-loaded note (the only one we have rich data for). That lets
-	// the active row swap to a frontmatter title without an extra round-trip.
-	const activeFrontmatterTitle = useMemo(() => {
-		if (!noteQuery.data) return null;
-		const fm = noteQuery.data.frontmatter as Record<string, unknown> | null;
-		const t = fm?.title;
-		return typeof t === "string" && t.trim().length > 0 ? t : null;
-	}, [noteQuery.data?.id, noteQuery.data?.frontmatter]);
+	const filteredNotes = useMemo(() => {
+		return notes.filter((note) => {
+			if (category !== "all" && classify(note) !== category) return false;
+			if (status !== "all" && statusLabel(note) !== status) return false;
+			return updatedFilterMatches(note.updatedAt, updatedFilter);
+		});
+	}, [notes, category, status, updatedFilter]);
 
 	const groupedNotes = useMemo(() => {
-		const buckets = new Map<GroupKey, KnowledgeNoteRow[]>();
-		for (const g of GROUPS) buckets.set(g.key, []);
-		buckets.set(OTHER_GROUP.key, []);
-		for (const n of notes) {
-			const k = classify(n);
-			const row: KnowledgeNoteRow = {
-				id: n.id,
-				name: n.name,
-				relativePath: n.relativePath,
-				parentDir: n.parentDir,
-				updatedAt: n.updatedAt,
-				title: selectedId === n.id ? activeFrontmatterTitle : null,
-			};
-			buckets.get(k)!.push(row);
+		const groups = new Map<CategoryDef["key"], NoteListItem[]>();
+		for (const def of CATEGORY_DEFS) groups.set(def.key, []);
+		for (const note of filteredNotes) groups.get(classify(note))!.push(note);
+		for (const [key, group] of groups) {
+			group.sort((a, b) =>
+				key === "daily"
+					? b.relativePath.localeCompare(a.relativePath)
+					: a.relativePath.localeCompare(b.relativePath),
+			);
 		}
-		// Within each group, daily sorts desc (most recent first), everything else
-		// sorts asc by relativePath.
-		for (const [k, arr] of buckets) {
-			if (k === "daily") {
-				arr.sort((a, b) => b.relativePath.localeCompare(a.relativePath));
-			} else {
-				arr.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
-			}
-		}
-		return buckets;
-	}, [notes, selectedId, activeFrontmatterTitle]);
+		return groups;
+	}, [filteredNotes]);
 
-	// Outgoing `[[wiki links]]` parsed from the open note, resolved against the
-	// vault note list — drives the resolved(blue)/unresolved(red) link strip.
+	const selectedContent = draft || noteQuery.data?.content || "";
 	const wikiLinks = useMemo(
-		() => (selectedId ? parseWikiLinks(draft, notes) : []),
-		[selectedId, draft, notes],
+		() => (selectedId ? parseWikiLinks(selectedContent, notes) : []),
+		[selectedId, selectedContent, notes],
 	);
 
-	const hasSearchActive = search.trim().length > 0;
-	const totalCount = notes.length;
-	const isEmpty = totalCount === 0;
+	const tags = selectedNote
+		? frontmatterArray(selectedNote.frontmatter, "tags")
+		: [];
+	const selectedStatus = selectedNote ? statusLabel(selectedNote) : null;
 
-	const today = () => {
-		const d = new Date();
-		const y = d.getFullYear();
-		const m = String(d.getMonth() + 1).padStart(2, "0");
-		const da = String(d.getDate()).padStart(2, "0");
-		const path = `daily/${y}-${m}-${da}`;
-		// Check existing first.
-		const existing = notes.find((n) => n.relativePath === `${path}.md`);
+	const createToday = () => {
+		const now = new Date();
+		const y = now.getFullYear();
+		const m = String(now.getMonth() + 1).padStart(2, "0");
+		const d = String(now.getDate()).padStart(2, "0");
+		const path = `daily/${y}-${m}-${d}`;
+		const existing = notes.find((note) => note.relativePath === `${path}.md`);
 		if (existing) {
 			setSelectedId(existing.id);
+			setInspectorMode("edit");
 			return;
 		}
 		createMut.mutate({
 			relativePath: path,
-			content: `# ${y}-${m}-${da}\n\n## Notes\n\n## Done today\n\n## Tomorrow\n`,
+			content: `---\ntitle: ${y}-${m}-${d} Daily Log\nstatus: daily\ntags: [daily]\n---\n\n# ${y}-${m}-${d} Daily Log\n\n## Notes\n\n## Links\n\n`,
 		});
 	};
 
-	const startNewNote = () => {
-		setShowNew(true);
-		// Focus next tick once the input mounts.
-		setTimeout(() => newPathInputRef.current?.focus(), 0);
+	const createNote = () => {
+		const path = newPath.trim();
+		if (!path) return;
+		createMut.mutate({ relativePath: path });
 	};
 
-	const handlePromote = async (note: KnowledgeNoteRow) => {
-		// Fetch full content via the existing getById call; the list payload
-		// doesn't include body. The simplest path is to require the note be open,
-		// or to fetch on the fly. Open-and-promote is the most user-friendly.
-		if (selectedId !== note.id) {
-			setSelectedId(note.id);
-			toast.message("Open note first, then choose Promote again", {
-				description: "Loading note content…",
-			});
-			return;
-		}
-		const body = noteQuery.data?.content ?? "";
-		const fm = (noteQuery.data?.frontmatter ?? {}) as Record<string, unknown>;
-		const titleFromFm = typeof fm.title === "string" ? fm.title : null;
-		const name = titleFromFm || note.name;
-		const created = (await promoteMut.mutateAsync({
-			name,
-			content: body,
-		})) as { id?: string } | undefined;
-		// Re-write the knowledge note's frontmatter with promoted_to: <doc-id>.
-		if (created?.id && noteQuery.data) {
-			const nextFm: Record<string, unknown> = {
-				...fm,
-				promoted_to: created.id,
-			};
-			const fmLines = ["---"];
-			for (const [k, v] of Object.entries(nextFm)) {
-				if (Array.isArray(v)) {
-					fmLines.push(`${k}: [${v.map((x) => JSON.stringify(x)).join(", ")}]`);
-				} else if (typeof v === "string") {
-					fmLines.push(`${k}: ${/[:#]/.test(v) ? JSON.stringify(v) : v}`);
-				} else {
-					fmLines.push(`${k}: ${v}`);
-				}
-			}
-			fmLines.push("---", "");
-			const nextContent = `${fmLines.join("\n")}${body}`;
-			updateMut.mutate({
-				id: note.id,
-				content: nextContent,
-				expectedSha: noteQuery.data.fileSha,
-			});
-		}
+	const saveNow = () => {
+		if (!selectedId || !noteQuery.data) return;
+		updateMut.mutate({
+			id: selectedId,
+			content: draft,
+			expectedSha: noteQuery.data.fileSha,
+		});
+		setSaveState("saved");
 	};
 
-	const handleDelete = (note: KnowledgeNoteRow) => {
-		if (confirm(`Delete "${note.name}" from disk? This cannot be undone.`)) {
-			deleteMut.mutate({ id: note.id });
-		}
-	};
-
-	const handleCopyPath = (note: KnowledgeNoteRow) => {
-		navigator.clipboard
-			?.writeText(note.relativePath)
-			.then(() => toast.success("Vault path copied"))
-			.catch(() => toast.error("Couldn't copy path"));
-	};
-
-	// Per-group open state. Daily always defaults open; others open when search
-	// is active and the group has hits, or when the active note lives there.
-	const activeGroupKey = useMemo<GroupKey | null>(() => {
-		if (!selectedId) return null;
-		const n = notes.find((x) => x.id === selectedId);
-		return n ? classify(n) : null;
-	}, [selectedId, notes]);
-
-	const groupOpenDefault = (g: GroupDef): boolean => {
-		if (browseAll) return true;
-		if (g.key === "daily") return true;
-		const items = groupedNotes.get(g.key) ?? [];
-		if (items.length === 0) return false;
-		if (hasSearchActive) return true;
-		if (activeGroupKey === g.key) return true;
-		return false;
+	const promoteSelected = async () => {
+		if (!selectedNote || !noteQuery.data) return;
+		await promoteMut.mutateAsync({
+			name: displayTitle(selectedNote),
+			content: noteQuery.data.content ?? "",
+		});
 	};
 
 	return (
-		<div className="flex h-full">
-			{/* Left rail */}
-			<aside className="flex w-72 flex-col border-border border-r">
-				<div className="border-border border-b p-3">
-					<div className="mb-2 flex items-center gap-2">
-						<BrainIcon className="size-4 text-violet-500" />
-						<h2 className="font-[510] text-[13px] tracking-[-0.005em]">
+		<div className="flex h-full flex-col">
+			<header className="border-border border-b px-6 py-4">
+				<div className="flex flex-wrap items-start justify-between gap-4">
+					<div>
+						<h1 className="font-[510] text-[18px] text-foreground tracking-[-0.012em]">
 							Knowledge
-						</h2>
-						<div className="ml-auto flex gap-1">
-							<Button
-								variant="ghost"
-								size="sm"
-								onClick={() => scanMut.mutate(undefined)}
-								disabled={scanMut.isPending}
-								title="Re-scan vault from disk"
-							>
-								<RefreshCwIcon
-									className={`size-3.5 ${scanMut.isPending ? "animate-spin" : ""}`}
-								/>
-							</Button>
-							<Button
-								variant="ghost"
-								size="sm"
-								onClick={today}
-								title="Open today's daily log"
-							>
-								<CalendarIcon className="size-3.5" />
-							</Button>
-							<Button
-								variant="ghost"
-								size="sm"
-								onClick={startNewNote}
-								title="New note"
-							>
-								<PlusIcon className="size-3.5" />
-							</Button>
-						</div>
+						</h1>
+						<p className="mt-1 max-w-2xl text-[12px] text-muted-foreground">
+							Obsidian-compatible markdown notes, organized by vault path,
+							frontmatter, and wiki-link relationships.
+						</p>
 					</div>
-					{showNew && (
-						<form
-							onSubmit={(e) => {
-								e.preventDefault();
-								if (newPath.trim())
-									createMut.mutate({ relativePath: newPath.trim() });
-							}}
-							className="mb-2 flex gap-1"
+					<div className="flex items-center gap-2">
+						<Button
+							variant="outline"
+							size="sm"
+							onClick={() => scanMut.mutate({})}
+							disabled={scanMut.isPending}
 						>
-							<Input
-								ref={newPathInputRef}
-								value={newPath}
-								onChange={(e) => setNewPath(e.target.value)}
-								placeholder="path/to/note (no .md)"
-								className="h-7 text-xs"
-								onKeyDown={(e) => {
-									if (e.key === "Escape") setShowNew(false);
-								}}
+							<RefreshCwIcon
+								className={cn("size-3.5", scanMut.isPending && "animate-spin")}
 							/>
-							<Button type="submit" size="sm" disabled={!newPath.trim()}>
-								Add
-							</Button>
-						</form>
-					)}
-					<div className="relative">
-						<SearchIcon className="absolute top-2 left-2 size-3.5 text-muted-foreground" />
+							{scanMut.isPending ? "Scanning..." : "Re-scan"}
+						</Button>
+						<Button variant="outline" size="sm" onClick={createToday}>
+							<CalendarIcon className="size-3.5" />
+							Today
+						</Button>
+						<Button size="sm" onClick={() => setShowNew((value) => !value)}>
+							<PlusIcon className="size-3.5" />
+							New
+						</Button>
+					</div>
+				</div>
+
+				{showNew && (
+					<div className="mt-4 flex max-w-xl gap-2">
+						<Input
+							value={newPath}
+							onChange={(event) => setNewPath(event.target.value)}
+							onKeyDown={(event) => {
+								if (event.key === "Enter") createNote();
+								if (event.key === "Escape") setShowNew(false);
+							}}
+							placeholder="projects/nexus/new-note"
+							className="h-8 text-[12px]"
+						/>
+						<Button size="sm" onClick={createNote} disabled={!newPath.trim()}>
+							Create
+						</Button>
+					</div>
+				)}
+
+				<div className="mt-4 flex flex-wrap items-center gap-2">
+					<div className="relative mr-1 w-full max-w-sm sm:w-72">
+						<SearchIcon className="-translate-y-1/2 absolute top-1/2 left-2.5 size-3.5 text-muted-foreground" />
 						<Input
 							value={search}
-							onChange={(e) => setSearch(e.target.value)}
-							placeholder="Search notes…"
-							className="h-7 pl-7 text-xs"
+							onChange={(event) => setSearch(event.target.value)}
+							placeholder="Search notes..."
+							className="h-8 pl-8 text-[12px]"
 						/>
 					</div>
+					<Select
+						value={category}
+						onValueChange={(value) => setCategory(value as Category)}
+					>
+						<SelectTrigger className="h-8 w-[172px] text-[12px]">
+							<FolderTreeIcon className="mr-1.5 size-3.5 text-muted-foreground" />
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="all">All categories</SelectItem>
+							{CATEGORY_DEFS.map((def) => (
+								<SelectItem key={def.key} value={def.key}>
+									{def.title}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+					<Select value={status} onValueChange={setStatus}>
+						<SelectTrigger className="h-8 w-[152px] text-[12px]">
+							<TagsIcon className="mr-1.5 size-3.5 text-muted-foreground" />
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="all">All statuses</SelectItem>
+							{statusOptions.map((option) => (
+								<SelectItem key={option} value={option}>
+									{option}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+					<Select
+						value={updatedFilter}
+						onValueChange={(value) => setUpdatedFilter(value as UpdatedFilter)}
+					>
+						<SelectTrigger className="h-8 w-[138px] text-[12px]">
+							<CalendarIcon className="mr-1.5 size-3.5 text-muted-foreground" />
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="all">Any time</SelectItem>
+							<SelectItem value="week">This week</SelectItem>
+							<SelectItem value="month">This month</SelectItem>
+						</SelectContent>
+					</Select>
+					<div className="inline-flex h-8 rounded-md border border-border bg-muted/40 p-0.5">
+						{(["list", "cards"] as const).map((mode) => (
+							<button
+								key={mode}
+								type="button"
+								onClick={() => setViewMode(mode)}
+								className={cn(
+									"inline-flex h-7 items-center rounded-[5px] px-3 font-[510] text-[12px] capitalize transition-colors",
+									viewMode === mode
+										? "bg-background text-foreground shadow-sm"
+										: "text-muted-foreground hover:text-foreground",
+								)}
+							>
+								{mode}
+							</button>
+						))}
+					</div>
 				</div>
-				<div className="grow overflow-y-auto">
-					{isEmpty && !listQuery.isLoading ? (
-						<div className="p-4 text-center text-[12px] text-muted-foreground">
-							Vault is empty. Use the panel on the right to start.
-						</div>
+			</header>
+
+			<div className="flex min-h-0 grow">
+				<section className="min-w-0 grow overflow-y-auto p-6">
+					{listQuery.isLoading ? (
+						<div className="text-[12px] text-muted-foreground">Loading...</div>
+					) : filteredNotes.length === 0 ? (
+						<EmptyState
+							hasNotes={notes.length > 0}
+							onNew={() => setShowNew(true)}
+							onToday={createToday}
+						/>
 					) : (
-						(() => {
-							const renderedGroups = [...GROUPS, OTHER_GROUP].map((g) => {
-								const items = groupedNotes.get(g.key) ?? [];
-								// "Other" — always hide when empty (legacy behaviour).
-								if (g.key === "other" && items.length === 0) return null;
-								// Reserved categories — hide when empty unless the user has
-								// toggled "Manage categories" or an active search/browse-all
-								// pushed the panel into discovery mode.
-								if (
-									items.length === 0 &&
-									!showAllCategories &&
-									!browseAll &&
-									!hasSearchActive
-								) {
-									return null;
-								}
-								const open = groupOpenDefault(g);
-								// Remount when the computed default changes (browse-toggle,
-								// search, active-note change) so Radix re-reads defaultOpen.
-								const remountKey = `${g.key}:${open ? "1" : "0"}:${hasSearchActive ? "s" : ""}:${browseAll ? "b" : ""}`;
+						<div className="space-y-5">
+							{CATEGORY_DEFS.map((def) => {
+								const group = groupedNotes.get(def.key) ?? [];
+								if (group.length === 0) return null;
 								return (
-									<NoteGroup
-										key={remountKey}
-										icon={g.icon}
-										title={g.title}
-										count={items.length}
-										notes={items}
+									<NoteSection
+										key={def.key}
+										def={def}
+										notes={group}
 										selectedId={selectedId}
-										defaultOpen={open}
-										onSelect={setSelectedId}
-										onPromote={handlePromote}
-										onDelete={handleDelete}
-										onOpenInVault={handleCopyPath}
+										viewMode={viewMode}
+										onSelect={(id) => {
+											setSelectedId(id);
+											setInspectorMode("preview");
+										}}
 									/>
 								);
-							});
-							const hiddenCount = [...GROUPS, OTHER_GROUP].filter((g) => {
-								if (g.key === "other") return false;
-								const items = groupedNotes.get(g.key) ?? [];
-								return items.length === 0;
-							}).length;
-							return (
-								<>
-									{renderedGroups}
-									{/* "Manage categories" — reveals reserved categories that
-									    have no notes yet so the user can still find them.
-									    Hidden in search/browse-all mode where everything is
-									    already visible. */}
-									{!hasSearchActive && !browseAll && hiddenCount > 0 && (
-										<button
-											type="button"
-											onClick={() => setShowAllCategories((v) => !v)}
-											className="flex w-full items-center gap-2 px-3 py-2 text-left text-[11px] text-muted-foreground tracking-[0.02em] transition-colors hover:bg-accent/40 hover:text-foreground"
-											title={
-												showAllCategories
-													? "Hide empty categories"
-													: "Show all reserved categories"
-											}
-										>
-											{showAllCategories ? (
-												<EyeOffIcon className="size-3" />
-											) : (
-												<EyeIcon className="size-3" />
-											)}
-											<span>
-												{showAllCategories
-													? "Hide empty categories"
-													: `Manage categories (${hiddenCount} hidden)`}
-											</span>
-										</button>
-									)}
-								</>
-							);
-						})()
+							})}
+						</div>
 					)}
-				</div>
-			</aside>
+				</section>
 
-			{/* Editor pane */}
-			<main className="flex grow flex-col">
-				{!selectedId && (
-					<EmptyState
-						isVaultEmpty={isEmpty}
-						onNewNote={startNewNote}
-						onOpenToday={today}
-						onBrowseVault={() => setBrowseAll(true)}
+				<aside className="hidden w-[420px] shrink-0 border-border/60 border-l p-4 xl:block">
+					<NoteInspector
+						note={selectedNote}
+						noteDetail={noteQuery.data ?? null}
+						draft={draft}
+						mode={inspectorMode}
+						saveState={saveState}
+						tags={tags}
+						status={selectedStatus}
+						wikiLinks={wikiLinks}
+						isSaving={updateMut.isPending}
+						isPromoting={promoteMut.isPending}
+						onModeChange={setInspectorMode}
+						onDraftChange={(value) => {
+							draftRef.current = value;
+							setDraft(value);
+							setSaveState((state) => (state === "saving" ? state : "dirty"));
+						}}
+						onBlur={() => {
+							if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+							autoSaveTimer.current = setTimeout(autoSave, 500);
+						}}
+						onSave={saveNow}
+						onPromote={promoteSelected}
+						onDelete={() => {
+							if (!selectedId || !selectedNote) return;
+							if (
+								confirm(
+									`Delete "${displayTitle(selectedNote)}" from disk? This cannot be undone.`,
+								)
+							) {
+								deleteMut.mutate({ id: selectedId });
+							}
+						}}
+						onOpenLinkedNote={setSelectedId}
 					/>
-				)}
-				{selectedId && noteQuery.data && (
-					<>
-						<header className="flex items-center justify-between border-border border-b px-6 py-3">
-							<div className="min-w-0">
-								<h1 className="truncate font-[510] text-[15px] tracking-[-0.012em]">
-									{activeFrontmatterTitle || noteQuery.data.name}
-								</h1>
-								<div className="mt-0.5 flex items-center gap-2 text-[12px] text-muted-foreground">
-									<Badge variant="outline" className="font-normal">
-										{noteQuery.data.vaultLabel}
-									</Badge>
-									<code className="rounded bg-muted px-1.5 py-0.5 text-[11px]">
-										{noteQuery.data.relativePath}
-									</code>
-									<ProjectLinkPill
-										team={team ?? ""}
-										frontmatter={
-											noteQuery.data.frontmatter as Record<
-												string,
-												unknown
-											> | null
-										}
-									/>
-								</div>
-							</div>
-							<div className="flex items-center gap-2">
-								<AutoSaveIndicator state={autoSaveState} />
-								<Button
-									size="sm"
-									variant="ghost"
-									onClick={() =>
-										handlePromote({
-											id: noteQuery.data!.id,
-											name: noteQuery.data!.name,
-											relativePath: noteQuery.data!.relativePath,
-											parentDir: noteQuery.data!.parentDir,
-										})
-									}
-									disabled={promoteMut.isPending}
-									title="Promote to Document"
-								>
-									<FileTextIcon className="size-3.5" /> Promote
-								</Button>
-								<Button
-									size="sm"
-									onClick={() =>
-										updateMut.mutate({
-											id: selectedId,
-											content: draft,
-											expectedSha: noteQuery.data!.fileSha,
-										})
-									}
-									disabled={updateMut.isPending}
-								>
-									<SaveIcon className="size-3.5" />{" "}
-									{updateMut.isPending ? "Saving…" : "Save"}
-								</Button>
-								<Button
-									variant="ghost"
-									size="sm"
-									onClick={() => {
-										if (
-											confirm(
-												`Delete "${noteQuery.data!.name}" from disk? This cannot be undone.`,
-											)
-										) {
-											deleteMut.mutate({ id: selectedId });
-										}
-									}}
-									className="text-muted-foreground hover:text-destructive"
-								>
-									<Trash2Icon className="size-3.5" />
-								</Button>
-							</div>
-						</header>
-						<div className="grow overflow-y-auto">
-							<div className="mx-auto min-h-[320px] max-w-[740px] rounded-lg px-6 py-6 transition-shadow duration-150 focus-within:ring-1 focus-within:ring-border/60">
-								<BlockEditor
-									key={`${selectedId}:${noteQuery.data.fileSha}`}
-									value={draft}
-									onChange={(value) => {
-										draftRef.current = value;
-										setDraft(value);
-										setAutoSaveState((s) => (s === "saving" ? s : "dirty"));
-									}}
-									onBlur={() => {
-										// blur → debounced autoSave (knowledge.update)
-										if (autoSaveTimer.current)
-											clearTimeout(autoSaveTimer.current);
-										autoSaveTimer.current = setTimeout(autoSave, 500);
-									}}
-								/>
-							</div>
+				</aside>
+			</div>
+		</div>
+	);
+}
+
+function NoteSection({
+	def,
+	notes,
+	selectedId,
+	viewMode,
+	onSelect,
+}: {
+	def: CategoryDef;
+	notes: NoteListItem[];
+	selectedId: string | null;
+	viewMode: ViewMode;
+	onSelect: (id: string) => void;
+}) {
+	const Icon = def.icon;
+	return (
+		<section>
+			<div className="mb-2 flex items-center gap-2 px-1 text-[11px] text-muted-foreground uppercase tracking-[0.06em]">
+				<Icon className="size-3.5" />
+				<span className="font-[510]">{def.title}</span>
+				<Badge variant="outline" className="h-4 px-1.5 font-normal">
+					{notes.length}
+				</Badge>
+			</div>
+			{viewMode === "cards" ? (
+				<div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
+					{notes.map((note) => (
+						<NoteCard
+							key={note.id}
+							note={note}
+							selected={selectedId === note.id}
+							onSelect={onSelect}
+						/>
+					))}
+				</div>
+			) : (
+				<ul className="space-y-1">
+					{notes.map((note) => (
+						<li key={note.id}>
+							<NoteRow
+								note={note}
+								selected={selectedId === note.id}
+								onSelect={onSelect}
+							/>
+						</li>
+					))}
+				</ul>
+			)}
+		</section>
+	);
+}
+
+function NoteRow({
+	note,
+	selected,
+	onSelect,
+}: {
+	note: NoteListItem;
+	selected: boolean;
+	onSelect: (id: string) => void;
+}) {
+	const title = displayTitle(note);
+	const tags = frontmatterArray(note.frontmatter, "tags");
+	return (
+		<button
+			type="button"
+			onClick={() => onSelect(note.id)}
+			className={cn(
+				"grid w-full grid-cols-[minmax(0,1.5fr)_minmax(120px,0.75fr)_auto] items-center gap-4 rounded-md border border-transparent px-3 py-2 text-left text-[13px] transition-colors hover:border-border/70 hover:bg-accent/35 focus-visible:border-violet-400/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/40",
+				selected && "border-violet-400/50 bg-violet-500/10",
+			)}
+		>
+			<span className="min-w-0">
+				<span className="block truncate font-[510] text-foreground tracking-[-0.005em]">
+					{title}
+				</span>
+				<span className="block truncate font-mono text-[10.5px] text-muted-foreground/80">
+					{note.relativePath}
+				</span>
+			</span>
+			<span className="hidden min-w-0 items-center gap-1.5 md:flex">
+				<Badge
+					variant="outline"
+					className="h-[18px] px-1.5 font-normal text-[10px]"
+				>
+					{statusLabel(note)}
+				</Badge>
+				{tags.slice(0, 2).map((tag) => (
+					<span
+						key={tag}
+						className="max-w-20 truncate rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
+					>
+						{tag}
+					</span>
+				))}
+			</span>
+			<span className="text-right text-[11px] text-muted-foreground">
+				{formatDate(note.updatedAt)}
+			</span>
+		</button>
+	);
+}
+
+function NoteCard({
+	note,
+	selected,
+	onSelect,
+}: {
+	note: NoteListItem;
+	selected: boolean;
+	onSelect: (id: string) => void;
+}) {
+	const title = displayTitle(note);
+	const tags = frontmatterArray(note.frontmatter, "tags");
+	return (
+		<button
+			type="button"
+			onClick={() => onSelect(note.id)}
+			className={cn(
+				"flex min-h-[136px] flex-col gap-3 rounded-md border border-border bg-card p-3 text-left transition-colors hover:border-border/80 hover:bg-accent/30 focus-visible:border-violet-400/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/40",
+				selected && "border-violet-400/60 ring-2 ring-violet-400/30",
+			)}
+		>
+			<div className="flex items-start gap-2">
+				<BrainIcon className="mt-0.5 size-3.5 shrink-0 text-violet-500" />
+				<div className="min-w-0">
+					<div className="truncate font-[510] text-[13px] text-foreground">
+						{title}
+					</div>
+					<div className="mt-1 line-clamp-2 font-mono text-[10.5px] text-muted-foreground">
+						{note.relativePath}
+					</div>
+				</div>
+			</div>
+			<div className="mt-auto flex flex-wrap items-center gap-1.5">
+				<Badge
+					variant="outline"
+					className="h-[18px] px-1.5 font-normal text-[10px]"
+				>
+					{statusLabel(note)}
+				</Badge>
+				{tags.slice(0, 3).map((tag) => (
+					<span
+						key={tag}
+						className="max-w-20 truncate rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
+					>
+						{tag}
+					</span>
+				))}
+			</div>
+		</button>
+	);
+}
+
+function NoteInspector({
+	note,
+	noteDetail,
+	draft,
+	mode,
+	saveState,
+	tags,
+	status,
+	wikiLinks,
+	isSaving,
+	isPromoting,
+	onModeChange,
+	onDraftChange,
+	onBlur,
+	onSave,
+	onPromote,
+	onDelete,
+	onOpenLinkedNote,
+}: {
+	note: NoteListItem | null;
+	noteDetail: {
+		id?: string;
+		name?: string;
+		relativePath?: string;
+		vaultLabel?: string;
+		content?: string | null;
+		fileSha?: string;
+	} | null;
+	draft: string;
+	mode: InspectorMode;
+	saveState: SaveState;
+	tags: string[];
+	status: string | null;
+	wikiLinks: Array<{ key: string; text: string; toNoteId: string | null }>;
+	isSaving: boolean;
+	isPromoting: boolean;
+	onModeChange: (mode: InspectorMode) => void;
+	onDraftChange: (value: string) => void;
+	onBlur: () => void;
+	onSave: () => void;
+	onPromote: () => void;
+	onDelete: () => void;
+	onOpenLinkedNote: (id: string) => void;
+}) {
+	if (!note) {
+		return (
+			<div className="flex h-full flex-col rounded-md border border-border/60 bg-card/30 p-4">
+				<div className="flex items-center gap-2 text-[12px] text-muted-foreground">
+					<BrainIcon className="size-3.5" />
+					<span>Select a note to preview or edit it here.</span>
+				</div>
+			</div>
+		);
+	}
+
+	const title = displayTitle(note);
+	const body = noteDetail?.content ?? "";
+	const preview = body.trim() ? body.trim().slice(0, 1000) : "No content yet.";
+	const truncated = body.trim().length > 1000;
+
+	return (
+		<div className="flex h-full flex-col overflow-hidden rounded-md border border-border/60 bg-card/40">
+			<div className="border-border/60 border-b p-4">
+				<div className="flex items-start justify-between gap-3">
+					<div className="min-w-0">
+						<h2 className="truncate font-[510] text-[14px] text-foreground tracking-[-0.01em]">
+							{title}
+						</h2>
+						<p className="mt-1 truncate font-mono text-[10.5px] text-muted-foreground">
+							{note.relativePath}
+						</p>
+					</div>
+					<div className="inline-flex h-7 shrink-0 rounded-md border border-border bg-muted/40 p-0.5">
+						{(["preview", "edit"] as const).map((nextMode) => (
+							<button
+								key={nextMode}
+								type="button"
+								onClick={() => onModeChange(nextMode)}
+								className={cn(
+									"inline-flex h-6 items-center rounded-[5px] px-2.5 font-[510] text-[11px] capitalize transition-colors",
+									mode === nextMode
+										? "bg-background text-foreground shadow-sm"
+										: "text-muted-foreground hover:text-foreground",
+								)}
+							>
+								{nextMode}
+							</button>
+						))}
+					</div>
+				</div>
+
+				<div className="mt-3 grid grid-cols-2 gap-2 text-[11px]">
+					<div className="rounded-md border border-border/50 bg-background/40 p-2">
+						<div className="text-muted-foreground">Vault</div>
+						<div className="mt-0.5 truncate font-[510] text-foreground">
+							{noteDetail?.vaultLabel ?? "Personal Knowledge"}
 						</div>
-						<div className="shrink-0 border-border border-t px-6 pb-4">
-							{wikiLinks.length > 0 && (
-								<div className="pt-3">
-									<div className="mb-1.5 font-[510] text-[11px] text-muted-foreground uppercase tracking-wider">
-										Links
-									</div>
-									<div className="flex flex-wrap gap-x-3 gap-y-1 text-[13px]">
-										{wikiLinks.map((l) => (
-											<WikiLinkInline
-												key={l.key}
-												text={l.text}
-												toNoteId={l.toNoteId}
-												onClick={() => l.toNoteId && setSelectedId(l.toNoteId)}
-											/>
-										))}
-									</div>
-								</div>
+					</div>
+					<div className="rounded-md border border-border/50 bg-background/40 p-2">
+						<div className="text-muted-foreground">Updated</div>
+						<div className="mt-0.5 font-[510] text-foreground">
+							{formatDate(note.updatedAt)}
+						</div>
+					</div>
+				</div>
+
+				<div className="mt-3 flex flex-wrap gap-1.5">
+					{status && (
+						<Badge
+							variant="outline"
+							className="h-[18px] px-1.5 font-normal text-[10px]"
+						>
+							{status}
+						</Badge>
+					)}
+					{tags.map((tag) => (
+						<span
+							key={tag}
+							className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
+						>
+							{tag}
+						</span>
+					))}
+				</div>
+			</div>
+
+			<div className="min-h-0 grow overflow-y-auto p-4">
+				{mode === "edit" ? (
+					<BlockEditor
+						key={`${note.id}:${noteDetail?.fileSha ?? "pending"}`}
+						value={draft}
+						onChange={onDraftChange}
+						onBlur={onBlur}
+						className="editor-xl [&_.tiptap]:min-h-[420px]"
+					/>
+				) : (
+					<div className="space-y-4">
+						<pre className="whitespace-pre-wrap break-words font-sans text-[12px] text-foreground/80 leading-[1.55]">
+							{preview}
+							{truncated && (
+								<span className="text-muted-foreground/70">...</span>
 							)}
-							<BacklinksPanel entityType="knowledge" entityId={selectedId} />
-						</div>
-					</>
+						</pre>
+						{wikiLinks.length > 0 && (
+							<div>
+								<div className="mb-1.5 font-[510] text-[11px] text-muted-foreground uppercase tracking-wider">
+									Wiki links
+								</div>
+								<div className="flex flex-wrap gap-x-3 gap-y-1 text-[13px]">
+									{wikiLinks.map((link) => (
+										<WikiLinkInline
+											key={link.key}
+											text={link.text}
+											toNoteId={link.toNoteId}
+											onClick={() =>
+												link.toNoteId && onOpenLinkedNote(link.toNoteId)
+											}
+										/>
+									))}
+								</div>
+							</div>
+						)}
+						<BacklinksPanel entityType="knowledge" entityId={note.id} />
+					</div>
 				)}
-			</main>
+			</div>
+
+			<div className="flex items-center gap-2 border-border/60 border-t p-3">
+				<AutoSaveIndicator state={saveState} />
+				<Button size="sm" onClick={onSave} disabled={isSaving || !noteDetail}>
+					<SaveIcon className="size-3.5" />
+					{isSaving ? "Saving..." : "Save"}
+				</Button>
+				<Button
+					size="sm"
+					variant="outline"
+					onClick={onPromote}
+					disabled={isPromoting || !noteDetail}
+				>
+					<FileTextIcon className="size-3.5" />
+					Promote
+				</Button>
+				<Button
+					size="sm"
+					variant="ghost"
+					onClick={onDelete}
+					className="ml-auto text-muted-foreground hover:text-destructive"
+				>
+					<Trash2Icon className="size-3.5" />
+				</Button>
+			</div>
 		</div>
 	);
 }
 
 function EmptyState({
-	isVaultEmpty,
-	onNewNote,
-	onOpenToday,
-	onBrowseVault,
+	hasNotes,
+	onNew,
+	onToday,
 }: {
-	isVaultEmpty: boolean;
-	onNewNote: () => void;
-	onOpenToday: () => void;
-	onBrowseVault: () => void;
+	hasNotes: boolean;
+	onNew: () => void;
+	onToday: () => void;
 }) {
 	return (
-		<div className="flex grow flex-col items-center justify-center gap-6 px-6 text-center">
+		<div className="flex min-h-[420px] flex-col items-center justify-center gap-6 px-6 text-center">
 			<div className="flex flex-col items-center gap-2">
 				<BrainIcon className="size-10 text-muted-foreground/60" />
 				<p className="font-[510] text-[15px] tracking-[-0.012em]">
-					{isVaultEmpty ? "Your vault is empty" : "Pick a note to edit"}
+					{hasNotes ? "No notes match these filters" : "Your vault is empty"}
 				</p>
 				<p className="max-w-md text-balance text-[12px] text-muted-foreground">
-					Markdown notes sync with your Obsidian vault at{" "}
-					<code className="rounded bg-muted px-1.5 py-0.5 text-[11px]">
-						/Users/john.keeney/nexus-knowledge
-					</code>
-					. Start with one of the actions below.
+					Knowledge notes are markdown files on disk. Filter by vault category,
+					status, or updated date, then inspect and edit the note in the right
+					pane.
 				</p>
 			</div>
-			<div className="grid w-full max-w-2xl gap-3 sm:grid-cols-3">
+			<div className="grid w-full max-w-xl gap-3 sm:grid-cols-2">
 				<CtaCard
 					icon={PlusIcon}
 					title="New note"
-					hint="Create a markdown file at any path"
-					onClick={onNewNote}
+					hint="Create a markdown note at any path"
+					onClick={onNew}
 				/>
 				<CtaCard
 					icon={CalendarIcon}
 					title="Open today"
 					hint="Jump into today's daily log"
-					onClick={onOpenToday}
-				/>
-				<CtaCard
-					icon={FolderTreeIcon}
-					title="Browse vault"
-					hint="Expand every folder on the left"
-					onClick={onBrowseVault}
+					onClick={onToday}
 				/>
 			</div>
 		</div>
 	);
-}
-
-// Header-right auto-save indicator (palette §3). Mirrors the autoSaveState
-// machine: dirty → "Unsaved", saving → spinner + "Saving…", saved → check +
-// "Saved" (fades after 2s), conflict → "Conflict — reloading".
-function AutoSaveIndicator({
-	state,
-}: {
-	state: "idle" | "dirty" | "saving" | "saved" | "conflict";
-}) {
-	if (state === "idle") return null;
-	if (state === "dirty") {
-		return (
-			<span className="text-[11px] text-muted-foreground opacity-60">
-				Unsaved
-			</span>
-		);
-	}
-	if (state === "saving") {
-		return (
-			<span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-				<RefreshCwIcon className="size-3 animate-spin" />
-				Saving…
-			</span>
-		);
-	}
-	if (state === "conflict") {
-		return (
-			<span className="flex items-center gap-1 text-[11px] text-destructive">
-				<AlertCircleIcon className="size-3" />
-				Conflict — reloading
-			</span>
-		);
-	}
-	return (
-		<span className="flex items-center gap-1 text-[11px] text-[var(--color-success)] opacity-100 transition-opacity duration-500">
-			<CheckIcon className="size-3" />
-			Saved
-		</span>
-	);
-}
-
-// Parse `[[wiki links]]` out of the raw note draft and resolve each against the
-// vault note list by case-insensitive basename (Obsidian-style). Returns the
-// resolved note id (or null when no matching note exists).
-function parseWikiLinks(
-	content: string,
-	notes: NoteListItem[],
-): Array<{ key: string; text: string; toNoteId: string | null }> {
-	const byBasename = new Map<string, string>();
-	for (const n of notes) {
-		const base = n.relativePath
-			.split("/")
-			.pop()!
-			.replace(/\.md$/i, "")
-			.toLowerCase();
-		if (!byBasename.has(base)) byBasename.set(base, n.id);
-		const nameKey = n.name.toLowerCase();
-		if (!byBasename.has(nameKey)) byBasename.set(nameKey, n.id);
-	}
-	const out: Array<{ key: string; text: string; toNoteId: string | null }> = [];
-	const seen = new Set<string>();
-	const matches = content.matchAll(/\[\[([^\]]+)\]\]/g);
-	let i = 0;
-	for (const match of matches) {
-		const raw = match[1].split("|")[0].trim();
-		const lower = raw.toLowerCase();
-		i++;
-		if (seen.has(lower)) continue;
-		seen.add(lower);
-		out.push({
-			key: `${lower}#${i}`,
-			text: raw,
-			toNoteId: byBasename.get(lower) ?? null,
-		});
-	}
-	return out;
 }
 
 function CtaCard({
@@ -933,7 +1130,7 @@ function CtaCard({
 	hint,
 	onClick,
 }: {
-	icon: any;
+	icon: LucideIcon;
 	title: string;
 	hint: string;
 	onClick: () => void;
@@ -951,79 +1148,35 @@ function CtaCard({
 	);
 }
 
-/**
- * "Linked to {project}" pill rendered above the editor when a knowledge
- * note's frontmatter carries a `project:` key. Clicking jumps to the
- * project's Knowledge tab. We resolve the project by name OR prefix —
- * matching the surfacing logic in ProjectKnowledgeView so the link is
- * always navigable.
- */
-function ProjectLinkPill({
-	team,
-	frontmatter,
-}: {
-	team: string;
-	frontmatter: Record<string, unknown> | null;
-}) {
-	const projectKey = useMemo(() => {
-		if (!frontmatter) return null;
-		const raw = frontmatter.project;
-		if (typeof raw === "string" && raw.trim()) return raw.trim();
-		if (Array.isArray(raw)) {
-			const first = raw.find(
-				(v) => typeof v === "string" && (v as string).trim().length > 0,
-			);
-			return typeof first === "string" ? first.trim() : null;
-		}
-		return null;
-	}, [frontmatter]);
-
-	const projectsQuery = useQuery({
-		...trpc.projects.get.queryOptions({ pageSize: 100 } as any),
-		enabled: !!projectKey && !!team,
-	});
-
-	const matched = useMemo(() => {
-		if (!projectKey) return null;
-		const data = projectsQuery.data as
-			| { data?: Array<{ id: string; name: string; prefix?: string | null }> }
-			| undefined;
-		const list = data?.data ?? [];
-		const k = projectKey.toLowerCase();
+function AutoSaveIndicator({ state }: { state: SaveState }) {
+	if (state === "idle") return null;
+	if (state === "dirty") {
 		return (
-			list.find(
-				(p) =>
-					p.name.trim().toLowerCase() === k ||
-					(p.prefix && p.prefix.trim().toLowerCase() === k),
-			) ?? null
+			<span className="mr-auto text-[11px] text-muted-foreground opacity-60">
+				Unsaved
+			</span>
 		);
-	}, [projectKey, projectsQuery.data]);
-
-	if (!projectKey) return null;
-
-	const inner = (
-		<>
-			<FolderOpenIcon className="size-3" />
-			Linked to {matched?.name ?? projectKey}
-		</>
-	);
-
-	if (matched && team) {
+	}
+	if (state === "saving") {
 		return (
-			<Link
-				href={`/team/${team}/projects/${matched.id}/knowledge`}
-				className="inline-flex items-center gap-1 rounded-full border border-violet-500/40 bg-violet-500/10 px-2 py-0.5 font-[510] text-[11px] text-violet-600 transition-colors hover:border-violet-500/60 hover:bg-violet-500/15 dark:text-violet-300"
-			>
-				{inner}
-			</Link>
+			<span className="mr-auto flex items-center gap-1 text-[11px] text-muted-foreground">
+				<RefreshCwIcon className="size-3 animate-spin" />
+				Saving...
+			</span>
+		);
+	}
+	if (state === "conflict") {
+		return (
+			<span className="mr-auto flex items-center gap-1 text-[11px] text-destructive">
+				<AlertCircleIcon className="size-3" />
+				Conflict
+			</span>
 		);
 	}
 	return (
-		<span
-			title="Project not found in this workspace"
-			className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 font-[510] text-[11px] text-muted-foreground"
-		>
-			{inner}
+		<span className="mr-auto flex items-center gap-1 text-[11px] text-[var(--color-success)]">
+			<CheckIcon className="size-3" />
+			Saved
 		</span>
 	);
 }

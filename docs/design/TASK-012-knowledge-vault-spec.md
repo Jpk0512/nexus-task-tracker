@@ -41,6 +41,37 @@ Token usage follows the existing Linear dark-native ladder: `bg-background` canv
 
 ---
 
+## 0b. 2026-06-22 Amendment: Knowledge Vault Hub
+
+**Scope:** `/team/[team]/knowledge`. Prompts remain unchanged. The global dashboard shell remains unchanged.
+
+The Knowledge tab should use the same browse-first pattern as Documents, but the metadata model is vault-native: markdown paths, top-level folders, frontmatter status/tags, wiki-links, backlinks, and disk scan state.
+
+Default layout:
+
+```
+┌─ Knowledge header ─────────────────────────────────────────────────┐
+│ Knowledge                              [Re-scan] [Today] [New]     │
+│ Search  Category  Status  Updated  List/Cards                      │
+├─ Vault results ─────────────────────────┬─ Note inspector/editor ──┤
+│ Group: Daily / Projects / References    │ Title + vault path        │
+│   row: title, path, status, tags, date   │ frontmatter chips         │
+│   row: title, path, status, tags, date   │ preview OR editor         │
+│                                         │ wiki-links + backlinks    │
+└─────────────────────────────────────────┴──────────────────────────┘
+```
+
+Design requirements:
+
+- Default view is list, grouped by vault category. Cards are available as an alternate visual browse mode.
+- Categories are derived from Obsidian-compatible paths: `daily/`, `projects/`, `references/`, `drafts/`, `ideas/`, Permanent, and Other.
+- Status and tags are read from YAML frontmatter when present; missing status falls back to category-derived values such as `daily`, `draft`, `reference`, `idea`, or `active`.
+- The inspector pane supports Preview and Edit modes. Preview shows markdown excerpt, resolved/unresolved wiki-links, and backlinks. Edit uses the existing `BlockEditor` and save/auto-save state machine.
+- Re-scan, Today, and New actions live in the header. The tab should not require a permanent narrow folder rail for basic browsing.
+- Seeded local vault notes should cover daily, project, reference, idea, and draft states so populated layout can be visually verified.
+
+---
+
 ## 1. Design Contract Principles (from `DESIGN.md` + `index.css`)
 
 The app is **dark-native** (`.dark` is always active; light tokens are edge-case-only). All tokens below resolve via CSS custom properties, so light mode is automatically covered by the `:root` block in `index.css`.

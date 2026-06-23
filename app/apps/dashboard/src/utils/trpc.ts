@@ -18,7 +18,8 @@ const ssrUrl =
 	process.env.NEXUS_LOCAL_DEV === "1"
 		? process.env.NEXUS_SSR_SERVER_URL || process.env.NEXT_PUBLIC_SERVER_URL
 		: process.env.NEXT_PUBLIC_SERVER_URL;
-const browserUrl = process.env.NEXT_PUBLIC_SERVER_URL;
+const browserUrl =
+	process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:3003";
 
 export const queryClient = new QueryClient({
 	defaultOptions: {
