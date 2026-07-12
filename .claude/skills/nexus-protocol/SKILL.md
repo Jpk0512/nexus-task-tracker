@@ -215,6 +215,7 @@ When an agent returns work, route on the **completion marker** (H2 heading at to
 | `## NEXUS:NEEDS-DECISION` | Use `AskUserQuestion` with the options the agent surfaced in `decisions_needed`. On user response, log via `decision add` and re-spawn with the chosen path. |
 | `## NEXUS:CHECKPOINT` | Write checkpoint summary to `.memory/` (via context snapshot) → pause and resume next session. |
 | `## NEXUS:REVISE` (from Lens) | **Revision loop**: re-spawn implementer with the failing issues YAML as `context_files`. Cap at 3 iterations. Stall detection: if `current_issue_count >= previous_issue_count`, escalate ("revision loop stalled at iteration N — issue count not decreasing"). |
+| `## NEXUS:DEFER-REQUEST` | Agent found an out-of-scope error and requests deferral. Default action is **FIX**, not FILE (CONTRACT Rule 12). Options: (a) approve deferral — `python3 .memory/log.py task create ...` to log the tracked task, then continue; (b) instruct an inline fix; (c) escalate to user. Never leave a surfaced error with no resolution path (DEC-005 no-deferral). |
 
 Always:
 1. Check `verification_result`: verbatim passing output, not just "I ran it"
@@ -352,23 +353,26 @@ Every `Task` dispatch is mechanically gated by the `.claude/hooks/broker-gate.py
 Three reinforcements canonical for Nexus orchestrator behavior — full text in
 `docs/CONSTITUTION.md` and `docs/agents/CONTRACT.md`.
 
-### Workflow-first dispatch
-- **Threshold:** when a task decomposes into **≥2 independent subtasks** (they need
-  no output from each other), author a dynamic **Workflow** — Workflow is the DEFAULT
-  for ≥2 independent subtasks, not just for multi-phase work — rather than firing
-  sequential single dispatches. Sequential single-agent dispatch is permitted ONLY
-  when the orchestrator names in writing the dependency that requires serialization.
-- **Cap:** bound homogeneous (same-persona) fan-out at **K ≤ 5** — returns plateau
-  past 5 (Constitution Article XIII.b).
+### Parallelism-by-default dispatch
+- **Threshold (DEC-029):** any task with **≥2 independent subtasks** (no output from
+  each other) → dynamic **Workflow** — the REQUIRED DEFAULT, not just preferred. A lone
+  serial single-Agent dispatch is reserved ONLY for a truly indivisible atomic task.
+  Sequential single-agent dispatch is permitted ONLY when the orchestrator names in
+  writing the dependency that requires serialization.
+- **Fan-out width:** fan out as wide as the work genuinely warrants — no fixed K cap.
+  Prefer diverse personas over identical clones (Constitution Article XIII.b advisory).
 - Raw multi-`Task` fan-out in one tool block is the **deprecated legacy shape**
   (superseded by the Workflow primitive); it survives ONLY as the **≥3 read-only
   Scout recon** exception (investigation phase → ≥3 parallel Scouts probing different
   angles). See §10 for the full primitive-by-shape ladder + goal model.
 
-### Root cause before re-dispatch
+### Root cause before re-dispatch (DEC-028)
 - When a sub-agent returns `NEXUS:REVISE` OR the user reports a regression, the
-  orchestrator MUST dispatch a Five-Whys Scout investigation BEFORE re-spawning
-  the implementer. No "try again with the same brief."
+  orchestrator MUST dispatch a root-cause Scout investigation BEFORE re-spawning
+  the implementer. The investigation must identify the TRUE UNDERLYING CAUSE (not
+  a symptom). Why-chain depth is at the fixer's discretion — no mechanical minimum.
+  No "try again with the same brief." On recurring or high-severity fixes, the
+  orchestrator or Lens MAY demand a deeper pass before close.
 
 ### Lesson harvesting cadence
 - Every `NEXUS:REVISE` event → `python3 .memory/log.py lesson add` immediately.
@@ -415,11 +419,11 @@ Source of truth: **Constitution Article XIII / XIII.b / XIII.d** (+ DEC-020/022/
 
 **Primitive-by-shape.** PARALLEL / independent / fan-out / audit / migration / debate → the **Workflow** tool. ITERATE until a verifiable goal (tests pass / gate green / no new findings) → a **loop-until-done Workflow**. POLL external state you don't control (CI, deploy, PR, logs, queue) → **Monitor**. OUTLIVE-the-session / recurring → **CronCreate** (session, ≤7-day) or `RemoteTrigger`/Routines (durable). Indivisible → one **Agent**. Discovery / quick-Q → inline. (The orchestrator runs on a DENYLIST — Workflow/Monitor/Cron/Agent/Task are NOT denied → available, and are in `permissions.allow` so they run prompt-free.)
 
-**Threshold ladder.** (a) single INDIVISIBLE task → ONE `Agent`/`Task` (a single-teammate Workflow is *preferred* — never forced — for the built-in Lens stage + monitorability). (b) **≥2 INDEPENDENT subtasks** (need no output from each other) → **a dynamic Workflow** (the DEFAULT — not just for multi-phase work); homogeneous same-persona fan-out capped at **K ≤ 5**; `≥3` read-only Scout recon is the standing exception, and is the ONLY surviving use of raw multi-`Task` fan-out (the deprecated legacy shape, superseded by the Workflow primitive). (c) **multi-phase / fan-out-then-verify / scale beyond one context** → a dynamic **Workflow** — move the plan into code when the work is **long-running, massively parallel, highly structured, and/or adversarial**.
+**Threshold ladder.** (a) single INDIVISIBLE task → ONE `Agent`/`Task` (a single-teammate Workflow is *preferred* — never forced — for the built-in Lens stage + monitorability). (b) **≥2 INDEPENDENT subtasks** (need no output from each other) → **a dynamic Workflow** (the DEFAULT — not just for multi-phase work); dispatch one agent per independent unit, as wide as the work warrants — prefer diverse personas over identical clones (shared bias + coordination overhead are the real diminishing returns, not an API limit); `≥3` read-only Scout recon is the standing exception, and is the ONLY surviving use of raw multi-`Task` fan-out (the deprecated legacy shape, superseded by the Workflow primitive). (c) **multi-phase / fan-out-then-verify / scale beyond one context** → a dynamic **Workflow** — move the plan into code when the work is **long-running, massively parallel, highly structured, and/or adversarial**.
 
 **Goal model (HARD GATE, DEC-023/025).** For goal-shaped work the orchestrator OWNS the goal: **ELICIT** the intent (a sharp clarifying question if vague) → **CLARIFY** into a VERIFIABLE oracle + scope + stop condition (LIGHT = a Goal Object `{success_criteria, acceptance_checks, non_goals, open_questions}`, the default; HEAVY = a LOSS FUNCTION via `Skill nexus-loss-function`) → **CONFIRM** with the user ONCE before driving (a separate Lens critic reviews in autonomous ticks) → **DRIVE** with orchestrator-invocable primitives only. NEVER recommend a user slash-command — `/goal`/`/loop`/`/effort` are USER-only; EMULATE them (loop-until-done Workflow / Monitor / Cron). RUNAWAY GUARDS on any iterate/poll loop: max-iteration cap, no-progress detection (halt on identical errors / empty diffs / recurring fails), token/$ budget, circuit-breaker, and SEPARATE-JUDGE (the model that stopped working never decides it's done = Lens).
 
-**Decompose algorithm.** (1) List atomic units (one per callsite / failing test / module / source / candidate); indivisible → ONE Agent. (2) Test independence — any unit needing another's output is sequential or a pipeline, never naive parallel. (3) Pipeline (DEFAULT, no barrier) vs parallel barrier (only when stage N needs ALL of stage N-1). (4) Write each unit's brief explicitly. (5) Dispatch 3–5 in parallel (homogeneous K ≤ 5; never exceed runtime caps). (6) Add a SEPARATE verify/critic phase. (7) Synthesize at the barrier + completeness critic (no-deferral). (8) Loop-until-dry for unknown-size work, with a mandatory max-iteration cap.
+**Decompose algorithm.** (1) List atomic units (one per callsite / failing test / module / source / candidate); indivisible → ONE Agent. (2) Test independence — any unit needing another's output is sequential or a pipeline, never naive parallel. (3) Pipeline (DEFAULT, no barrier) vs parallel barrier (only when stage N needs ALL of stage N-1). (4) Write each unit's brief explicitly. (5) Dispatch one agent per independent unit, as wide as the work warrants — prefer diverse personas over identical clones (shared bias + coordination overhead are the real diminishing returns, not an API limit; hard limits are the harness's ~16-concurrent/1000-per-run/4096-per-call). (6) Add a SEPARATE verify/critic phase. (7) Synthesize at the barrier + completeness critic (no-deferral). (8) Loop-until-dry for unknown-size work, with a mandatory max-iteration cap.
 
 **The 6 techniques** (choose by shape, not count):
 - **Classify-and-act** — a classifier decides the task TYPE, then routes to the matching agent/behavior. Trigger: branching-on-type.

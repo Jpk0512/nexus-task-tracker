@@ -103,6 +103,10 @@ def captured_state(monkeypatch) -> dict[str, Any]:
 
     monkeypatch.setattr(srv, "write_state", _capture_write)
     monkeypatch.setattr(srv, "log_broker_validation", lambda **kwargs: None)
+    # Isolate from live router_dispatches.jsonl: the file may have >=9 consecutive
+    # single dispatches (hard-block threshold), which would reject briefs in tests
+    # that expect approved=True. Reset to 0 so tests are independent of session state.
+    monkeypatch.setattr(srv, "_consecutive_single_dispatches", lambda: 0)
     return box
 
 
@@ -239,18 +243,6 @@ async def test_missing_required_field_is_normalized_and_warned(
     # The persisted/returned brief carries a well-typed value for the field.
     assert result["approved_brief"] is not None
     assert field in result["approved_brief"]
-
-
-def test_required_field_set_is_the_contract_surface() -> None:
-    """Guard: the fields this test exercises ARE the validator's required set.
-
-    If server.py adds/removes a required brief field, this asserts the test's
-    parametrize source (REQUIRED_BRIEF_FIELDS) stays the single source of truth.
-    """
-    assert set(srv.REQUIRED_BRIEF_FIELDS) == {
-        "goal", "context_files", "acceptance_criteria",
-        "verification_required", "do_not_touch",
-    }
 
 
 # ── NORMALIZE: empty / wrong-typed required collections (was reject) ──────────

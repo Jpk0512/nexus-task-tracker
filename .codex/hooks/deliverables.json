@@ -1,0 +1,117 @@
+{
+  "_comment": "Per-persona expected deliverable patterns. Used by verify-deliverables.sh (SubagentStop hook). Keyed by the dispatchable personas. required_markers lists the full 6-marker vocabulary — at least one must appear as an H2. Enforced fields: required_markers, forbidden_paths, must_not_modify, must_not_run_bash, required_verification; expected_paths and should_* fields are advisory. forge/pipeline/quill are tombstone fallbacks for pre-split dispatches. A returning persona with NO entry here is NOT silently passed — verify-deliverables.sh emits a WARN.",
+  "scout": {
+    "must_not_modify": ["**/*"],
+    "should_emit": ["findings JSON in response body"],
+    "required_markers": ["## NEXUS:DONE", "## NEXUS:BLOCKED", "## NEXUS:NEEDS-DECISION", "## NEXUS:CHECKPOINT", "## NEXUS:REVISE", "## NEXUS:DEFER-REQUEST"]
+  },
+  "lens": {
+    "must_not_modify": ["**/*"],
+    "required_markers": ["## NEXUS:DONE", "## NEXUS:BLOCKED", "## NEXUS:NEEDS-DECISION", "## NEXUS:CHECKPOINT", "## NEXUS:REVISE", "## NEXUS:DEFER-REQUEST"]
+  },
+  "lens-fast": {
+    "must_not_modify": ["**/*"],
+    "required_markers": ["## NEXUS:DONE", "## NEXUS:BLOCKED", "## NEXUS:NEEDS-DECISION", "## NEXUS:CHECKPOINT", "## NEXUS:REVISE", "## NEXUS:DEFER-REQUEST"]
+  },
+  "palette": {
+    "expected_paths": ["docs/design/**", ".memory/design-reports/**"],
+    "forbidden_paths": ["app/**", "ingestion/**", "models/**", ".claude/**", "docker-compose*.yml"],
+    "required_markers": ["## NEXUS:DONE", "## NEXUS:BLOCKED", "## NEXUS:NEEDS-DECISION", "## NEXUS:CHECKPOINT", "## NEXUS:REVISE", "## NEXUS:DEFER-REQUEST"]
+  },
+  "forge-ui": {
+    "expected_paths": ["app/components/**", "app/(routes)/**", "app/__tests__/**"],
+    "should_verify": ["rtk tsc", "rtk lint"],
+    "forbidden_paths": ["app/api/**", "app/actions/**", "app/lib/ai/**", "ingestion/**", "models/**", "docker-compose*.yml", ".memory/**", ".claude/**"],
+    "required_markers": ["## NEXUS:DONE", "## NEXUS:BLOCKED", "## NEXUS:NEEDS-DECISION", "## NEXUS:CHECKPOINT", "## NEXUS:REVISE", "## NEXUS:DEFER-REQUEST"]
+  },
+  "forge-ui-pro": {
+    "_note": "Opus escalation variant — same boundary as forge-ui.",
+    "expected_paths": ["app/components/**", "app/(routes)/**", "app/__tests__/**"],
+    "should_verify": ["rtk tsc", "rtk lint"],
+    "forbidden_paths": ["app/api/**", "app/actions/**", "app/lib/ai/**", "ingestion/**", "models/**", "docker-compose*.yml", ".memory/**", ".claude/**"],
+    "required_markers": ["## NEXUS:DONE", "## NEXUS:BLOCKED", "## NEXUS:NEEDS-DECISION", "## NEXUS:CHECKPOINT", "## NEXUS:REVISE", "## NEXUS:DEFER-REQUEST"]
+  },
+  "forge-wire": {
+    "expected_paths": ["app/api/**", "app/actions/**", "app/lib/ai/**", "app/__tests__/**"],
+    "should_verify": ["rtk tsc", "rtk lint"],
+    "forbidden_paths": ["app/components/**", "app/(routes)/**", "ingestion/**", "models/**", "docker-compose*.yml", ".memory/**", ".claude/**"],
+    "required_markers": ["## NEXUS:DONE", "## NEXUS:BLOCKED", "## NEXUS:NEEDS-DECISION", "## NEXUS:CHECKPOINT", "## NEXUS:REVISE", "## NEXUS:DEFER-REQUEST"]
+  },
+  "forge-wire-pro": {
+    "_note": "Opus escalation variant — same boundary as forge-wire.",
+    "expected_paths": ["app/api/**", "app/actions/**", "app/lib/ai/**", "app/__tests__/**"],
+    "should_verify": ["rtk tsc", "rtk lint"],
+    "forbidden_paths": ["app/components/**", "app/(routes)/**", "ingestion/**", "models/**", "docker-compose*.yml", ".memory/**", ".claude/**"],
+    "required_markers": ["## NEXUS:DONE", "## NEXUS:BLOCKED", "## NEXUS:NEEDS-DECISION", "## NEXUS:CHECKPOINT", "## NEXUS:REVISE", "## NEXUS:DEFER-REQUEST"]
+  },
+  "pipeline-data": {
+    "expected_paths": ["ingestion/src/transforms/**", "ingestion/src/writers/**", "ingestion/tests/**"],
+    "required_verification": ["uv run ruff check"],
+    "forbidden_paths": [".claude/settings.json", ".claude/agents/**", ".claude/hooks/**", "app/**", "models/**", "docker-compose*.yml", "ingestion/src/workers/**", "ingestion/src/clients/**"],
+    "required_markers": ["## NEXUS:DONE", "## NEXUS:BLOCKED", "## NEXUS:NEEDS-DECISION", "## NEXUS:CHECKPOINT", "## NEXUS:REVISE", "## NEXUS:DEFER-REQUEST"]
+  },
+  "pipeline-data-pro": {
+    "_note": "Opus escalation variant — same boundary as pipeline-data.",
+    "expected_paths": ["ingestion/src/transforms/**", "ingestion/src/writers/**", "ingestion/tests/**"],
+    "required_verification": ["uv run ruff check"],
+    "forbidden_paths": [".claude/settings.json", ".claude/agents/**", ".claude/hooks/**", "app/**", "models/**", "docker-compose*.yml", "ingestion/src/workers/**", "ingestion/src/clients/**"],
+    "required_markers": ["## NEXUS:DONE", "## NEXUS:BLOCKED", "## NEXUS:NEEDS-DECISION", "## NEXUS:CHECKPOINT", "## NEXUS:REVISE", "## NEXUS:DEFER-REQUEST"]
+  },
+  "pipeline-async": {
+    "expected_paths": ["ingestion/src/workers/**", "ingestion/src/clients/**", "ingestion/tests/**"],
+    "required_verification": ["uv run ruff check"],
+    "forbidden_paths": [".claude/settings.json", ".claude/agents/**", ".claude/hooks/**", "app/**", "models/**", "docker-compose*.yml", "ingestion/src/transforms/**", "ingestion/src/writers/**"],
+    "required_markers": ["## NEXUS:DONE", "## NEXUS:BLOCKED", "## NEXUS:NEEDS-DECISION", "## NEXUS:CHECKPOINT", "## NEXUS:REVISE", "## NEXUS:DEFER-REQUEST"]
+  },
+  "pipeline-async-pro": {
+    "_note": "Opus escalation variant — same boundary as pipeline-async.",
+    "expected_paths": ["ingestion/src/workers/**", "ingestion/src/clients/**", "ingestion/tests/**"],
+    "required_verification": ["uv run ruff check"],
+    "forbidden_paths": [".claude/settings.json", ".claude/agents/**", ".claude/hooks/**", "app/**", "models/**", "docker-compose*.yml", "ingestion/src/transforms/**", "ingestion/src/writers/**"],
+    "required_markers": ["## NEXUS:DONE", "## NEXUS:BLOCKED", "## NEXUS:NEEDS-DECISION", "## NEXUS:CHECKPOINT", "## NEXUS:REVISE", "## NEXUS:DEFER-REQUEST"]
+  },
+  "quill-py": {
+    "expected_paths": ["ingestion/tests/**", "tests/**"],
+    "required_verification": ["uv run pytest"],
+    "forbidden_paths": ["ingestion/src/**", ".claude/settings.json", ".claude/agents/**", "app/**", "models/**", "**/pyproject.toml"],
+    "required_markers": ["## NEXUS:DONE", "## NEXUS:BLOCKED", "## NEXUS:NEEDS-DECISION", "## NEXUS:CHECKPOINT", "## NEXUS:REVISE", "## NEXUS:DEFER-REQUEST"]
+  },
+  "quill-ts": {
+    "expected_paths": ["app/__tests__/**"],
+    "should_verify": ["rtk vitest"],
+    "forbidden_paths": [".claude/**", ".memory/**", "ingestion/**", "models/**", "app/components/**", "app/(routes)/**", "app/api/**", "vitest.config.*"],
+    "required_markers": ["## NEXUS:DONE", "## NEXUS:BLOCKED", "## NEXUS:NEEDS-DECISION", "## NEXUS:CHECKPOINT", "## NEXUS:REVISE", "## NEXUS:DEFER-REQUEST"]
+  },
+  "atlas": {
+    "expected_paths": ["models/**", "ingestion/src/schema.sql", "docs/features/FEAT-*.md"],
+    "must_not_run_bash": true,
+    "forbidden_paths": ["app/**", ".claude/**", "docker-compose*.yml"],
+    "required_markers": ["## NEXUS:DONE", "## NEXUS:BLOCKED", "## NEXUS:NEEDS-DECISION", "## NEXUS:CHECKPOINT", "## NEXUS:REVISE", "## NEXUS:DEFER-REQUEST"]
+  },
+  "hermes": {
+    "expected_paths": [".claude/hooks/**", ".claude/settings.json", "docs/**", ".mcp.json", "docker-compose*.yml", ".env.example", "Caddyfile"],
+    "should_verify": ["bash -n", "python3 -m py_compile"],
+    "forbidden_paths": [".env", ".env.dev", ".env.prod", "models/**"],
+    "required_markers": ["## NEXUS:DONE", "## NEXUS:BLOCKED", "## NEXUS:NEEDS-DECISION", "## NEXUS:CHECKPOINT", "## NEXUS:REVISE", "## NEXUS:DEFER-REQUEST"]
+  },
+  "forge": {
+    "_note": "Tombstone fallback — pre-split persona key; live dispatches use forge-ui/forge-wire (+ -pro variants).",
+    "expected_paths": ["app/**/*.ts", "app/**/*.tsx"],
+    "required_verification": ["rtk tsc", "rtk lint"],
+    "required_markers": ["## NEXUS:DONE", "## NEXUS:BLOCKED", "## NEXUS:NEEDS-DECISION", "## NEXUS:CHECKPOINT", "## NEXUS:REVISE", "## NEXUS:DEFER-REQUEST"],
+    "forbidden_paths": ["ingestion/**", "models/**", "docker-compose*.yml"]
+  },
+  "pipeline": {
+    "_note": "Tombstone fallback — pre-split persona key; live dispatches use pipeline-data/pipeline-async (+ -pro variants).",
+    "expected_paths": ["ingestion/**/*.py"],
+    "required_verification": ["uv run ruff check"],
+    "required_markers": ["## NEXUS:DONE", "## NEXUS:BLOCKED", "## NEXUS:NEEDS-DECISION", "## NEXUS:CHECKPOINT", "## NEXUS:REVISE", "## NEXUS:DEFER-REQUEST"],
+    "forbidden_paths": ["app/**", "models/**", "docker-compose*.yml"]
+  },
+  "quill": {
+    "_note": "Tombstone fallback — pre-split persona key; live dispatches use quill-ts/quill-py.",
+    "expected_paths": ["app/__tests__/**/*.test.ts", "app/__tests__/**/*.test.tsx", "ingestion/tests/test_*.py"],
+    "required_verification": ["rtk vitest", "uv run pytest"],
+    "required_markers": ["## NEXUS:DONE", "## NEXUS:BLOCKED", "## NEXUS:NEEDS-DECISION", "## NEXUS:CHECKPOINT", "## NEXUS:REVISE", "## NEXUS:DEFER-REQUEST"]
+  }
+}

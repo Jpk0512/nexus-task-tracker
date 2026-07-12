@@ -1,18 +1,34 @@
-"""Phase 3 — ADVISORY pre-dispatch decomposition forcing-function.
+"""Phase 3 — decomposition forcing-function (3-tier escalation).
 
-`broker.server.nexus_validate_brief` now appends ONE advisory warning when a
-session has accumulated >= NEXUS_DECOMP_NUDGE_THRESHOLD (default 3) CONSECUTIVE
-single-agent dispatches with no Workflow/fanout. The nudge is STRICTLY advisory:
-it may NEVER flip `approved` from true to false, it is suppressed for read-only /
-recon personas, and it is suppressed when the brief declares the work serial via
-the optional `decomposition` field.
+`broker.server.nexus_validate_brief` implements three escalating tiers based on
+CONSECUTIVE single-agent dispatches with no Workflow/fanout this session:
+
+  Tier 1 — N >= NEXUS_DECOMP_NUDGE_THRESHOLD (default 3):
+    ADVISORY warning only; approved stays True.
+
+  Tier 2 — N >= 6 (FORCED PAUSE):
+    approved=False (error added to errors list) UNLESS the brief carries a
+    non-empty decomposition.serial_justification (escape hatch).
+
+  Tier 3 — N >= 9 (HARD BLOCK):
+    approved=False; escapable ONLY by decomposition.serial_override=true
+    (with non-empty serial_justification), or by actually fanning out (resets
+    the counter to 0).
+
+NEVER DEADLOCK INVARIANT: there is always a forward path.
+
+Suppressed for read-only/recon personas.
 
 These tests drive the REAL async validator (not a re-implementation) and pin:
-  (a) nudge FIRES at threshold for a work persona,
+  (a) N=3 advisory-only-still-approved,
   (b) NO nudge below threshold,
   (c) NO nudge for a read-only persona (scout),
-  (d) nudge SUPPRESSED when `decomposition` is declared,
-  (e) approved stays True in ALL cases — asserted as the POSITIVE invariant.
+  (d) N=6 no-decomposition -> not approved (forced pause),
+  (e) N=6 with serial_justification -> approved (escape hatch),
+  (f) N=9 hard block -> not approved,
+  (g) serial_override escapes N=9,
+  (h) fan-out resets counter (count=0 after fanout => no nudge),
+  (i) approved stays True for N<6 in ALL cases.
 
 Plus a direct unit test of `_consecutive_single_dispatches` against a temp JSONL
 (tail-run-since-last-fanout semantics + fail-open).
@@ -101,12 +117,12 @@ async def test_nudge_fires_at_threshold_for_work_persona(monkeypatch, captured_s
     assert result["approved"] is True  # POSITIVE invariant
 
 
-async def test_nudge_fires_above_threshold(monkeypatch, captured_state):
-    _set_count(monkeypatch, 7)
+async def test_nudge_fires_above_threshold_but_below_forced_pause(monkeypatch, captured_state):
+    # N=5 is above the advisory threshold (3) but below forced-pause (6):
+    # advisory warning fires, approved stays True.
+    _set_count(monkeypatch, 5)
     result = await _validate(_well_formed_brief())
     assert _has_decomp_nudge(result), result["warnings"]
-    # The escalating count is surfaced verbatim.
-    assert any("7th consecutive" in w for w in result["warnings"])
     assert result["approved"] is True
 
 
@@ -179,9 +195,79 @@ async def test_malformed_decomposition_does_not_suppress_or_error(
     assert result["errors"] == []
 
 
-# (e) approved stays True in ALL cases — explicit POSITIVE-invariant sweep ─────
-@pytest.mark.parametrize("count", [0, 2, 3, 5, 50])
-async def test_approved_stays_true_regardless_of_count(
+# (d) N=6 forced pause — no decomposition -> not approved ────────────────────
+async def test_forced_pause_at_n6_no_decomposition(monkeypatch, captured_state):
+    _set_count(monkeypatch, 6)
+    result = await _validate(_well_formed_brief())
+    assert result["approved"] is False
+    assert any("[decomposition] FORCED PAUSE" in e for e in result["errors"])
+
+
+# (e) N=6 with serial_justification -> approved (escape hatch) ────────────────
+async def test_forced_pause_escaped_by_serial_justification(monkeypatch, captured_state):
+    _set_count(monkeypatch, 6)
+    brief = _well_formed_brief(
+        decomposition={
+            "independent_units": 4,
+            "serial_justification": "each step writes an artifact the next reads",
+        }
+    )
+    result = await _validate(brief)
+    assert result["approved"] is True
+    assert not any("[decomposition] FORCED PAUSE" in e for e in result["errors"])
+
+
+# (f) N=9 hard block -> not approved ─────────────────────────────────────────
+async def test_hard_block_at_n9(monkeypatch, captured_state):
+    _set_count(monkeypatch, 9)
+    result = await _validate(_well_formed_brief())
+    assert result["approved"] is False
+    assert any("[decomposition] HARD BLOCK" in e for e in result["errors"])
+
+
+# (g) serial_override escapes N=9 ─────────────────────────────────────────────
+async def test_serial_override_escapes_hard_block(monkeypatch, captured_state):
+    _set_count(monkeypatch, 9)
+    brief = _well_formed_brief(
+        decomposition={
+            "serial_override": True,
+            "serial_justification": "single write-locked migration; cannot parallelize",
+        }
+    )
+    result = await _validate(brief)
+    assert result["approved"] is True
+    assert not any("[decomposition] HARD BLOCK" in e for e in result["errors"])
+
+
+async def test_serial_override_without_justification_still_blocks(monkeypatch, captured_state):
+    # serial_override=True requires a non-empty justification to escape.
+    _set_count(monkeypatch, 9)
+    brief = _well_formed_brief(
+        decomposition={
+            "serial_override": True,
+            # no serial_justification provided
+        }
+    )
+    result = await _validate(brief)
+    assert result["approved"] is False
+    assert any("[decomposition] HARD BLOCK" in e for e in result["errors"])
+
+
+# (h) fan-out resets counter (N=0 after fanout => no block) ───────────────────
+async def test_fanout_resets_counter_no_block(monkeypatch, captured_state):
+    # A fan-out dispatch writes dispatch_kind=fanout which resets the tail-run
+    # counter to 0.  _consecutive_single_dispatches() returning 0 means no tier
+    # fires at all — approved stays True with no decomp errors.
+    _set_count(monkeypatch, 0)
+    result = await _validate(_well_formed_brief())
+    assert result["approved"] is True
+    assert result["errors"] == []
+    assert not _has_decomp_nudge(result)
+
+
+# (i) approved stays True for N<6 in ALL cases ────────────────────────────────
+@pytest.mark.parametrize("count", [0, 2, 3, 5])
+async def test_approved_stays_true_below_forced_pause(
     monkeypatch, captured_state, count
 ):
     _set_count(monkeypatch, count)
@@ -271,3 +357,122 @@ def test_threshold_env_override(monkeypatch):
     assert srv._decomp_nudge_threshold() == 3
     monkeypatch.delenv("NEXUS_DECOMP_NUDGE_THRESHOLD", raising=False)
     assert srv._decomp_nudge_threshold() == 3
+
+
+# ── Width-disjoint trigger unit tests (_width_disjoint_trigger) ───────────────
+
+def _wide_brief(**overrides: Any) -> dict[str, Any]:
+    """Brief with >=4 context_files and no_read_after_write=True (base case)."""
+    b = _well_formed_brief(
+        context_files=["a.py", "b.py", "c.py", "d.py"],
+        decomposition={"no_read_after_write": True},
+    )
+    b.update(overrides)
+    return b
+
+
+def test_width_trigger_fires_on_4_context_files():
+    brief = _wide_brief()
+    result = srv._width_disjoint_trigger(brief)
+    assert result is not None
+    assert result.startswith("[decomposition]")
+    assert "no_read_after_write" in result
+
+
+def test_width_trigger_fires_on_files_touched_estimate():
+    # When files_touched_estimate is present it takes precedence over context_files.
+    brief = _wide_brief(
+        context_files=["a.py"],  # only 1 — would not trigger alone
+        files_touched_estimate=5,
+    )
+    result = srv._width_disjoint_trigger(brief)
+    assert result is not None
+    assert "5" in result
+
+
+def test_width_trigger_silent_below_threshold():
+    brief = _wide_brief(
+        context_files=["a.py", "b.py", "c.py"],  # 3, below threshold of 4
+    )
+    result = srv._width_disjoint_trigger(brief)
+    assert result is None
+
+
+def test_width_trigger_silent_without_signal():
+    # no_read_after_write absent — no trigger even with many files.
+    brief = _well_formed_brief(
+        context_files=["a.py", "b.py", "c.py", "d.py"],
+        decomposition={"independent_units": 4},  # no no_read_after_write key
+    )
+    result = srv._width_disjoint_trigger(brief)
+    assert result is None
+
+
+def test_width_trigger_silent_when_signal_is_false():
+    # Explicit False must not trigger.
+    brief = _wide_brief(decomposition={"no_read_after_write": False})
+    result = srv._width_disjoint_trigger(brief)
+    assert result is None
+
+
+def test_width_trigger_silent_when_signal_is_truthy_not_true():
+    # Signal must be literal True, not truthy (1, "yes", etc.).
+    for truthy in (1, "true", "yes", [True]):
+        brief = _wide_brief(decomposition={"no_read_after_write": truthy})
+        assert srv._width_disjoint_trigger(brief) is None, f"failed for signal={truthy!r}"
+
+
+def test_width_trigger_silent_when_no_decomposition():
+    brief = _well_formed_brief(context_files=["a.py", "b.py", "c.py", "d.py"])
+    result = srv._width_disjoint_trigger(brief)
+    assert result is None
+
+
+def test_width_trigger_silent_when_decomposition_not_dict():
+    brief = _well_formed_brief(
+        context_files=["a.py", "b.py", "c.py", "d.py"],
+        decomposition="no_read_after_write=True",
+    )
+    result = srv._width_disjoint_trigger(brief)
+    assert result is None
+
+
+# Integration: width trigger fires through the full validator ─────────────────
+
+async def test_width_trigger_fires_in_validator(monkeypatch, captured_state):
+    # Consecutive count below serial nudge threshold — only width advisory fires.
+    _set_count(monkeypatch, 0)
+    brief = _wide_brief()
+    result = await _validate(brief)
+    assert any("[decomposition]" in w and "no_read_after_write" in w for w in result["warnings"])
+    assert result["approved"] is True
+
+
+async def test_width_trigger_suppressed_for_exempt_persona(monkeypatch, captured_state):
+    _set_count(monkeypatch, 0)
+    brief = _wide_brief()
+    result = await _validate(brief, persona="scout", intent="investigate")
+    assert not any("no_read_after_write" in w for w in result["warnings"])
+    assert result["approved"] is True
+
+
+async def test_width_trigger_suppressed_by_serial_justification(monkeypatch, captured_state):
+    _set_count(monkeypatch, 0)
+    brief = _wide_brief(
+        decomposition={
+            "no_read_after_write": True,
+            "serial_justification": "step 3 reads the output of step 2",
+        }
+    )
+    result = await _validate(brief)
+    assert not any("no_read_after_write" in w for w in result["warnings"])
+    assert result["approved"] is True
+
+
+async def test_width_trigger_never_flips_approved(monkeypatch, captured_state):
+    # POSITIVE invariant: even with a wide disjoint brief, approved stays True.
+    _set_count(monkeypatch, 0)
+    brief = _wide_brief(files_touched_estimate=20)
+    result = await _validate(brief)
+    assert result["approved"] is True
+    assert result["errors"] == []

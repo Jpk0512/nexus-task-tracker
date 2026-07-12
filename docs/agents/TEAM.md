@@ -1,5 +1,14 @@
 # Agent Team — Nexus
 
+> **Install-time tokens:** persona and hook templates contain double-underscore-delimited
+> placeholders such as `BACKEND_SRC_DIR`, `FRONTEND_SRC_DIR`, `INGESTION_DIR`, `DB_KIND`,
+> `AI_LAYER`, `MODELS_DIR`, `FRONTEND_FRAMEWORK`, `BACKEND_LANG`, etc. Each bare name is
+> wrapped in double underscores when written in a template (e.g. the token for `DB_KIND`
+> appears as two underscores, then `DB_KIND`, then two more underscores). These are
+> substituted at install time by `tools/render_install.py` via `tools/stack_profile.py`
+> (`_TOKEN_PATHS`). Every persona description ships with the placeholders intact; the
+> rendered copy in an installed project has them replaced with real paths/values.
+
 ## Roster (canonical dispatch targets)
 
 These are the ONLY valid `subagent_type` values. Dispatch by the exact slug:
@@ -14,6 +23,41 @@ These are the ONLY valid `subagent_type` values. Dispatch by the exact slug:
 
 **Dual-persona binding:** `forge-ui` ↔ `palette` — neither ships without the other for any visual work (see Palette and the Pairing rules table).
 
+**Install-aware availability — VERIFY BEFORE DISPATCH.** `pipeline-data`, `pipeline-async`, `pipeline-data-pro`, `pipeline-async-pro`, and `quill-py` exist ONLY in Python-stack installs. They are NOT present in a pure TS/Next.js install. Dispatching an unregistered persona hard-fails mid-workflow with no recovery path. Before any dispatch, confirm the agent file exists at `.claude/agents/<persona>.md`. In a TS/Next.js-only install, map Python work as follows:
+
+| Python work type | TS/Next.js install mapping |
+|---|---|
+| Data transforms / database writes / embeddings (`pipeline-data`) | `forge-wire` (read-side) + `hermes` (wiring) |
+| Async workers / external API clients (`pipeline-async`) | `forge-wire` (server actions) + `hermes` (auth/client wiring) |
+| Python test authoring (`quill-py`) | `quill-ts` (TS tests only) |
+
+If the work genuinely requires Python ingestion logic that cannot be expressed in TS, surface `## NEXUS:NEEDS-DECISION` — do not silently remap it.
+
+---
+
+## Cascade routing — model per persona (DEC-025)
+
+When dispatching via `subagent_type=<persona>`, the persona's agent-file frontmatter `model:` field sets the model. The harness resolves the concrete snapshot from the bare name. This table must match each agent file's frontmatter.
+
+| Persona | Model | Notes |
+|---|---|---|
+| Nexus (orchestrator) | opus | Planning / classification / review reasoning |
+| Scout | haiku | High-volume read-only exploration; cheap discovery |
+| forge-ui | sonnet | TS/Next.js UI implementation |
+| forge-wire | sonnet | TS/Next.js server implementation |
+| pipeline-data | sonnet | Python data-transform implementation |
+| pipeline-async | sonnet | Python async-worker implementation |
+| atlas | opus | Schema design — deeper reasoning for DDL correctness |
+| hermes | sonnet | Cross-service wiring; auth glue |
+| palette | sonnet | Visual contract authoring |
+| lens | sonnet | Per frontmatter; T1 light-lane may use haiku via lens-fast |
+| lens-fast | haiku | Parallel fast-lane sibling; deterministic gates only |
+| quill-ts | sonnet | TS test authoring with real data shapes |
+| quill-py | sonnet | Python test authoring with real data shapes |
+| `*-pro` variants | opus (effort xhigh) | forge-ui-pro / forge-wire-pro / pipeline-data-pro / pipeline-async-pro |
+
+**Retired base names (`forge`, `pipeline`, `quill`)** are NOT valid `subagent_type` values — `persona-alias-resolver.sh` DENIES them. Dispatch the split persona directly.
+
 ---
 
 ## Routing rule — infra / docs / markdown work
@@ -26,6 +70,78 @@ Some work types have no domain-specialist persona of their own. Route them as:
 
 Mirrored as a routing-table row in the `team-routing` skill for dispatch-time lookup.
 
+## Forbidden directories (per persona)
+
+The table below is the canonical forbidden-directory reference. Before briefing any teammate in a dynamic Workflow, intersect the teammate's assigned file-globs against its row. Split the brief if any file crosses the boundary.
+
+| Persona | Cannot touch |
+|---|---|
+| Scout | Anything — read-only via `disallowedTools: Edit, Write, NotebookEdit` |
+| forge-ui | `/`, `/`, `docker-compose*.yml`, `.memory/`, `Caddyfile`, `app/apps/api/src/api/**` |
+| forge-wire | `/`, `/`, `docker-compose*.yml`, `.memory/`, `Caddyfile`, `app/apps/dashboard/src/components/**` |
+| pipeline-data | `app/apps/dashboard/src/`, `/`, `docker-compose*.yml`, `.memory/` |
+| pipeline-async | `app/apps/dashboard/src/`, `/`, `docker-compose*.yml`, `.memory/` |
+| hermes | Business logic inside `app/apps/dashboard/src/` or `/` (auth/integration glue only); `/`, `.memory/` |
+| atlas | Anything via Bash (`disallowedTools: Bash` — design only); `app/apps/dashboard/src/`, `/` business logic |
+| lens | Anything — `disallowedTools: Edit, Write, NotebookEdit` (reports only) |
+| lens-fast | Anything — `disallowedTools: Edit, Write, NotebookEdit` (pass/fail only) |
+| quill-ts / quill-py | Non-test files; `.memory/` |
+| Nexus (orchestrator) | Anything via Edit/Write — `disallowedTools: Write, Edit, NotebookEdit`; orchestrates via delegation only |
+
+**Pre-dispatch check (how to apply):**
+1. List every file or glob the teammate will touch.
+2. Check each against the persona's "Cannot touch" row above.
+3. If ANY file crosses the boundary, split into two or more briefs — one per ownership domain — and assign the correct persona to each.
+
+**Common ownership splits:**
+- Schema or migrations → `atlas`
+- Server-side API routes / server actions / AI-layer wiring (`app/apps/api/src`) → `forge-wire`
+- Frontend UI components / pages / routes (`app/apps/dashboard/src`) → `forge-ui`
+- `` transforms/writers → `pipeline-data`
+- `` workers/clients → `pipeline-async`
+- Auth wrappers / env-var plumbing / Docker / MCP → `hermes`
+- Test files only → `quill-ts` or `quill-py`
+
+A brief spanning ownership lines is a dispatch contract violation — Lens will flag it and force a REVISE cycle.
+
+## Persona routing — decision diagram
+
+```mermaid
+flowchart TD
+    A([Task arrives]) --> B{Work type?}
+
+    B -->|UI / components / pages| C[forge-ui]
+    B -->|Server actions / API routes / AI wiring| D[forge-wire]
+    B -->|Data transforms / DB writes / embeddings| E[pipeline-data]
+    B -->|Async workers / external clients| F[pipeline-async]
+    B -->|Schema / DDL / semantic model| G[atlas]
+    B -->|Auth wrappers / env-vars / Docker / MCP| H[hermes]
+    B -->|Visual design / component spec| I[palette]
+    B -->|TS tests| J[quill-ts]
+    B -->|Python tests| K[quill-py]
+    B -->|Unknown / multi-domain| L[Scout first]
+    B -->|Post-impl validation| M[lens-fast ∥ lens]
+
+    C -->|Visual work| I
+    I -->|"binding: neither ships without the other"| C
+    C <-->|Full-stack| D
+
+    E <-->|Ingestion pipeline| F
+
+    C --> N{Complex / stall / REVISE?}
+    D --> N
+    E --> N
+    F --> N
+    N -->|Yes| O["escalate to -pro variant\nopus, effort: xhigh"]
+    N -->|No| P[implement]
+
+    P --> M
+    O --> P
+
+    M -->|NEXUS:REVISE| N
+    M -->|NEXUS:DONE| Q([Task complete])
+```
+
 ---
 
 ## Nexus (Orchestrator)
@@ -37,8 +153,8 @@ Mirrored as a routing-table row in the `team-routing` skill for dispatch-time lo
 
 ## Scout (Explorer)
 **Role:** Read-only investigation. Maps unknown territory before implementation begins.  
-**Specialties:** SocratiCode semantic search, API response inspection (via agent-browser), dependency graph analysis, identifying what already exists vs. what needs to be built.  
-**Tools:** `/codebase-exploration`, `/agent-browser`, Read, Bash (read-only commands only).  
+**Specialties:** SocratiCode semantic search, API response inspection (via aside), dependency graph analysis, identifying what already exists vs. what needs to be built.  
+**Tools:** `/codebase-exploration`, `/aside-browser`, Read, Bash (read-only commands only).  
 **Does NOT:** Edit files. Install packages. Make network requests with side effects.  
 **Output format:** Structured findings JSON + list of files relevant to the task.  
 **When to use:** Any task where the implementation path is unclear. Always use Scout before Hermes for external API integration work.
@@ -111,20 +227,27 @@ Nexus dispatches the `-pro` variant when:
 **Model:** haiku.  
 **Does NOT:** Write or fix code. Perform semantic / RCA / visual / security review (Lens owns those). Only reports deterministic-gate outcomes.  
 **Runs:** `rtk tsc`, `rtk lint`, `uv run ruff check`, `rtk vitest run`, `uv run pytest` — pass/fail only.  
-**Output:** Structured pass/fail report per gate with verbatim command output as evidence.  
+**Output:** Structured pass/fail gate matrix with verbatim command output as evidence. Does NOT write a `validation_log` row — that is `lens`'s exclusive job.  
 **Pairs with:** **Lens — dispatched in parallel in one tool block post-implementation per Article XIII.b.** lens-fast and Lens together replace the prior single-Lens validation step.  
-**When to use:** After every forge-ui, forge-wire, pipeline-data, or pipeline-async agent completes — always dispatched alongside Lens in the same message block.
+**When to use:** After every code-touching agent completes — always dispatched alongside Lens in the same message block. For T1 trivial (single file, non-gated, no probe) MAY satisfy light-lane alone.
 
 ---
 
 ## Lens (Deep Semantic Reviewer)
-**Role:** Deep semantic + RCA + visual + security review. Validates output against acceptance criteria using reasoning-heavy gates. Reports PASS/FAIL/PARTIAL with specific evidence.  
-**Model:** opus.  
+**Role:** Deep semantic + RCA + visual + security review. Validates output against acceptance criteria.
+Operates in two depth modes (3-tier Lens):
+- **T1 LIGHT** (single file, non-gated prefix, no subprocess/eval/network content): deterministic
+  gates + brief semantic sanity; writes a real verdict row with `agent_validated='lens'`. MAY run on
+  a cheaper model (sonnet/haiku). Orchestrator MAY invoke lens-fast for T1 light-lane only.
+- **T2 FULL** (multi-file OR gated prefix OR content-probe OR ambiguity): full deep audit.
+  DEFAULT-DENY: any classification ambiguity resolves to T2.  
+**Model:** sonnet (per brief tier — see frontmatter; T1 light-lane may use haiku; T2 full audit runs on the dispatch model). The model line is in the agent frontmatter (`model: sonnet`) — the orchestrator may escalate tier via effort.  
 **Does NOT:** Write or fix code. Only reports. Does NOT run the deterministic fast-lane gates (lens-fast owns those).  
-**Runs:** semantic review, root-cause analysis (Article X completeness), visual verification (Article XII), security review, schema validation, cross-domain contract checks.  
-**Output:** Structured report: criterion → result → evidence (line numbers, command output).  
+**Runs:** semantic review, root-cause analysis, visual verification, security review, schema validation, cross-domain contract checks; also deterministic gates on T1 light-lane.  
+**Output:** Structured report: criterion → result → evidence (line numbers, command output). Writes `validation_log` row with `agent_validated='lens'` (both T1 and T2).  
+**Paired oracle:** lens-fast and Lens are a paired oracle: lens-fast owns the deterministic pass/fail matrix, Lens owns the deep semantic/RCA/security judgment and is the sole writer of the `agent_validated='lens'` validation_log row. lens-fast NEVER writes a validation_log row. Both must be dispatched in the same tool block post-implementation (Article XIII.b).  
 **Pairs with:** **lens-fast — dispatched in parallel in one tool block post-implementation per Article XIII.b.** lens-fast returns the deterministic-gate verdict in seconds while Lens runs the deep pass; Nexus short-circuits if lens-fast fails.  
-**When to use:** After every forge-ui, forge-wire, pipeline-data, or pipeline-async agent completes — always dispatched alongside lens-fast in the same message block, before orchestrator marks task done.
+**When to use:** After every forge-ui, forge-wire, pipeline-data, or pipeline-async agent completes — always dispatched alongside lens-fast in the same message block, before orchestrator marks task done. T1 work needs at minimum a light-lane row; T2 needs the full audit.
 
 ---
 
@@ -155,13 +278,15 @@ Nexus dispatches the `-pro` variant when:
 | Data transform with tests | pipeline-data + quill-py |
 | Async worker with tests | pipeline-async + quill-py |
 | New UI component (visual design) | palette ↔ forge-ui (binding — neither ships without the other; route to palette first) |
-| Post-implementation validation (any code-touching task) | lens-fast ∥ lens (dispatched in parallel, one tool block, per Article XIII.b) |
+| Post-implementation validation (any code-touching task) | lens-fast ∥ lens (dispatched in parallel, one tool block, per Article XIII.b); T1 light-lane → lens-fast alone may satisfy; T2 risky → both required |
 
 ---
 
 ## Atlas (Data / Schema Specialist)
 **Role:** `postgres` schema design, semantic-model authoring (`none`), table/column layout.  
+**Model:** opus (frontmatter: `model: opus`).  
 **Specialties:** `postgres` DDL, vector-index design (`pgvector`), dtype mapping. Stack-specific conventions live in the `atlas-schema-patterns` skill.  
+**Does NOT:** Run Bash — design only (`disallowedTools: Bash`). Produce implementation code.  
 **Works with:** pipeline-data (data format alignment), forge-wire (read-side query patterns).  
 **When to use:** When designing a new `postgres` table or canonical schema.
 
@@ -177,6 +302,7 @@ Nexus dispatches the `-pro` variant when:
 
 ## Palette (Design Specialist)
 **Role:** Visual contract owner. Authors component specs, token/spacing/motion decisions, interaction states, light+dark parity, and empty/loading/error treatments. Produces design docs as the input to forge-ui's implementation briefs.  
+**Model:** sonnet (frontmatter: `model: sonnet`).  
 **Specialties:** `design/design.md` as binding contract, token extraction from `design/tokens/`, mockup pattern analysis (`docs/ui-mockups/*.html`), WCAG AA contrast validation, motion-budget specs, light+dark parity.  
 **Does NOT:** Write implementation code. Copy mockup HTML directly. Touch ``, ``, or `docker-compose` files.  
 **Output:** Structured design spec (component map, token list, interaction states) written to `docs/design/` or `.memory/design-reports/`. Returns `## NEXUS:DONE` only after all five verification checks pass.  

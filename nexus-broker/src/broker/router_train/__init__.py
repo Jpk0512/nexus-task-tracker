@@ -22,7 +22,13 @@ shape with label_source="transcript_mining".
 """
 from __future__ import annotations
 
-from broker.router_train.aggregate import aggregate, prompt_hash, registry_install_paths
+from broker.router_train.aggregate import (
+    aggregate,
+    aggregate_dispatches,
+    collect_labeled_pairs,
+    prompt_hash,
+    registry_install_paths,
+)
 from broker.router_train.export import (
     ValidationError,
     export,
@@ -40,32 +46,54 @@ from broker.router_train.label import (
     LABEL_STATUS_QUARANTINED_RETIRED,
     NEXUS_PERSONAS,
     RETIRED_BASE_NAMES,
+    TRAINING_LABELS,
     classify_label,
     label,
 )
+from broker.router_train.relabel import (
+    LABEL_SOURCE_LLM_REAL,
+    llm_label,
+    mine_all_real_requests,
+)
+from broker.router_train.synthetic import generate_synthetic
 from broker.router_train.transcript import (
+    LABEL_CONFIDENCE_NO_DISPATCH,
     LABEL_CONFIDENCE_TRANSCRIPT,
+    LABEL_SOURCE_NO_DISPATCH,
     LABEL_SOURCE_TRANSCRIPT,
+    is_genuine_user_prompt,
+    mine_no_dispatch,
     mine_transcripts,
 )
 
 __all__ = [
+    "LABEL_SOURCE_LLM_REAL",
+    "llm_label",
+    "mine_all_real_requests",
     "GENERIC_BUILTINS",
+    "aggregate_dispatches",
+    "LABEL_CONFIDENCE_NO_DISPATCH",
     "LABEL_CONFIDENCE_TRANSCRIPT",
+    "LABEL_SOURCE_NO_DISPATCH",
     "LABEL_SOURCE_SIDECAR",
     "LABEL_SOURCE_TRANSCRIPT",
+    "is_genuine_user_prompt",
     "LABEL_STATUS_DROPPED_GENERIC",
     "LABEL_STATUS_OK",
     "LABEL_STATUS_QUARANTINED_BUGGY",
     "LABEL_STATUS_QUARANTINED_RETIRED",
     "NEXUS_PERSONAS",
     "RETIRED_BASE_NAMES",
+    "TRAINING_LABELS",
     "ValidationError",
     "aggregate",
     "classify_label",
+    "collect_labeled_pairs",
+    "generate_synthetic",
     "export",
     "is_valid",
     "label",
+    "mine_no_dispatch",
     "mine_transcripts",
     "prompt_hash",
     "registry_install_paths",

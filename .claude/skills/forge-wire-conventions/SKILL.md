@@ -53,7 +53,9 @@ rtk vitest run app/__tests__/    # unit + integration tests
 
 ## Deploy step (always)
 
-End every implementation response with `## Deploy step` containing branch + restart action.
+End every implementation response with `## Deploy step` containing a restart action targeting the current session-branch HEAD.
+
+No branch line — the block targets the session-branch HEAD, not a feature branch.
 
 ## Forbidden writes
 

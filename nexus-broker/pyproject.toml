@@ -28,6 +28,9 @@ build-backend = "hatchling.build"
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+markers = [
+    "slow: marks tests as slow (>10s); exclude with -m 'not slow'",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/broker"]

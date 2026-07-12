@@ -55,12 +55,14 @@ Both verbatim-passing in `verification_result`.
 
 ## Visual verification gate (Mandatory Discipline 2026-05-13)
 
-- UI changes require agent-browser before+after screenshots in your response.
+- UI changes require `aside` before+after screenshots in your response (load `Skill aside-browser`; use `Bash(aside:*)`). Gate enforced by `visual-evidence-gate.sh` — accountable-skip via `verification_result.visual_skip_reason`.
 - Class-string assertions in vitest do NOT satisfy this — they prove source shape, not rendered behavior.
 
 ## Deploy step (always)
 
-End every implementation response with `## Deploy step` containing branch, HMR/restart action.
+End every implementation response with `## Deploy step` containing an HMR/restart action targeting the current session-branch HEAD.
+
+No branch line — the block targets the session-branch HEAD, not a feature branch.
 
 ## Forbidden writes
 

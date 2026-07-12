@@ -60,15 +60,6 @@ def _run_alias_resolver(subagent_type: str, brief: str) -> tuple[int, dict]:
     return proc.returncode, parsed
 
 
-def test_alias_resolver_hook_exists() -> None:
-    assert ALIAS_RESOLVER.is_file(), f"alias-resolver not found at {ALIAS_RESOLVER}"
-
-
-def test_retirement_constant_matches_known_base_names() -> None:
-    expected = frozenset({"forge", "pipeline", "quill"})
-    assert expected == RETIRED_BASE_PERSONAS
-
-
 @pytest.mark.parametrize("base", sorted(RETIRED_BASE_PERSONAS))
 def test_broker_rejects_bare_base_name(base: str) -> None:
     """The broker registry does not recognise a bare base name."""

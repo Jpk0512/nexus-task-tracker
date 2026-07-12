@@ -1,0 +1,54 @@
+# doc-relationships.yaml
+# Maps identity-doc relationships for co-change advisory in sync_docs.py.
+# When one doc in a group changes recently without the others, drift-report.md
+# gets an advisory "review related docs" note. NEVER auto-updates the listed files.
+#
+# Format:
+#   groups:
+#     - name: <human label>
+#       docs:
+#         - <repo-relative path>
+#       reason: <why these docs should stay in sync>
+
+groups:
+  - name: core-identity
+    docs:
+      - CLAUDE.md
+      - .claude/INVARIANTS.md
+      - README.md
+    reason: >
+      CLAUDE.md is the authoritative identity + hard-rule source.
+      INVARIANTS.md is the durable digest injected at session start — it must
+      mirror every hard rule and persona list in CLAUDE.md.
+      README.md is the user-facing entry point and must stay consistent with
+      what Plexus actually does.
+
+  - name: constitution-and-contracts
+    docs:
+      - docs/CONSTITUTION.md
+      - CLAUDE.md
+      - docs/agents/CONTRACT.md
+    reason: >
+      CONSTITUTION.md defines governance articles that CLAUDE.md references
+      (Art. XI no-deferral, Art. XIII parallelism, Art. I spec-first).
+      CONTRACT.md defines the broker brief schema that gates reference.
+      All three must agree on hard rules.
+
+  - name: team-roster
+    docs:
+      - docs/agents/TEAM.md
+      - .claude/INVARIANTS.md
+      - CLAUDE.md
+    reason: >
+      TEAM.md is the canonical persona roster (dispatch targets, retired names).
+      INVARIANTS.md and CLAUDE.md carry inline persona lists that must match.
+      A persona retirement in TEAM.md should prompt review of the others.
+
+  - name: operating-manual-and-gates
+    docs:
+      - docs/PLEXUS-OPERATING-MANUAL.md
+      - docs/ORCHESTRATOR-GATES.md
+    reason: >
+      PLEXUS-OPERATING-MANUAL.md describes the operational protocol that the
+      gates enforce. When a gate is added or changed, the manual should be
+      updated to describe it, and vice-versa.

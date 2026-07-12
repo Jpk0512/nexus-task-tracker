@@ -337,6 +337,41 @@ def _migrate_feedback_version_column(conn: sqlite3.Connection) -> None:
     )
 
 
+def _migrate_validation_log_columns(conn: sqlite3.Connection) -> None:
+    """Idempotent: add the three nullable columns to validation_log introduced by
+    the U1 instrumentation pass (DEC-029 lens-tiering + completeness-check).
+
+    Three additive columns:
+      files_changed_json  TEXT  — JSON array of the implementer's declared
+                                  files_changed; the completeness-check CLI uses
+                                  this to confirm a PASS row covers the changed set.
+      revise_reason       TEXT  — machine-readable reason when the stored verdict
+                                  != PASS; auto-filled from derive_verdict_from_report
+                                  binding_note at INSERT time. NULL on PASS rows.
+      dispatch_started_at TEXT  — ISO-8601 UTC stamp of when the validating Lens
+                                  dispatch began (distinct from validated_at = the
+                                  row-write time); lets instrumentation compute the
+                                  Lens wall-clock duration.
+
+    Safe to re-run on a live project.db — ALTER TABLE branches are guarded by
+    PRAGMA table_info so a second run is a clean no-op.  The table itself may not
+    exist yet on a brand-new DB; the guard handles that too.
+    """
+    if not conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='validation_log'"
+    ).fetchone():
+        return  # table not yet created — cmd_init will create it fresh with all columns
+    existing = {r[1] for r in conn.execute("PRAGMA table_info(validation_log)")}
+    additive: list[tuple[str, str]] = [
+        ("files_changed_json", "TEXT"),
+        ("revise_reason", "TEXT"),
+        ("dispatch_started_at", "TEXT"),
+    ]
+    for col, decl in additive:
+        if col not in existing:
+            conn.execute(f"ALTER TABLE validation_log ADD COLUMN {col} {decl}")
+
+
 def _migrate_semantic_facts_drop_global_unique(conn: sqlite3.Connection) -> None:
     """OPT-054 / TASK-036: drop the old column-level UNIQUE on semantic_facts.key.
 
@@ -890,6 +925,9 @@ def cmd_init(_args: argparse.Namespace) -> None:
         # Version-stamping — additive nexus_version on nexus_feedback + backfill
         # NULL legacy rows to 'unknown'. Idempotent, re-runnable, no data loss.
         _migrate_feedback_version_column(conn)
+        # U1 instrumentation — three nullable columns on validation_log for
+        # completeness-check coverage, revise attribution, and wall-clock timing.
+        _migrate_validation_log_columns(conn)
     # Apply M-001 vec_memory via extension-loaded conn. When sqlite-vec is
     # unavailable (degraded bootstrap / NEXUS_DISABLE_VEC / no extension support),
     # SKIP the vec0 virtual table and continue — core tables are already created
@@ -918,11 +956,25 @@ def cmd_session_start(args: argparse.Namespace) -> None:
     now = _now()
     # Use date-based ID: S20260510-143000
     sid = "S" + datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")  # noqa: UP017
-    with _conn() as conn:
-        conn.execute(
-            "INSERT INTO sessions (id, started_at, branch) VALUES (?, ?, ?)",
-            (sid, now, getattr(args, "branch", "main") or "main"),
+    # NATIVE-58: surface DB-open / write failures LOUDLY on stderr rather than
+    # letting an unhandled exception propagate into `|| true` / `2>/dev/null`
+    # at the call-site hook — which silently orphans the session with zero log rows.
+    # The banner is the signal; exit 1 so the caller's rc is non-zero even when
+    # it is suppressed via `|| true`.
+    try:
+        with _conn() as conn:
+            conn.execute(
+                "INSERT INTO sessions (id, started_at, branch) VALUES (?, ?, ?)",
+                (sid, now, getattr(args, "branch", "main") or "main"),
+            )
+    except Exception as _exc:  # noqa: BLE001
+        sys.stderr.write(
+            f"NEXUS MEMORY WRITE FAILURE: cannot write session row to {DB_PATH} — "
+            f"{_exc.__class__.__name__}: {_exc}. "
+            "Sessions will NOT be recorded. Check that .memory/ exists, is writable, "
+            "and that project.db is initialized (run: python3 .memory/log.py init).\n"
         )
+        sys.exit(1)
     print(json.dumps({"session_id": sid, "started_at": now}))
 
 
@@ -4086,6 +4138,11 @@ def cmd_validation_add(args: argparse.Namespace) -> None:
     downgraded to FAIL (or PARTIAL) and recorded as such, so Lens can no longer
     grade its own homework. With no report the claim is stored but flagged
     UNBACKED so the absence of evidence is visible to an auditor.
+
+    U1 instrumentation columns (all optional, nullable):
+      --files-changed-json  JSON array of the implementer's declared files_changed.
+      --dispatch-started-at ISO-8601 UTC stamp of when the Lens dispatch began.
+    revise_reason is auto-populated from binding_note when verdict != PASS.
     """
     now = _now()
     task_hash = args.task_hash
@@ -4113,6 +4170,14 @@ def cmd_validation_add(args: argparse.Namespace) -> None:
     summary = args.summary or ""
     evidence_summary = f"{summary} [{binding_note}]".strip() if binding_note else summary
 
+    # U1 instrumentation: revise_reason is set when the stored verdict != PASS
+    # so the failure reason is machine-readable without re-parsing evidence_summary.
+    files_changed_json = getattr(args, "files_changed_json", None) or None
+    dispatch_started_at = getattr(args, "dispatch_started_at", None) or None
+    revise_reason: str | None = None
+    if verdict != "PASS" and binding_note:
+        revise_reason = binding_note[:500]  # cap at 500 chars for sanity
+
     with _conn() as conn:
         row = conn.execute(
             "SELECT id FROM sessions WHERE ended_at IS NULL ORDER BY started_at DESC LIMIT 1"
@@ -4134,11 +4199,18 @@ def cmd_validation_add(args: argparse.Namespace) -> None:
             """CREATE INDEX IF NOT EXISTS idx_validation_target
                ON validation_log(target_agent, validated_at DESC)""",
         )
+        # Ensure the U1 nullable columns exist (idempotent — no-op on fresh DBs
+        # where _migrate_validation_log_columns already ran via cmd_init).
+        _migrate_validation_log_columns(conn)
         conn.execute(
             """INSERT INTO validation_log
-               (session_id, agent_validated, target_agent, task_or_brief_hash, verdict, evidence_summary, validated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            (session_id, args.agent, args.target, task_hash, verdict, evidence_summary, now),
+               (session_id, agent_validated, target_agent, task_or_brief_hash, verdict,
+                evidence_summary, validated_at,
+                files_changed_json, revise_reason, dispatch_started_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (session_id, args.agent, args.target, task_hash, verdict,
+             evidence_summary, now,
+             files_changed_json, revise_reason, dispatch_started_at),
         )
     print(json.dumps({
         "recorded": True,
@@ -4151,6 +4223,129 @@ def cmd_validation_add(args: argparse.Namespace) -> None:
         "downgraded": backed and verdict != claimed,
         "binding": binding_note,
         "validated_at": now,
+        "files_changed_json": files_changed_json,
+        "dispatch_started_at": dispatch_started_at,
+    }))
+
+
+def cmd_validation_completeness_check(args: argparse.Namespace) -> None:
+    """Assert the latest in-window lens PASS row covers the declared files_changed set.
+
+    rc=0  — a PASS row exists within the 1-hour window whose files_changed_json
+            is a superset of (or equal to) every path in --files-changed-json AND
+            no open-deferral condition is flagged.
+    rc=2  — no qualifying row found, or the row's files_changed_json does not
+            cover the requested set; stderr names the missing paths.
+
+    Interface pin (PASS_ROW_QUERY, files-changed-keyed variant):
+      SELECT verdict, files_changed_json FROM validation_log
+      WHERE agent_validated='lens'
+        [AND task_or_brief_hash=?]
+        AND datetime(validated_at) > datetime('now','-1 hours')
+      ORDER BY datetime(validated_at) DESC, id DESC
+      LIMIT 1
+    Always uses datetime() comparisons (not lexical) to avoid space-vs-T trap.
+    1-hour window matches lens-gate VALIDATION_WINDOW=timedelta(hours=1).
+    """
+    try:
+        requested_files: list = json.loads(args.files_changed_json)
+    except (json.JSONDecodeError, ValueError) as exc:
+        print(
+            f"completeness-check: --files-changed-json is not valid JSON: {exc}",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+    if not isinstance(requested_files, list):
+        print(
+            "completeness-check: --files-changed-json must be a JSON array",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+    requested_set = {str(f) for f in requested_files}
+
+    with _conn() as conn:
+        # Ensure table exists (no-op on established DBs).
+        if not conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='validation_log'"
+        ).fetchone():
+            print(
+                "completeness-check: validation_log table does not exist — run `init` first",
+                file=sys.stderr,
+            )
+            sys.exit(2)
+
+        # Ensure new columns (files_changed_json, revise_reason, dispatch_started_at)
+        # exist before any SELECT that references them.  On legacy DBs that predate
+        # the migration this would otherwise crash with OperationalError.
+        _migrate_validation_log_columns(conn)
+
+        task_hash = getattr(args, "task_hash", None) or None
+        if task_hash:
+            row = conn.execute(
+                "SELECT verdict, files_changed_json FROM validation_log "
+                "WHERE agent_validated='lens' AND task_or_brief_hash=? "
+                "AND datetime(validated_at) > datetime('now','-1 hours') "
+                "ORDER BY datetime(validated_at) DESC, id DESC LIMIT 1",
+                (task_hash,),
+            ).fetchone()
+        else:
+            row = conn.execute(
+                "SELECT verdict, files_changed_json FROM validation_log "
+                "WHERE agent_validated='lens' "
+                "AND datetime(validated_at) > datetime('now','-1 hours') "
+                "ORDER BY datetime(validated_at) DESC, id DESC LIMIT 1",
+            ).fetchone()
+
+    if row is None:
+        print(
+            "completeness-check: no lens PASS row found in the 1-hour window"
+            + (f" for task-hash {task_hash!r}" if task_hash else ""),
+            file=sys.stderr,
+        )
+        sys.exit(2)
+
+    if row["verdict"] != "PASS":
+        print(
+            f"completeness-check: latest in-window lens row has verdict={row['verdict']!r}, not PASS",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+
+    stored_json = row["files_changed_json"]
+    if not stored_json:
+        # Row predates U1 or Lens did not supply --files-changed-json — the
+        # coverage cannot be verified. Treat as covered (legacy compat) but warn.
+        print(
+            "completeness-check: PASS row found but files_changed_json is NULL "
+            "(pre-U1 row or missing --files-changed-json on `validation add`); "
+            "coverage assumed OK.",
+            file=sys.stderr,
+        )
+        sys.exit(0)
+
+    try:
+        stored_files: list = json.loads(stored_json)
+    except (json.JSONDecodeError, ValueError):
+        print(
+            "completeness-check: stored files_changed_json is not valid JSON — "
+            "treating as uncovered",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+    covered_set = {str(f) for f in stored_files}
+    missing = sorted(requested_set - covered_set)
+    if missing:
+        print(
+            "completeness-check: FAIL — PASS row does not cover these files:\n"
+            + "\n".join(f"  {p}" for p in missing),
+            file=sys.stderr,
+        )
+        sys.exit(2)
+
+    print(json.dumps({
+        "ok": True,
+        "covered_files": sorted(requested_set),
+        "pass_row_files": sorted(covered_set),
     }))
 
 
@@ -5125,6 +5320,21 @@ def main() -> None:
     va.add_argument("--strict", action="store_true",
                     help="Reject (exit 1) instead of silently downgrading when the claimed "
                          "verdict contradicts the report evidence.")
+    va.add_argument("--files-changed-json", dest="files_changed_json", default=None,
+                    help="JSON array of the implementer's declared files_changed. Stored "
+                         "for completeness-check coverage assertions.")
+    va.add_argument("--dispatch-started-at", dest="dispatch_started_at", default=None,
+                    help="ISO-8601 UTC timestamp of when this Lens dispatch began "
+                         "(distinct from validated_at = row-write time); enables wall-clock "
+                         "duration instrumentation.")
+
+    vc = vsp.add_parser("completeness-check",
+                        help="Assert that the latest in-window lens PASS row covers "
+                             "a declared set of files_changed (rc=0 on PASS, rc=2 otherwise)")
+    vc.add_argument("--files-changed-json", dest="files_changed_json", required=True,
+                    help="JSON array of file paths that must be covered by the PASS row.")
+    vc.add_argument("--task-hash", dest="task_hash", default=None,
+                    help="Optional: further filter to a specific task/brief hash.")
 
     # subagent-return (Mitigation A)
     srp = sub.add_parser("subagent-return", help="Record and summarize a subagent response")
@@ -5416,6 +5626,7 @@ def main() -> None:
         ("notepad",        "list"):     cmd_notepad_list,
         ("notepad",        "clear"):    cmd_notepad_clear,
         ("validation",     "add"):      cmd_validation_add,
+        ("validation",     "completeness-check"): cmd_validation_completeness_check,
         ("subagent-return", "record"):  cmd_subagent_return_record,
         ("registry", "add"):           cmd_registry_add,
         ("registry", "update"):        cmd_registry_update,

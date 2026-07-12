@@ -69,7 +69,7 @@ Canonical source: `docs/agents/CONTRACT.md`. This skill is a JIT-loaded referenc
 8. **Leaf executor — no recursion** — personas may NOT call the Task tool. All delegation flows through Nexus.
 9. **Respect do_not_touch + Output-Dir STRICT** — escalate via `## NEXUS:NEEDS-DECISION` if a needed change is forbidden. Enforced by `verify-deliverables.sh` via `forbidden_paths` + `must_not_modify` glob checks against agent's `files_changed`.
 
-> *Note:* The earlier rule "agent-browser for web tasks" was dropped per DEC-036 (Phase 4 reverse-audit closeout). No current web work; re-add when a persona starts touching web (use `agent-browser`, not Chrome MCP / computer-use).
+> *Note:* The "agent-browser for web tasks" rule was replaced by `aside` (CLI exec/repl + mcp) per DEC-037 (2026-06-26). The Article XII visual gate is now enforced by `visual-evidence-gate.sh` (deny-capable, accountable-skip via `verification_result.visual_skip_reason`). Supersedes DEC-036's drop of the unguarded rule.
 
 ## Brief template (copy into delegations)
 

@@ -48,9 +48,15 @@
       "enum": [
         "dispatch_sidecar",
         "transcript_mining",
+        "transcript_no_dispatch",
+        "synthetic",
+        "synthetic_contrastive",
+        "completion_event",
         "lens_validation",
         "human",
-        "unlabeled"
+        "unlabeled",
+        "llm_real",
+        "llm_real_ctx"
       ],
       "description": "Label group: provenance of label_persona."
     },

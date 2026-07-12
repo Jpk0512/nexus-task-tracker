@@ -1,0 +1,124 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://nexus-installer/nexus-broker/router_training_record.schema.json",
+  "title": "router training record",
+  "description": "Canonical contract for one labeled router training pair (00-DESIGN.md 'Canonical training-record schema'). Every exported row MUST validate. Three field groups: input features, label group, provenance/OPT-055 stamp. pred_* guess fields are optional so fallthrough rows (no pred_*) and prefill rows (with them) both validate against this one contract. Legacy rows carrying the old qwen_* keys are normalized to pred_* on read (broker.router_train.aggregate._normalize_record) BEFORE validation, so the 604 pre-rename rows still validate.",
+  "type": "object",
+  "required": [
+    "prompt",
+    "label_persona",
+    "label_source",
+    "label_confidence",
+    "schema_version",
+    "router_version",
+    "model_id",
+    "prompt_hash"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "prompt": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Input feature: full untruncated user message the router saw."
+    },
+    "messages": {
+      "type": "array",
+      "description": "Input feature: the full system+user array the model actually saw (captures the OPT-001-buggy system prompt verbatim).",
+      "items": {
+        "type": "object",
+        "required": ["role", "content"],
+        "properties": {
+          "role": {"type": "string"},
+          "content": {"type": "string"}
+        }
+      }
+    },
+    "system_prompt_sha256": {
+      "type": ["string", "null"],
+      "description": "Input feature: hash of the rendered system prompt."
+    },
+    "label_persona": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Label group: the correct persona (= dispatched_persona). MUST NOT be 'general-purpose' (Claude default, not a Nexus persona) — such rows are dropped before export.",
+      "not": {"const": "general-purpose"}
+    },
+    "label_source": {
+      "type": "string",
+      "enum": [
+        "dispatch_sidecar",
+        "transcript_mining",
+        "lens_validation",
+        "human",
+        "unlabeled"
+      ],
+      "description": "Label group: provenance of label_persona."
+    },
+    "label_confidence": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "description": "Label group: 1.0 sidecar/human, ~0.8 transcript-mined, lower on low-agreement."
+    },
+    "labeled_at": {
+      "type": ["string", "null"],
+      "description": "Label group: timestamp the label was attached."
+    },
+    "pred_persona": {
+      "type": ["string", "null"],
+      "description": "The router model's own guess for the persona (optional). Legacy rows carry this under qwen_persona; it is normalized to pred_persona on read."
+    },
+    "agree": {
+      "type": "boolean",
+      "description": "Whether the model guess (pred_persona) equals the label (label_persona)."
+    },
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Provenance: separates v1 (the 604 legacy rows) from v2."
+    },
+    "router_version": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Provenance: OPT-001 quarantine flag. 'buggy' rows MUST be excluded from training."
+    },
+    "model_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Provenance: router model identity (granite-4.1-3b) — the ONLY field carrying model identity; kills pred_*/granite identity drift."
+    },
+    "source_project": {
+      "type": ["string", "null"],
+      "description": "Provenance: which install produced the row (fleet provenance)."
+    },
+    "router_code_sha": {
+      "type": ["string", "null"],
+      "description": "Provenance: git sha of the router code at write time."
+    },
+    "threshold": {
+      "type": ["number", "null"],
+      "description": "Provenance: the live THRESHOLD_LLM value at write time."
+    },
+    "session_id": {
+      "type": ["string", "null"],
+      "description": "Provenance / join key."
+    },
+    "timestamp": {
+      "type": ["string", "null"],
+      "description": "Provenance: capture timestamp."
+    },
+    "decision": {
+      "type": ["string", "null"],
+      "description": "Provenance: the router decision (prefill / fallthrough / ...)."
+    },
+    "latency_ms": {
+      "type": ["number", "null"],
+      "description": "Provenance: router latency."
+    },
+    "prompt_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Provenance: sha256(prompt) hex — stable id for idempotent dedupe."
+    }
+  }
+}

@@ -35,7 +35,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from broker.router_train.aggregate import aggregate, prompt_hash
+from broker.router_train.aggregate import collect_labeled_pairs, prompt_hash
 from broker.router_train.export import training_grade, validate
 from broker.router_train.label import LABEL_STATUS_OK
 
@@ -310,7 +310,7 @@ def render(report: Report) -> str:
 
 
 def _load_records() -> list[dict[str, Any]]:
-    return aggregate()
+    return collect_labeled_pairs()
 
 
 def main(argv: list[str] | None = None) -> int:

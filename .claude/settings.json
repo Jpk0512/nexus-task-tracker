@@ -108,19 +108,19 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ./.claude/hooks/router.py 2>/dev/null || true"
+            "command": "python3 /Users/john.keeney/nexus-task-tracker/.claude/hooks/router.py 2>/dev/null || true"
           },
           {
             "type": "command",
-            "command": "python3 ./.memory/log.py context dump 2>/dev/null | python3 -c \"import json,sys; d=json.load(sys.stdin); tasks=[t for t in d.get('open_tasks',[]) if t['status']=='in_progress']; print('\\n[Context] Open in-progress tasks: ' + ', '.join(t['id'] for t in tasks)) if tasks else None\" 2>/dev/null || true"
+            "command": "python3 /Users/john.keeney/nexus-task-tracker/.memory/log.py context dump 2>/dev/null | python3 -c \"import json,sys; d=json.load(sys.stdin); tasks=[t for t in d.get('open_tasks',[]) if t['status']=='in_progress']; print('\\n[Context] Open in-progress tasks: ' + ', '.join(t['id'] for t in tasks)) if tasks else None\" 2>/dev/null || true"
           },
           {
             "type": "command",
-            "command": "python3 ./.claude/hooks/context-reset-monitor.py 2>&1 || true"
+            "command": "python3 /Users/john.keeney/nexus-task-tracker/.claude/hooks/context-reset-monitor.py 2>&1 || true"
           },
           {
             "type": "command",
-            "command": "./.claude/hooks/auto-parallel-nudge.sh || true"
+            "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/auto-parallel-nudge.sh || true"
           }
         ]
       }
@@ -131,15 +131,15 @@
         "hooks": [
           {
             "type": "command",
-            "command": "./.claude/hooks/worktree-guard.sh"
+            "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/worktree-guard.sh"
           },
           {
             "type": "command",
-            "command": "./.claude/hooks/no-direct-push-to-session-branch.sh"
+            "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/no-direct-push-to-session-branch.sh"
           },
           {
             "type": "command",
-            "command": "./.claude/hooks/socraticode-gate.sh"
+            "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/socraticode-gate.sh"
           }
         ]
       },
@@ -148,7 +148,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "./.claude/hooks/socraticode-gate.sh"
+            "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/socraticode-gate.sh"
           }
         ]
       },
@@ -157,23 +157,23 @@
         "hooks": [
           {
             "type": "command",
-            "command": "./.claude/hooks/broker-gate.py"
+            "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/broker-gate.py"
           },
           {
             "type": "command",
-            "command": "./.claude/hooks/skills-required-guard.sh"
+            "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/skills-required-guard.sh"
           },
           {
             "type": "command",
-            "command": "./.claude/hooks/persona-alias-resolver.sh"
+            "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/persona-alias-resolver.sh"
           },
           {
             "type": "command",
-            "command": "./.claude/hooks/parallel-first-check.sh"
+            "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/parallel-first-check.sh"
           },
           {
             "type": "command",
-            "command": "python3 ./.claude/hooks/dispatch-capture.py || true"
+            "command": "python3 /Users/john.keeney/nexus-task-tracker/.claude/hooks/dispatch-capture.py || true"
           }
         ]
       },
@@ -182,7 +182,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ./.claude/hooks/dispatch-capture.py || true"
+            "command": "python3 /Users/john.keeney/nexus-task-tracker/.claude/hooks/dispatch-capture.py || true"
           }
         ]
       },
@@ -191,7 +191,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "./.claude/hooks/secret-path-guard.sh"
+            "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/secret-path-guard.sh"
           }
         ]
       }
@@ -202,7 +202,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "./.claude/hooks/socraticode-flag.sh"
+            "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/socraticode-flag.sh"
           }
         ]
       },
@@ -211,11 +211,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "./.claude/hooks/verify-after-edit.sh"
+            "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/verify-after-edit.sh"
           },
           {
             "type": "command",
-            "command": "./.claude/hooks/reflection-capture.sh 2>/dev/null || true"
+            "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/reflection-capture.sh 2>/dev/null || true"
           }
         ]
       },
@@ -224,7 +224,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "./.claude/hooks/stall-counter.sh"
+            "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/stall-counter.sh"
           }
         ]
       },
@@ -233,7 +233,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "./.claude/hooks/analysis-paralysis-guard.sh"
+            "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/analysis-paralysis-guard.sh"
           }
         ]
       },
@@ -242,7 +242,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "./.claude/hooks/read-injection-scanner.sh"
+            "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/read-injection-scanner.sh"
           }
         ]
       }
@@ -253,43 +253,47 @@
         "hooks": [
           {
             "type": "command",
-            "command": "./.claude/hooks/verify-deliverables.sh"
+            "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/verify-deliverables.sh"
           },
           {
             "type": "command",
-            "command": "./.claude/hooks/verify-after-edit.sh"
+            "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/verify-after-edit.sh"
           },
           {
             "type": "command",
-            "command": "./.claude/hooks/root-cause-gate.sh"
+            "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/root-cause-gate.sh"
           },
           {
             "type": "command",
-            "command": "./.claude/hooks/lens-gate.sh"
+            "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/lens-gate.sh"
           },
           {
             "type": "command",
-            "command": "./.claude/hooks/no-deferral-gate.sh"
+            "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/no-deferral-gate.sh"
           },
           {
             "type": "command",
-            "command": "python3 ./.claude/hooks/return-validator.py || true"
+            "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/visual-evidence-gate.sh"
           },
           {
             "type": "command",
-            "command": "./.claude/hooks/return-summarizer.sh 2>/dev/null || true"
+            "command": "python3 /Users/john.keeney/nexus-task-tracker/.claude/hooks/return-validator.py || true"
           },
           {
             "type": "command",
-            "command": "python3 ./.claude/hooks/completion-capture.py || true"
+            "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/return-summarizer.sh 2>/dev/null || true"
           },
           {
             "type": "command",
-            "command": "python3 ./.claude/hooks/feedback-capture.py || true"
+            "command": "python3 /Users/john.keeney/nexus-task-tracker/.claude/hooks/completion-capture.py || true"
           },
           {
             "type": "command",
-            "command": "./.claude/hooks/do-not-touch-guard.sh || true"
+            "command": "python3 /Users/john.keeney/nexus-task-tracker/.claude/hooks/feedback-capture.py || true"
+          },
+          {
+            "type": "command",
+            "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/do-not-touch-guard.sh || true"
           }
         ]
       }
@@ -300,15 +304,15 @@
         "hooks": [
           {
             "type": "command",
-            "command": "./.claude/hooks/memory-consolidator.sh 2>/dev/null || true"
+            "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/memory-consolidator.sh 2>/dev/null || true"
           },
           {
             "type": "command",
-            "command": "python3 ./.memory/log.py context snapshot --action-type session_stop --summary \"Auto-snapshot at agent stop\" 2>/dev/null || true; python3 ./.memory/sync_docs.py 2>/dev/null || true"
+            "command": "python3 /Users/john.keeney/nexus-task-tracker/.memory/log.py context snapshot --action-type session_stop --summary \"Auto-snapshot at agent stop\" 2>/dev/null || true; python3 /Users/john.keeney/nexus-task-tracker/.memory/sync_docs.py 2>/dev/null || true"
           },
           {
             "type": "command",
-            "command": "./.claude/hooks/session-end-reminder.sh 2>/dev/null || true"
+            "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/session-end-reminder.sh 2>/dev/null || true"
           }
         ]
       }
@@ -319,27 +323,27 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ./.memory/log.py session reap --max-age-hours 2 2>/dev/null | python3 -c 'import json,sys; d=json.load(sys.stdin); n=d.get(\"reaped_count\",0); print(f\"[Session Lifecycle] Reaped {n} abandoned session(s) at startup\") if n else None' 2>/dev/null || true"
+            "command": "python3 /Users/john.keeney/nexus-task-tracker/.memory/log.py session reap --max-age-hours 2 2>/dev/null | python3 -c 'import json,sys; d=json.load(sys.stdin); n=d.get(\"reaped_count\",0); print(f\"[Session Lifecycle] Reaped {n} abandoned session(s) at startup\") if n else None' 2>/dev/null || true"
           },
           {
             "type": "command",
-            "command": "python3 ./.memory/log.py memory retain 2>/dev/null | python3 -c 'import json,sys; d=json.load(sys.stdin); c=d.get(\"context_log_dropped\",0); f=d.get(\"facts_decayed\",0); print(f\"[Memory Retention] Dry-run: {c} stale context_log rows + {f} unpinned facts past TTL. Apply with: python3 .memory/log.py memory retain --apply\") if (c or f) else None' 2>/dev/null || true"
+            "command": "python3 /Users/john.keeney/nexus-task-tracker/.memory/log.py memory retain 2>/dev/null | python3 -c 'import json,sys; d=json.load(sys.stdin); c=d.get(\"context_log_dropped\",0); f=d.get(\"facts_decayed\",0); print(f\"[Memory Retention] Dry-run: {c} stale context_log rows + {f} unpinned facts past TTL. Apply with: python3 .memory/log.py memory retain --apply\") if (c or f) else None' 2>/dev/null || true"
           },
           {
             "type": "command",
-            "command": "./.claude/hooks/lesson-harvester.sh 2>/dev/null || true"
+            "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/lesson-harvester.sh 2>/dev/null || true"
           },
           {
             "type": "command",
-            "command": "./.claude/hooks/router-health-check.sh 2>/dev/null || true"
+            "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/router-health-check.sh 2>/dev/null || true"
           },
           {
             "type": "command",
-            "command": "./.claude/hooks/health-banner.sh 2>/dev/null || true"
+            "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/health-banner.sh 2>/dev/null || true"
           },
           {
             "type": "command",
-            "command": "./.claude/hooks/inject-invariants.sh session-start 2>/dev/null || true"
+            "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/inject-invariants.sh session-start 2>/dev/null || true"
           }
         ]
       }
@@ -350,7 +354,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ./.claude/hooks/precompact-reinject.py 2>/dev/null || true"
+            "command": "python3 /Users/john.keeney/nexus-task-tracker/.claude/hooks/precompact-reinject.py 2>/dev/null || true"
           }
         ]
       }

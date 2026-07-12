@@ -169,6 +169,17 @@ CREATE TABLE IF NOT EXISTS reflection_snapshot (
 -- Lens records a row here after validating an implementer's work.
 -- lens-gate.sh queries this table to confirm Lens has reviewed NEXUS:DONE
 -- output before allowing the sub-agent to complete.
+--
+-- Three nullable columns are NOT declared inline here because this table is
+-- often already present (IF NOT EXISTS is a no-op on existing DBs). They are
+-- added via idempotent ALTER in _migrate_validation_log_columns (log.py cmd_init):
+--   files_changed_json  TEXT  -- JSON array of implementer's declared files_changed;
+--                             -- lets the completeness-check assert set-superset coverage.
+--   revise_reason       TEXT  -- machine-readable reason when derived verdict != PASS;
+--                             -- auto-filled from derive_verdict_from_report binding_note.
+--   dispatch_started_at TEXT  -- ISO-8601 UTC stamp of when the validating dispatch began
+--                             -- (distinct from validated_at = row-write time); lets
+--                             -- instrumentation compute lens wall-clock duration.
 CREATE TABLE IF NOT EXISTS validation_log (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
     session_id          TEXT,

@@ -171,7 +171,7 @@ LEAK_DENYLIST: list[str] = []
 # Matches an un-substituted absolute home path (e.g. a literal /Users/alice/...
 # build path that should have been tokenized to /Users/john.keeney/nexus-task-tracker). Own-name-safe:
 # the scan skips any line that also contains the install's own root path.
-_HOME_PATH_RE = re.compile(r"/(?:Users|home)/[^/\s\"']+/")
+_HOME_PATH_RE = re.compile(r"/(?:Users|home)/(?!<)[^/\s\"']+/")
 
 
 def _leak_extra_terms_from_env() -> list[str]:

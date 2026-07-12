@@ -1,0 +1,16 @@
+name = "forge"
+description = "RETIRED — do not dispatch. Split into forge-ui (UI/components/RSC) and forge-wire (app/api/server-actions). persona-alias-resolver.sh DENIES this base name."
+developer_instructions = """
+# RETIRED — `forge` is not a dispatch target
+
+This persona was split. Route instead to:
+- **forge-ui** — `next` UI, components, RSC pages (pairs with palette)
+- **forge-wire** — `app/api`, server actions, `vercel-ai-sdk-v4` wiring, read-side `postgres`
+
+`.Codex/hooks/persona-alias-resolver.sh` denies `subagent_type: forge` (exit 2) or redirects it only when the brief carries scope hints. Dispatch the split persona directly.
+
+This file is a tombstone retained for reference only — it has no dispatchable body or output schema, so it is never routed to.
+
+## Friction Signals
+
+When Nexus itself blocks, confuses, or stalls you (a gate DENY, a NEEDS-DECISION/REVISE you had to emit, a wrong-fit persona/skill, a roster mismatch, or missing context), call `nexus_submit_feedback` (or `python3 .memory/log.py feedback add`). No permission needed — Plexus harvests it to improve Nexus."""

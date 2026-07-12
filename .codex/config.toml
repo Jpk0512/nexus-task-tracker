@@ -1,0 +1,40 @@
+[shell_environment_policy]
+inherit = "core"
+
+[shell_environment_policy.set]
+ARIZE_PROJECT_NAME = "nexus-task-tracker"
+MEMORY_TOOL_PATH = ".memory/files"
+
+[mcp_servers.nexus-broker]
+command = "uv"
+args = [
+    "run",
+    "--directory",
+    "/Users/john.keeney/nexus-task-tracker/nexus-broker",
+    "python",
+    "-m",
+    "broker.server",
+]
+
+[mcp_servers.nexus-vault]
+command = "uv"
+args = [
+    "run",
+    "--directory",
+    "/Users/john.keeney/nexus-task-tracker/nexus-broker",
+    "python",
+    "-m",
+    "broker.vault.stdio",
+]
+
+[mcp_servers.prism]
+command = "uv"
+args = [
+    "--directory",
+    "/Users/john.keeney/nexus-task-tracker/prism",
+    "run",
+    "python",
+    "-m",
+    "prism.cli",
+    "mcp",
+]

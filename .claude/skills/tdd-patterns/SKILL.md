@@ -118,7 +118,7 @@ Production code under `app/`, `ingestion/`, `models/`. `vitest.config.*`, `pypro
 
 ### Visual gate for UI tests
 - UI behavior tests should at minimum query `getBoundingClientRect()` or use
-  Playwright/agent-browser. Pure class-string assertions are documentation,
+  Playwright/aside. Pure class-string assertions are documentation,
   not validation.
 
 ## Lint-clean stubs rule (anti-stall — HARD)

@@ -58,7 +58,9 @@ author a script at dispatch time and the tool drives it, returning a `runId` and
   `do_not_touch`, `notepad_topic`). Returns the teammate's structured result (DATA).
 - **`parallel([...])`** — run several `agent()` calls concurrently and barrier on all
   of them. Use for **fan-out-and-synthesize**; the array is the independent slices.
-  Homogeneous same-persona fan-out is capped at **K≤5** (Art. XIII.b).
+  Fan out as wide as the work warrants — ~16 run concurrently, the rest queue
+  automatically. Prefer diverse personas over identical clones; heterogeneous
+  decomposition beats wide homogeneous duplication.
 - **`pipeline([...])`** — run stages in order, each receiving the prior stage's output
   as DATA (deterministic hand-off, not live chat). Use for **read-after-write chains**.
 - **`phase(name, fn)`** — a named, ordered segment. Phase boundaries are the natural
@@ -76,11 +78,23 @@ its `verification_required` commands run and asserted). Never close a teammate o
 self-reported `NEXUS:DONE` alone (this is the SEPARATE-JUDGE principle: the model that
 did the work never decides it's done — DEC-024).
 
+**Verify-phase structure (DEC-030, 2026-06-25) — no monolithic barrier.** The verify
+phase MUST be decomposed into **several bounded parallel agents**, each owning one check
+(e.g. lint / unit-tests / hook-import / snapshot-consistency) — NEVER one agent running
+the full gauntlet serially. The single heaviest release gate (e.g. `build_snapshot
+--check`, full pytest — multi-minute) runs at the **orchestrator level via backgrounded
+Bash**, NOT inside a workflow agent. Each agent carries a stall/time budget → kill and
+escalate, do NOT retry indefinitely. Repair loops re-run ONLY the failed targeted leg —
+never the full suite. No redundant gates (`build_snapshot --check` already runs pytest;
+do NOT schedule a redundant full-suite run). One agent that exceeds its time budget goes
+yellow and retries from scratch; a multi-minute serial gate inside a single agent causes
+indefinite thrash (observed: LSN-008).
+
 **Lifecycle skeleton** (parallel archetype):
 
 ```
 phase("scout",   () => agent({persona:"scout", goal:"recon …"}))
-phase("impl",    () => parallel([              // ≤5 independent slices
+phase("impl",    () => parallel([              // one slot per independent slice
   agent({persona:"forge",  goal:"slice A", files_changed:[...]}),
   agent({persona:"quill",  goal:"slice B", files_changed:[...]}),
 ]))
@@ -177,8 +191,8 @@ from the last honest checkpoint. The **forced-entropy stall rule** bans "same-kn
 ### 9. CAPS (the runaway ceilings)
 
 - **Concurrency** = `min(16, cores-2)` simultaneous agents.
-- **Per-call fan-out** = up to **4096** agents in a single `parallel()` call (but the
-  K≤5 homogeneous cap and returns-plateau make small fan-outs the norm).
+- **Per-call fan-out** = up to **4096** agents in a single `parallel()` call. Fan out
+  as wide as the work genuinely warrants; prefer diverse personas over identical clones.
 - **Lifetime** = **1000** agents per workflow run.
 - **Budget** = the token/$ and **max-iteration** ceiling you set via `budget({...})`
   (e.g. `maxIterations: 20`). One of the **three independent runaway ceilings** (DEC-024):
@@ -245,7 +259,7 @@ Lens + holdout; iteration-log = lessons + the feedback system; forced-entropy st
 
 - **Discovery / quick question / single read** → answer **inline**. No team, no script.
 - **A single INDIVISIBLE task** → ONE **Agent** with a full brief. A Workflow here is pure
-  overhead for no gain (returns plateau; Art. XIII.d rung (a)).
+  overhead for no gain (Art. XIII.d rung (a)).
 - **A real write-dependency chain you can NAME** → SEQUENTIAL on the branch (or a
   `pipeline()` inside one workflow), not a parallel fan-out.
 - **No verifiable oracle** → do NOT start a loop-until-goal/poll-loop. An iterate-until or
@@ -256,7 +270,7 @@ Lens + holdout; iteration-log = lessons + the feedback system; forced-entropy st
 
 Multi-agent systems burn ~15× the tokens of a single chat (mostly redundant chatter);
 parallelism pays **only** for genuinely independent subtasks, which is why every primitive
-above is gated on a real decomposition and a hard cap.
+above is gated on a real decomposition and a verify phase.
 
 ---
 

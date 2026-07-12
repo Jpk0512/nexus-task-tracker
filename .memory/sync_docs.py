@@ -444,7 +444,174 @@ def sync_claude_md_staleness() -> list[str]:
     return alerts
 
 
-def sync_drift_report(tasks: list[dict]) -> None:
+# ── 7. Identity-doc drift (advisory) ─────────────────────────────────────────
+
+def check_identity_doc_drift(con: sqlite3.Connection) -> list[str]:
+    """Advisory: flag signals that CLAUDE.md / README.md may be stale.
+
+    Checks:
+    1. Decision gap — if the newest DEC-XXX in project.db is N steps ahead of
+       the highest DEC-XXX mentioned in CLAUDE.md or README, flag it.
+    2. VERSION mismatch — if CLAUDE.md/README.md mention a vX.Y.Z that does not
+       match nexus-package/VERSION, flag it.
+    3. Retired persona names — if CLAUDE.md/README.md reference a known-retired
+       base persona name as a dispatch target, flag it.
+
+    Never raises. Never modifies CLAUDE.md or README.md. Returns advisory lines.
+    """
+    alerts: list[str] = []
+
+    # ── 1. Decision gap ──────────────────────────────────────────────────────
+    try:
+        rows = [row[0] for row in con.execute(
+            "SELECT id FROM decisions ORDER BY id"
+        )]
+        if rows:
+            db_max_dec_num = 0
+            for dec_id in rows:
+                m = re.match(r"DEC-(\d+)", dec_id)
+                if m:
+                    db_max_dec_num = max(db_max_dec_num, int(m.group(1)))
+
+            identity_files = [ROOT / "CLAUDE.md", ROOT / "README.md"]
+            doc_max_dec_num = 0
+            for p in identity_files:
+                if not p.exists():
+                    continue
+                for m in re.finditer(r"DEC-(\d+)", p.read_text()):
+                    doc_max_dec_num = max(doc_max_dec_num, int(m.group(1)))
+
+            gap = db_max_dec_num - doc_max_dec_num
+            if gap >= 5:
+                alerts.append(
+                    f"- **[ADVISORY]** Decision gap: newest decision is DEC-{db_max_dec_num:03d}"
+                    f" but identity docs reference only up to DEC-{doc_max_dec_num:03d}"
+                    f" (gap={gap}). Review CLAUDE.md / README for recent decisions that"
+                    " may need documenting."
+                )
+    except Exception as exc:  # noqa: BLE001
+        alerts.append(f"- **[ADVISORY-ERROR]** Decision-gap check failed: {exc}")
+
+    # ── 2. VERSION mismatch ──────────────────────────────────────────────────
+    try:
+        version_path = ROOT / "nexus-package" / "VERSION"
+        if version_path.exists():
+            pkg_version = version_path.read_text().strip()
+            identity_files = [ROOT / "CLAUDE.md", ROOT / "README.md"]
+            for p in identity_files:
+                if not p.exists():
+                    continue
+                text = p.read_text()
+                mentioned = re.findall(r"\bv(\d+\.\d+\.\d+)\b", text)
+                stale = [v for v in mentioned if v != pkg_version]
+                if stale:
+                    rel = p.relative_to(ROOT)
+                    alerts.append(
+                        f"- **[ADVISORY]** `{rel}` references version(s) {stale}"
+                        f" but nexus-package/VERSION is `{pkg_version}`."
+                        " Review whether the version reference is stale."
+                    )
+    except Exception as exc:  # noqa: BLE001
+        alerts.append(f"- **[ADVISORY-ERROR]** VERSION check failed: {exc}")
+
+    # ── 3. Retired persona names ─────────────────────────────────────────────
+    try:
+        # These are the retired BASE names (without split suffix).
+        # The valid dispatch targets are the split variants (forge-ui, forge-wire, etc.).
+        retired_dispatch_targets = {"forge", "pipeline", "quill"}
+        # Pattern: used as dispatch target, not just mentioned as a word inside a
+        # compound like "forge-ui".  Match the bare name at a word boundary NOT
+        # followed by a hyphen (which would make it a compound like forge-ui).
+        retired_re = re.compile(
+            r"\b(" + "|".join(re.escape(n) for n in retired_dispatch_targets) + r")\b(?!-)"
+        )
+        identity_files = [ROOT / "CLAUDE.md", ROOT / "README.md"]
+        for p in identity_files:
+            if not p.exists():
+                continue
+            text = p.read_text()
+            found = set(retired_re.findall(text))
+            if found:
+                rel = p.relative_to(ROOT)
+                alerts.append(
+                    f"- **[ADVISORY]** `{rel}` mentions retired base persona name(s)"
+                    f" {sorted(found)} as bare words — verify these are not used as"
+                    " dispatch targets (split variants like forge-ui / forge-wire are correct)."
+                )
+    except Exception as exc:  # noqa: BLE001
+        alerts.append(f"- **[ADVISORY-ERROR]** Retired-persona check failed: {exc}")
+
+    return alerts
+
+
+def check_related_doc_cohesion() -> list[str]:
+    """Advisory: flag doc-relationship groups where one side changed without the others.
+
+    Reads .memory/doc-relationships.yaml.  For each group, if ANY member was
+    modified within the last 30 days, check whether the OTHERS were modified
+    within 7 days of the most-recently-changed member.  If not, emit an advisory
+    to review the sibling docs.
+
+    Never raises. Never modifies any doc. Returns advisory lines.
+    Degrades gracefully (advisory no-op) when doc-relationships.yaml is absent.
+    """
+    alerts: list[str] = []
+    rel_yaml = ROOT / ".memory" / "doc-relationships.yaml"
+    if not rel_yaml.exists():
+        return alerts
+
+    try:
+        import yaml  # type: ignore[import-untyped]
+        config = yaml.safe_load(rel_yaml.read_text())
+    except Exception as exc:  # noqa: BLE001
+        return [f"- **[ADVISORY-ERROR]** doc-relationships.yaml parse failed: {exc}"]
+
+    from datetime import datetime, timezone
+
+    now_ts = datetime.now(timezone.utc).timestamp()  # noqa: UP017
+    thirty_days = 30 * 86400
+    seven_days = 7 * 86400
+
+    groups = config.get("groups", []) if isinstance(config, dict) else []
+    for group in groups:
+        name = group.get("name", "unnamed")
+        doc_paths_rel = group.get("docs", [])
+        reason = group.get("reason", "")
+
+        doc_mtimes: dict[str, float] = {}
+        for rel in doc_paths_rel:
+            p = ROOT / rel
+            if p.exists():
+                doc_mtimes[rel] = p.stat().st_mtime
+
+        if len(doc_mtimes) < 2:
+            continue
+
+        max_mtime = max(doc_mtimes.values())
+        if now_ts - max_mtime > thirty_days:
+            # Nothing in this group changed recently — skip
+            continue
+
+        # Find which doc changed most recently, and which siblings lag behind
+        most_recent_rel = max(doc_mtimes, key=lambda r: doc_mtimes[r])
+        stale_siblings = [
+            rel for rel, mtime in doc_mtimes.items()
+            if rel != most_recent_rel and max_mtime - mtime > seven_days
+        ]
+        if stale_siblings:
+            changed_age_days = int((now_ts - max_mtime) / 86400)
+            stale_list = ", ".join(f"`{s}`" for s in sorted(stale_siblings))
+            alerts.append(
+                f"- **[ADVISORY]** Doc group `{name}`: `{most_recent_rel}` was"
+                f" modified {changed_age_days}d ago but related doc(s) {stale_list}"
+                f" have not been updated recently. Review related docs: {stale_list}."
+                + (f" Reason: {reason.strip()}" if reason else "")
+            )
+
+    return alerts
+
+
+def sync_drift_report(tasks: list[dict], con: sqlite3.Connection | None = None) -> None:
     from datetime import datetime, timezone
 
     alerts: list[str] = []
@@ -505,7 +672,19 @@ def sync_drift_report(tasks: list[dict]) -> None:
     except Exception as exc:  # noqa: BLE001
         claude_alerts = [f"- **[ERROR]** CLAUDE.md staleness check failed: {exc}"]
 
-    if alerts or sem_alerts or claude_alerts:
+    # Advisory: identity-doc drift (never blocks, never overwrites CLAUDE.md / README)
+    identity_alerts: list[str] = []
+    try:
+        if con is not None:
+            identity_alerts.extend(check_identity_doc_drift(con))
+    except Exception as exc:  # noqa: BLE001
+        identity_alerts.append(f"- **[ADVISORY-ERROR]** Identity-doc drift check failed: {exc}")
+    try:
+        identity_alerts.extend(check_related_doc_cohesion())
+    except Exception as exc:  # noqa: BLE001
+        identity_alerts.append(f"- **[ADVISORY-ERROR]** Related-doc cohesion check failed: {exc}")
+
+    if alerts or sem_alerts or claude_alerts or identity_alerts:
         lines += ["## Alerts", ""]
         if alerts:
             lines += alerts + [""]
@@ -515,6 +694,9 @@ def sync_drift_report(tasks: list[dict]) -> None:
         if sem_alerts:
             lines += ["### Semantic drift (spec ↔ code identifier tracking)", ""]
             lines += sem_alerts + [""]
+        if identity_alerts:
+            lines += ["### Identity-doc drift (advisory — no action required)", ""]
+            lines += identity_alerts + [""]
     else:
         lines += ["## Status", "", "No staleness alerts. All systems nominal.", ""]
 
@@ -612,7 +794,7 @@ def main() -> None:
     sync_prd(tasks)
     sync_sessions(sessions)
     sync_decisions(decisions)
-    sync_drift_report(tasks)
+    sync_drift_report(tasks, con)
     with contextlib.suppress(ImportError):
         sync_state_md(tasks, sessions, decisions, con)
 

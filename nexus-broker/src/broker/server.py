@@ -502,6 +502,54 @@ def _serial_justified(brief: dict[str, Any]) -> bool:
     return bool(isinstance(units, int) and units <= 1)
 
 
+# Width threshold for the disjoint-file advisory (DEC-029).
+_WIDTH_DISJOINT_THRESHOLD = 4
+
+
+def _width_disjoint_trigger(brief: dict[str, Any]) -> str | None:
+    """Return an advisory warning when a wide disjoint brief should be a Workflow.
+
+    Fires when ALL of:
+      (a) decomposition.no_read_after_write is explicitly True (the dispatcher
+          declared the files are write-disjoint — no cross-file read-after-write),
+      (b) width >= _WIDTH_DISJOINT_THRESHOLD (default 4).
+
+    width = files_touched_estimate (normalized int, >=1) when present in the brief,
+    else len(context_files) (the fallback; already a non-empty list post-normalize).
+
+    Returns None when the signal is absent or width is below threshold.
+    Advisory only: the caller MUST NOT put this into errors[] or flip approved.
+    Warning prefix MUST start '[decomposition]' so _has_decomp_nudge detector
+    recognizes it downstream.
+    """
+    decomposition = brief.get("decomposition")
+    if not isinstance(decomposition, dict):
+        return None
+    # The signal must be the explicit Python True — not truthy, not 1.
+    if decomposition.get("no_read_after_write") is not True:
+        return None
+
+    # Determine width: prefer the normalized files_touched_estimate when present.
+    if "files_touched_estimate" in brief:
+        fte = brief["files_touched_estimate"]
+        width = int(fte) if isinstance(fte, int) and fte >= 1 else 1
+    else:
+        cf = brief.get("context_files", [])
+        width = len(cf) if isinstance(cf, list) and len(cf) >= 1 else 1
+
+    if width < _WIDTH_DISJOINT_THRESHOLD:
+        return None
+
+    return (
+        f"[decomposition] {width} write-disjoint files declared "
+        f"(no_read_after_write=true, width>={_WIDTH_DISJOINT_THRESHOLD}). "
+        "Consider authoring ONE Workflow with parallel teammates instead of a "
+        "single serial Agent — parallel writes are safe here (Art. XIII.d, DEC-029). "
+        "If this is genuinely indivisible, declare it via the brief's "
+        "`decomposition.serial_justification`. (advisory — not blocking)"
+    )
+
+
 class BrokerResult(TypedDict):
     approved: bool
     warnings: list[str]
@@ -718,29 +766,102 @@ async def nexus_validate_brief(
                 "advisory — it does not block this validation."
             )
 
-    approved = len(errors) == 0
+    # 6b. Phase 3 — decomposition forcing-function (3-tier escalation).
+    #
+    #     The `decomposition` brief field is OPTIONAL: {
+    #       independent_units?: string[],
+    #       serial_justification?: string,   # escape hatch at N>=6
+    #       serial_override?: bool,          # hard-override at N>=9
+    #     }
+    #
+    #     Tier 1 — N >= NEXUS_DECOMP_NUDGE_THRESHOLD (default 3):
+    #       ADVISORY warning only; approved is unaffected.
+    #
+    #     Tier 2 — N >= 6 (FORCED PAUSE):
+    #       approved=False unless brief carries a non-empty
+    #       decomposition.serial_justification (a real dependency reason) — that
+    #       string is the escape hatch.  A fan-out dispatch resets the counter to 0
+    #       (the counter never deadlocks when you actually parallelize).
+    #
+    #     Tier 3 — N >= 9 (HARD BLOCK):
+    #       approved=False; escapable ONLY by
+    #         (a) decomposition.serial_override: true (with justification), OR
+    #         (b) actually fanning out (resets counter to 0).
+    #
+    #     NEVER DEADLOCK INVARIANT: there is ALWAYS a forward path.
+    #       N<6  — proceed, advisory only.
+    #       N>=6 — add serial_justification to the brief, or fan out.
+    #       N>=9 — set serial_override:true with justification, or fan out.
+    #
+    #     Suppressed for read-only/recon personas and when json_parse_failed.
+    #     Fail-open: any read error on the dispatch log => count 0 => advisory only.
+    #
+    #     IMPORTANT: `approved` is computed AFTER this block so tier-2/3 errors
+    #     can contribute to `errors` and legitimately flip it false.
+    _DECOMP_FORCED_PAUSE_THRESHOLD = 6
+    _DECOMP_HARD_BLOCK_THRESHOLD = 9
 
-    # 6b. Phase 3 — ADVISORY decomposition forcing-function (NEVER blocks).
-    #     Counted AFTER approval is fixed and computed from data only (the
-    #     router_dispatches.jsonl log + the optional `decomposition` brief field),
-    #     so it can never flip `approved`. Fail-open: any read error => count 0 =>
-    #     no nudge. Suppressed for read-only/recon personas and when the brief
-    #     declares the work is genuinely serial/indivisible.
     if (
         not json_parse_failed
         and persona not in DECOMP_NUDGE_EXEMPT_PERSONAS
-        and not _serial_justified(brief)
     ):
         consecutive = _consecutive_single_dispatches()
-        if consecutive >= _decomp_nudge_threshold():
-            warnings.append(
-                f"[decomposition] This is the {consecutive}th consecutive "
-                "single-agent dispatch this session with no Workflow. If the "
-                "remaining work has >=2 INDEPENDENT units, author ONE Workflow now "
-                "(Art XIII.d) rather than continuing serial; if it is genuinely "
-                "dependent/indivisible, proceed and (optionally) declare it via the "
-                "brief's `decomposition` field. (advisory — not blocking)"
+        nudge_threshold = _decomp_nudge_threshold()
+
+        if consecutive >= _DECOMP_HARD_BLOCK_THRESHOLD:
+            # Tier 3: HARD BLOCK — serial_override with justification, or fan out.
+            decomp = brief.get("decomposition") if not json_parse_failed else None
+            has_override = (
+                isinstance(decomp, dict)
+                and decomp.get("serial_override") is True
+                and isinstance(decomp.get("serial_justification"), str)
+                and decomp.get("serial_justification", "").strip()
             )
+            if not has_override:
+                errors.append(
+                    f"[decomposition] HARD BLOCK: {consecutive} consecutive single-agent "
+                    "dispatches with no Workflow/fanout. At N>=9 the orchestrator MUST "
+                    "either (a) fan out — use a Workflow or parallel dispatch, which resets "
+                    "the counter — or (b) include decomposition.serial_override=true with a "
+                    "non-empty serial_justification explaining the irreducible dependency. "
+                    "There is always a forward path: serial_override escapes this block."
+                )
+
+        elif consecutive >= _DECOMP_FORCED_PAUSE_THRESHOLD:
+            # Tier 2: FORCED PAUSE — serial_justification escapes, or fan out.
+            if not _serial_justified(brief):
+                errors.append(
+                    f"[decomposition] FORCED PAUSE: {consecutive} consecutive single-agent "
+                    "dispatches with no Workflow/fanout. At N>=6 you must either (a) fan out "
+                    "— use a Workflow or parallel dispatch, which resets the counter — or "
+                    "(b) include a non-empty decomposition.serial_justification in the brief "
+                    "explaining the genuine dependency. There is always a forward path."
+                )
+
+        elif consecutive >= nudge_threshold:
+            # Tier 1: ADVISORY only — no error added, approved unaffected.
+            # Suppressed when brief declares serial/indivisible work (same as
+            # the old behaviour: _serial_justified suppresses the advisory).
+            if not _serial_justified(brief):
+                warnings.append(
+                    f"[decomposition] This is the {consecutive}th consecutive "
+                    "single-agent dispatch this session with no Workflow. If the "
+                    "remaining work has >=2 INDEPENDENT units, author ONE Workflow now "
+                    "(Art XIII.d) rather than continuing serial; if it is genuinely "
+                    "dependent/indivisible, proceed and (optionally) declare it via the "
+                    "brief's `decomposition` field. (advisory — not blocking)"
+                )
+
+        # Width-disjoint trigger (DEC-029): advisory nudge when the brief declares
+        # >=4 write-disjoint files (no_read_after_write=True) — a Workflow can
+        # safely fan these out in parallel. Suppressed for exempt personas and when
+        # _serial_justified (same guard as tier-1/2 advisory, checked inline).
+        if not _serial_justified(brief):
+            width_msg = _width_disjoint_trigger(brief)
+            if width_msg is not None:
+                warnings.append(width_msg)
+
+    approved = len(errors) == 0
 
     # 7. Write broker_state.json on approval
     if approved:

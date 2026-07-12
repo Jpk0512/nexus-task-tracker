@@ -86,6 +86,12 @@ RETIRED_BASE_NAMES = RETIRED_BASE_PERSONAS
 # in classify_label via RETIRED_BASE_NAMES.
 NEXUS_PERSONAS = DISPATCHABLE_PERSONAS
 
+# Dedicated training-label allow-set: a superset of NEXUS_PERSONAS that also
+# includes synthetic negative-class labels used in training but NOT dispatchable.
+# 'no-dispatch' MUST live here and MUST NOT be added to NEXUS_PERSONAS (which is
+# the live dispatch roster used by routing/alias-resolution).
+TRAINING_LABELS: frozenset[str] = frozenset(NEXUS_PERSONAS | {"no-dispatch"})
+
 
 def classify_label(persona: str, router_version: str) -> str:
     """Classify a dispatched persona into a ``label_status``.
@@ -95,7 +101,8 @@ def classify_label(persona: str, router_version: str) -> str:
          corrupt regardless of which persona was dispatched.
       2. A RETIRED Nexus base name (forge/pipeline/quill) → ``quarantined_retired``
          (ambiguous; needs a human split before training).
-      3. A dispatchable Nexus persona (NEXUS_PERSONAS) → ``ok`` — training-grade.
+      3. A label in TRAINING_LABELS (all dispatchable Nexus personas + synthetic
+         negative-class labels like 'no-dispatch') → ``ok`` — training-grade.
       4. Everything else → ``dropped_generic``: Claude built-ins, plugin-namespaced
          agents (a ``:`` in the name), and ad-hoc/probe agents — none are router
          targets, so they teach non-router behavior and are dropped.
@@ -105,7 +112,7 @@ def classify_label(persona: str, router_version: str) -> str:
     folded = persona.strip().casefold()
     if folded in RETIRED_BASE_NAMES:
         return LABEL_STATUS_QUARANTINED_RETIRED
-    if folded in NEXUS_PERSONAS:
+    if folded in TRAINING_LABELS:
         return LABEL_STATUS_OK
     # Not a route target. Known generics (GENERIC_BUILTINS) and plugin-namespaced
     # agents (a ":" in the name) are the explicit, documented cases; the catch-all

@@ -46,7 +46,50 @@ Per DEC-025. When dispatching via `subagent_type=<persona>`, the persona's agent
 | Python test authoring (stubs before, verification after) | quill-py | Coordinates with lens for coverage |
 | Multi-domain or cross-cutting feature | Scout first, then assign by domain | — |
 | Docker Compose / Caddyfile / env wiring | hermes | — |
+| `.claude/hooks/**` infra edits (hook bodies + settings/wiring reconciles) | hermes (intent `implement_wiring`) | — |
+| `docs/**` and markdown content edits (governance, specs, agent contracts) | hermes (intent `implement_wiring`) | — |
 | `.memory/log.py` / `.memory/schema.sql` changes | Nexus owns (handle inline) | — |
+
+## Install-aware persona availability (VERIFY BEFORE DISPATCH)
+
+**Python-stack personas (`pipeline-data`, `pipeline-async`, `pipeline-data-pro`, `pipeline-async-pro`, `quill-py`) exist ONLY in Python-stack installs.** They are NOT registered agent files in a pure TS/Next.js install. Dispatching an unregistered `agentType` hard-fails mid-workflow with no recovery path.
+
+Before dispatching any persona, verify it is registered:
+- The canonical roster is listed in `docs/agents/TEAM.md`.
+- The agent file must exist at `.claude/agents/<persona>.md`.
+- A missing agent file = the persona is NOT installed = dispatch will hard-fail.
+
+**TS/Next.js-only install mapping for Python work:**
+
+| Python work type | Map to instead |
+|---|---|
+| Data transforms / DuckDB writes / embeddings (would be `pipeline-data`) | `forge-wire` (read-side) + `hermes` (wiring) |
+| Async workers / external API clients (would be `pipeline-async`) | `forge-wire` (server actions) + `hermes` (auth/client wiring) |
+| Python test authoring (would be `quill-py`) | `quill-ts` (TS tests only) |
+
+If the work genuinely requires Python ingestion logic and the Python personas are absent, surface a `## NEXUS:NEEDS-DECISION` — do not silently remap logic that belongs in a Python stack onto TS personas.
+
+## Decomposition boundary — pre-dispatch ownership check
+
+Before briefing any teammate in a dynamic Workflow, intersect the teammate's assigned file-globs against the forbidden-directory map below.
+
+**Rule:** no teammate may be briefed on files that fall outside its write boundary. If a brief would cross an ownership line, **split the brief along that line** — one teammate per ownership domain — rather than leaving it to the teammate to self-restrict.
+
+**How to apply:**
+1. List every file or glob the teammate will touch.
+2. Check each against the persona's "Cannot touch" row in the forbidden-directory table.
+3. If ANY file crosses the boundary, split into two or more briefs — one per domain — and assign the correct persona to each.
+
+**Ownership shortcuts for common splits:**
+- Schema or migrations → split out to `atlas`
+- `app/api/**` → split out to `forge-wire`
+- `app/components/**` / RSC pages → split out to `forge-ui`
+- `ingestion/**` transforms/writers → split out to `pipeline-data`
+- `ingestion/**` workers/clients → split out to `pipeline-async`
+- Auth wrappers / env-var plumbing / Docker / MCP → split out to `hermes`
+- Test files only → split out to `quill-ts` or `quill-py`
+
+A brief that spans ownership lines is a dispatch contract violation — Lens will flag it and the task will require a REVISE cycle.
 
 ## Pairing rules
 
@@ -68,6 +111,8 @@ Per DEC-025. When dispatching via `subagent_type=<persona>`, the persona's agent
 | hermes | Business logic inside `app/` or `ingestion/` (auth/integration glue only); `models/`, `.memory/` |
 | atlas | Anything via Bash (`disallowedTools: Bash` — design only); `app/`, `ingestion/` business logic |
 | lens | Anything (`disallowedTools: Edit, Write, NotebookEdit` — reports only) |
+| lens-fast | Anything (`disallowedTools: Edit, Write, NotebookEdit` — deterministic gates only; reports only) |
+| palette | `app/` TypeScript/React code, `ingestion/`, `models/`, `docker-compose*.yml`; writes ONLY to `docs/design/` or `.memory/design-reports/` |
 | quill-ts / quill-py | Non-test files (only test files modifiable); `.memory/` |
 | Nexus | Anything via Edit/Write (`disallowedTools: Write, Edit, NotebookEdit`); orchestrate via delegation only |
 

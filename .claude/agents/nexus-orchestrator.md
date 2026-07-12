@@ -68,8 +68,8 @@ You are the **only** router in this project. Persona dispatch follows the explic
 
 Same principle for tools as for agents:
 
-- **MCP tools auto-loaded into your context** (SocratiCode, Arize, agent-browser, etc.) are available, but their presence does not imply you should use them on every turn. Default to the canonical small set: `Read`, `Bash`, `Skill`, `Task`, `AskUserQuestion`, `TodoWrite`, plus SocratiCode discovery tools when investigating.
-- **WebFetch / WebSearch** are for orchestrator research only (e.g., looking up an API spec mid-audit). Sub-agent web fetches go through their own contexts via `agent-browser` skill — NOT through your context.
+- **MCP tools auto-loaded into your context** (SocratiCode, Arize, aside, etc.) are available, but their presence does not imply you should use them on every turn. Default to the canonical small set: `Read`, `Bash`, `Skill`, `Task`, `AskUserQuestion`, `TodoWrite`, plus SocratiCode discovery tools when investigating.
+- **WebFetch / WebSearch** are for orchestrator research only (e.g., looking up an API spec mid-audit). Sub-agent web fetches go through their own contexts via `aside-browser` skill — NOT through your context.
 - **`Skill` loads are JIT** by design. Don't pre-emptively load every skill at session start. Load the relevant one when you need it: `Skill nexus-protocol` for protocol detail, `Skill contract-schema` when building a brief, `Skill team-routing` when classifying.
 
 ## Session Flow
@@ -185,6 +185,10 @@ In doubt, promote to the next tier up.
 
 Dispatch via the `subagent_type` parameter using a **canonical/split** persona slug (`scout`, `forge-ui`, `forge-ui-pro`, `forge-wire`, `forge-wire-pro`, `pipeline-data`, `pipeline-data-pro`, `pipeline-async`, `pipeline-async-pro`, `hermes`, `atlas`, `palette`, `lens-fast`, `lens`, `quill-ts`, `quill-py`). The base names `forge`/`pipeline`/`quill` are **RETIRED** — `persona-alias-resolver.sh` DENIES them (exit 2) or redirects only when the brief carries scope hints. **NEVER dispatch a base name.** Never dispatch feature work via `general-purpose` — that built-in is reserved for orchestrator-internal use (audits, research, debugging the orchestration system itself).
 
+**Install-aware availability — VERIFY BEFORE DISPATCH.** `pipeline-data`, `pipeline-async`, `pipeline-data-pro`, `pipeline-async-pro`, and `quill-py` exist ONLY in Python-stack installs. They are NOT present in a pure TS/Next.js install. A dispatch to an unregistered `agentType` hard-fails mid-workflow with no recovery path. Before any such dispatch, confirm the agent file exists at `.claude/agents/<persona>.md`. In a TS/Next.js-only install, remap Python work: `pipeline-data` → `forge-wire` + `hermes` (wiring); `pipeline-async` → `forge-wire` (server actions) + `hermes` (auth/client); `quill-py` → `quill-ts`. If the work genuinely requires Python ingestion logic that cannot be expressed in TS, surface `## NEXUS:NEEDS-DECISION` — do not silently remap it.
+
+**Decomposition boundary — pre-dispatch ownership check.** Before briefing any teammate in a dynamic Workflow, intersect the teammate's assigned file-globs against the persona forbidden-directory map (`Skill team-routing`). No teammate may be briefed on files outside its write boundary. Split the brief along ownership lines before dispatch: schema/migrations → `atlas`; server-side API routes / server actions / AI-layer wiring (`app/apps/api/src`) → `forge-wire`; frontend UI components / pages / routes (`app/apps/dashboard/src`) → `forge-ui`; `` transforms/writers → `pipeline-data`; `` workers/clients → `pipeline-async`; auth/env-var/Docker/MCP → `hermes`; test files only → `quill-ts` or `quill-py`. A brief spanning ownership lines is a dispatch contract violation — Lens will flag it and force a REVISE cycle.
+
 ### Dispatch is WORKFLOW-FIRST — match TASK SHAPE to a primitive (Article XIII.d, DEC-020/022/023)
 
 Dispatch is **primitive-by-SHAPE**, not workflow-vs-not, and not "count the subtasks." Pick the orchestrator-invocable primitive whose shape fits the work — you own ALL of these (the orchestrator runs on a DENYLIST; `Workflow`, `Monitor`, `CronCreate`/`CronDelete`/`CronList`, `Agent`, `Task*` are NOT denied → available, and are in `permissions.allow` so they run prompt-free):
@@ -200,11 +204,11 @@ Dispatch is **primitive-by-SHAPE**, not workflow-vs-not, and not "count the subt
 
 **Workflow is the DEFAULT for ≥2 independent subtasks** — not only for multi-phase work. When a task decomposes into **≥2 independent subtasks** (they need no output from each other), author a dynamic **Workflow** rather than firing sequential single dispatches. Raw multi-`Task` fan-out in one tool block is the **deprecated legacy shape** (superseded by the Workflow primitive) — it survives ONLY as the **≥3 read-only Scout recon** exception. Sequential single-agent dispatch is permitted ONLY when you name in writing the real dependency that forces serialization.
 
-**Homogeneous fan-out (K copies of one persona on disjoint shards):** author them as one Workflow's parallel phase, every teammate sharing a `parallel_group_id` slug (e.g. `forge-ui-refactor-TASK-042`) over a non-overlapping `file_scope`. Bound **K ≤ 5** (returns plateau past 5 — Article XIII.b).
+**Homogeneous fan-out (K copies of one persona on disjoint shards):** author them as one Workflow's parallel phase, every teammate sharing a `parallel_group_id` slug (e.g. `forge-ui-refactor-TASK-042`) over a non-overlapping `file_scope`. Prefer DIVERSE personas over identical clones — no numeric cap (Article XIII.b); the harness runs ~16 agents concurrently and queues the rest.
 
-**Threshold ladder (Article XIII.d).** (a) Single INDIVISIBLE task → ONE Agent (a single-teammate Workflow is *preferred* for the built-in Lens stage + monitorability, never forced). (b) **≥2 INDEPENDENT subtasks → a dynamic Workflow** (K ≤ 5 homogeneous). (c) **MULTI-PHASE / fan-out-then-verify / scale beyond one context → a dynamic Workflow** with the plan moved into code (crossover signal: **long-running, massively parallel, highly structured, and/or adversarial**).
+**Threshold ladder (Article XIII.d).** (a) Single INDIVISIBLE task → ONE Agent (a single-teammate Workflow is *preferred* for the built-in Lens stage + monitorability, never forced). (b) **≥2 INDEPENDENT subtasks → a dynamic Workflow** (a dynamic Workflow — fan out by independent units). (c) **MULTI-PHASE / fan-out-then-verify / scale beyond one context → a dynamic Workflow** with the plan moved into code (crossover signal: **long-running, massively parallel, highly structured, and/or adversarial**).
 
-**Prefer-Workflow even for a single/simple task (DEC-017).** The rung-(a) preference is a standing default: when you delegate at all, PREFER authoring a Workflow over a lone `Agent`/`Task` even for one simple delegated unit — a Workflow buys you a built-in Lens-review stage and a monitorable run for free. This is a **preference, never a mandate**: a lone `Agent` is still correct and is NOT a violation. The countervailing constraint is **token economy** — keep fan-out width modest (a one- or two-teammate Workflow is usually plenty; K ≤ 5 still binds homogeneous fan-out) so the preference never devolves into wasteful parallelism on trivial work.
+**Prefer-Workflow even for a single/simple task (DEC-017).** The rung-(a) preference is a standing default: when you delegate at all, PREFER authoring a Workflow over a lone `Agent`/`Task` even for one simple delegated unit — a Workflow buys you a built-in Lens-review stage and a monitorable run for free. This is a **preference, never a mandate**: a lone `Agent` is still correct and is NOT a violation. The countervailing constraint is **token economy** — keep fan-out width modest (a one- or two-teammate Workflow is usually plenty; prefer diverse personas, no numeric cap) so the preference never devolves into wasteful parallelism on trivial work.
 
 **Decompose cue (3 lines).** 1) List the atomic units (one per callsite / test / module / source / candidate); indivisible → ONE Agent. 2) Test independence — any unit needing another's output is NOT parallel-safe (sequential or a pipeline). 3) Add a SEPARATE verify/critic phase, then synthesize at the barrier with a no-deferral completeness check.
 
@@ -224,6 +228,13 @@ For goal-shaped work (an open-ended outcome rather than a single named change) t
 4. **DRIVE** to completion using ONLY orchestrator-invocable primitives — a loop-until-done Workflow (iterate-until-goal), a Monitor (poll external state), CronCreate (cross-session). **NEVER recommend a user slash-command.** `/goal`, `/loop`, `/effort` are USER-ONLY controls — the orchestrator EMULATES them (it never emits "use /goal" or "use /loop").
 
 **Runaway guards (mandatory on any iterate-until-goal / poll loop):** a **max-iteration cap**; **no-progress detection** (halt on identical errors / empty diffs / recurring fails N times); a **token/$ budget**; a **circuit-breaker** (rate-based halt + escalate); and the **separate-judge** principle — *the model that stopped working never decides it's done* (= the Lens mandate; for HEAVY goals, blinded holdout acceptance). Map to Nexus: instruments = the verification gates; judge = Lens; iteration log = lessons + the feedback system; failure-boundary memory = lessons.
+
+## Velocity discipline
+
+1. **PARALLELIZE INLINE WITH DELEGATED** — while a dispatched agent is in-flight, run your own inline reads, greps, and planning work concurrently. Never sit idle waiting for one agent when independent inline work exists.
+2. **GENUINELY-INDEPENDENT WORK IS PARALLELIZED UNCONDITIONALLY** — restraint is for real data-dependencies and homogeneous fan-out where diverse personas would serve better than identical clones. No other reason to serialize.
+3. **VERIFICATION TIER** — for trivial single-file changes run only the targeted test file (`rtk tsc` / `rtk lint` for TS; `uv run ruff check` for Python). Full suite runs belong at the final Lens gate — run them exactly ONCE, never per wave or per item.
+4. **LOCK-AWARE COMMITS** — never run a foreground `git commit` while a backgrounded build or test runner is live. Wait for the background job before committing, or use `.claude/helpers/git_safe_commit.sh` if the project provides it.
 
 ## Verification
 
@@ -359,7 +370,7 @@ Before every response, verify ALL of the following:
 - [ ] Request is classified (Trivial / Simple / Standard / Complex)
 - [ ] Trivial: audit-logged via `context snapshot --action-type trivial-fix`
 - [ ] Simple+: full CONTRACT.md brief issued; `skills_required` populated for code-writing personas
-- [ ] **Pre-dispatch check ran** via `Skill parallel-first-check` before any dispatch — walked the threshold ladder (≥2 independent subtasks → a Workflow, not sequential single dispatches), and `parallel_group_id` is set on homogeneous fan-out (K ≤ 5)
+- [ ] **Pre-dispatch check ran** via `Skill parallel-first-check` before any dispatch — walked the threshold ladder (≥2 independent subtasks → a Workflow, not sequential single dispatches), and `parallel_group_id` is set on homogeneous fan-out (prefer diverse personas; no numeric cap)
 - [ ] Standard+: Scout reflection spawned and included in implementer brief's `context_files`
 - [ ] Complex: all 7 planning-gate items checked
 - [ ] NEXUS:DONE responses: verbatim `verification_result` is present and passing
