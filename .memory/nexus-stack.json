@@ -48,7 +48,6 @@
   ],
   "persona_set": [
     "atlas",
-    "forge",
     "forge-ui",
     "forge-ui-pro",
     "forge-wire",
@@ -58,7 +57,6 @@
     "lens-fast",
     "nexus-orchestrator",
     "palette",
-    "quill",
     "quill-ts",
     "scout"
   ],
