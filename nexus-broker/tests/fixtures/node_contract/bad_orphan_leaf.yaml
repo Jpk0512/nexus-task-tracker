@@ -1,0 +1,46 @@
+schema_version: 2
+nodes:
+  - node_id: N1
+    depends_on: []
+    downstream_consumers: [N2, N3]
+    agent_persona: scout
+    goal: "Root node feeding two leaves."
+    context_files: [".memory/schema.sql"]
+    acceptance_criteria: ["criterion A"]
+    verification_method:
+      type: command
+      command: "echo N1"
+    risk_tier: T0
+    skills_required: []
+    do_not_touch: []
+    write_scope: []
+
+  - node_id: N2
+    depends_on: [N1]
+    downstream_consumers: []
+    agent_persona: pipeline-async
+    goal: "Terminal node — the DAG's intended sole terminal."
+    context_files: [".memory/log.py"]
+    acceptance_criteria: ["criterion B"]
+    verification_method:
+      type: command
+      command: "echo N2"
+    risk_tier: T1
+    skills_required: []
+    do_not_touch: []
+    write_scope: []
+
+  - node_id: N3
+    depends_on: [N1]
+    downstream_consumers: []
+    agent_persona: pipeline-async
+    goal: "Orphan leaf — nothing consumes it and it is NOT the DAG's terminal node."
+    context_files: [".memory/log.py"]
+    acceptance_criteria: ["criterion C"]
+    verification_method:
+      type: command
+      command: "echo N3"
+    risk_tier: T1
+    skills_required: []
+    do_not_touch: []
+    write_scope: []

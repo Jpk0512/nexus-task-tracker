@@ -16,10 +16,27 @@
 #
 # Advisory only — SessionStart is never blocked; always exit 0.
 #
+# CAPPED MODE (R5/N45): when .claude/sessionstart-cap.enabled exists, the
+# per-task lines STOP going to stderr/additionalContext — the full list (every
+# open task, same detail as the uncapped banner) is written instead to
+# .memory/files/session-task-reconcile-latest.md, and both stderr and the
+# model-facing additionalContext shrink to counts + the top-3 in_progress ids +
+# a pointer at that file. Flag ABSENT => byte-for-byte the original verbose
+# banner (this is a no-op merge to main until the flag is created separately).
+# Full detail eventually moves behind the broker JIT surface (N47); this hook
+# only emits the pointer, not the body, once capped.
+#
 # Wired via .claude/settings.json hooks.SessionStart.
 
 REPO_ROOT="${REPO_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
 LOG_PY="$REPO_ROOT/.memory/log.py"
+
+# NEXUS_SESSIONSTART_CAP_FLAG lets tests point at an isolated flag file without
+# touching the real repo's .claude/ dir; real invocations always fall back to
+# the repo-relative default path.
+CAP_FLAG="${NEXUS_SESSIONSTART_CAP_FLAG:-$REPO_ROOT/.claude/sessionstart-cap.enabled}"
+CAPPED=false
+[ -f "$CAP_FLAG" ] && CAPPED=true
 
 # log.py is the only way in. If it is missing the install is broken — say so on
 # stderr, but never wedge SessionStart.
@@ -61,14 +78,15 @@ fi
 # was MID-FLIGHT distinctly from the backlog. The python prints:
 #   line 1: IN_PROGRESS count
 #   line 2: OTHER open count
-#   lines 3+: pre-formatted "  <glyph> TASK-NNN [status/priority] (owner) — title"
+#   line 3: comma-separated ids of the first 3 in_progress tasks (capped mode)
+#   lines 4+: pre-formatted "  <glyph> TASK-NNN [status/priority] (owner) — title"
 RENDER=$(printf '%s' "$DUMP" | python3 -c '
 import json, sys
 
 try:
     d = json.load(sys.stdin)
 except Exception:
-    print("0"); print("0")
+    print("0"); print("0"); print("")
     sys.exit(0)
 
 tasks = d.get("open_tasks", []) or []
@@ -77,6 +95,7 @@ other = [t for t in tasks if t.get("status") != "in_progress"]
 
 print(len(in_prog))
 print(len(other))
+print(",".join(str(t.get("id", "?")) for t in in_prog[:3]))
 
 
 def fmt(t, glyph):
@@ -98,7 +117,8 @@ for t in other:
 
 IN_PROG_COUNT=$(printf '%s' "$RENDER" | sed -n '1p')
 OTHER_COUNT=$(printf '%s' "$RENDER" | sed -n '2p')
-TASK_LINES=$(printf '%s' "$RENDER" | sed -n '3,$p')
+TOP3_IDS=$(printf '%s' "$RENDER" | sed -n '3p')
+TASK_LINES=$(printf '%s' "$RENDER" | sed -n '4,$p')
 
 case "$IN_PROG_COUNT" in ''|*[!0-9]*) IN_PROG_COUNT=0 ;; esac
 case "$OTHER_COUNT" in ''|*[!0-9]*) OTHER_COUNT=0 ;; esac
@@ -106,9 +126,58 @@ case "$OTHER_COUNT" in ''|*[!0-9]*) OTHER_COUNT=0 ;; esac
 TOTAL=$((IN_PROG_COUNT + OTHER_COUNT))
 
 # No open work at all — print a short clean line so the user knows the panel is
-# legitimately empty (not that the hook silently no-op'd).
+# legitimately empty (not that the hook silently no-op'd). Same in both modes.
 if [ "$TOTAL" -eq 0 ]; then
     printf '[session-task-reconcile] No open tasks in project.db — native task list should also be empty.\n' >&2
+    exit 0
+fi
+
+if [ "$CAPPED" = "true" ]; then
+    REPORT_DIR="$REPO_ROOT/.memory/files"
+    REPORT_PATH="$REPORT_DIR/session-task-reconcile-latest.md"
+    mkdir -p "$REPORT_DIR" 2>/dev/null || true
+
+    {
+        echo "# Session Task Reconcile — full report"
+        echo ""
+        echo "Source: project.db (authoritative). Reconcile the NATIVE task list against"
+        echo "this — every row below should have a matching native task entry."
+        echo ""
+        echo "Summary: ${IN_PROG_COUNT} in_progress, ${OTHER_COUNT} other open (${TOTAL} total)"
+        echo ""
+        echo "## Tasks"
+        echo ""
+        printf '%s\n' "$TASK_LINES"
+        echo ""
+        echo "▶ = in_progress (was mid-flight last session — resume or close it out)."
+        echo "• = open backlog (todo/blocked)."
+        echo "If the native panel shows MORE/FEWER tasks than this, they have DRIFTED —"
+        echo "TaskCreate the missing ones / TaskUpdate stale ones to completed."
+    } > "$REPORT_PATH" 2>>"$ERR_LOG" || true
+
+    {
+        echo ""
+        echo "================================================================================"
+        echo "  📋  OPEN TASKS AT SESSION START (capped) — ${IN_PROG_COUNT} in_progress, ${OTHER_COUNT} other open (${TOTAL} total)"
+        echo "================================================================================"
+        echo "  Top in_progress: ${TOP3_IDS:-none}"
+        echo "  Full list (all ${TOTAL} open tasks): $REPORT_PATH"
+        echo "================================================================================"
+        echo ""
+    } >&2
+
+    MODEL_CTX="$(
+        printf '[session-task-reconcile] OPEN TASKS AT SESSION START (capped) — %s in_progress, %s other open (%s total). Top in_progress: %s. Full report (all %s open tasks): %s — read it or run /project-context for detail. Source: project.db (authoritative).\n' \
+            "$IN_PROG_COUNT" "$OTHER_COUNT" "$TOTAL" "${TOP3_IDS:-none}" "$TOTAL" "$REPORT_PATH"
+    )"
+
+    jq -n --arg ctx "$MODEL_CTX" '{
+        hookSpecificOutput: {
+            hookEventName: "SessionStart",
+            additionalContext: $ctx
+        }
+    }'
+
     exit 0
 fi
 
@@ -141,9 +210,17 @@ fi
 # shape the harness surfaces — so a zero-knowledge / post-compaction orchestrator
 # resumes with its in-flight + backlog tasks visible and can TaskCreate/TaskUpdate
 # to close the drift.
+# Model-facing block is COST-BUDGETED: show only the in_progress rows (the
+# headline a zero-knowledge orchestrator must resume), not the full backlog.
+# TASK_LINES lists the IN_PROG_COUNT in_progress rows FIRST, so slice the head.
+IN_PROG_LINES=""
+if [ "$IN_PROG_COUNT" -gt 0 ]; then
+    IN_PROG_LINES=$(printf '%s' "$TASK_LINES" | sed -n "1,${IN_PROG_COUNT}p")
+fi
+
 MODEL_CTX="$(
-    printf '[session-task-reconcile] OPEN TASKS AT SESSION START — %s in_progress, %s other open. Source: project.db (authoritative). Reconcile the NATIVE task list against this; every row should have a matching native task. If the native panel shows MORE/FEWER, they have DRIFTED — TaskCreate the missing ones / TaskUpdate stale ones to completed. ▶=in_progress (was mid-flight last session — resume or close it out), •=open backlog (todo/blocked).\n%s\n' \
-        "$IN_PROG_COUNT" "$OTHER_COUNT" "$TASK_LINES"
+    printf '[session-task-reconcile] OPEN TASKS AT SESSION START — %s in_progress (listed below), %s other open (todo/blocked) NOT listed to save context — run /project-context for the full backlog. Source: project.db (authoritative). Reconcile the NATIVE task list against this and TaskCreate/TaskUpdate to close drift. ▶=in_progress (was mid-flight last session — resume or close it out).\n%s\n' \
+        "$IN_PROG_COUNT" "$OTHER_COUNT" "$IN_PROG_LINES"
 )"
 
 jq -n --arg ctx "$MODEL_CTX" '{

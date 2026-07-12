@@ -7,8 +7,10 @@
 # `git branch --show-current`. That branch MAY be `main` OR any other branch (some
 # projects are worked off a non-main branch); the working branch is DYNAMIC, never
 # hardcoded. Commit-on-the-session-branch IS the checkpoint — every commit is
-# revertable, so there are NO per-task feature branches, NO worktrees, NO
-# pull-request-for-merge ceremony. The push target is therefore not in question;
+# revertable, so there are NO per-task feature branches, NO pull-request-for-merge
+# ceremony; a DEC-008 registered worktree per leg is the DEFAULT isolation for
+# parallel multi-part work (RDEC-018 Option 3), not a bare `git worktree add`.
+# The push target is therefore not in question;
 # the only control is the IDENTITY of the pusher. Only the nexus-orchestrator or
 # the user may push the session branch; a sub-agent must NOT push on its own (it
 # COMMITS on the session branch and lets the orchestrator/user push), unless the
@@ -30,12 +32,35 @@
 
 set -euo pipefail
 
+HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=heartbeat-emitter.sh
+# set -e (bash 3.2 on macOS) treats a failed `source` of a
+# missing file as fatal even inside `|| { ... }` — guard with an
+# explicit -f test instead so a missing heartbeat-emitter.sh never
+# aborts the gate (best-effort telemetry must never break allow/deny).
+if [ -f "${HOOKS_DIR}/heartbeat-emitter.sh" ]; then
+    # shellcheck source=heartbeat-emitter.sh
+    source "${HOOKS_DIR}/heartbeat-emitter.sh" 2>/dev/null || true
+fi
+# Belt-and-suspenders: even if the source succeeded but the file did not define
+# both helpers (truncated/edited), guarantee they exist before first use.
+command -v ms_now >/dev/null 2>&1 || ms_now() { python3 -c "import time; print(int(time.time()*1000))" 2>/dev/null || echo 0; }
+command -v emit_heartbeat >/dev/null 2>&1 || emit_heartbeat() { :; }
+
+_HB_START_MS=$(ms_now 2>/dev/null || echo 0)
+_hb() {
+  local decision="$1"
+  local _elapsed=$(( $(ms_now 2>/dev/null || echo 0) - _HB_START_MS ))
+  emit_heartbeat "no-direct-push-to-session-branch" "PreToolUse" "$decision" "$_elapsed" 2>/dev/null || true
+}
+
 INPUT=$(cat)
 CMD=$(printf '%s' "$INPUT" | jq -r '.tool_input.command // ""' 2>/dev/null || true)
 AGENT_TYPE="${CLAUDE_AGENT_TYPE:-}"
 
 # Nothing to evaluate — pass through.
 if [ -z "$CMD" ]; then
+    _hb allow
     exit 0
 fi
 
@@ -110,6 +135,7 @@ PY
 )
 
 if [ "$is_push_to_branch" != "1" ]; then
+    _hb allow
     exit 0
 fi
 
@@ -186,17 +212,19 @@ print("0")
 PY
 )
 if [ "$BYPASS_ON_PUSH" = "1" ]; then
+    _hb allow
     exit 0
 fi
 
 # ── Step 3: is caller nexus-orchestrator or the user (unset)? ─────────────────
 if [ -z "$AGENT_TYPE" ] || [ "$AGENT_TYPE" = "nexus-orchestrator" ]; then
+    _hb allow
     exit 0
 fi
 
 # ── Block ─────────────────────────────────────────────────────────────────────
 BRANCH_LABEL="${SESSION_BRANCH:-the session branch}"
-MSG="[no-direct-push-to-session-branch] PUSH_SESSION_BRANCH_DENIED — a sub-agent must NOT push the session branch ('${BRANCH_LABEL}') on its own. Nexus personas work directly on the branch the session started on; commit-on-the-session-branch is the checkpoint and only the nexus-orchestrator (or the user) pushes it. COMMIT your work on the session branch and let the orchestrator (or the user) push. If the user has explicitly authorized THIS push, append the token '# BYPASS:USER-APPROVED-PUSH' to the command and re-run."
+MSG="[no-direct-push-to-session-branch] PUSH_SESSION_BRANCH_DENIED — a sub-agent must NOT push the session branch ('${BRANCH_LABEL}') on its own. Nexus personas work directly on the branch the session started on; commit-on-the-session-branch is the checkpoint and only the nexus-orchestrator (or the user) pushes it. A registered worktree IS permitted for parallel workflows under the Article XIII.c self-managed lifecycle (auto-merge-back-and-remove) — this gate governs WHO may push, NOT worktree policy. COMMIT your work (on the session branch, or on your registered worktree) and let the orchestrator (or the user) push. If the user has explicitly authorized THIS push, append the token '# BYPASS:USER-APPROVED-PUSH' to the command and re-run."
 
 jq -n --arg msg "$MSG" '{
     hookSpecificOutput: {
@@ -208,4 +236,5 @@ jq -n --arg msg "$MSG" '{
 
 printf '%s\n' "$MSG" >&2
 
+_hb deny
 exit 2

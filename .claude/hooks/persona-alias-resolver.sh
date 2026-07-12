@@ -7,9 +7,41 @@
 # DENIED with exit 2 (when it cannot be resolved) — it is never let through as
 # itself. Permanent enforcement, not a temporary shim. Agreement with the broker
 # is locked by nexus-broker/tests/test_base_name_retirement.py.
+#
+# R2-T03 FIX-4: forge-ui-pro / forge-wire-pro / pipeline-data-pro /
+# pipeline-async-pro are ALSO retired dispatch NAMES — each base/pro pair
+# merged into one tier-parameterized source. Unlike the bare base names above,
+# these always redirect unconditionally (no brief-scope resolution needed: the
+# merged target is unambiguous from the name itself) via additionalContext,
+# never a bare deny. Agreement with the broker is locked by
+# nexus-broker/tests/test_pro_variant_retirement.py.
 # Fails open if JSON parse fails or subagent_type is absent.
 
 set -euo pipefail
+
+HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=gate-lib.sh
+source "${HOOKS_DIR}/gate-lib.sh"
+# shellcheck source=heartbeat-emitter.sh
+# set -e (bash 3.2 on macOS) treats a failed `source` of a
+# missing file as fatal even inside `|| { ... }` — guard with an
+# explicit -f test instead so a missing heartbeat-emitter.sh never
+# aborts the gate (best-effort telemetry must never break allow/deny).
+if [ -f "${HOOKS_DIR}/heartbeat-emitter.sh" ]; then
+    # shellcheck source=heartbeat-emitter.sh
+    source "${HOOKS_DIR}/heartbeat-emitter.sh" 2>/dev/null || true
+fi
+# Belt-and-suspenders: even if the source succeeded but the file did not define
+# both helpers (truncated/edited), guarantee they exist before first use.
+command -v ms_now >/dev/null 2>&1 || ms_now() { python3 -c "import time; print(int(time.time()*1000))" 2>/dev/null || echo 0; }
+command -v emit_heartbeat >/dev/null 2>&1 || emit_heartbeat() { :; }
+
+_HB_START_MS=$(ms_now 2>/dev/null || echo 0)
+_hb() {
+  local decision="$1"
+  local _elapsed=$(( $(ms_now 2>/dev/null || echo 0) - _HB_START_MS ))
+  emit_heartbeat "persona-alias-resolver" "PreToolUse" "$decision" "$_elapsed" 2>/dev/null || true
+}
 
 INPUT=$(cat)
 
@@ -35,6 +67,7 @@ except Exception:
 " 2>/dev/null || true)
 
 if [[ -z "$SUBAGENT_TYPE" ]]; then
+    _hb allow
     exit 0
 fi
 
@@ -53,6 +86,22 @@ except Exception:
 BRIEF_LOWER=$(echo "$BRIEF" | tr '[:upper:]' '[:lower:]')
 
 case "$SUBAGENT_TYPE" in
+    forge-ui-pro)
+        CANONICAL="forge-ui"
+        REASON="forge-ui-pro merged into forge-ui (tier=pro) — R2-T03 FIX-4"
+        ;;
+    forge-wire-pro)
+        CANONICAL="forge-wire"
+        REASON="forge-wire-pro merged into forge-wire (tier=pro) — R2-T03 FIX-4"
+        ;;
+    pipeline-data-pro)
+        CANONICAL="pipeline-data"
+        REASON="pipeline-data-pro merged into pipeline-data (tier=pro) — R2-T03 FIX-4"
+        ;;
+    pipeline-async-pro)
+        CANONICAL="pipeline-async"
+        REASON="pipeline-async-pro merged into pipeline-async (tier=pro) — R2-T03 FIX-4"
+        ;;
     forge)
         if echo "$BRIEF_LOWER" | grep -qE 'app/components|app/\(routes\)|tremor|tailwind|rsc page|ui component'; then
             CANONICAL="forge-ui"
@@ -61,25 +110,8 @@ case "$SUBAGENT_TYPE" in
             CANONICAL="forge-wire"
             REASON="brief references app/api or server action work — maps to forge-wire"
         else
-            python3 -c "
-import json, sys
-reason = ('Stale persona name \"forge\" — cannot resolve to forge-ui or '
-          'forge-wire from brief. Add explicit scope to the brief (mention '
-          'app/components / RSC page for forge-ui, or app/api / server action '
-          'for forge-wire) or dispatch the correct split persona directly. '
-          'NEXUS:NEEDS-DECISION: brief does not mention app/components, '
-          'app/api, or server actions — cannot auto-route.')
-out = {
-    'hookSpecificOutput': {
-        'hookEventName': 'PreToolUse',
-        'permissionDecision': 'deny',
-        'permissionDecisionReason': reason,
-    }
-}
-print(json.dumps(out))
-sys.stderr.write(reason + '\n')
-"
-            exit 2
+            _hb deny
+            gate_deny PreToolUse "PERSONA/STALE-FORGE" 'Stale persona name "forge" — cannot resolve to forge-ui or forge-wire from brief. Add explicit scope to the brief (mention app/components / RSC page for forge-ui, or app/api / server action for forge-wire) or dispatch the correct split persona directly. NEXUS:NEEDS-DECISION: brief does not mention app/components, app/api, or server actions — cannot auto-route.'
         fi
         ;;
     pipeline)
@@ -90,25 +122,8 @@ sys.stderr.write(reason + '\n')
             CANONICAL="pipeline-async"
             REASON="brief references workers/dramatiq/tableau — maps to pipeline-async"
         else
-            python3 -c "
-import json, sys
-reason = ('Stale persona name \"pipeline\" — cannot resolve to pipeline-data '
-          'or pipeline-async from brief. Add explicit scope (transforms / '
-          'writers / embeddings for pipeline-data, or workers / dramatiq / '
-          'clients for pipeline-async) or dispatch the split persona directly. '
-          'NEXUS:NEEDS-DECISION: brief does not mention transforms, writers, '
-          'workers, or dramatiq.')
-out = {
-    'hookSpecificOutput': {
-        'hookEventName': 'PreToolUse',
-        'permissionDecision': 'deny',
-        'permissionDecisionReason': reason,
-    }
-}
-print(json.dumps(out))
-sys.stderr.write(reason + '\n')
-"
-            exit 2
+            _hb deny
+            gate_deny PreToolUse "PERSONA/STALE-PIPELINE" 'Stale persona name "pipeline" — cannot resolve to pipeline-data or pipeline-async from brief. Add explicit scope (transforms / writers / embeddings for pipeline-data, or workers / dramatiq / clients for pipeline-async) or dispatch the split persona directly. NEXUS:NEEDS-DECISION: brief does not mention transforms, writers, workers, or dramatiq.'
         fi
         ;;
     quill)
@@ -119,31 +134,18 @@ sys.stderr.write(reason + '\n')
             CANONICAL="quill-py"
             REASON="brief references .py or pytest — maps to quill-py"
         else
-            python3 -c "
-import json, sys
-reason = ('Stale persona name \"quill\" — cannot resolve to quill-ts or '
-          'quill-py from brief. Add explicit scope (.ts/.tsx / vitest for '
-          'quill-ts, or .py / pytest for quill-py) or dispatch the split '
-          'persona directly. NEXUS:NEEDS-DECISION: brief does not mention '
-          '.ts/.tsx or .py file extensions.')
-out = {
-    'hookSpecificOutput': {
-        'hookEventName': 'PreToolUse',
-        'permissionDecision': 'deny',
-        'permissionDecisionReason': reason,
-    }
-}
-print(json.dumps(out))
-sys.stderr.write(reason + '\n')
-"
-            exit 2
+            _hb deny
+            gate_deny PreToolUse "PERSONA/STALE-QUILL" 'Stale persona name "quill" — cannot resolve to quill-ts or quill-py from brief. Add explicit scope (.ts/.tsx / vitest for quill-ts, or .py / pytest for quill-py) or dispatch the split persona directly. NEXUS:NEEDS-DECISION: brief does not mention .ts/.tsx or .py file extensions.'
         fi
         ;;
     *)
         # Not a stale name — pass through
+        _hb allow
         exit 0
         ;;
 esac
+
+_hb allow
 
 python3 -c "
 import json, sys

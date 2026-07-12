@@ -58,9 +58,7 @@ author a script at dispatch time and the tool drives it, returning a `runId` and
   `do_not_touch`, `notepad_topic`). Returns the teammate's structured result (DATA).
 - **`parallel([...])`** — run several `agent()` calls concurrently and barrier on all
   of them. Use for **fan-out-and-synthesize**; the array is the independent slices.
-  Fan out as wide as the work warrants — ~16 run concurrently, the rest queue
-  automatically. Prefer diverse personas over identical clones; heterogeneous
-  decomposition beats wide homogeneous duplication.
+  Fan-out width and its two non-numeric pressures: `Skill nexus-dispatch-catalog`.
 - **`pipeline([...])`** — run stages in order, each receiving the prior stage's output
   as DATA (deterministic hand-off, not live chat). Use for **read-after-write chains**.
 - **`phase(name, fn)`** — a named, ordered segment. Phase boundaries are the natural
@@ -78,17 +76,11 @@ its `verification_required` commands run and asserted). Never close a teammate o
 self-reported `NEXUS:DONE` alone (this is the SEPARATE-JUDGE principle: the model that
 did the work never decides it's done — DEC-024).
 
-**Verify-phase structure (DEC-030, 2026-06-25) — no monolithic barrier.** The verify
-phase MUST be decomposed into **several bounded parallel agents**, each owning one check
-(e.g. lint / unit-tests / hook-import / snapshot-consistency) — NEVER one agent running
-the full gauntlet serially. The single heaviest release gate (e.g. `build_snapshot
---check`, full pytest — multi-minute) runs at the **orchestrator level via backgrounded
-Bash**, NOT inside a workflow agent. Each agent carries a stall/time budget → kill and
-escalate, do NOT retry indefinitely. Repair loops re-run ONLY the failed targeted leg —
-never the full suite. No redundant gates (`build_snapshot --check` already runs pytest;
-do NOT schedule a redundant full-suite run). One agent that exceeds its time budget goes
-yellow and retries from scratch; a multi-minute serial gate inside a single agent causes
-indefinite thrash (observed: LSN-008).
+**Verify-phase structure (DEC-030, 2026-06-25) — no monolithic barrier.** Full
+decomposition rules (bounded parallel checks, orchestrator-level backgrounded heaviest
+gate, stall budgets, targeted repair re-runs): `Skill nexus-dispatch-catalog`
+(ANTI-PATTERN) + `Skill verify-phase-patterns`. Operator takeaway here: never author a
+workflow `agent()` that runs the full gauntlet serially — it is the LSN-008 thrash cause.
 
 **Lifecycle skeleton** (parallel archetype):
 
@@ -109,14 +101,17 @@ that is a fresh `agent()` with a fresh context).
 
 ### 2. The archetype catalog (which script shape)
 
-Match TASK SHAPE → script shape (the 6 techniques, Constitution Art. XIII):
+The 6 techniques (what/when/why) are `Skill nexus-dispatch-catalog`'s CATALOG section —
+this is only the script-API mapping for each, once chosen:
 
-- **Classify-and-act** — a classifier `agent()` decides the KIND, then `phase()` branches.
-- **Fan-out-and-synthesize** — `parallel([...])` → synthesize barrier (`phase("synth")`).
-- **Adversarial verification** — a SEPARATE Lens `agent()` attacks each producer (the mandate).
-- **Generate-and-filter** — `parallel()` many candidates → a filter `phase()` keeps the best.
-- **Tournament** — N `agent()`s attempt the same task; judge `agent()`s compare pairwise.
-- **Loop-until-done** — a `phase()` loop until "no new findings"/"no more errors", capped.
+| Technique | Script shape |
+|---|---|
+| Classify-and-act | classifier `agent()` decides the KIND, then `phase()` branches |
+| Fan-out-and-synthesize | `parallel([...])` → synthesize barrier (`phase("synth")`) |
+| Adversarial verification | a SEPARATE Lens `agent()` attacks each producer |
+| Generate-and-filter | `parallel()` many candidates → a filter `phase()` keeps the best |
+| Tournament | N `agent()`s attempt the same task; judge `agent()`s compare pairwise |
+| Loop-until-done | a `phase()` loop until oracle satisfied, capped |
 
 Standard mapping (DEC-020): discovery/one-off = no workflow; simple = `[impl]→[lens]`;
 standard = `[scout]→[impl×N parallel]→[lens]`; complex = **two** workflows
@@ -191,13 +186,14 @@ from the last honest checkpoint. The **forced-entropy stall rule** bans "same-kn
 ### 9. CAPS (the runaway ceilings)
 
 - **Concurrency** = `min(16, cores-2)` simultaneous agents.
-- **Per-call fan-out** = up to **4096** agents in a single `parallel()` call. Fan out
-  as wide as the work genuinely warrants; prefer diverse personas over identical clones.
+- **Per-call fan-out** = up to **4096** agents in a single `parallel()` call.
 - **Lifetime** = **1000** agents per workflow run.
 - **Budget** = the token/$ and **max-iteration** ceiling you set via `budget({...})`
-  (e.g. `maxIterations: 20`). One of the **three independent runaway ceilings** (DEC-024):
-  max-iteration + no-progress detection + token/$ budget, backed by the circuit-breaker
-  and the separate-judge (Lens) principle.
+  (e.g. `maxIterations: 20`) — one of the three independent runaway ceilings.
+
+Fan-out-width guidance (why no numeric K cap, the two non-numeric pressures) and the
+full runaway-guard checklist live in `Skill nexus-dispatch-catalog` — these caps are
+just the hard numbers those guards are built on.
 
 ### 10. MONITOR — poll external state
 
@@ -231,27 +227,12 @@ machine-independent recurrence.
 
 ### 13. The goal model (when the work is goal-shaped)
 
-When the task is goal-shaped (DEC-023, HARD GATE per user), **before driving**:
-**ELICIT** the goal → **CLARIFY** it into a VERIFIABLE form (a crisp oracle: tests pass /
-gate green / metric threshold / no new findings) → get **ONE confirmation** → then drive
-with the primitives above. A SEPARATE critic (Lens) reviews in fully-autonomous ticks.
-**Never** emit "use /goal" or "use /loop" — emulate them. Tiered (DEC-025):
-
-- **LIGHT — Goal Object** `{success_criteria, acceptance_checks, non_goals, open_questions}`
-  for in-session iterate-until-done. One artifact, three jobs: confirmation spec →
-  termination oracle → cold-start handoff. This is the default.
-- **HEAVY — Loss Function (LFD `goal.md`)** for long-running/autonomous/eval-driven loops:
-  TARGET (blinded during the run, measured by a mechanical INSTRUMENT) + CONSTRAINTS
-  (each needs ONE instrument command — "a constraint without an instrument is a vibe") +
-  FORCED ENTROPY (overfit reflection per cycle, stall rule, exploration quota, a log that
-  survives compaction). Anti-gaming: dev/holdout eval split (acceptance lives in the
-  rarely-scored holdout) + red-team-your-own-draft + patch-mode. The goal model itself is
-  detailed in `Skill nexus-dispatch-catalog`; use `Skill nexus-loss-function` to author
-  the heavy loss-function / harness (and re-invoke it in PATCH MODE when a loop cheats).
-
-**Nexus mapping:** instruments = the verification gates; judge / blinded-acceptance =
-Lens + holdout; iteration-log = lessons + the feedback system; forced-entropy stall-rule
-= the REVISE stall-escalation; failure-boundary memory = lessons.
+The elicit→clarify→confirm→drive model, the LIGHT Goal Object vs HEAVY Loss Function
+tiers, and the confirmation hard gate are all owned by **`Skill nexus-dispatch-catalog`**
+(§GOAL MODEL) — load it, don't re-derive it here. This skill only adds the operator
+detail: drive with the LAUNCH verbs in TIER 1/2 above (Workflow / loop-until-done /
+Monitor / Cron), and re-inject the anchor set (goal, oracle, invariants) on every
+`resumeFromRunId` per §6.
 
 ---
 

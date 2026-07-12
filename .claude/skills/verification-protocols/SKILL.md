@@ -5,6 +5,36 @@ description: Deterministic-first verification protocol for Lens. Defines the ord
 
 # Verification Protocols (Lens-canonical)
 
+## 3-Tier Depth Classification (classify FIRST, every dispatch)
+
+Before running any gate, classify the change set into a tier. The classification determines depth and model cost.
+
+### Tier definitions
+
+**T0 — Non-code (docs/config only):** ALL changed files are docs (`.md`, `.txt`, `.rst`) or config (`.json`, `.yaml`, `.toml`, `.env.example`) with no Python/TS/shell content. No Lens row required. If dispatched for a T0 change, emit a brief note and `## NEXUS:DONE` without writing a validation row. Do NOT over-classify as T0 — if any changed file is a hook (`.sh`, `.py`), schema (`.sql`), or executable script, that file is NOT T0.
+
+**T1 — Trivial code:** ALL three conditions hold simultaneously:
+1. Exactly ONE changed file.
+2. That file's path does NOT start with any gated prefix: `nexus-broker/`, `nexus-package/`, `prism/`, `.claude/hooks/`, `.memory/`, `bin/`.
+3. The change content (diff / assistant text) does NOT match the subprocess probe: `subprocess|eval|exec|os\.system|socket|requests|urllib|http|curl` (case-insensitive).
+
+T1 → **LIGHT lens**: run the deterministic gates (Phase 1 below), then a brief (2-3 paragraph) semantic sanity check — one security scan, one NEW-HIRE read, one ops failure-mode scan. Skip the full Critic pre-commit/prediction/gap-analysis protocol. Write a REAL verdict row to the DB with `agent_validated='lens'` and a terse but meaningful `evidence_summary`. Model cost: this dispatch runs on sonnet (or haiku if dispatched as lens-fast's light companion); the verdict row semantics are IDENTICAL regardless of model.
+
+**T2 — Risky code:** ANY of the following forces T2:
+- `files_changed` has more than one distinct path (multi-file).
+- ANY path in `files_changed` (after stripping a single leading `./` or `/`) starts with a gated prefix: `nexus-broker/`, `nexus-package/`, `prism/`, `.claude/hooks/`, `.memory/`, `bin/`.
+- The change content matches the subprocess probe pattern above.
+- `files_changed` could not be parsed AND the marker is DONE on a gated persona.
+- **DEFAULT-DENY: any ambiguity in classification resolves to T2.**
+
+T2 → **FULL deep audit**: run both Phase 1 (deterministic) and the full Phase 2 Critic-pattern semantic protocol (pre-commit predictions, multi-perspective rotation, gap analysis, self-audit). Opus model. Write the verdict row.
+
+### Classification produces the dispatch contract
+
+- T1 light: emit `"lens_tier": "T1"` in output JSON. Run deterministic + light semantic. DB row with `agent_validated='lens'`, real verdict.
+- T2 full: emit `"lens_tier": "T2"` in output JSON. Full Critic protocol. DB row with `agent_validated='lens'`, full evidence.
+- If the brief does not state the tier, classify from `files_changed` yourself — default T2.
+
 ## Two-phase verdict
 
 Every Lens validation runs in two phases. **Deterministic** must finish before **semantic** begins.

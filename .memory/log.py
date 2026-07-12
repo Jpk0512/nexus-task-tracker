@@ -103,8 +103,31 @@ TASKS_MD_PATH = Path(__file__).resolve().parent.parent / "docs" / "TASKS.md"
 MEMORY_FILES_DIR = Path(__file__).parent / "files"
 
 
+# TASK-004 / DEC-040 / incident #10: fat uncheckpointed WAL + many concurrent
+# hook/agent writers + a too-low busy_timeout caused 10x "malformed database
+# schema" corruption incidents. busy_timeout=15000 gives contenders more room
+# to wait instead of erroring; wal_autocheckpoint=200 (pages, default 1000)
+# checkpoints far more often so the WAL can't balloon between writers.
+# Incident #10 (R3) showed DEC-040 did not survive Workflow-level concurrency
+# because it was only applied on the ONE _conn() path — _vec_conn() (the
+# per-decision/lesson/rca/reflection embed side-effect, opened on essentially
+# every hot write) and the cross-project feedback-resolve connection each
+# opened their OWN raw sqlite3.connect with a bare busy_timeout=5000 and no
+# wal_autocheckpoint at all, so a second concurrent writer per write burst was
+# never hardened. Every connection path funnels through this one function now
+# so there is exactly one place the pragma set can drift.
+def _harden_connection(conn: sqlite3.Connection) -> None:
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=15000")
+    conn.execute("PRAGMA wal_autocheckpoint=200")
+
+
 def _conn() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH)
+    _harden_connection(conn)
+    # One-shot checkpoint-truncate shrinks any WAL already grown before this
+    # fix shipped / from a prior burst. None of this touches schema or row data.
+    conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -169,7 +192,20 @@ def _next_id(conn: sqlite3.Connection, table: str, prefix: str) -> str:
 
     Only the bare ``PREFIX-NNN`` ids are considered when deriving the max number,
     so a stray suffixed id that is somehow still current cannot corrupt the count.
+
+    Incident #10 concurrency fix: the caller always INSERTs the allocated id in
+    the SAME transaction right after this returns, but Python's sqlite3 module
+    only takes SQLite's write lock lazily (on the first DML), so two concurrent
+    processes could both read the same high-water mark before either writes,
+    then both try to INSERT the same id -> UNIQUE constraint failure under
+    load (reproduced by .memory/tests/test_concurrent_write_wal.py). Escalating
+    to BEGIN IMMEDIATE here, before the read, takes the write lock upfront so
+    busy_timeout actually serializes racing writers instead of letting them
+    race the read. Guarded by in_transaction so a caller that already opened
+    one (or a bare read-only caller with no pending writer) is unaffected.
     """
+    if not conn.in_transaction:
+        conn.execute("BEGIN IMMEDIATE")
     if _table_has_column(conn, table, "valid_to") and _table_has_column(
         conn, table, "is_tombstone"
     ):
@@ -338,10 +374,11 @@ def _migrate_feedback_version_column(conn: sqlite3.Connection) -> None:
 
 
 def _migrate_validation_log_columns(conn: sqlite3.Connection) -> None:
-    """Idempotent: add the three nullable columns to validation_log introduced by
-    the U1 instrumentation pass (DEC-029 lens-tiering + completeness-check).
+    """Idempotent: add the nullable columns to validation_log introduced by the
+    U1 instrumentation pass (DEC-029 lens-tiering + completeness-check) and the
+    R1-T08 lens-gate v2 tier columns.
 
-    Three additive columns:
+    Five additive columns (all nullable — no NOT NULL, no backfill required):
       files_changed_json  TEXT  — JSON array of the implementer's declared
                                   files_changed; the completeness-check CLI uses
                                   this to confirm a PASS row covers the changed set.
@@ -352,11 +389,40 @@ def _migrate_validation_log_columns(conn: sqlite3.Connection) -> None:
                                   dispatch began (distinct from validated_at = the
                                   row-write time); lets instrumentation compute the
                                   Lens wall-clock duration.
+      lens_type            TEXT — 'T0'|'T1'|'T2': the depth tier Lens actually ran
+                                  at for this row (R1-T08). NULL on rows written
+                                  before this migration or by callers that haven't
+                                  adopted --lens-type yet — read as "tier unknown"
+                                  by any v2 gate query, never as a false match.
+      risk_tier            TEXT — 'T0'|'T1'|'T2': the tier the orchestrator's
+                                  classifier required ahead of dispatch (R1-T08).
+                                  Kept separate from lens_type so a future gate can
+                                  assert delivered-depth >= required-depth instead
+                                  of conflating "required" and "actual".
+
+    agent_validated (the 'lens' invariant lens-gate.sh keys off) is NOT touched by
+    this migration — lens_type/risk_tier are purely additive siblings alongside it.
 
     Safe to re-run on a live project.db — ALTER TABLE branches are guarded by
     PRAGMA table_info so a second run is a clean no-op.  The table itself may not
     exist yet on a brand-new DB; the guard handles that too.
+
+    Incident #10 concurrency fix: this is the same PRAGMA-check-then-ALTER
+    TOCTOU shape as _next_id's high-water-mark read (see that function's
+    docstring). cmd_init's call site already runs inside its own outer
+    BEGIN IMMEDIATE, but cmd_validation_add / cmd_validation_completeness_check
+    call this function directly against a fresh `with _conn() as conn:` with
+    no transaction open — two concurrent `validation add` calls against a DB
+    that predates this migration could both see a column absent and both
+    ALTER, and the loser gets 'duplicate column name' (the same class of
+    concurrent-DDL race lens-gate.sh's _init_table had). Escalating to
+    BEGIN IMMEDIATE here, before the check, takes the write lock upfront so
+    busy_timeout serializes racers instead of letting them race the check.
+    Guarded by in_transaction so a caller that already opened one (cmd_init's
+    outer transaction) is unaffected.
     """
+    if not conn.in_transaction:
+        conn.execute("BEGIN IMMEDIATE")
     if not conn.execute(
         "SELECT name FROM sqlite_master WHERE type='table' AND name='validation_log'"
     ).fetchone():
@@ -366,10 +432,49 @@ def _migrate_validation_log_columns(conn: sqlite3.Connection) -> None:
         ("files_changed_json", "TEXT"),
         ("revise_reason", "TEXT"),
         ("dispatch_started_at", "TEXT"),
+        ("lens_type", "TEXT"),
+        ("risk_tier", "TEXT"),
     ]
     for col, decl in additive:
         if col not in existing:
             conn.execute(f"ALTER TABLE validation_log ADD COLUMN {col} {decl}")
+
+
+def _migrate_dispatch_telemetry_columns(conn: sqlite3.Connection) -> None:
+    """Idempotent: add the two nullable Art. XIII.d decompose-cue columns to
+    dispatch_telemetry (R2-T15 / spec §7, FIX-2).
+
+    Two additive columns (both nullable — no NOT NULL, no backfill required):
+      independent_subtask_count INTEGER — count of independent subtasks the
+                                 orchestrator identified before this dispatch.
+                                 NULL = not recorded (pre-migration row, or a
+                                 caller that hasn't adopted the flag yet).
+      decomposition_considered  INTEGER — 0/1 boolean-as-int; whether the
+                                 orchestrator explicitly evaluated a
+                                 Workflow/fan-out decomposition before issuing
+                                 this dispatch (parallel-first-check, DEC-029).
+                                 NULL = not recorded.
+
+    Does not touch the existing one-row-per-dispatch shape or any column
+    health.py's completion-time KPI test asserts against — purely additive
+    siblings alongside tokens/duration_ms/etc.
+
+    Safe to re-run on a live project.db — ALTER TABLE branches are guarded by
+    PRAGMA table_info so a second run is a clean no-op. The table itself may
+    not exist yet on a brand-new DB; the guard handles that too.
+    """
+    if not conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='dispatch_telemetry'"
+    ).fetchone():
+        return  # table not yet created — cmd_init will create it fresh with all columns
+    existing = {r[1] for r in conn.execute("PRAGMA table_info(dispatch_telemetry)")}
+    additive: list[tuple[str, str]] = [
+        ("independent_subtask_count", "INTEGER"),
+        ("decomposition_considered", "INTEGER"),
+    ]
+    for col, decl in additive:
+        if col not in existing:
+            conn.execute(f"ALTER TABLE dispatch_telemetry ADD COLUMN {col} {decl}")
 
 
 def _migrate_semantic_facts_drop_global_unique(conn: sqlite3.Connection) -> None:
@@ -438,7 +543,18 @@ def _migrate_bitemporal_columns(conn: sqlite3.Connection) -> None:
 
     Safe to run on the live project.db (no deletes, no payload edits). A skipped
     table (does not exist yet) is silently ignored.
+
+    Incident #10 concurrency fix: this runs on EVERY decision/lesson/task/etc.
+    add (not just `init`), and each additive ALTER is only guarded by a
+    PRAGMA table_info check-then-act — under concurrent writers two processes
+    can both see a column absent, then both run ADD COLUMN, and the loser gets
+    'duplicate column name' (reproduced by
+    .memory/tests/test_concurrent_write_wal.py). BEGIN IMMEDIATE upfront takes
+    the write lock before the check, so busy_timeout serializes the racers
+    instead of letting them race the check.
     """
+    if not conn.in_transaction:
+        conn.execute("BEGIN IMMEDIATE")
     # TASK-036: drop the global UNIQUE on semantic_facts.key before adding the
     # partial-unique index so supersession inserts (old row + new row, same key)
     # are not blocked by the old column-level autoindex.
@@ -566,6 +682,12 @@ def _vec_conn() -> sqlite3.Connection:
     try:
         import sqlite_vec as _sv
         conn = sqlite3.connect(DB_PATH)
+        _harden_connection(conn)
+        # Same one-shot checkpoint-truncate as _conn(): bounds worst-case WAL
+        # growth before THIS writer's own transaction, regardless of how many
+        # other short-lived writers (hook processes, other _conn()/_vec_conn()
+        # callers) have landed pages since the last auto-checkpoint.
+        conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
         conn.row_factory = sqlite3.Row
         conn.enable_load_extension(True)
         _sv.load(conn)
@@ -910,6 +1032,18 @@ def cmd_init(_args: argparse.Namespace) -> None:
         plain_lines.append(line)
     with _conn() as conn:
         conn.executescript("\n".join(plain_lines))
+        # Incident #10 concurrency fix: executescript() implicitly commits, so
+        # the migration sequence below starts with NO transaction open. Every
+        # _migrate_* function does a check-then-ALTER (PRAGMA table_info, then
+        # ADD COLUMN if absent) — under concurrent `init` racers (or a racing
+        # hot-path writer that also calls _migrate_bitemporal_columns) two
+        # processes can both see a column absent and both ALTER, and the loser
+        # gets 'duplicate column name' (reproduced by
+        # .memory/tests/test_concurrent_write_wal.py). One BEGIN IMMEDIATE here
+        # covers the WHOLE migration sequence so busy_timeout serializes
+        # racers instead of letting them race every individual check.
+        if not conn.in_transaction:
+            conn.execute("BEGIN IMMEDIATE")
         _migrate_tasks_stall_columns(conn)
         # OPT-054 — bi-temporal consolidation. Additive ALTER + backfill +
         # partial-unique index. Idempotent and re-runnable on the live DB.
@@ -928,6 +1062,9 @@ def cmd_init(_args: argparse.Namespace) -> None:
         # U1 instrumentation — three nullable columns on validation_log for
         # completeness-check coverage, revise attribution, and wall-clock timing.
         _migrate_validation_log_columns(conn)
+        # R2-T15 — two nullable Art. XIII.d decompose-cue columns on
+        # dispatch_telemetry. Idempotent, re-runnable, no data loss.
+        _migrate_dispatch_telemetry_columns(conn)
     # Apply M-001 vec_memory via extension-loaded conn. When sqlite-vec is
     # unavailable (degraded bootstrap / NEXUS_DISABLE_VEC / no extension support),
     # SKIP the vec0 virtual table and continue — core tables are already created
@@ -978,8 +1115,29 @@ def cmd_session_start(args: argparse.Namespace) -> None:
     print(json.dumps({"session_id": sid, "started_at": now}))
 
 
+def _build_handoff_block(args: argparse.Namespace) -> dict | None:
+    """R5-T04 (NATIVE-35) intent-preserving handoff block: the open experiment,
+    its hypothesis, and the concrete next probe — the piece `next_step` alone
+    loses across sessions. None (no block) unless the caller supplied at least
+    one of the three fields; never fabricated from summary/next_step text.
+    """
+    experiment = getattr(args, "experiment", None)
+    hypothesis = getattr(args, "hypothesis", None)
+    next_probe = getattr(args, "next_probe", None)
+    if not (experiment or hypothesis or next_probe):
+        return None
+    return {
+        "experiment": experiment,
+        "hypothesis": hypothesis,
+        "next_probe": next_probe,
+        "recorded_at": _now(),
+    }
+
+
 def cmd_session_end(args: argparse.Namespace) -> None:
     now = _now()
+    handoff = _build_handoff_block(args)
+    context_json = json.dumps(handoff) if handoff else None
     with _conn() as conn:
         row = conn.execute(
             "SELECT id FROM sessions WHERE ended_at IS NULL ORDER BY started_at DESC LIMIT 1"
@@ -989,10 +1147,13 @@ def cmd_session_end(args: argparse.Namespace) -> None:
             sys.exit(1)
         sid = row["id"]
         conn.execute(
-            "UPDATE sessions SET ended_at=?, summary=?, next_step=? WHERE id=?",
-            (now, args.summary, args.next_step, sid),
+            "UPDATE sessions SET ended_at=?, summary=?, next_step=?, context_json=? WHERE id=?",
+            (now, args.summary, args.next_step, context_json, sid),
         )
-    print(json.dumps({"session_id": sid, "ended_at": now, "summary": args.summary}))
+    out = {"session_id": sid, "ended_at": now, "summary": args.summary}
+    if handoff is not None:
+        out["handoff"] = handoff
+    print(json.dumps(out))
     _write_session_state(args.summary, getattr(args, "next_step", None))
 
 
@@ -1117,6 +1278,68 @@ def cmd_session_status(_args: argparse.Namespace) -> None:
         "open_sessions": [dict(r) for r in open_rows],
         "stale_count_2h": stale_count,
     }, indent=2))
+
+
+def _format_handoff_line(session_id: str, handoff: dict) -> str:
+    parts = []
+    if handoff.get("experiment"):
+        parts.append(f"experiment: {handoff['experiment']}")
+    if handoff.get("hypothesis"):
+        parts.append(f"hypothesis: {handoff['hypothesis']}")
+    if handoff.get("next_probe"):
+        parts.append(f"next probe: {handoff['next_probe']}")
+    body = " | ".join(parts) if parts else "(empty handoff)"
+    return f"[{session_id}] {body}"
+
+
+def cmd_session_recall(args: argparse.Namespace) -> None:
+    """R5-T04 read-side memory recall (NATIVE-35/NATIVE-61): the last
+    `--limit` sessions' summaries/next_steps, plus any intent-preserving
+    handoff blocks (`_build_handoff_block`, written by `session end`) recorded
+    among them. `handoffs` is emitted BEFORE `sessions` in the JSON output
+    (and is ordered most-recent-first) so a fresh session reading this digest
+    sees the still-open experiment intent FIRST -- the exact NATIVE-35 loss
+    (experiment intent lost across sessions) this command exists to close.
+    Bounded by `--limit`: never a full-history dump.
+    """
+    limit = max(1, getattr(args, "limit", None) or 5)
+    with _conn() as conn:
+        rows = conn.execute(
+            "SELECT id, started_at, ended_at, summary, next_step, branch, context_json "
+            "FROM sessions ORDER BY started_at DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+
+    sessions = []
+    handoffs = []
+    for r in rows:
+        sessions.append({
+            "id": r["id"],
+            "started_at": r["started_at"],
+            "ended_at": r["ended_at"],
+            "summary": r["summary"],
+            "next_step": r["next_step"],
+            "branch": r["branch"],
+        })
+        raw = r["context_json"]
+        if not raw:
+            continue
+        try:
+            handoff = json.loads(raw)
+        except (json.JSONDecodeError, ValueError):
+            continue
+        if not isinstance(handoff, dict):
+            continue
+        handoffs.append({
+            "session_id": r["id"],
+            "experiment": handoff.get("experiment"),
+            "hypothesis": handoff.get("hypothesis"),
+            "next_probe": handoff.get("next_probe"),
+            "recorded_at": handoff.get("recorded_at"),
+            "line": _format_handoff_line(r["id"], handoff),
+        })
+
+    print(json.dumps({"handoffs": handoffs, "sessions": sessions}, indent=2))
 
 
 # ---------------------------------------------------------------------------
@@ -1753,8 +1976,59 @@ def _registry_history_action(action: str) -> str:
     }.get(action, action)
 
 
+def _detect_ledger_state(project_path: str) -> bool:
+    """Root-cause fix for NATIVE-2-17 / NATIVE-1-19: whether project_path has an
+    initialized, readable ledger (.memory/nexus-stack.json parses as a non-empty
+    dict). `registry update` previously never touched has_ledger/last_validated
+    at all, so once a project's ledger went stale (e.g. the gemini-gateway
+    install's stale nexus-stack.json) the registry row had no mechanism to ever
+    reflect reality — has_ledger stayed frozen at its initial value and
+    last_validated stayed NULL forever, no matter how many updates ran.
+    Re-detecting from disk on every `registry update` call self-heals that:
+    the row always reflects the CURRENT on-disk ledger state.
+    """
+    stack_json = Path(project_path) / ".memory" / "nexus-stack.json"
+    try:
+        with stack_json.open(encoding="utf-8") as fh:
+            data = json.load(fh)
+    except (OSError, ValueError):
+        return False
+    return isinstance(data, dict) and bool(data)
+
+
+def _normalize_registry_path(project_path: str) -> str:
+    """Dedup identity for project_registry.project_path (R5-T09 half 2).
+
+    /Foo/Bar and /foo/bar/ previously produced TWO rows because `registry add`
+    only upserts on an exact string match -- the UNIQUE constraint on
+    project_path never catches a case/trailing-slash variant. Collapsing to
+    lowercase with no trailing slash gives the identity used both by the
+    add-time duplicate guard (cmd_registry_add) and the one-time migration
+    pass (cmd_registry_dedup).
+    """
+    return project_path.rstrip("/").lower()
+
+
 def cmd_registry_add(args: argparse.Namespace) -> None:
-    """Register a new managed project. INSERT OR REPLACE on project_path."""
+    """Register a new managed project. INSERT OR REPLACE on project_path.
+
+    Ledger-init fix (NATIVE-1-19, R5-T12): `registry add` previously never
+    inspected the on-disk ledger at all, so has_ledger stayed frozen at the
+    column default (0) even for `installed-existing` projects that already
+    carry a valid .memory/nexus-stack.json at the exact moment they're
+    registered (the gemini-gateway class: a pre-existing install being
+    brought under registry management). The row then sat wrong until
+    whatever future `registry update` call happened to come along, which
+    could be arbitrarily delayed or never happen. Root cause was that ledger
+    detection only ran in `registry update` (see _detect_ledger_state);
+    `registry add` is the actual ledger INIT point and needs the same
+    detection, not just update. last_validated is only stamped when a ledger
+    is actually found at add-time (matching "we just validated one"); a
+    brand-new project with no ledger yet still starts at last_validated=NULL,
+    same as before this fix -- `registry update`'s unconditional stamp (which
+    "never gets stuck", NATIVE-2-17) is the one that guarantees convergence
+    over time.
+    """
     now = _now()
     # add subcommand --action is one of {installed, installed-existing, manual}.
     # Map to install_method column (fresh|existing|manual).
@@ -1766,51 +2040,101 @@ def cmd_registry_add(args: argparse.Namespace) -> None:
     if install_method not in {"fresh", "existing", "manual"}:
         print(f"Invalid action: {args.action}", file=sys.stderr)
         sys.exit(2)
+    has_ledger = 1 if _detect_ledger_state(args.project_path) else 0
+    last_validated = now if has_ledger else None
+    merge = bool(getattr(args, "merge", False))
     with _conn() as conn:
         # Upsert: if path already registered, update version + last_updated_at
         # and reactivate; otherwise insert fresh.
         existing = conn.execute(
-            "SELECT id FROM project_registry WHERE project_path=?",
+            "SELECT id, project_path FROM project_registry WHERE project_path=?",
             (args.project_path,),
         ).fetchone()
+        canonical_path = args.project_path
+        if existing is None:
+            # R5-T09 half 2: a path differing from an existing row ONLY by
+            # case or a trailing slash is the same project (the dup-row class
+            # that produced double entries) -- reject it unless the caller
+            # explicitly passes --merge to fold it into the existing row.
+            dup_key = _normalize_registry_path(args.project_path)
+            dup_row = next(
+                (
+                    row for row in conn.execute(
+                        "SELECT id, project_path FROM project_registry"
+                    ).fetchall()
+                    if _normalize_registry_path(row["project_path"]) == dup_key
+                ),
+                None,
+            )
+            if dup_row is not None:
+                if not merge:
+                    print(
+                        f"registry add rejected: '{args.project_path}' differs only by "
+                        f"case/trailing-slash from existing row id={dup_row['id']} "
+                        f"path='{dup_row['project_path']}'. Pass --merge to fold into it.",
+                        file=sys.stderr,
+                    )
+                    sys.exit(1)
+                existing = dup_row
+                canonical_path = dup_row["project_path"]
         if existing:
             conn.execute(
                 "UPDATE project_registry SET current_version=?, install_method=?, "
-                "last_updated_at=?, status='active', notes=COALESCE(?, notes) "
-                "WHERE project_path=?",
-                (args.version, install_method, now, args.notes, args.project_path),
+                "last_updated_at=?, status='active', notes=COALESCE(?, notes), "
+                "has_ledger=?, last_validated=? "
+                "WHERE id=?",
+                (args.version, install_method, now, args.notes,
+                 has_ledger, last_validated, existing["id"]),
             )
             pid = existing["id"]
         else:
             cur = conn.execute(
                 "INSERT INTO project_registry "
                 "(project_path, current_version, install_method, status, notes, "
-                " installed_at, last_updated_at) "
-                "VALUES (?,?,?, 'active', ?, ?, ?)",
+                " installed_at, last_updated_at, has_ledger, last_validated) "
+                "VALUES (?,?,?, 'active', ?, ?, ?, ?, ?)",
                 (args.project_path, args.version, install_method,
-                 args.notes, now, now),
+                 args.notes, now, now, has_ledger, last_validated),
             )
             pid = cur.lastrowid
         conn.execute(
             "INSERT INTO project_version_history "
             "(project_path, version, action, acted_at, notes) "
             "VALUES (?,?,?,?,?)",
-            (args.project_path, args.version,
+            (canonical_path, args.version,
              _registry_history_action(args.action), now, args.notes),
         )
     print(json.dumps({
         "id": pid,
-        "project_path": args.project_path,
+        "project_path": canonical_path,
         "current_version": args.version,
         "install_method": install_method,
         "action": args.action,
         "acted_at": now,
+        "has_ledger": has_ledger,
+        "last_validated": last_validated,
     }))
 
 
 def cmd_registry_update(args: argparse.Namespace) -> None:
-    """Update version + record history for an already-registered project."""
+    """Update version + record history for an already-registered project.
+
+    NATIVE-2-17 fix: this previously left has_ledger/last_validated untouched
+    forever (they only exist via the migration-002 additive ALTER — see
+    _migrate_registry_legacy_columns — and nothing ever wrote them). Every
+    `registry update` now re-stamps last_validated=now() and recomputes
+    has_ledger from the on-disk ledger unless explicitly overridden via
+    --has-ledger, so a project's registry row can never go silently stale
+    relative to its actual ledger state (the NATIVE-1-19 gemini-gateway class
+    of defect: has_ledger stuck at its initial value while the real ledger
+    drifted underneath it).
+    """
     now = _now()
+    has_ledger_arg = getattr(args, "has_ledger", "auto")
+    if has_ledger_arg == "auto":
+        has_ledger = 1 if _detect_ledger_state(args.project_path) else 0
+    else:
+        has_ledger = 1 if has_ledger_arg == "yes" else 0
     with _conn() as conn:
         row = conn.execute(
             "SELECT id, current_version FROM project_registry WHERE project_path=?",
@@ -1826,8 +2150,9 @@ def cmd_registry_update(args: argparse.Namespace) -> None:
         previous = row["current_version"]
         conn.execute(
             "UPDATE project_registry SET current_version=?, last_updated_at=?, "
-            "notes=COALESCE(?, notes) WHERE project_path=?",
-            (args.version, now, args.notes, args.project_path),
+            "notes=COALESCE(?, notes), has_ledger=?, last_validated=? "
+            "WHERE project_path=?",
+            (args.version, now, args.notes, has_ledger, now, args.project_path),
         )
         conn.execute(
             "INSERT INTO project_version_history "
@@ -1843,6 +2168,8 @@ def cmd_registry_update(args: argparse.Namespace) -> None:
         "current_version": args.version,
         "action": args.action,
         "acted_at": now,
+        "has_ledger": has_ledger,
+        "last_validated": now,
     }))
 
 
@@ -1895,6 +2222,69 @@ def cmd_registry_remove(args: argparse.Namespace) -> None:
         "status": "removed",
         "acted_at": now,
     }))
+
+
+def cmd_registry_dedup(args: argparse.Namespace) -> None:
+    """One-time migration pass (R5-T09 half 2): fold project_registry rows
+    that differ only by case/trailing-slash into a single canonical row --
+    the dup-row class the add-time guard in cmd_registry_add now prevents
+    going forward, but pre-existing rows need a one-time cleanup.
+
+    Canonical = the group's lowest id (first-registered path string is kept
+    on disk/history). The GROUP MEMBER most recently touched (max
+    last_updated_at) donates its current_version/notes/has_ledger/
+    last_validated to the canonical row -- the freshest write wins, matching
+    the self-heal posture NATIVE-2-17 established for `registry update`.
+    project_version_history rows for every folded path are re-pointed at the
+    canonical project_path so history stays queryable under one identity.
+
+    Dry-run by default (report only, no writes); pass --apply to commit.
+    """
+    with _conn() as conn:
+        rows = conn.execute(
+            "SELECT id, project_path, current_version, install_method, status, "
+            "notes, has_ledger, last_validated, last_updated_at "
+            "FROM project_registry ORDER BY id"
+        ).fetchall()
+        groups: dict = {}
+        for row in rows:
+            groups.setdefault(_normalize_registry_path(row["project_path"]), []).append(row)
+        dup_groups = [members for members in groups.values() if len(members) > 1]
+
+        report_groups = []
+        for members in dup_groups:
+            canonical = members[0]
+            duplicates = members[1:]
+            most_recent = max(members, key=lambda r: r["last_updated_at"] or "")
+            report_groups.append({
+                "canonical": {"id": canonical["id"], "project_path": canonical["project_path"]},
+                "merged": [
+                    {"id": d["id"], "project_path": d["project_path"]} for d in duplicates
+                ],
+                "winning_version": most_recent["current_version"],
+            })
+            if args.apply:
+                for d in duplicates:
+                    conn.execute(
+                        "UPDATE project_version_history SET project_path=? WHERE project_path=?",
+                        (canonical["project_path"], d["project_path"]),
+                    )
+                conn.execute(
+                    "UPDATE project_registry SET current_version=?, notes=COALESCE(?, notes), "
+                    "has_ledger=?, last_validated=?, last_updated_at=? WHERE id=?",
+                    (most_recent["current_version"], most_recent["notes"],
+                     most_recent["has_ledger"], most_recent["last_validated"],
+                     most_recent["last_updated_at"], canonical["id"]),
+                )
+                for d in duplicates:
+                    conn.execute("DELETE FROM project_registry WHERE id=?", (d["id"],))
+        result = {
+            "mode": "apply" if args.apply else "dry-run",
+            "duplicate_groups": len(dup_groups),
+            "merged_rows": sum(len(g["merged"]) for g in report_groups),
+            "groups": report_groups,
+        }
+    print(json.dumps(result, indent=2, default=str))
 
 
 # ---------------------------------------------------------------------------
@@ -2311,6 +2701,7 @@ def cmd_feedback_resolve(args: argparse.Namespace) -> None:
         print(f"feedback resolve: cannot open {pdb} read-write: {exc}", file=sys.stderr)
         sys.exit(1)
     try:
+        _harden_connection(pconn)
         pconn.row_factory = sqlite3.Row
         has_table = pconn.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name='nexus_feedback'"
@@ -3510,20 +3901,41 @@ def cmd_context_snapshot(args: argparse.Namespace) -> None:
     print(json.dumps({"session_id": sid, "logged_at": now}))
 
 
-def cmd_context_dump(_args: argparse.Namespace) -> None:
+def cmd_context_dump(args: argparse.Namespace) -> None:
+    tasks_filter = getattr(args, "tasks", "all") or "all"
+    dec_limit = getattr(args, "decisions", 5)
     with _conn() as conn:
         session = conn.execute(
             "SELECT * FROM sessions ORDER BY started_at DESC LIMIT 1"
         ).fetchone()
-        open_tasks = conn.execute(
-            "SELECT id, title, status, priority, assigned_to FROM tasks WHERE status NOT IN ('done','cancelled') ORDER BY id"
+        # 'archived' (N56 TTL reap) is excluded here alongside done/cancelled: an
+        # archived row is a terminal, non-actionable state, not open work — it
+        # must NOT reinflate the SessionStart open-task summary. Counted
+        # separately below (archived_task_count) so archived rows stay VISIBLE
+        # (DEC-005: queryable, never silently dropped) without looking "open".
+        open_rows = conn.execute(
+            "SELECT id, title, status, priority, assigned_to FROM tasks "
+            "WHERE status NOT IN ('done','cancelled','archived') ORDER BY id"
         ).fetchall()
+        archived_task_count = conn.execute(
+            "SELECT count(*) AS c FROM tasks WHERE status='archived'"
+        ).fetchone()["c"]
         recent_decisions = conn.execute(
-            "SELECT id, title, status, decided_at FROM decisions ORDER BY decided_at DESC LIMIT 10"
+            "SELECT id, title, status, decided_at FROM decisions ORDER BY decided_at DESC LIMIT ?",
+            (dec_limit,),
         ).fetchall()
+    status_counts: dict = {}
+    for r in open_rows:
+        status_counts[r["status"]] = status_counts.get(r["status"], 0) + 1
+    if tasks_filter == "in_progress":
+        open_tasks = [dict(r) for r in open_rows if r["status"] == "in_progress"]
+    else:
+        open_tasks = [dict(r) for r in open_rows]
     out = {
         "last_session": dict(session) if session else None,
-        "open_tasks": [dict(r) for r in open_tasks],
+        "open_tasks": open_tasks,
+        "task_status_counts": status_counts,
+        "archived_task_count": archived_task_count,
         "recent_decisions": [dict(r) for r in recent_decisions],
     }
     print(json.dumps(out, indent=2))
@@ -4174,6 +4586,8 @@ def cmd_validation_add(args: argparse.Namespace) -> None:
     # so the failure reason is machine-readable without re-parsing evidence_summary.
     files_changed_json = getattr(args, "files_changed_json", None) or None
     dispatch_started_at = getattr(args, "dispatch_started_at", None) or None
+    lens_type = getattr(args, "lens_type", None) or None
+    risk_tier = getattr(args, "risk_tier", None) or None
     revise_reason: str | None = None
     if verdict != "PASS" and binding_note:
         revise_reason = binding_note[:500]  # cap at 500 chars for sanity
@@ -4206,11 +4620,13 @@ def cmd_validation_add(args: argparse.Namespace) -> None:
             """INSERT INTO validation_log
                (session_id, agent_validated, target_agent, task_or_brief_hash, verdict,
                 evidence_summary, validated_at,
-                files_changed_json, revise_reason, dispatch_started_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                files_changed_json, revise_reason, dispatch_started_at,
+                lens_type, risk_tier)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (session_id, args.agent, args.target, task_hash, verdict,
              evidence_summary, now,
-             files_changed_json, revise_reason, dispatch_started_at),
+             files_changed_json, revise_reason, dispatch_started_at,
+             lens_type, risk_tier),
         )
     print(json.dumps({
         "recorded": True,
@@ -4225,6 +4641,8 @@ def cmd_validation_add(args: argparse.Namespace) -> None:
         "validated_at": now,
         "files_changed_json": files_changed_json,
         "dispatch_started_at": dispatch_started_at,
+        "lens_type": lens_type,
+        "risk_tier": risk_tier,
     }))
 
 
@@ -4347,6 +4765,162 @@ def cmd_validation_completeness_check(args: argparse.Namespace) -> None:
         "covered_files": sorted(requested_set),
         "pass_row_files": sorted(covered_set),
     }))
+
+
+def cmd_validation_check_gate(args: argparse.Namespace) -> None:
+    """Read-only lens-gate.sh SubagentStop check (ADR-001 Phase 0): the v1
+    floor (>=1 in-window PASS row) plus, for --tier T2, the v2 N-distinct-
+    lens-row check (R1-T08) — routed through log.py's single-writer
+    connection instead of the hook opening its OWN raw sqlite3.connect and
+    racing concurrent hooks on schema-init DDL (the incident #10 mechanism).
+
+    Deliberately NO CREATE TABLE / ALTER TABLE here: this command never runs
+    schema-init DDL (that stays in `init` / `validation add`, both already
+    single-writer). A DB predating validation_log, or predating the U1
+    lens_type/risk_tier columns, degrades EXACTLY like the hook's own old
+    column-existence guard (v2 no-ops to True) rather than racing a DDL
+    statement — many concurrent `check-gate` invocations are many concurrent
+    READERS, which WAL supports natively; they are never writers.
+
+    Prints ONE JSON object to stdout and always exits 0 — this command only
+    ever reports facts (validated / v2_ok / v2_detail / db_error); the
+    calling hook still owns the ALLOW/DENY decision, unchanged from before
+    (a db_error is treated by the hook exactly like the old sqlite3.Error
+    branch: fail CLOSED, never a silent pass).
+
+    Query shapes are byte-identical to lens-gate.sh's former
+    _has_lens_validation / _has_lens_validation_v2 (same WHERE clauses, same
+    datetime() window comparison, same NULL-tier-never-matches rule) — this
+    is a routing change, not an enforcement change.
+    """
+    target = args.target
+    task_hash = args.task_hash
+    tier = args.tier
+    window_hours = 1  # mirrors lens-gate.sh VALIDATION_WINDOW=timedelta(hours=1)
+
+    result = {
+        "target": target,
+        "task_hash": task_hash,
+        "tier": tier,
+        "validated": False,
+        "v2_ok": True,
+        "v2_detail": (
+            "tier=T1 — v1 floor only (unchanged)" if tier != "T2" else None
+        ),
+        "db_error": None,
+    }
+
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        _harden_connection(conn)
+        conn.row_factory = sqlite3.Row
+
+        exists = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='validation_log'"
+        ).fetchone()
+        if not exists:
+            result["db_error"] = "validation_log table does not exist — run `init` first"
+            conn.close()
+            print(json.dumps(result))
+            return
+
+        row = conn.execute(
+            f"""
+            SELECT verdict FROM validation_log
+            WHERE agent_validated = 'lens'
+              AND target_agent    = ?
+              AND task_or_brief_hash = ?
+              AND datetime(validated_at) > datetime('now', '-{window_hours} hours')
+            ORDER BY datetime(validated_at) DESC, id DESC
+            LIMIT 1
+            """,
+            (target, task_hash),
+        ).fetchone()
+        result["validated"] = row is not None and row["verdict"] == "PASS"
+
+        if tier == "T2":
+            cols = {r[1] for r in conn.execute("PRAGMA table_info(validation_log)")}
+            if "lens_type" not in cols or "risk_tier" not in cols:
+                result["v2_ok"] = True
+                result["v2_detail"] = (
+                    "lens_type/risk_tier columns absent (pre-migration DB) — "
+                    "v2 check skipped, v1 floor governs"
+                )
+            else:
+                rows = conn.execute(
+                    f"""
+                    SELECT DISTINCT lens_type FROM validation_log
+                    WHERE agent_validated = 'lens'
+                      AND target_agent    = ?
+                      AND task_or_brief_hash = ?
+                      AND verdict = 'PASS'
+                      AND lens_type IS NOT NULL
+                      AND datetime(validated_at) > datetime('now', '-{window_hours} hours')
+                    """,
+                    (target, task_hash),
+                ).fetchall()
+                satisfied = {r["lens_type"] for r in rows}
+                if "T2" not in satisfied:
+                    result["v2_ok"] = False
+                    result["v2_detail"] = (
+                        f"required tiers=['T2'], satisfied={sorted(satisfied)}, missing=['T2']"
+                    )
+                else:
+                    result["v2_ok"] = True
+                    result["v2_detail"] = (
+                        f"required tiers=['T2'], satisfied={sorted(satisfied)}"
+                    )
+        conn.close()
+    except sqlite3.Error as exc:
+        result["db_error"] = str(exc)
+
+    print(json.dumps(result))
+
+
+def cmd_session_bump_message_count(_args: argparse.Namespace) -> None:
+    """Atomically increment the latest open session's user_message_count.
+
+    ADR-001 Phase 0: replaces context-reset-monitor.py's own raw
+    sqlite3.connect + UPDATE — the single highest-frequency independent
+    writer in the old inventory (it fired on EVERY UserPromptSubmit, not
+    just SubagentStop/PostToolUse boundaries). Routing the read-increment-
+    write through the single-writer connection removes it from the
+    concurrent-writer set entirely; the hook now only ever reads this
+    command's JSON result.
+
+    No session row open -> user_message_count stays None (hook's discontinuity
+    check already treats an absent session as "nothing to count"). DB errors
+    are reported as JSON, never raised, so the caller (an advisory hook that
+    must never block) can warn without crashing on a broken DB.
+    """
+    result = {
+        "session_id": None,
+        "previous_count": None,
+        "user_message_count": None,
+        "db_error": None,
+    }
+    try:
+        with _conn() as conn:
+            row = conn.execute(
+                "SELECT id, user_message_count FROM sessions "
+                "WHERE ended_at IS NULL ORDER BY started_at DESC LIMIT 1"
+            ).fetchone()
+            if row is None:
+                print(json.dumps(result))
+                return
+            sid = row["id"]
+            previous_count = row["user_message_count"] or 0
+            new_count = previous_count + 1
+            conn.execute(
+                "UPDATE sessions SET user_message_count = ? WHERE id = ?",
+                (new_count, sid),
+            )
+        result["session_id"] = sid
+        result["previous_count"] = previous_count
+        result["user_message_count"] = new_count
+    except sqlite3.Error as exc:
+        result["db_error"] = str(exc)
+    print(json.dumps(result))
 
 
 def cmd_notepad_add(args: argparse.Namespace) -> None:
@@ -4617,6 +5191,140 @@ def cmd_task_repair_orphans(_args: argparse.Namespace) -> None:
                 })
                 print(f"  RENAME {orphan_id} -> {canonical_id}")
     print(json.dumps({"repaired": len(actions), "actions": actions}, indent=2))
+
+
+# ---------------------------------------------------------------------------
+# task TTL + archive policy (R5-T01 remainder, N56)
+# ---------------------------------------------------------------------------
+# DESIGN NOTE (the "design doc" the N56 goal calls for — kept inline because
+# this node's write_scope has no dedicated design-doc path): a stale OPEN
+# task (todo/in_progress/blocked) is ARCHIVED, never deleted (DEC-005 — every
+# row stays queryable; `task list` applies no status filter by default, and
+# `context dump` counts archived rows separately from the open-task summary
+# below rather than folding them back into "open"). Archiving is a plain
+# status transition (status='archived') on the existing `tasks.status`
+# column — no schema.sql migration, since the column already has no CHECK
+# constraint pinning it to a fixed value set.
+#
+# TTL DEFAULTS PER ORIGIN — origin is inferred from the id-prefix convention
+# already established by the native-task mirror above (native_task_db_id):
+#   native        NATIVE-<n>[-<k>]  — mirrors a Claude Code session's own
+#                                     TaskCreate/TaskUpdate panel (#24). That
+#                                     panel is session-scoped and rarely
+#                                     closed out explicitly once the session
+#                                     ends, so these rows go stale fastest.
+#                                     Default 14 days.
+#   hand-authored TASK-<n>          — the human-queued roadmap/backlog
+#                                     surface (`task add`). Someone queued it
+#                                     on purpose; default stays long-lived.
+#                                     Default 90 days.
+#   other         anything else     — a custom --id or a future id
+#                                     convention this policy doesn't yet
+#                                     know about. Conservative middle
+#                                     default. 30 days.
+# PER-TASK OVERRIDE — a task's free-text `notes` field may carry an inline
+# `[ttl_days=N]` marker; `tasks reap` always prefers it over the origin
+# default. This purposely avoids a schema column for the same
+# no-schema-migration reason above.
+TASK_TTL_DEFAULT_DAYS = {
+    "native": 14,
+    "hand-authored": 90,
+    "other": 30,
+}
+
+# Statuses `tasks reap` treats as "open" (i.e. eligible for staleness).
+# done/cancelled/archived are terminal and never re-evaluated.
+TASK_REAP_OPEN_STATUSES = ("todo", "in_progress", "blocked")
+
+_TASK_TTL_OVERRIDE_RE = re.compile(r"\[ttl_days=(\d+)\]")
+
+
+def _task_origin(task_id: str) -> str:
+    """Classify a task id's origin for TTL-default purposes (id-prefix
+    heuristic — there is no schema column for origin, see design note above)."""
+    tid = (task_id or "").strip().upper()
+    if re.match(r"^NATIVE-", tid):
+        return "native"
+    if re.match(r"^TASK-", tid):
+        return "hand-authored"
+    return "other"
+
+
+def _task_ttl_override_days(notes: str | None) -> int | None:
+    """Parse a per-task `[ttl_days=N]` override marker out of `notes`, if present."""
+    if not notes:
+        return None
+    m = _TASK_TTL_OVERRIDE_RE.search(notes)
+    return int(m.group(1)) if m else None
+
+
+def _task_ttl_days(task_id: str, notes: str | None) -> int:
+    """Effective TTL for a task: per-task override wins, else the per-origin default."""
+    override = _task_ttl_override_days(notes)
+    if override is not None:
+        return override
+    return TASK_TTL_DEFAULT_DAYS[_task_origin(task_id)]
+
+
+def cmd_tasks_reap(args: argparse.Namespace) -> None:
+    """TTL-based stale-task archival (R5-T01 remainder, N56).
+
+    Archives (status -> 'archived') every OPEN task (TASK_REAP_OPEN_STATUSES)
+    whose `updated_at` is older than its effective TTL (see _task_ttl_days).
+    NEVER deletes a row (DEC-005): the prior status + a dated reason are
+    appended to `notes`, and the row remains fully queryable via `task list`
+    or `context dump`. `--dry-run` previews the candidate set without
+    writing anything.
+    """
+    now_dt = datetime.now(timezone.utc)  # noqa: UP017
+    now = _now()
+    dry_run = bool(getattr(args, "dry_run", False))
+    with _conn() as conn:
+        placeholders = ",".join("?" for _ in TASK_REAP_OPEN_STATUSES)
+        rows = conn.execute(
+            f"SELECT id, status, updated_at, notes FROM tasks WHERE status IN ({placeholders})",
+            TASK_REAP_OPEN_STATUSES,
+        ).fetchall()
+        candidates: list[dict] = []
+        for r in rows:
+            updated_at = r["updated_at"]
+            try:
+                updated_dt = datetime.fromisoformat(updated_at)
+            except (TypeError, ValueError):
+                continue  # malformed timestamp -- never reap on ambiguous data
+            if updated_dt.tzinfo is None:
+                updated_dt = updated_dt.replace(tzinfo=timezone.utc)  # noqa: UP017
+            ttl_days = _task_ttl_days(r["id"], r["notes"])
+            age_days = (now_dt - updated_dt).total_seconds() / 86400.0
+            if age_days < ttl_days:
+                continue
+            candidates.append({
+                "task_id": r["id"],
+                "prior_status": r["status"],
+                "ttl_days": ttl_days,
+                "age_days": round(age_days, 1),
+            })
+            if dry_run:
+                continue
+            reason = (
+                f"[archived {now}: stale {round(age_days, 1)}d > ttl {ttl_days}d, "
+                f"prior_status={r['status']}]"
+            )
+            new_notes = f"{r['notes']}\n{reason}" if r["notes"] else reason
+            conn.execute(
+                "UPDATE tasks SET status='archived', notes=?, updated_at=? WHERE id=?",
+                (new_notes, now, r["id"]),
+            )
+    if dry_run:
+        print(json.dumps(
+            {"dry_run": True, "would_archive_count": len(candidates), "would_archive": candidates},
+            indent=2,
+        ))
+    else:
+        print(json.dumps(
+            {"dry_run": False, "archived_count": len(candidates), "archived": candidates},
+            indent=2,
+        ))
 
 
 # ---------------------------------------------------------------------------
@@ -5013,6 +5721,443 @@ def cmd_improvements_dashboard(_args: argparse.Namespace) -> None:
 
 
 # ---------------------------------------------------------------------------
+# activity — per-agent activity capture (R1-T05 cockpit feed)
+# ---------------------------------------------------------------------------
+# Cockpit query (exact column names must match):
+#   SELECT agent, task, started, elapsed, status, current_action
+#   FROM agent_activity ORDER BY started DESC LIMIT 50
+#
+# Three actions:
+#   activity start  --agent A --task T [--action "..."] [--session S]
+#   activity update --id N [--action "..."] [--status "..."]
+#   activity end    --id N [--status done]
+
+def _activity_elapsed(started_iso):  # type: ignore[no-untyped-def]
+    """Compute a human-readable elapsed string from started ISO-8601 to now.
+
+    Returns a string like '3m42s' or '45s'. Falls back to '?' on any parse
+    error so a bad timestamp never crashes the CLI. Uses timezone.utc to stay
+    3.9-safe (no datetime.UTC / from datetime import UTC).
+    """
+    try:
+        # Accept both +00:00 and Z suffixes (Python 3.9 fromisoformat doesn't
+        # accept the Z suffix, so normalise it first).
+        ts = started_iso.replace("Z", "+00:00")
+        started_dt = datetime.fromisoformat(ts)
+        now_dt = datetime.now(timezone.utc)  # noqa: UP017
+        delta_secs = int((now_dt - started_dt).total_seconds())
+        if delta_secs < 0:
+            delta_secs = 0
+        minutes, secs = divmod(delta_secs, 60)
+        if minutes:
+            return "{}m{}s".format(minutes, secs)
+        return "{}s".format(secs)
+    except Exception:  # noqa: BLE001
+        return "?"
+
+
+def cmd_activity_start(args):  # type: ignore[no-untyped-def]
+    """INSERT an agent_activity row with status='active'."""
+    now = _now()
+    with _conn() as conn:
+        row = conn.execute(
+            "SELECT id FROM sessions WHERE ended_at IS NULL ORDER BY started_at DESC LIMIT 1"
+        ).fetchone()
+        session_id = getattr(args, "session", None) or (row["id"] if row else None)
+
+        cur = conn.execute(
+            """INSERT INTO agent_activity
+               (agent, task, started, status, current_action, session_id, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (
+                args.agent,
+                getattr(args, "task", None),
+                now,
+                "active",
+                getattr(args, "action", None),
+                session_id,
+                now,
+            ),
+        )
+        activity_id = cur.lastrowid
+    print(json.dumps({"activity_id": activity_id}))
+
+
+def cmd_activity_update(args):  # type: ignore[no-untyped-def]
+    """UPDATE current_action and/or status on an existing agent_activity row."""
+    now = _now()
+    fields = []
+    vals = []
+    action_val = getattr(args, "action", None)
+    status_val = getattr(args, "status", None)
+    if action_val is not None:
+        fields.append("current_action=?")
+        vals.append(action_val)
+    if status_val is not None:
+        fields.append("status=?")
+        vals.append(status_val)
+    fields.append("updated_at=?")
+    vals.append(now)
+    vals.append(args.id)
+    if len(fields) == 1:
+        # Only updated_at — still a valid no-op update; proceed.
+        pass
+    with _conn() as conn:
+        conn.execute(
+            "UPDATE agent_activity SET {} WHERE id=?".format(", ".join(fields)),
+            vals,
+        )
+    print(json.dumps({"activity_id": args.id, "updated_at": now}))
+
+
+def cmd_activity_end(args):  # type: ignore[no-untyped-def]
+    """Set final status + compute elapsed on an agent_activity row."""
+    now = _now()
+    final_status = getattr(args, "status", None) or "done"
+    with _conn() as conn:
+        row = conn.execute(
+            "SELECT started FROM agent_activity WHERE id=?",
+            (args.id,),
+        ).fetchone()
+        if row is None:
+            print(
+                "activity end: no row with id {}".format(args.id),
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        elapsed = _activity_elapsed(row["started"])
+        conn.execute(
+            "UPDATE agent_activity SET status=?, elapsed=?, updated_at=? WHERE id=?",
+            (final_status, elapsed, now, args.id),
+        )
+    print(json.dumps({"activity_id": args.id, "status": final_status, "elapsed": elapsed}))
+
+
+# ---------------------------------------------------------------------------
+# dispatch — per-dispatch token+time telemetry (NATIVE-42 / R1-T01)
+# ---------------------------------------------------------------------------
+# The orchestrator reads exact subagent_tokens + duration_ms from each
+# async/Workflow dispatch completion notification and records one row per
+# dispatch. token_source='approx' marks the char/4 heuristic fallback used
+# only for synchronous dispatches with no usage block in the notification.
+#
+#   dispatch record --persona P [--model M] [--task-id T] [--marker MARK] \
+#       --tokens N [--token-source exact|approx] [--tool-uses U] \
+#       --duration-ms MS [--dispatch-id D] [--session-id S] \
+#       [--run-context local|ci] [--independent-subtask-count N] \
+#       [--decomposition-considered 0|1]
+
+
+def record_dispatch(
+    persona,  # type: ignore[no-untyped-def]
+    tokens,
+    duration_ms,
+    model=None,
+    task_id=None,
+    marker=None,
+    token_source="exact",
+    tool_uses=None,
+    dispatch_id=None,
+    session_id=None,
+    run_context="local",
+    independent_subtask_count=None,
+    decomposition_considered=None,
+    conn=None,
+):
+    """INSERT one dispatch_telemetry row. Importable module function mirroring
+    tools/record_test_run.py's record_run() so tests and future callers can
+    invoke it directly without shelling out to the CLI.
+
+    session_id, when omitted, resolves to the current open session (same
+    "SELECT id FROM sessions WHERE ended_at IS NULL ..." helper used by
+    cmd_activity_start / cmd_validation_add).
+
+    independent_subtask_count / decomposition_considered (R2-T15 / spec §7,
+    FIX-2) are both optional and NULL by default — Art. XIII.d decompose-cue
+    instrumentation. Callers that haven't adopted the flags yet get NULL rows,
+    read as "not recorded" by any consumer, never as a false match.
+
+    Returns the new dispatch_telemetry row id.
+    """
+    owns_conn = conn is None
+    if owns_conn:
+        conn = _conn()
+    try:
+        resolved_session_id = session_id
+        if resolved_session_id is None:
+            row = conn.execute(
+                "SELECT id FROM sessions WHERE ended_at IS NULL ORDER BY started_at DESC LIMIT 1"
+            ).fetchone()
+            resolved_session_id = row["id"] if row else None
+        cur = conn.execute(
+            """INSERT INTO dispatch_telemetry
+               (session_id, dispatch_id, persona, model, task_id, marker,
+                tokens, token_source, tool_uses, duration_ms, run_context,
+                independent_subtask_count, decomposition_considered)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                resolved_session_id,
+                dispatch_id,
+                persona,
+                model,
+                task_id,
+                marker,
+                tokens,
+                token_source,
+                tool_uses,
+                duration_ms,
+                run_context,
+                independent_subtask_count,
+                decomposition_considered,
+            ),
+        )
+        dispatch_telemetry_id = cur.lastrowid
+        if owns_conn:
+            conn.commit()
+        return dispatch_telemetry_id
+    finally:
+        if owns_conn:
+            conn.close()
+
+
+def cmd_dispatch_record(args):  # type: ignore[no-untyped-def]
+    """CLI entry point for `dispatch record`. Prints a JSON confirmation."""
+    token_source = getattr(args, "token_source", None) or "exact"
+    run_context = getattr(args, "run_context", None) or "local"
+    with _conn() as conn:
+        dispatch_telemetry_id = record_dispatch(
+            args.persona,
+            args.tokens,
+            args.duration_ms,
+            model=getattr(args, "model", None),
+            task_id=getattr(args, "task_id", None),
+            marker=getattr(args, "marker", None),
+            token_source=token_source,
+            tool_uses=getattr(args, "tool_uses", None),
+            dispatch_id=getattr(args, "dispatch_id", None),
+            session_id=getattr(args, "session_id", None),
+            run_context=run_context,
+            independent_subtask_count=getattr(args, "independent_subtask_count", None),
+            decomposition_considered=getattr(args, "decomposition_considered", None),
+            conn=conn,
+        )
+    print(json.dumps({
+        "dispatch_telemetry_id": dispatch_telemetry_id,
+        "persona": args.persona,
+        "tokens": args.tokens,
+        "token_source": token_source,
+        "duration_ms": args.duration_ms,
+    }))
+
+
+# ---------------------------------------------------------------------------
+# skill load events — R2-T15 / spec §7 (FIX-2 corrected design)
+# Event-sourced evidence that a persona actually invoked the Skill tool during
+# a dispatch, as observed by the harness (a Skill-tool-observing hook) — NOT
+# the persona's self-reported skills_loaded claim. SHADOW/ADVISORY only in R2;
+# skills-required-guard.sh promotion to hard-deny is R3-T07/T08 scope.
+#
+#   skill record-load --dispatch-id D --skill-id S [--ts ISO8601] \
+#       [--byte-len N]
+
+
+def record_skill_load(
+    dispatch_id,  # type: ignore[no-untyped-def]
+    skill_id,
+    ts=None,
+    byte_len=None,
+    conn=None,
+):
+    """INSERT one skill_load_events row. Importable module function mirroring
+    record_dispatch()'s shape so tests and future callers can invoke it
+    directly without shelling out to the CLI.
+
+    ts, when omitted, defaults to the current UTC time (ISO-8601) — the event
+    is being recorded as it is observed, not backdated.
+
+    Returns the new skill_load_events row id.
+    """
+    owns_conn = conn is None
+    if owns_conn:
+        conn = _conn()
+    try:
+        resolved_ts = ts or _now()
+        cur = conn.execute(
+            """INSERT INTO skill_load_events
+               (dispatch_id, skill_id, ts, byte_len)
+               VALUES (?, ?, ?, ?)""",
+            (dispatch_id, skill_id, resolved_ts, byte_len),
+        )
+        skill_load_event_id = cur.lastrowid
+        if owns_conn:
+            conn.commit()
+        return skill_load_event_id
+    finally:
+        if owns_conn:
+            conn.close()
+
+
+def cmd_skill_record_load(args):  # type: ignore[no-untyped-def]
+    """CLI entry point for `skill record-load`. Prints a JSON confirmation."""
+    with _conn() as conn:
+        skill_load_event_id = record_skill_load(
+            args.dispatch_id,
+            args.skill_id,
+            ts=getattr(args, "ts", None),
+            byte_len=getattr(args, "byte_len", None),
+            conn=conn,
+        )
+    print(json.dumps({
+        "skill_load_event_id": skill_load_event_id,
+        "dispatch_id": args.dispatch_id,
+        "skill_id": args.skill_id,
+    }))
+
+
+# ---------------------------------------------------------------------------
+# gate stats — R1-T02 workstream D: JOIN/aggregate the two raw telemetry
+# sinks (hook_heartbeat.jsonl fires, gate_blocks.jsonl denies) by hook name.
+# Read-only, best-effort: a missing/unreadable JSONL file yields an empty
+# dataset, never an error. Does not touch project.db.
+# ---------------------------------------------------------------------------
+
+def _gate_stats_default_blocks_path() -> Path:
+    override = os.environ.get("NEXUS_GATE_BLOCKS_PATH")
+    if override:
+        return Path(override)
+    return Path(__file__).resolve().parent / "files" / "gate_blocks.jsonl"
+
+
+def _gate_stats_default_heartbeat_path() -> Path:
+    # NEXUS_HEARTBEAT_PATH is a log.py-only test seam (mirrors the existing
+    # NEXUS_GATE_BLOCKS_PATH override); heartbeat-emitter.sh itself has no
+    # env override and always derives its path from repo-root walk-up.
+    override = os.environ.get("NEXUS_HEARTBEAT_PATH")
+    if override:
+        return Path(override)
+    return Path(__file__).resolve().parent / "files" / "hook_heartbeat.jsonl"
+
+
+def _gate_stats_read_jsonl(path: Path) -> list:
+    """Best-effort JSONL reader: missing file / bad line -> skipped, never raises."""
+    rows: list = []
+    try:
+        if not path.is_file():
+            return rows
+        with open(path) as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    rows.append(json.loads(line))
+                except (json.JSONDecodeError, ValueError):
+                    continue
+    except OSError:
+        return rows
+    return rows
+
+
+def _gate_stats_filter(rows: list, since: str | None, hook: str | None) -> list:
+    out = rows
+    if since:
+        out = [r for r in out if isinstance(r.get("ts"), str) and r["ts"] >= since]
+    if hook:
+        out = [r for r in out if r.get("hook") == hook]
+    return out
+
+
+def compute_gate_stats(
+    blocks_path: Path,
+    heartbeat_path: Path,
+    since: str | None = None,
+    hook: str | None = None,
+) -> dict:
+    """Group hook_heartbeat.jsonl + gate_blocks.jsonl rows by hook name.
+
+    Returns {"hooks": {hook_name: {fire_count, block_count, block_rate,
+    avg_latency_ms}}, "since": since, "hook_filter": hook}. Pure function —
+    no I/O side effects beyond reading the two input files.
+    """
+    heartbeats = _gate_stats_filter(_gate_stats_read_jsonl(heartbeat_path), since, hook)
+    blocks = _gate_stats_filter(_gate_stats_read_jsonl(blocks_path), since, hook)
+
+    fire_counts: dict = {}
+    latency_sums: dict = {}
+    latency_counts: dict = {}
+    for r in heartbeats:
+        h = r.get("hook")
+        if not h:
+            continue
+        fire_counts[h] = fire_counts.get(h, 0) + 1
+        lat = r.get("latency_ms")
+        if isinstance(lat, (int, float)):
+            latency_sums[h] = latency_sums.get(h, 0) + lat
+            latency_counts[h] = latency_counts.get(h, 0) + 1
+
+    block_counts: dict = {}
+    for r in blocks:
+        h = r.get("hook")
+        if not h:
+            continue
+        block_counts[h] = block_counts.get(h, 0) + 1
+
+    all_hooks = set(fire_counts) | set(block_counts)
+    result: dict = {}
+    for h in all_hooks:
+        fires = fire_counts.get(h, 0)
+        blocked = block_counts.get(h, 0)
+        block_rate = (blocked / fires) if fires else 0.0
+        lat_count = latency_counts.get(h, 0)
+        avg_latency = (latency_sums.get(h, 0) / lat_count) if lat_count else 0.0
+        result[h] = {
+            "fire_count": fires,
+            "block_count": blocked,
+            "block_rate": block_rate,
+            "avg_latency_ms": avg_latency,
+        }
+    return {"hooks": result, "since": since, "hook_filter": hook}
+
+
+def cmd_gate_stats(args: argparse.Namespace) -> None:
+    since = getattr(args, "since", None)
+    hook = getattr(args, "hook", None)
+    stats = compute_gate_stats(
+        _gate_stats_default_blocks_path(),
+        _gate_stats_default_heartbeat_path(),
+        since=since,
+        hook=hook,
+    )
+
+    if getattr(args, "json_out", False):
+        print(json.dumps(stats))
+        return
+
+    rows = sorted(
+        stats["hooks"].items(), key=lambda kv: kv[1]["fire_count"], reverse=True
+    )
+    if not rows:
+        print("No gate telemetry recorded.")
+        return
+
+    col_w = max(len(h) for h, _ in rows) + 2
+    header_fmt = f"  {{:<{col_w}}} {{:<8}} {{:<8}} {{:<11}} {{}}"
+    row_fmt = f"  {{:<{col_w}}} {{:<8}} {{:<8}} {{:<11}} {{}}"
+    print("─" * 66)
+    print(header_fmt.format("hook", "fires", "blocks", "block_rate", "avg_latency_ms"))
+    print("─" * 66)
+    for h, s in rows:
+        print(row_fmt.format(
+            h,
+            s["fire_count"],
+            s["block_count"],
+            f"{s['block_rate']:.2%}",
+            f"{s['avg_latency_ms']:.1f}",
+        ))
+    print("─" * 66)
+
+
+# ---------------------------------------------------------------------------
 # health — single-project self-test (SessionStart banner + manual report)
 # ---------------------------------------------------------------------------
 
@@ -5101,6 +6246,18 @@ def main() -> None:
     se = ssp.add_parser("end")
     se.add_argument("--summary", required=True)
     se.add_argument("--next_step", required=True)
+    se.add_argument(
+        "--experiment", default=None,
+        help="R5-T04/NATIVE-35 handoff block: the open experiment under test this session",
+    )
+    se.add_argument(
+        "--hypothesis", default=None,
+        help="R5-T04/NATIVE-35 handoff block: the hypothesis behind the open experiment",
+    )
+    se.add_argument(
+        "--next-probe", dest="next_probe", default=None,
+        help="R5-T04/NATIVE-35 handoff block: the concrete next probe continuing the experiment",
+    )
     sr = ssp.add_parser("reap")
     sr.add_argument("--max-age-hours", dest="max_age_hours", type=int, default=2,
                     help="Close sessions with ended_at IS NULL older than this. Default 2 hours.")
@@ -5111,6 +6268,13 @@ def main() -> None:
         "--handoff-notepad-topic",
         dest="handoff_notepad_topic",
         help="Notepad topic to write handoff entry into (optional)",
+    )
+    srecall = ssp.add_parser("recall", help="Read-side memory recall (R5-T04): last N sessions + handoff blocks")
+    srecall.add_argument("--limit", type=int, default=5, help="Number of most-recent sessions to return (default 5)")
+    ssp.add_parser(
+        "bump-message-count",
+        help="ADR-001 Phase 0: atomically increment the latest open session's "
+             "user_message_count (replaces context-reset-monitor.py's own raw write)",
     )
 
     # task
@@ -5164,6 +6328,20 @@ def main() -> None:
     tsp.add_parser(
         "repair-orphans",
         help="Find tasks with doubled NATIVE- prefix (e.g. NATIVE-NATIVE-17), delete or rename to canonical",
+    )
+
+    # tasks (plural) — TTL/archive maintenance (R5-T01 remainder, N56). Deliberately
+    # a SEPARATE top-level command from singular `task` (which owns single-row CRUD)
+    # since this is a bulk maintenance sweep, not a per-row op.
+    tsk = sub.add_parser("tasks")
+    tsksp = tsk.add_subparsers(dest="subcommand", required=True)
+    tskreap = tsksp.add_parser(
+        "reap",
+        help="Archive (never delete) open tasks past their TTL; see TASK_TTL_DEFAULT_DAYS",
+    )
+    tskreap.add_argument(
+        "--dry-run", action="store_true", dest="dry_run",
+        help="Preview the candidate set without writing",
     )
 
     # decision
@@ -5274,7 +6452,12 @@ def main() -> None:
     cs.add_argument("--decision-refs", dest="decision_refs")
     cs.add_argument("--task-updates", dest="task_updates")
     cs.add_argument("--summary")
-    csp.add_parser("dump")
+    cd_p = csp.add_parser("dump")
+    cd_p.add_argument("--tasks", choices=["in_progress", "all"], default="all",
+                      help="Which open tasks to include in open_tasks (default: all). "
+                           "'in_progress' trims to mid-flight rows; task_status_counts always covers the full open set.")
+    cd_p.add_argument("--decisions", type=int, default=5,
+                      help="Cap recent_decisions to N rows (default: 5; was hardcoded 10).")
 
     sub.add_parser("seed", help="One-time bootstrap: seed tasks from docs/TASKS.md before autosync (DB is source of truth)")
 
@@ -5327,6 +6510,14 @@ def main() -> None:
                     help="ISO-8601 UTC timestamp of when this Lens dispatch began "
                          "(distinct from validated_at = row-write time); enables wall-clock "
                          "duration instrumentation.")
+    va.add_argument("--lens-type", dest="lens_type", default=None, choices=["T0", "T1", "T2"],
+                    help="R1-T08: depth tier Lens actually ran at for this row. Read by "
+                         "lens-gate.sh's _has_lens_validation_v2 / lens-tier-backstop.sh to "
+                         "confirm the DELIVERED depth (not merely the required depth).")
+    va.add_argument("--risk-tier", dest="risk_tier", default=None, choices=["T0", "T1", "T2"],
+                    help="R1-T08: depth tier the orchestrator's classifier required ahead of "
+                         "dispatch. Stored alongside lens_type (never conflated with it) so a "
+                         "gate can assert delivered-depth >= required-depth.")
 
     vc = vsp.add_parser("completeness-check",
                         help="Assert that the latest in-window lens PASS row covers "
@@ -5335,6 +6526,18 @@ def main() -> None:
                     help="JSON array of file paths that must be covered by the PASS row.")
     vc.add_argument("--task-hash", dest="task_hash", default=None,
                     help="Optional: further filter to a specific task/brief hash.")
+
+    vcg = vsp.add_parser(
+        "check-gate",
+        help="ADR-001 Phase 0: read-only lens-gate.sh SubagentStop check (v1 floor + "
+             "v2 tier-distinct), routed through the single-writer connection instead "
+             "of the hook's own raw sqlite3.connect. Always prints JSON, exit 0.",
+    )
+    vcg.add_argument("--target", required=True, help="Agent whose work is being validated (agent_name)")
+    vcg.add_argument("--task-hash", dest="task_hash", required=True)
+    vcg.add_argument("--tier", required=True, choices=["T1", "T2"],
+                     help="Required lens tier for this dispatch (from the hook's own "
+                          "local _classify_lens_tier — no DB round-trip needed for this)")
 
     # subagent-return (Mitigation A)
     srp = sub.add_parser("subagent-return", help="Record and summarize a subagent response")
@@ -5371,12 +6574,23 @@ def main() -> None:
     reg_a.add_argument("--version", required=True)
     reg_a.add_argument("--action", required=True, choices=["installed", "installed-existing", "manual"])
     reg_a.add_argument("--notes", default=None)
+    reg_a.add_argument(
+        "--merge", action="store_true",
+        help="R5-T09: fold a path that differs only by case/trailing-slash "
+             "into the existing matching row instead of rejecting it.",
+    )
 
     reg_u = reg_sub.add_parser("update")
     reg_u.add_argument("--project-path", dest="project_path", required=True)
     reg_u.add_argument("--version", required=True)
     reg_u.add_argument("--action", default="updated", choices=["updated", "rolled-back"])
     reg_u.add_argument("--notes", default=None)
+    reg_u.add_argument(
+        "--has-ledger", dest="has_ledger", choices=["auto", "yes", "no"], default="auto",
+        help="Ledger presence stamp (NATIVE-2-17 fix): 'auto' (default) detects "
+             "<project-path>/.memory/nexus-stack.json on disk; 'yes'/'no' overrides "
+             "detection explicitly. Always re-stamps last_validated=now().",
+    )
 
     reg_l = reg_sub.add_parser("list")
     reg_l.add_argument("--project-path", dest="project_path", default=None)
@@ -5384,6 +6598,14 @@ def main() -> None:
     reg_r = reg_sub.add_parser("remove")
     reg_r.add_argument("--project-path", dest="project_path", required=True)
     reg_r.add_argument("--notes", default=None)
+
+    reg_d = reg_sub.add_parser(
+        "dedup", help="R5-T09: one-time migration folding case/trailing-slash duplicate rows",
+    )
+    reg_d.add_argument(
+        "--apply", action="store_true",
+        help="Actually write the merge (default: dry-run report only, no writes).",
+    )
 
     reg_h = reg_sub.add_parser("health", help="Fleet health: run static checks on all registered projects")
     reg_h.add_argument("--full", action="store_true", help="Include runtime checks per project (slower)")
@@ -5544,6 +6766,101 @@ def main() -> None:
         help="Regenerate research/00-meta/NEXUS-IMPROVEMENTS.md (derive-only)",
     )
 
+    # activity — per-agent activity capture (R1-T05 cockpit feed)
+    act = sub.add_parser("activity", help="Per-agent activity capture (cockpit feed)")
+    act_sub = act.add_subparsers(dest="subcommand", required=True)
+
+    act_s = act_sub.add_parser("start", help="Start an activity row (status=active)")
+    act_s.add_argument("--agent", required=True, help="Agent persona name")
+    act_s.add_argument("--task", default=None, help="Task id or description")
+    act_s.add_argument("--action", default=None, dest="action",
+                       help="Initial current_action string")
+    act_s.add_argument("--session", default=None,
+                       help="Session id override (default: open session)")
+
+    act_u = act_sub.add_parser("update", help="Update action/status on an activity row")
+    act_u.add_argument("--id", required=True, type=int, help="agent_activity row id")
+    act_u.add_argument("--action", default=None, dest="action",
+                       help="New current_action string")
+    act_u.add_argument("--status", default=None,
+                       help="New status (active|done|failed)")
+
+    act_e = act_sub.add_parser("end", help="End an activity row (compute elapsed)")
+    act_e.add_argument("--id", required=True, type=int, help="agent_activity row id")
+    act_e.add_argument("--status", default="done",
+                       help="Final status (default: done)")
+
+    # dispatch — per-dispatch token+time telemetry (NATIVE-42 / R1-T01)
+    disp = sub.add_parser("dispatch", help="Per-dispatch token+time telemetry")
+    disp_sub = disp.add_subparsers(dest="subcommand", required=True)
+
+    disp_r = disp_sub.add_parser("record", help="Record one dispatch_telemetry row")
+    disp_r.add_argument("--persona", required=True, help="Dispatched persona")
+    disp_r.add_argument("--model", default=None,
+                        help="opus|sonnet|haiku|fable lineage (optional)")
+    disp_r.add_argument("--task-id", dest="task_id", default=None,
+                        help="Task or feature id (optional)")
+    disp_r.add_argument("--marker", default=None,
+                        help="Terminal NEXUS marker: DONE|REVISE|BLOCKED|... (optional)")
+    disp_r.add_argument("--tokens", required=True, type=int,
+                        help="Exact subagent_tokens, or char/4 approx")
+    disp_r.add_argument("--token-source", dest="token_source", default="exact",
+                        choices=["exact", "approx"],
+                        help="'exact' (from usage block) or 'approx' (char/4 heuristic "
+                             "fallback for synchronous dispatches); default 'exact'")
+    disp_r.add_argument("--tool-uses", dest="tool_uses", default=None, type=int,
+                        help="Tool-use count from the completion notification (optional)")
+    disp_r.add_argument("--duration-ms", dest="duration_ms", required=True, type=int,
+                        help="Exact wall-clock duration in milliseconds")
+    disp_r.add_argument("--dispatch-id", dest="dispatch_id", default=None,
+                        help="Harness agent/dispatch id (optional)")
+    disp_r.add_argument("--session-id", dest="session_id", default=None,
+                        help="Session id override (default: current open session)")
+    disp_r.add_argument("--run-context", dest="run_context", default="local",
+                        choices=["local", "ci"],
+                        help="'local' (default) or 'ci'")
+    disp_r.add_argument("--independent-subtask-count", dest="independent_subtask_count",
+                        default=None, type=int,
+                        help="Count of independent subtasks identified before this "
+                             "dispatch (Art. XIII.d decompose-cue; optional, R2-T15)")
+    disp_r.add_argument("--decomposition-considered", dest="decomposition_considered",
+                        default=None, type=int, choices=[0, 1],
+                        help="0/1 — whether a Workflow/fan-out decomposition was "
+                             "explicitly evaluated before this dispatch (DEC-029; "
+                             "optional, R2-T15)")
+
+    # skill — R2-T15 / spec §7: harness-observed Skill-tool invocation events
+    skillp = sub.add_parser("skill", help="Skill-load event recording (harness-observed)")
+    skill_sub = skillp.add_subparsers(dest="subcommand", required=True)
+
+    skill_r = skill_sub.add_parser(
+        "record-load", help="Record one skill_load_events row"
+    )
+    skill_r.add_argument("--dispatch-id", dest="dispatch_id", required=True,
+                         help="Harness agent/dispatch id (FK, advisory)")
+    skill_r.add_argument("--skill-id", dest="skill_id", required=True,
+                         help="Skill name as passed to the Skill tool")
+    skill_r.add_argument("--ts", default=None,
+                         help="ISO-8601 UTC timestamp of the observed event "
+                              "(default: now)")
+    skill_r.add_argument("--byte-len", dest="byte_len", default=None, type=int,
+                         help="Size in bytes of the injected skill content (optional)")
+
+    # gate — R1-T02 workstream D: aggregate hook_heartbeat.jsonl + gate_blocks.jsonl
+    gatep = sub.add_parser("gate", help="Gate telemetry aggregation (fire/block-rate by hook)")
+    gate_sub = gatep.add_subparsers(dest="subcommand", required=True)
+    gate_stats = gate_sub.add_parser(
+        "stats",
+        help="Join hook_heartbeat.jsonl + gate_blocks.jsonl, group by hook: "
+             "fires, blocks, block_rate, avg_latency_ms",
+    )
+    gate_stats.add_argument("--since", default=None,
+                            help="ISO8601 timestamp; only rows with ts >= this value")
+    gate_stats.add_argument("--hook", default=None,
+                            help="Filter to a single hook name")
+    gate_stats.add_argument("--json", action="store_true", dest="json_out",
+                            help="Emit machine-readable JSON instead of a table")
+
     # health — single-project self-test (bare command, no subcommand).
     # NOTE: distinct from `registry health` (fleet). The SessionStart banner
     # calls `health --no-runtime --json`.
@@ -5595,6 +6912,8 @@ def main() -> None:
         ("session", "reap"):     cmd_session_reap,
         ("session", "status"):   cmd_session_status,
         ("session", "reset"):    cmd_session_reset,
+        ("session", "recall"):   cmd_session_recall,
+        ("session", "bump-message-count"): cmd_session_bump_message_count,
         ("task",    "add"):      cmd_task_add,
         ("task",    "update"):   cmd_task_update,
         ("task",    "list"):     cmd_task_list,
@@ -5602,6 +6921,7 @@ def main() -> None:
         ("task",    "mirror-native"):   cmd_task_mirror_native,
         ("task",    "backfill-native"): cmd_task_backfill_native,
         ("task",    "repair-orphans"):  cmd_task_repair_orphans,
+        ("tasks",   "reap"):            cmd_tasks_reap,
         ("decision","add"):      cmd_decision_add,
         ("decision","list"):     cmd_decision_list,
         ("decision","retire"):   cmd_decision_retire,
@@ -5627,11 +6947,13 @@ def main() -> None:
         ("notepad",        "clear"):    cmd_notepad_clear,
         ("validation",     "add"):      cmd_validation_add,
         ("validation",     "completeness-check"): cmd_validation_completeness_check,
+        ("validation",     "check-gate"): cmd_validation_check_gate,
         ("subagent-return", "record"):  cmd_subagent_return_record,
         ("registry", "add"):           cmd_registry_add,
         ("registry", "update"):        cmd_registry_update,
         ("registry", "list"):          cmd_registry_list,
         ("registry", "remove"):        cmd_registry_remove,
+        ("registry", "dedup"):         cmd_registry_dedup,
         ("registry", "health"):        cmd_registry_health,
         ("feedback", "add"):            cmd_feedback_add,
         ("feedback", "harvest"):        cmd_feedback_harvest,
@@ -5645,6 +6967,12 @@ def main() -> None:
         ("improvements", "evaluate"):   cmd_improvements_evaluate,
         ("improvements", "dismiss"):    cmd_improvements_dismiss,
         ("improvements", "dashboard"):  cmd_improvements_dashboard,
+        ("activity", "start"):          cmd_activity_start,
+        ("activity", "update"):         cmd_activity_update,
+        ("activity", "end"):            cmd_activity_end,
+        ("dispatch", "record"):         cmd_dispatch_record,
+        ("skill",    "record-load"):    cmd_skill_record_load,
+        ("gate",     "stats"):          cmd_gate_stats,
     }
     key = (args.command, args.subcommand)
     if key in sub_dispatch:

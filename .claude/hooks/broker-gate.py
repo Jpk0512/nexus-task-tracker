@@ -52,6 +52,7 @@ import os
 import re
 import sqlite3
 import sys
+import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -62,6 +63,34 @@ _gd_path = Path(__file__).parent / "_gate_deny.py"
 _gd_spec = importlib.util.spec_from_file_location("_gate_deny", _gd_path)
 _gate_deny_mod = importlib.util.module_from_spec(_gd_spec)  # type: ignore[arg-type]
 _gd_spec.loader.exec_module(_gate_deny_mod)  # type: ignore[union-attr]
+
+# Load _heartbeat from the same hooks directory. Best-effort only — see
+# _heartbeat.py; this MUST NEVER change exit code/behavior of this gate.
+# emit_heartbeat() itself never raises; the try/except here additionally
+# guards against the module failing to LOAD at all (missing file, etc.).
+try:
+    _hb_path = Path(__file__).parent / "_heartbeat.py"
+    _hb_spec = importlib.util.spec_from_file_location("_heartbeat", _hb_path)
+    _heartbeat_mod = importlib.util.module_from_spec(_hb_spec)  # type: ignore[arg-type]
+    _hb_spec.loader.exec_module(_heartbeat_mod)  # type: ignore[union-attr]
+except Exception:
+    _heartbeat_mod = None
+
+
+def _emit_heartbeat(event: str, decision: str, latency_ms: int) -> None:
+    if _heartbeat_mod is None:
+        return
+    _heartbeat_mod.emit_heartbeat("broker-gate", event, decision, latency_ms)
+
+
+_START_TIME = time.time()
+
+
+def _elapsed_ms() -> int:
+    try:
+        return int((time.time() - _START_TIME) * 1000)
+    except Exception:
+        return 0
 
 TURN_STALE_SECONDS = 120
 NOTEPAD_STALE_SECONDS = 300
@@ -80,13 +109,13 @@ PLANNING_GATE_WINDOW = timedelta(hours=4)
 # A dispatch to any of these at Standard/Complex tier requires a recent ACCEPTED
 # planning-gate row.
 CODE_WRITING_PERSONAS = frozenset({
-    "forge", "forge-ui", "forge-ui-pro",
+    "forge-ui", "forge-ui-pro",
     "forge-wire", "forge-wire-pro",
-    "pipeline", "pipeline-data", "pipeline-data-pro",
+    "pipeline-data", "pipeline-data-pro",
     "pipeline-async", "pipeline-async-pro",
     "atlas",
     "hermes",
-    "quill", "quill-ts", "quill-py",
+    "quill-ts", "quill-py",
 })
 
 # Intents that imply writing code, regardless of persona spelling.
@@ -395,32 +424,65 @@ def _has_recent_planning_gate(brief_feat: str) -> bool | None:
 
 
 # ---------------------------------------------------------------------------
-# Main
+# Stage decomposition (R3-T03 / N06): four independently short-circuiting
+# deterministic checks, CHEAPEST FIRST. A stage that denies exits immediately
+# via block()/sys.exit() — no later stage's work (in particular, no sqlite
+# query) ever runs on a deny path. No stage makes a model call; every check is
+# a dict lookup, a file read, or (stage 5 only) a single sqlite SELECT.
+#
+#   1a. Bookkeeping early-out              — pure in-memory dict inspection.
+#       Cheapest possible check: no filesystem, no parsing beyond the already-
+#       decoded stdin payload. Handles TaskCreate/TaskUpdate noise.
+#   1b. broker_state.json read             — ONE stat+read of a small local
+#       JSON file. Cheap, but strictly more expensive than 1a (real I/O).
+#       Fail-CLOSED (P2-10) on missing/malformed/unreadable state.
+#   1c. In-memory state checks             — approval, turn-freshness/TTL,
+#       persona-binding, notepad freshness. All operate on the dict already
+#       loaded in 1b; no additional I/O. Ordered internally cheapest-first
+#       (plain dict.get comparisons before the datetime-arithmetic freshness
+#       checks).
+#   5.  Planning-gate DB lookup            — the ONLY stage that opens a
+#       sqlite connection and runs a query. Strictly the most expensive stage
+#       (process-local I/O to project.db), so it runs LAST and only when
+#       stages 1a-1c have not already denied or exited, AND only when the
+#       dispatch is in-scope for the planning gate at all (a scope check that
+#       itself costs nothing and is done before the DB is touched).
+#
+# (There is no separate "stage 1d"/"stage 2-4" — the historical P2-07/P2-09/
+# P2-10 numbering from the module docstring maps onto 1b (P2-10), 1c (P2-07 +
+# turn/persona checks), and 5 (P2-09) respectively.)
 # ---------------------------------------------------------------------------
 
-def main() -> None:
-    payload = _read_payload()
-    persona, intent, _work_type, task_tier, team_name = _dispatch_facts(payload)
 
-    # LOCKOUT SAFETY (defense-in-depth): a real agent-spawning dispatch — whether
-    # it surfaces as the Task tool (subagent_type), an Agent-tool spawn
-    # (agent_type), or a TeamCreate teammate (agent_type/team_name) — ALWAYS
-    # carries a persona/team. A payload with NONE of these is not a dispatch: it
-    # is native task bookkeeping (TaskCreate/TaskUpdate status/owner edits) or
-    # noise. The matcher already scopes this hook to Task|TeamCreate, but if that
-    # matcher is ever widened, the broker chokepoint must NOT block the
-    # orchestrator's own task list. Mirror the early-out the other three dispatch
-    # gates make (skills-required-guard / persona-alias-resolver /
-    # dispatch-announce) and silent-pass. Fail toward NOT blocking bookkeeping.
+def _stage_1a_bookkeeping_and_carveout(persona: str, team_name: str) -> None:
+    """Cheapest stage: in-memory-only early-out. Exits the process if hit.
+
+    LOCKOUT SAFETY (defense-in-depth): a real agent-spawning dispatch — whether
+    it surfaces as the Task tool (subagent_type), an Agent-tool spawn
+    (agent_type), or a TeamCreate teammate (agent_type/team_name) — ALWAYS
+    carries a persona/team. A payload with NONE of these is not a dispatch: it
+    is native task bookkeeping (TaskCreate/TaskUpdate status/owner edits) or
+    noise. The matcher already scopes this hook to Task|TeamCreate, but if that
+    matcher is ever widened, the broker chokepoint must NOT block the
+    orchestrator's own task list. Mirror the early-out the other three dispatch
+    gates make (skills-required-guard / persona-alias-resolver /
+    dispatch-announce) and silent-pass. Fail toward NOT blocking bookkeeping.
+    """
     if not persona and not team_name:
         sys.exit(0)
 
+
+def _stage_1b_read_broker_state() -> dict:
+    """Second-cheapest stage: ONE read of broker_state.json. Fail-CLOSED (P2-10).
+
+    Returns the parsed state dict on success. Exits the process (deny, or allow
+    + LOUD warning under NEXUS_BROKER_ALLOW_DEGRADED=1) on any read/parse error.
+    """
     allow_degraded = os.environ.get("NEXUS_BROKER_ALLOW_DEGRADED") == "1"
 
     state_path_env = os.environ.get("NEXUS_BROKER_STATE_PATH")
     state_path = Path(state_path_env) if state_path_env else _default_state_path()
 
-    # --- broker_state.json read: FAIL CLOSED (P2-10) ---
     degraded_reason: str | None = None
     try:
         state = json.loads(state_path.read_text())
@@ -443,18 +505,37 @@ def main() -> None:
             f"{degraded_reason} — broker unavailable. "
             "Start nexus-broker or set NEXUS_BROKER_ALLOW_DEGRADED=1 to bypass."
         )
+    return state
 
-    # TASK-083: single-source the gate fields. Now that broker_state.json has been
-    # read, prefer its persisted approved_brief (written by nexus_validate_brief)
-    # for intent/work_type/task_tier, falling back per-field to the prompt-JSON
-    # values from _dispatch_facts only when state lacks them (back-compat). This
-    # lets the orchestrator stop re-embedding a full JSON brief in every Agent
-    # prompt: the broker already validated and persisted these fields.
-    intent, _work_type, task_tier = _resolve_gate_fields(
-        state, intent, _work_type, task_tier
-    )
 
-    # --- approval ---
+def _stage_1c_state_checks(
+    state: dict,
+    persona: str,
+    intent: str,
+    work_type: str,
+    task_tier: str,
+    team_name: str,
+) -> tuple[str, str, str]:
+    """Third stage: in-memory-only checks against the already-loaded state dict.
+
+    No additional I/O — every check here is a dict lookup, a datetime parse, or
+    string comparison. Ordered cheapest-first internally: plain dict.get
+    truthiness checks (approval) before datetime-arithmetic freshness checks
+    (turn staleness, notepad staleness). Exits the process (block()) on any
+    failure. Returns the resolved (intent, work_type, task_tier) tuple — the
+    single-source TASK-083 resolution against state.approved_brief — for use by
+    stage 5's scope decision.
+    """
+    # TASK-083: single-source the gate fields. Now that broker_state.json has
+    # been read, prefer its persisted approved_brief (written by
+    # nexus_validate_brief) for intent/work_type/task_tier, falling back
+    # per-field to the prompt-JSON values from _dispatch_facts only when state
+    # lacks them (back-compat). This lets the orchestrator stop re-embedding a
+    # full JSON brief in every Agent prompt: the broker already validated and
+    # persisted these fields.
+    intent, work_type, task_tier = _resolve_gate_fields(state, intent, work_type, task_tier)
+
+    # --- approval (cheapest: one dict.get) ---
     if not state.get("approved", False):
         blocked_persona = state.get("persona", "unknown")
         block(
@@ -556,6 +637,21 @@ def main() -> None:
                 "re-run the notepad ritual and nexus_notepad_ping for this turn."
             )
 
+    return intent, work_type, task_tier
+
+
+def _stage_5_planning_gate(
+    payload: dict,
+    persona: str,
+    intent: str,
+    work_type: str,
+    task_tier: str,
+) -> None:
+    """Most expensive stage: the ONLY stage that opens a sqlite connection.
+
+    Runs LAST, and only reaches the DB query at all when the dispatch is
+    in-scope (a free scope check gates the expensive query). (P2-09 / GAP-10).
+    """
     # --- planning-gate: EXPLICITLY SCOPED to code-writing FEATURE dispatches ---
     # (P2-09 / GAP-10). The spec-first planning gate applies ONLY to a
     # Standard/Complex tier dispatch that actually writes feature code (a
@@ -567,12 +663,12 @@ def main() -> None:
     is_feature_code = (
         task_tier in {"standard", "complex"}
         and _is_code_writing(persona, intent)
-        and _work_type != "meta"
+        and work_type != "meta"
     )
     if not is_feature_code:
         if task_tier not in {"standard", "complex"}:
             scope_reason = f"task_tier='{task_tier or 'unset'}' (not standard/complex)"
-        elif _work_type == "meta":
+        elif work_type == "meta":
             scope_reason = (
                 f"work_type='meta' (Plexus meta-work: hooks/docs/skills/broker edits) "
                 f"— persona='{persona or '?'}' / intent='{intent or '?'}'"
@@ -629,8 +725,47 @@ def main() -> None:
             "first (Constitution Art. I, spec-first)."
         )
 
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+def main() -> None:
+    payload = _read_payload()
+    persona, intent, work_type, task_tier, team_name = _dispatch_facts(payload)
+
+    # Stage 1a — cheapest: in-memory-only early-out (no I/O).
+    _stage_1a_bookkeeping_and_carveout(persona, team_name)
+
+    # Stage 1b — one broker_state.json read (fail-closed, P2-10).
+    state = _stage_1b_read_broker_state()
+
+    # Stage 1c — in-memory checks against the loaded state (approval, turn
+    # freshness/TTL, persona binding, notepad freshness). No further I/O.
+    intent, work_type, task_tier = _stage_1c_state_checks(
+        state, persona, intent, work_type, task_tier, team_name
+    )
+
+    # Stage 5 — most expensive: the sole sqlite query (planning-gate lookup),
+    # gated behind a free in-scope check so the DB is touched only when needed.
+    _stage_5_planning_gate(payload, persona, intent, work_type, task_tier)
+
     sys.exit(0)
 
 
 if __name__ == "__main__":
-    main()
+    # Heartbeat wraps the WHOLE dispatch: main() always exits via sys.exit()
+    # (either directly, or via block()/allow_with_warning()) at every one of
+    # its many early-return points, so catching SystemExit here at the single
+    # outermost call site captures every exit path — deny AND silent-pass —
+    # without touching any of main()'s internal control flow. Purely
+    # additive: re-raises the exact same SystemExit unchanged.
+    _exit_code = 0
+    try:
+        main()
+    except SystemExit as _exc:
+        _exit_code = _exc.code if isinstance(_exc.code, int) else (0 if _exc.code is None else 1)
+        raise
+    finally:
+        _decision = "block" if _exit_code == 2 else "allow"
+        _emit_heartbeat("PreToolUse", _decision, _elapsed_ms())

@@ -14,6 +14,21 @@
 #   {"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":<reason>}}
 # on stdout + the reason on stderr + sys.exit(2). The earlier stringified
 # {"hookSpecificOutput": json.dumps({...})} + exit 0 NEVER blocked the harness.
+#
+# SHADOW-MODE COMPARISON (R2-T15, added; spec §7 /
+# nexus-redesign/plans/03-r2e2-design-APPROVED.md): this script is ALSO wired
+# to SubagentStop (see .claude/settings.json). On that event it branches into
+# _shadow_mode_compare(), which compares the dispatch's DECLARED
+# skills_required (the same brief this script already parses for the
+# PreToolUse gate) against the ACTUAL skill_load_events rows recorded by the
+# skill-load-capture.py PostToolUse:Skill hook for that session. A mismatch
+# (declared but never actually loaded) is LOGGED ONLY — advisory, never a
+# deny — per spec: "flipping to deny before a single row of real data exists
+# risks blocking legitimate dispatches on an uncalibrated gate." Promotion of
+# this comparison to a hard deny is explicitly out of scope here — R3-T07/T08
+# own that hardening once shadow data shows an acceptable false-positive rate.
+# main() dispatches on payload.hook_event_name (falls back to .event), same
+# field verify-after-edit.sh already reads for the same kind of branching.
 
 from __future__ import annotations
 
@@ -21,7 +36,10 @@ import importlib.util
 import json
 import os
 import re
+import sqlite3
+import subprocess
 import sys
+import time
 from pathlib import Path
 
 # Load _gate_deny from the same hooks directory.
@@ -29,6 +47,32 @@ _gd_path = Path(__file__).parent / "_gate_deny.py"
 _gd_spec = importlib.util.spec_from_file_location("_gate_deny", _gd_path)
 _gate_deny_mod = importlib.util.module_from_spec(_gd_spec)  # type: ignore[arg-type]
 _gd_spec.loader.exec_module(_gate_deny_mod)  # type: ignore[union-attr]
+
+# Load _heartbeat from the same hooks directory. Best-effort only — see
+# _heartbeat.py; this MUST NEVER change exit code/behavior of this gate.
+try:
+    _hb_path = Path(__file__).parent / "_heartbeat.py"
+    _hb_spec = importlib.util.spec_from_file_location("_heartbeat", _hb_path)
+    _heartbeat_mod = importlib.util.module_from_spec(_hb_spec)  # type: ignore[arg-type]
+    _hb_spec.loader.exec_module(_heartbeat_mod)  # type: ignore[union-attr]
+except Exception:
+    _heartbeat_mod = None
+
+
+def _emit_heartbeat(event: str, decision: str, latency_ms: int) -> None:
+    if _heartbeat_mod is None:
+        return
+    _heartbeat_mod.emit_heartbeat("skills-required-guard", event, decision, latency_ms)
+
+
+_START_TIME = time.time()
+
+
+def _elapsed_ms() -> int:
+    try:
+        return int((time.time() - _START_TIME) * 1000)
+    except Exception:
+        return 0
 
 def _load_code_writing_personas() -> frozenset:
     """Derive the code-writing persona roster from deliverables.json.
@@ -92,6 +136,15 @@ SKILL_MAP_PATH = Path(
 BROKER_STATE_PATH = Path(
     os.environ.get("NEXUS_BROKER_STATE_PATH")
     or (REPO_ROOT / ".memory" / "files" / "broker_state.json")
+)
+
+# DB path for the shadow-mode read side. Mirrors lens-gate.sh's own
+# _HOOK_DB_PATH convention exactly (same env var name) so both gates resolve
+# the same real project.db in production and the same isolated temp DB under
+# test — no new env-var surface introduced.
+DB_PATH = Path(
+    os.environ.get("_HOOK_DB_PATH")
+    or (REPO_ROOT / ".memory" / "project.db")
 )
 
 
@@ -250,12 +303,168 @@ def _extract_brief(tool_input: dict) -> dict:
     return {}
 
 
+def _query_loaded_skill_ids(dispatch_id: str) -> list:
+    """Return skill_id values actually observed for this dispatch_id.
+
+    log.py has NO read-side CLI for skill_load_events (only the write-side
+    `skill record-load` — verified against the live argparse tree; there is
+    no `skill list` / `skill-load list` subcommand at all). Rather than shell
+    out to a command that does not exist, this reads skill_load_events
+    directly via sqlite3 against DB_PATH — the same direct-read pattern
+    lens-gate.sh already uses for its own ground-truth cross-check (read-only
+    SELECT, no schema/log.py write-path touched).
+
+    Fails open (returns []) on ANY error — missing DB file, missing table,
+    query error, malformed rows — because this is advisory shadow-mode only;
+    a query failure must never be mistaken for "nothing was loaded" in a way
+    that would ever gate a dispatch (it doesn't gate anything today
+    regardless).
+    """
+    if not dispatch_id or not DB_PATH.is_file():
+        return []
+    try:
+        conn = sqlite3.connect(str(DB_PATH))
+        try:
+            rows = conn.execute(
+                "SELECT DISTINCT skill_id FROM skill_load_events WHERE dispatch_id = ?",
+                (dispatch_id,),
+            ).fetchall()
+        finally:
+            conn.close()
+        return [str(r[0]).strip().lower() for r in rows if r and r[0]]
+    except Exception:
+        return []
+
+
+def _record_shadow_mismatch(root, dispatch_id: str, persona: str, missing: list) -> None:
+    """Best-effort advisory log of a declared-but-never-loaded skill mismatch.
+
+    Two sinks, both required:
+    1. stderr — a visible-output channel an operator (or a test) can observe
+       directly, without needing to query the DB. Shadow-mode data that is
+       only ever written to a DB row nobody reads defeats the purpose of
+       running it in shadow mode before R3 promotion.
+    2. `log.py feedback add` (same sink feedback-capture.py writes through)
+       for durable/queryable history — not a new table; DO_NOT_TOUCH for this
+       dispatch excludes .memory/schema.sql and .memory/log.py from being
+       touched by this persona regardless.
+
+    NEVER raises; NEVER affects exit code (shadow mode only).
+    """
+    sys.stderr.write(
+        "[skills-required-guard] SHADOW-MODE MISMATCH: declared "
+        f"skills_required for '{persona}' (dispatch_id={dispatch_id}) not "
+        f"observed as actual Skill-tool loads: {missing}\n"
+    )
+
+    log_py = root / ".memory" / "log.py"
+    if not log_py.is_file():
+        return
+    context = {
+        "dispatch_id": dispatch_id,
+        "persona": persona,
+        "missing_skill_loads": missing,
+        "captured_by": "skills-required-guard-shadow",
+    }
+    cmd = [
+        sys.executable,
+        str(log_py),
+        "feedback",
+        "add",
+        "--source",
+        "hook",
+        "--severity",
+        "low",
+        "--category",
+        "skills_required_shadow_mismatch",
+        "--message",
+        f"Declared skills_required not observed as actual Skill loads for "
+        f"'{persona}': {missing}",
+        "--context-json",
+        json.dumps(context, default=str),
+    ]
+    try:
+        subprocess.run(cmd, cwd=str(root), capture_output=True, text=True, timeout=30)
+    except Exception:
+        return
+
+
+def _shadow_mode_compare(payload: dict) -> int:
+    """SubagentStop-time shadow comparison. ALWAYS returns 0 (advisory only).
+
+    Reads the dispatch's declared skills_required the same way the PreToolUse
+    path does (brief JSON on description/prompt, or approved_brief backfill),
+    compares against skill_load_events rows for this dispatch_id, and logs
+    (never denies) any declared skill never actually observed as a Skill-tool
+    load. required subset-of actual, per spec §7.
+    """
+    tool_input = payload.get("tool_input", {})
+    if not isinstance(tool_input, dict):
+        tool_input = {}
+    # Correlation key: prefer an explicit dispatch_id (what skill-load-capture.py
+    # also prefers when writing rows) — fall back to session_id only when no
+    # dispatch_id is present anywhere on the payload.
+    dispatch_id = str(
+        tool_input.get("dispatch_id")
+        or payload.get("dispatch_id")
+        or payload.get("session_id")
+        or payload.get("sessionId")
+        or "unknown"
+    )
+    persona = (
+        payload.get("agent_persona")
+        or payload.get("subagent_type")
+        or tool_input.get("subagent_type")
+        or "unknown"
+    )
+    persona = str(persona).strip().lower()
+
+    # Declared skills: try the brief on this payload first (rarely present at
+    # SubagentStop), then fall back to broker_state.approved_brief — the same
+    # backfill source the PreToolUse gate uses.
+    #
+    # BUG FIXED HERE: _extract_brief() reads description/prompt/input off of
+    # WHATEVER dict it is given — the PreToolUse path (main(), below) already
+    # passes it tool_input correctly, but this SubagentStop branch was
+    # previously passing the full top-level `payload` instead of `tool_input`.
+    # Since description/prompt/input live under tool_input, not at the
+    # payload's top level, that made _extract_brief() always return {} here —
+    # declared skills silently fell through to the approved_brief backfill
+    # (or "nothing declared" when that was also empty/isolated in tests),
+    # and the comparison against skill_load_events never ran on the real
+    # per-dispatch declared list. Passing tool_input fixes the read.
+    brief = _extract_brief(tool_input)
+    declared = brief.get("skills_required")
+    if not declared:
+        declared = _read_approved_brief_skills()
+    if isinstance(declared, str):
+        declared = [s.strip() for s in declared.split(",") if s.strip()]
+    if not isinstance(declared, list) or not declared:
+        return 0  # nothing declared — nothing to compare
+
+    declared_set = {s.lower() for s in declared}
+    actual_set = set(_query_loaded_skill_ids(dispatch_id))
+
+    missing = sorted(declared_set - actual_set)
+    if missing:
+        _record_shadow_mismatch(_repo_root(), dispatch_id, persona, missing)
+
+    return 0
+
+
 def main() -> int:
     raw = sys.stdin.read()
     try:
         payload = json.loads(raw)
     except json.JSONDecodeError:
         return 0  # fail open
+
+    # SubagentStop branch: shadow-mode comparison only, never a gate decision.
+    # hook_event_name is the field verify-after-edit.sh already reads for the
+    # same kind of multi-event branching; .event is a defensive fallback.
+    hook_event_name = str(payload.get("hook_event_name") or payload.get("event") or "")
+    if hook_event_name == "SubagentStop":
+        return _shadow_mode_compare(payload)
 
     # Normalise where the tool payload lives. Claude's PreToolUse:Task nests the
     # arguments under '.tool_input'; some surfaces use '.input'; a few pass them at
@@ -358,4 +567,14 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    # main() returns an int (0/2), never raising SystemExit itself — capture
+    # it here so heartbeat covers every one of main()'s early-return exit
+    # paths (deny AND silent-pass) without touching its internal control flow.
+    # Heartbeat label stays "PreToolUse" unconditionally (pre-existing
+    # behavior, unchanged by the SubagentStop shadow-mode addition above) —
+    # the SubagentStop branch is advisory-only and always returns 0 anyway,
+    # so mislabeling it here has no decision-relevant effect; not fixed as
+    # part of this dispatch to avoid inventing an unverified env var.
+    _rc = main()
+    _emit_heartbeat("PreToolUse", "block" if _rc == 2 else "allow", _elapsed_ms())
+    sys.exit(_rc)

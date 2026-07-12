@@ -27,7 +27,10 @@ _heartbeat_repo_root() {
   (cd "$(dirname "$src")/../.." && pwd)
 }
 
-_HEARTBEAT_FILE="$(_heartbeat_repo_root)/.memory/files/hook_heartbeat.jsonl"
+# NEXUS_HEARTBEAT_PATH overrides the sink (test isolation) -- mirrors
+# _heartbeat.py:_default_heartbeat_path's identical env-var precedence
+# (R3-T10 N15 revise-cycle-1 / TASK-010, hand-reconciled from the live twin).
+_HEARTBEAT_FILE="${NEXUS_HEARTBEAT_PATH:-$(_heartbeat_repo_root)/.memory/files/hook_heartbeat.jsonl}"
 
 emit_heartbeat() {
   local hook_name="$1"
@@ -36,6 +39,7 @@ emit_heartbeat() {
   local latency_ms="${4:-0}"
   local ts
   ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || echo "1970-01-01T00:00:00Z")
+  mkdir -p "$(dirname "$_HEARTBEAT_FILE")" 2>/dev/null
   printf '{"ts":"%s","hook":"%s","event":"%s","decision":"%s","latency_ms":%s}\n' \
     "$ts" "$hook_name" "$event" "$decision" "$latency_ms" \
     >> "$_HEARTBEAT_FILE" 2>/dev/null || true

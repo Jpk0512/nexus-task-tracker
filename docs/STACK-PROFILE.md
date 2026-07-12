@@ -64,7 +64,6 @@ These files ship regardless of stack profile:
 - `lens`
 - `lens-fast`
 - `palette`
-- `quill`
 
 **Skills (core protocol — 14 skills):**
 - `nexus-protocol`
@@ -77,8 +76,7 @@ These files ship regardless of stack profile:
 - `verification-protocols`
 - `parallel-first-check`
 - `team-routing`
-- `project-context`
-- `log-work`
+- `session-lifecycle`
 - `contract-schema`
 - `palette-design-patterns` (design companion to the always-shipped `palette` agent; ships unconditionally)
 
@@ -118,7 +116,6 @@ Note: `forge-wire` is the stack-agnostic server-side implementer that ships for 
 Condition: `data.has_ingestion == true` OR `data.db == "duckdb"`
 
 Ship agents:
-- `pipeline`
 - `pipeline-data`
 - `pipeline-data-pro`
 
@@ -175,7 +172,6 @@ Ship skills:
 Condition: `frontend.framework in ["next", "vite"]`
 
 Ship agents:
-- `forge`
 - `forge-ui`
 - `forge-ui-pro`
 - `forge-wire`

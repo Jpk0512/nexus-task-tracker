@@ -1,0 +1,22 @@
+# Requires the test to pass a codex_lane_flag_path override pointing at an
+# existing tmp file, so only the write_scope-sandbox-mapping check is under
+# test here. A bounded, path-scoped glob maps to -s workspace-write.
+schema_version: 2
+nodes:
+  - node_id: N1
+    depends_on: []
+    downstream_consumers: []
+    agent_persona: pipeline-async
+    goal: "Confirm a bounded, path-scoped write_scope maps to a codex workspace-write sandbox."
+    context_files: []
+    acceptance_criteria: ["write_scope maps to -s workspace-write -C <scope>"]
+    verification_method:
+      type: command
+      command: "echo ok"
+    risk_tier: T1
+    skills_required: [agent-protocol]
+    do_not_touch: []
+    write_scope: ["nexus-broker/tests/fixtures/node_contract/executor/**"]
+    executor: codex
+    executor_model: gpt-5.4
+    irreversible: false

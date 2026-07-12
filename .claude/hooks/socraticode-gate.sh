@@ -1,24 +1,59 @@
 #!/bin/bash
-# PreToolUse hook: two enforcement modes.
+# PreToolUse hook: ADVISORY-ONLY nudge toward SocratiCode-first discovery.
 #
-# Mode 1 (existing): blocks grep/rg/find/ack/ag/fgrep/egrep at command position
-# unless a SocratiCode discovery tool fired earlier in this session.
+# Owner directive (this cycle): "we aren't retiring it... make it known to
+# coders it's available, see how it goes." Neither mode below ever denies —
+# this gate NEVER exits nonzero and NEVER emits permissionDecision:deny. The
+# only signal on the nudge path is a nested hookSpecificOutput.additionalContext
+# advisory; the tool call always proceeds (exit 0).
 #
-# Mode 2 (new): blocks Read on paths under app/, ingestion/src/, models/,
-# docs/features/, or .claude/agents/ unless a SocratiCode discovery tool
-# has fired in the session. Exception: paths explicitly cited in the task brief
-# (passed via CLAUDE_TASK_DESCRIPTION env var or tool_input.description).
+# Mode 1: grep/rg/find/ack/ag/fgrep/egrep at command position, run without a
+# prior SocratiCode discovery call this session (no per-session flag), gets an
+# ADVISORY nudge naming codebase_symbol / codebase_symbols — allowed, not
+# denied. Fires for every code-writing persona, named-roster or not.
+#
+# Mode 2: Read of a path under app/, ingestion/src/, models/, docs/features/,
+# or .claude/agents/, without a prior SocratiCode discovery call this session,
+# gets the SAME advisory-allow treatment — never a hard block. Exception:
+# paths explicitly cited in the task brief (passed via CLAUDE_TASK_DESCRIPTION
+# env var or tool_input.description) silence the nudge too, same as before.
 #
 # Read-only-persona exemption (DEC-027): non-code-writing actors —
 # orchestrator (plexus/nexus) + scout + lens + lens-fast + palette — are EXEMPT
-# from BOTH modes (free grep + free Read). The impact-before-mutation rationale
-# the gate enforces lives at the implementer tier; recon/orchestrator personas
-# never mutate code, so the gate is pure ceremony for them. Code-writing personas
-# (forge-*, pipeline-*, atlas, hermes, quill-*, *-pro) remain fully gated.
+# from BOTH modes (free grep + free Read, no nudge). The impact-before-mutation
+# rationale Mode 2 was built on lives at the implementer tier; recon/
+# orchestrator personas never mutate code, so even an advisory nudge is noise
+# for them.
 #
-# Enforces CONSTITUTION Article III + CONTRACT Rule 2.
+# A prior SocratiCode discovery call this session (the per-session flag)
+# silences the nudge for both modes — the whole point is moot once discovery
+# already happened; the rest of the session passes silently.
+#
+# Enforces CONSTITUTION Article III + CONTRACT Rule 2 as a PREFERENCE, not a
+# block.
 
 set -e
+
+# set -e (bash 3.2 on macOS) treats a failed `source` of a missing file as
+# fatal even inside `|| { ... }` — guard with an explicit -f test instead so a
+# missing heartbeat-emitter.sh never aborts the gate (best-effort telemetry
+# must never break allow/deny).
+if [ -f "$(dirname "$0")/heartbeat-emitter.sh" ]; then
+  # shellcheck source=heartbeat-emitter.sh
+  # shellcheck disable=SC1090
+  source "$(dirname "$0")/heartbeat-emitter.sh" 2>/dev/null || true
+fi
+# Belt-and-suspenders: even if the source succeeded but the file did not define
+# both helpers (truncated/edited), guarantee they exist before first use.
+command -v ms_now >/dev/null 2>&1 || ms_now() { python3 -c "import time; print(int(time.time()*1000))" 2>/dev/null || echo 0; }
+command -v emit_heartbeat >/dev/null 2>&1 || emit_heartbeat() { :; }
+
+_HB_START_MS=$(ms_now 2>/dev/null || echo 0)
+_hb() {
+  local decision="$1"
+  local _elapsed=$(( $(ms_now 2>/dev/null || echo 0) - _HB_START_MS ))
+  emit_heartbeat "socraticode-gate" "PreToolUse" "$decision" "$_elapsed" 2>/dev/null || true
+}
 
 INPUT=$(cat)
 CMD=$(printf '%s' "$INPUT" | jq -r '.tool_input.command // ""' 2>/dev/null || echo "")
@@ -58,10 +93,11 @@ esac
 # blocked by this gate (DEC-027 extension, NATIVE-27-2).
 case "$AGENT_TYPE" in
   ""|*orchestrator*|plexus|nexus|scout|lens|lens-fast|palette)
+    _hb allow
     exit 0 ;;
 esac
 
-# ── Mode 2: Read-block on unexplored paths ────────────────────────────────────
+# ── Mode 2: Read-nudge on unexplored paths ────────────────────────────────────
 if [ "$TOOL_NAME" = "Read" ] && [ -n "$READ_PATH" ] && [ ! -f "$FLAG" ]; then
   BLOCK=$(python3 - <<'PY' "$READ_PATH"
 import sys, os, re
@@ -120,22 +156,22 @@ PY
 
   if [ "$BLOCK" = "1" ] || [ "$BLOCK" = "2" ] || [ "$BLOCK" = "3" ]; then
     if [ "$BLOCK" = "2" ]; then
-      REASON=$(printf '[socraticode-gate] BLOCK — Read of %s is denied because the install-time /app/apps/, /app/packages/ token was never rendered; a security gate fails CLOSED rather than open-silent. Re-run the Nexus install/render step (or set _HOOK_WATCHED_PREFIXES) so the gate knows which paths to guard, then retry.' "$READ_PATH")
+      REASON=$(printf '[socraticode-gate] ADVISORY — the install-time /app/apps/, /app/packages/ token was never rendered, so Read of %s could not be checked against the watched-prefix list; allowing. SocratiCode is available and preferred for code discovery — consider codebase_symbol / codebase_symbols. Re-run the Nexus install/render step (or set _HOOK_WATCHED_PREFIXES) to restore the check.' "$READ_PATH")
     elif [ "$BLOCK" = "3" ]; then
-      REASON=$(printf '[socraticode-gate] BLOCK — watched_prefixes is empty — gate misconfigured, failing closed. Read of %s is denied because the rendered watched-prefix list is EMPTY (socraticode_watched_prefixes detected no directories). An empty list would make the gate match nothing and silently fail OPEN. Fix the stack profile so socraticode_watched_prefixes is non-empty (or set _HOOK_WATCHED_PREFIXES), then retry.' "$READ_PATH")
+      REASON=$(printf '[socraticode-gate] ADVISORY — watched_prefixes is empty (socraticode_watched_prefixes detected no directories), so Read of %s could not be checked; allowing. SocratiCode is available and preferred for code discovery — consider codebase_symbol / codebase_symbols. Fix the stack profile so socraticode_watched_prefixes is non-empty (or set _HOOK_WATCHED_PREFIXES) to restore the check.' "$READ_PATH")
     else
-      REASON=$(printf '[socraticode-gate] BLOCK — Read of %s requires a prior SocratiCode discovery call. %s Exception: file paths already cited explicitly in your task brief.' "$READ_PATH" "$OPENER_HINT")
+      REASON=$(printf '[socraticode-gate] ADVISORY — SocratiCode is available and preferred for code discovery — consider codebase_symbol / codebase_symbols; Read of %s is allowed. %s This is a preference, not a block — a path already cited in your task brief also silences this nudge.' "$READ_PATH" "$OPENER_HINT")
     fi
     jq -n --arg r "$REASON" '{
       hookSpecificOutput: {
         hookEventName: "PreToolUse",
-        permissionDecision: "deny",
-        permissionDecisionReason: $r
+        additionalContext: $r
       }
     }'
-    # Durable backstop: a security gate must not rely on the JSON channel alone.
-    # exit 2 hard-blocks even if the harness ignores hookSpecificOutput.
-    exit 2
+    # Advisory-only: never deny. One heartbeat line per invocation — exit here
+    # so the final silent-allow tail below does not double-emit.
+    _hb advise
+    exit 0
   fi
 fi
 
@@ -318,17 +354,17 @@ else
 fi
 
 if [ "$is_violation" = "1" ] && [ ! -f "$FLAG" ]; then
-  REASON=$(printf 'SocratiCode-first rule violation (CONSTITUTION Article III + CONTRACT Rule 2). grep/rg/find/ack/ag/fgrep/egrep at command position requires a prior SocratiCode discovery call in this session. %s After that, search commands are permitted for the rest of the session.\n\nBlocked command: %s' "$OPENER_HINT" "$CMD")
+  REASON=$(printf '[socraticode-gate] ADVISORY — SocratiCode is available and preferred for code discovery — consider codebase_symbol / codebase_symbols; grep is allowed. %s This is a preference (CONSTITUTION Article III + CONTRACT Rule 2), not a block — after a SocratiCode discovery call this nudge stays silent for the rest of the session.\n\nCommand: %s' "$OPENER_HINT" "$CMD")
   jq -n --arg r "$REASON" '{
     hookSpecificOutput: {
       hookEventName: "PreToolUse",
-      permissionDecision: "deny",
-      permissionDecisionReason: $r
+      additionalContext: $r
     }
   }'
-  # Durable backstop: a security gate must not rely on the JSON channel alone.
-  # exit 2 hard-blocks even if the harness ignores hookSpecificOutput.
-  exit 2
+  # Advisory-only: never deny.
+  _hb advise
+  exit 0
 fi
 
+_hb allow
 exit 0

@@ -39,7 +39,7 @@ Anthropic via Azure. `AI_API_BASE_URL` is the full URL ending in `/anthropic/v1/
 - Use parameterized queries. Never string-interpolate user input into SQL.
 - Path: `process.env.DUCKDB_PATH` (required; throws if absent).
 
-## Tableau auth landmine (DEC-004)
+## Tableau auth landmine (ORIGIN-DEC-004)
 
 `TABLEAU_SITE_ID` is the LUID (UUID). `TABLEAU_SITE_CONTENT_URL` is the slug. Sign-in payload uses `contentUrl`, never the LUID.
 

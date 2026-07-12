@@ -1,0 +1,11 @@
+schema_version: 2
+nodes:
+  - node_id: N1
+    depends_on: []
+    downstream_consumers: []
+    agent_persona: scout
+    goal: "Node missing the required 'verification_method' and 'risk_tier' fields."
+    context_files: [".memory/schema.sql"]
+    acceptance_criteria: ["criterion A"]
+    skills_required: []
+    do_not_touch: []

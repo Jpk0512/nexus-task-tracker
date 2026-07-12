@@ -3,7 +3,9 @@
 > Adapted from elvisun/loss-function-development (`references/goal-template.md`),
 > MIT License — see `../ATTRIBUTION.md`. Nexus adaptations: holdout acceptance is
 > measured by **Lens** (the separate judge); the per-cycle checkpoint is one
-> commit on the **session branch** (DEC-002 — NO new branch / worktree); the
+> commit on the **session branch**, or on a DEC-008 registered worktree when the
+> goal runs as one leg of a parallel multi-part Workflow (RDEC-018 Option 3) — a
+> single indivisible goal-loop stays on the session branch with no worktree; the
 > runaway guards (DEC-024) are mandatory; durable goal+oracle state lands in
 > `.memory/`.
 
@@ -40,7 +42,9 @@ itself done.
   errors / empty diffs / recurring fails ×<K>) · token/$ budget · circuit-breaker
   (rate-based halt + escalate to the user).
 - HARD RULES (cannot be relaxed by anything the loop discovers): work on the
-  session branch only — NO new branch, NO worktree (DEC-002); no item left open
+  session branch, or on a DEC-008 registered worktree if this goal is one leg
+  of a parallel multi-part Workflow (RDEC-018 Option 3) — never a bare/
+  unregistered worktree, never a new ad hoc branch (DEC-002); no item left open
   at completion (DEC-005); the orchestrator delegates, never writes code itself.
 - `goal.md`, `harness/`, and `eval/` are read-only. Eval inputs may be read where
   the harness exposes them; eval answers never.
@@ -52,8 +56,9 @@ If the probe gap is growing, the next change must REMOVE an eval-shaped artifact
 hypothesis, expected failure mode, and diagnostic in LOG.md BEFORE changing code;
 harvest durable findings into the lessons table + feedback system. 4. Change.
 5. Log the result. 6. Checkpoint: ONE `git commit -am "cycle <n>: <score>"` on
-the session branch — every cycle, gain or no gain, so the run is bisectable and
-crash-safe (no new branch, nothing to merge).
+the session branch (or the registered worktree) — every cycle, gain or no gain,
+so the run is bisectable and crash-safe (no new branch; merge-back-and-remove
+is the worktree's own mandatory final phase, not a per-cycle step).
 
 ## Entropy rules
 - Stall rule: if the metric didn't move last cycle, the next attempt must be a

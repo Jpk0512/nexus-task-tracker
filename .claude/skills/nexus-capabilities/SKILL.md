@@ -74,7 +74,8 @@ recall vec embed-backfill improvements health`.
 | Lens validation row | `validation add --agent lens --target <persona> --task-hash <hash> --verdict PASS\|PARTIAL\|FAIL --summary …` |
 | 5-why RCA / reflection / recall | `rca …` · `reflection …` · `recall …` |
 
-`Skill log-work` wraps task/decision/context logging; `--help` on any sub for exact flags.
+`Skill session-lifecycle` wraps session start/resume + task/decision/context logging (merged from
+former `project-context` + `log-work`); `--help` on any sub for exact flags.
 
 ## 4. VERIFICATION commands
 

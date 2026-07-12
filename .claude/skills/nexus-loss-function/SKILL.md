@@ -1,6 +1,7 @@
 ---
 name: nexus-loss-function
-description: Design a HEAVY goal — a loss function + harness — for a long-running, autonomous, eval-driven Nexus optimization loop. Use when a goal is long-running/autonomous/eval-driven rather than a simple in-session iterate-until-done (the LIGHT Goal Object is the default for that). The orchestrator observes the environment, clarifies the target into a VERIFIABLE form, ingests or generates the spec, builds a blinded dev/holdout eval, generates and verifies the harness against Nexus verification gates, red-teams its own draft for reward-gaming, and emits goal.md ready to drive. Re-invoke in PATCH MODE when a running loop cheated and the loss function — not the agent — needs fixing.
+description: Design a HEAVY goal — a loss function + harness — for a long-running, autonomous, eval-driven Nexus optimization loop. Use when a goal is long-running/autonomous/eval-driven rather than a simple in-session iterate-until-done (the LIGHT Goal Object is the default for that). The orchestrator observes the environment, clarifies the target into a VERIFIABLE form, ingests or generates the spec, builds a blinded dev/holdout eval, generates and verifies the harness against Nexus verification gates, red-teams its own draft for reward-gaming, and emits goal.md ready to drive. Re-invoke in PATCH MODE when a running loop cheated and the loss function — not the agent — needs fixing. Do NOT use for a simple in-session task with a single deterministic gate (tests pass / rtk tsc / build_snapshot --check rc=0) — that's the default LIGHT Goal Object, no harness needed.
+metadata: {tier: sonnet, token_budget: 5000, injectable: true}
 ---
 
 # Nexus Loss Function (HEAVY goal model)
@@ -328,6 +329,75 @@ lesson shows one):
    loop never reopens that path.
 5. Re-verify the harness (Phase 6), revert eval-shaped artifacts the cheat
    produced, and resume the loop from the last honest checkpoint commit.
+
+## Worked example — designing a HEAVY goal end-to-end
+
+**Input.** The user asks: "`vault_query` recall@5 on ambiguous queries is weak
+— get it above 85% and let it run unattended overnight if it needs to." This
+trips all three HEAVY triggers at once: long-running (spans past one session),
+autonomous (no human per-cycle), eval-driven (scored against held-out
+query→note pairs, not a single in-session gate) — so this skill fires, not the
+LIGHT Goal Object.
+
+**Action (Phases 0–9, condensed to the non-obvious calls):**
+1. **Phase 0 observe:** find the existing `nexus-vault` MCP tool, 40 real
+   query→expected-note pairs already logged in `.memory/vault-query-log/`, and
+   the ready-made instrument `uv run pytest nexus-broker/tests/test_vault_query.py`.
+2. **Phase 1 clarify (one batched round):** "Eval: build from the 40 logged
+   pairs plus synthetic paraphrases? Budget: ≤$15 Anthropic spend, ≤8h
+   wall-clock, disposable key? Surface: `nexus-vault` MCP + `harness/` +
+   `.memory/vault-eval/**` only? Acceptance: recall@5 ≥0.85 on holdout, stop if
+   flat for 3 cycles?" — user confirms all four in one reply.
+3. **Phase 3 build the eval:** 240 pairs collected from the log, deduped,
+   diversity-checked (no single note dominates); split `eval/dev/` (190,
+   capped miss list) / `eval/holdout/` (50, Lens-only, rate-limited to one
+   `--holdout` run per 4 cycles).
+4. **Phase 4 design + cheat enumeration:** Target = recall@5 **and** precision@5
+   (a recall-only metric invites "return everything"); capacity cap
+   `keyword-boost list ≤ 15 entries` on the one artifact that could turn into a
+   lookup table. Cheat museum flags "seed dev-set note titles into the boost
+   list" — fenced by `harness/lint.sh` checking boost-list entries against
+   `eval/dev` titles, VOID on overlap, no offending title printed (or the lint
+   becomes a membership oracle — cheat-museum #12).
+5. **Phase 6 self-verify:** `harness/score.sh --dev` returns a real number
+   (baseline **recall@5=0.61**); calibration run scores a known-good config
+   (0.61) against a known-bad one (0.22) — the scorer separates them; a
+   deliberate holdout-answer read from the optimizer's working directory fails
+   (outside the surface) — good; a planted eval-literal in the boost list
+   VOIDs the score without naming the literal.
+6. **Phase 9 drive:** an iterate-until-goal **Workflow**, `pipeline-data` as the
+   implementer each cycle, `lens` as the in-loop critic scoring `--holdout`
+   every 4th cycle, the three runaway guards (max 40 cycles / no-progress halt
+   on 3 identical scores / the $15+8h caps) as the kill condition.
+
+**Output — the emitted `goal.md` (Phase 8), abbreviated:**
+```markdown
+## Target (outer loop)
+recall@5 AND precision@5 on ambiguous queries · Bar: recall@5 ≥0.85 on holdout.
+Score with `harness/score.sh --dev` (freely) / `--holdout` (Lens only, ≤1 per 4
+cycles). VOID means a constraint was violated — find and remove it; the harness
+will not say which.
+
+## Constraints
+- Wall-clock ≤8h · spend ≤$15 (disposable key) · surface: nexus-vault MCP +
+  harness/ + .memory/vault-eval/** only.
+- Capacity cap: keyword-boost list ≤15 entries.
+- Runaway guards: max 40 cycles · no-progress halt (3 identical scores) ·
+  $15/8h budget · rate-based circuit-breaker.
+```
+and one real cycle's terminal output, harvested by `pipeline-data` +
+`lens`:
+```
+$ harness/score.sh --dev
+recall@5=0.68 precision@5=0.71 (cycle 6, prior 0.64 — gain, continue)
+$ harness/probe.sh
+dev=0.68 probe=0.66 (gap 0.02 — generalizing, not memorizing)
+```
+Cycle 6 checkpoints as one commit (`cycle 6: recall@5=0.68`) on the session
+branch — no new branch, per DEC-002 — and the loop continues until Lens signs
+off a `--holdout` run ≥0.85 or a runaway guard trips.
+
+---
 
 ## References
 

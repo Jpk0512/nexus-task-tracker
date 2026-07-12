@@ -44,18 +44,63 @@ emitted on stdout as the documented hookSpecificOutput object shape.
 # lacks PEP 604 runtime union support.
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import sqlite3
+import subprocess
 import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+
+# Shared hardened-connect (busy_timeout + WAL) — Incident #10 / DEC-040 hook-side
+# fix. Loaded via spec_from_file_location (no package, no sys.path surgery),
+# mirroring _gate_deny.py / _heartbeat.py's own import convention. Still used
+# by _read_open_state() below (a READ-ONLY connection — reads never race the
+# concurrent-writer schema-init DDL mechanism ADR-001 Phase 0 closes).
+_spec = importlib.util.spec_from_file_location(
+    "_db_harden", Path(__file__).resolve().parent / "_db_harden.py"
+)
+_db_harden = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_db_harden)
+connect_hardened = _db_harden.connect_hardened
 DB_PATH = REPO_ROOT / ".memory" / "project.db"
 # Override path for tests
 _db_path_override = os.environ.get("_HOOK_DB_PATH")
 if _db_path_override:
     DB_PATH = Path(_db_path_override)
+
+# ADR-001 Phase 0: resolved relative to THIS file (never DB_PATH's override)
+# so a test pointing _HOOK_DB_PATH at a scratch DB still invokes the REAL
+# log.py — the single-writer connection, not a raw sqlite3.connect + UPDATE
+# this hook no longer opens on every UserPromptSubmit.
+LOG_PY = REPO_ROOT / ".memory" / "log.py"
+
+
+def _bump_message_count() -> dict | None:
+    """ADR-001 Phase 0: shell to `log.py session bump-message-count` instead
+    of this hook's own raw sqlite3.connect + UPDATE — the single highest-
+    frequency independent writer in the old inventory (fires on EVERY
+    UserPromptSubmit). Returns the parsed JSON dict, or None on ANY failure
+    to invoke/parse (missing log.py, subprocess error, non-JSON stdout) — the
+    caller treats None identically to the old sqlite3.Error branch.
+    """
+    if not LOG_PY.is_file():
+        return None
+    env = dict(os.environ)
+    env["NEXUS_DB_PATH"] = str(DB_PATH)
+    try:
+        proc = subprocess.run(
+            [sys.executable, str(LOG_PY), "session", "bump-message-count"],
+            capture_output=True, text=True, timeout=30, env=env,
+        )
+    except Exception:
+        return None
+    try:
+        return json.loads(proc.stdout)
+    except (json.JSONDecodeError, ValueError):
+        return None
 
 # Single canonical source of the digest. SessionStart (inject-invariants.sh)
 # and this UserPromptSubmit re-injection both read THIS file, so the protected
@@ -171,7 +216,7 @@ def _read_open_state() -> str | None:
     if not DB_PATH.exists():
         return None
     try:
-        conn = sqlite3.connect(str(DB_PATH))
+        conn = connect_hardened(str(DB_PATH))
         conn.row_factory = sqlite3.Row
         try:
             rows = conn.execute(
@@ -253,43 +298,27 @@ def main() -> None:
         sys.exit(0)
 
     persisted_count = 0
-    try:
-        conn = sqlite3.connect(str(DB_PATH))
-        conn.row_factory = sqlite3.Row
-        try:
-            row = conn.execute(
-                "SELECT id, user_message_count FROM sessions "
-                "WHERE ended_at IS NULL ORDER BY started_at DESC LIMIT 1"
-            ).fetchone()
-            if row is None:
-                # No live session row; honor explicit reset signal then exit.
-                if _payload_signals_reset(payload):
-                    _emit_injection()
-                sys.exit(0)
-
-            sid = row["id"]
-            persisted_count = row["user_message_count"] or 0
-            new_count = persisted_count + 1
-
-            conn.execute(
-                "UPDATE sessions SET user_message_count = ? WHERE id = ?",
-                (new_count, sid),
-            )
-            conn.commit()
-
-            if new_count % RESET_AT == 0:
-                print(_WARNING_TEXT.format(count=new_count), file=sys.stderr)
-        finally:
-            conn.close()
-    except sqlite3.Error as exc:
+    bump = _bump_message_count()
+    if bump is None or bump.get("db_error"):
         # Advisory hook (exit 0 always): surface the failure so a broken DB
         # (bad path, locked file, missing sqlite extension) is visible instead
         # of silently dropping the message-count update and reset warning.
+        exc = (bump or {}).get("db_error") or "log.py session bump-message-count did not return"
         print(
             f"[context-reset] DB error, message count NOT updated: {exc} "
             f"(db={DB_PATH})",
             file=sys.stderr,
         )
+    elif bump.get("session_id") is None:
+        # No live session row; honor explicit reset signal then exit.
+        if _payload_signals_reset(payload):
+            _emit_injection()
+        sys.exit(0)
+    else:
+        persisted_count = bump.get("previous_count") or 0
+        new_count = bump.get("user_message_count") or 0
+        if new_count and new_count % RESET_AT == 0:
+            print(_WARNING_TEXT.format(count=new_count), file=sys.stderr)
 
     # Re-injection branch (SOTA 3.7). Either an explicit reset signal OR a
     # count-vs-position discontinuity re-grounds the model with the verbatim

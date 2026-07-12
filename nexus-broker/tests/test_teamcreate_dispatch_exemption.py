@@ -309,19 +309,30 @@ class TestSettingsJsonMatcherWidened:
 
     def test_pretooluse_dispatch_gate_matcher_contains_teamcreate(self):
         """Given: nexus-package/.claude/settings.json is the installed package.
-        When: we read the PreToolUse hooks block for broker-gate.py.
+        When: we read the PreToolUse hooks block for the dispatch gate.
         Then: the matcher string contains 'TeamCreate'.
+
+        TASK-048 cut the deployable over to the redesigned gate_runner spine:
+        the PreToolUse dispatch-gate command is no longer a direct
+        `broker-gate.py` invocation — it's `_py.sh gate_runner.py
+        pretooluse-dispatch`, whose EVENT_CHAINS entry still runs broker-gate
+        (among other checks) as one step. Match on either invocation shape so
+        this test tracks whichever command is actually wired, live or package.
         """
         settings = self._load_settings()
         pre_hooks = settings["hooks"]["PreToolUse"]
         dispatch_block = None
         for block in pre_hooks:
             cmds = [h["command"] for h in block.get("hooks", [])]
-            if any("broker-gate" in c for c in cmds):
+            if any(
+                "broker-gate" in c or ("gate_runner" in c and "pretooluse-dispatch" in c)
+                for c in cmds
+            ):
                 dispatch_block = block
                 break
         assert dispatch_block is not None, (
-            "Could not find broker-gate.py PreToolUse hook block in package settings.json"
+            "Could not find the dispatch-gate PreToolUse hook block "
+            "(broker-gate.py or gate_runner.py pretooluse-dispatch) in package settings.json"
         )
         matcher = dispatch_block.get("matcher", "")
         assert "TeamCreate" in matcher, (

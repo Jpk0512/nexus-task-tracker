@@ -18,6 +18,16 @@
     "forbidden_paths": ["app/**", "ingestion/**", "models/**", ".claude/**", "docker-compose*.yml"],
     "required_markers": ["## NEXUS:DONE", "## NEXUS:BLOCKED", "## NEXUS:NEEDS-DECISION", "## NEXUS:CHECKPOINT", "## NEXUS:REVISE", "## NEXUS:DEFER-REQUEST"]
   },
+  "fable-planner": {
+    "_note": "INERT entry (DEC-035, nexus-installer meta-repo). fable-planner is a Plexus-meta-only planning persona with NO nexus-package/.claude/agents/fable-planner.md and NO entry in this package's own dispatch-shape-guard.sh or router_core.py — it cannot actually be dispatched in an installed target. This row exists ONLY because nexus-broker/src/broker/registry.py is synced whole into this package by build_snapshot.sh, and test_deliverables_persona_drift.py asserts every DISPATCHABLE_PERSONAS member resolves to a contract here. must_not_modify mirrors the read-only personas (scout/lens) since there is no real package write-lane to describe.",
+    "must_not_modify": ["**/*"],
+    "required_markers": ["## NEXUS:DONE", "## NEXUS:BLOCKED", "## NEXUS:NEEDS-DECISION", "## NEXUS:CHECKPOINT", "## NEXUS:REVISE", "## NEXUS:DEFER-REQUEST"]
+  },
+  "planner": {
+    "_note": "INERT entry (R3-T04 / N10, nexus-installer meta-repo). planner is a Plexus-meta-only plan-authoring persona: nexus-package/.claude/agents/planner.md stays a dispatchable:false forward stub, and this package ships NO plan-validation-gate.py / gate_runner.py wiring / dispatch-shape-guard.sh entry for it — it cannot actually be dispatched in an installed target. This row exists ONLY because nexus-broker/src/broker/registry.py is synced whole into this package by build_snapshot.sh, and test_deliverables_persona_drift.py asserts every DISPATCHABLE_PERSONAS member resolves to a contract here. must_not_modify mirrors the read-only personas (scout/lens) since there is no real package write-lane to describe.",
+    "must_not_modify": ["**/*"],
+    "required_markers": ["## NEXUS:DONE", "## NEXUS:BLOCKED", "## NEXUS:NEEDS-DECISION", "## NEXUS:CHECKPOINT", "## NEXUS:REVISE", "## NEXUS:DEFER-REQUEST"]
+  },
   "forge-ui": {
     "expected_paths": ["app/components/**", "app/(routes)/**", "app/__tests__/**"],
     "should_verify": ["rtk tsc", "rtk lint"],

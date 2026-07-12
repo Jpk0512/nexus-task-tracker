@@ -169,7 +169,7 @@ LEAK_SCAN_SKIP_FILE_NAMES: frozenset[str] = frozenset({
 LEAK_DENYLIST: list[str] = []
 
 # Matches an un-substituted absolute home path (e.g. a literal /Users/alice/...
-# build path that should have been tokenized to /Users/john.keeney/nexus-task-tracker). Own-name-safe:
+# build path that should have been tokenized to __INSTALL_ROOT__). Own-name-safe:
 # the scan skips any line that also contains the install's own root path.
 _HOME_PATH_RE = re.compile(r"/(?:Users|home)/(?!<)[^/\s\"']+/")
 
@@ -1028,7 +1028,7 @@ def check_broker_static_structure(project_path: str) -> list[CheckResult]:
     pyproject/uv.lock is unparseable (the fail-open-broker surface — clear
     message + remediation hint). PASS when every structural check holds. SKIP
     when nexus-broker/ is absent, INFO when the install's .mcp.json still carries
-    the pre-substitution /Users/john.keeney/nexus-task-tracker placeholder (install.sh not run yet).
+    the pre-substitution __INSTALL_ROOT__ placeholder (install.sh not run yet).
     """
     broker_dir = Path(project_path) / "nexus-broker"
     if not broker_dir.exists():
@@ -1040,7 +1040,7 @@ def check_broker_static_structure(project_path: str) -> list[CheckResult]:
     mcp_json = Path(project_path) / ".mcp.json"
     if mcp_json.exists():
         try:
-            if "/Users/john.keeney/nexus-task-tracker" in mcp_json.read_text(encoding="utf-8"):
+            if "__INSTALL_ROOT__" in mcp_json.read_text(encoding="utf-8"):
                 return [CheckResult(
                     "broker.static_structure", "INFO",
                     "Broker not yet configured (install.sh substitution pending)",
@@ -1384,7 +1384,7 @@ def check_broker_mcp_boots(project_path: str) -> list[CheckResult]:
     if mcp_json.exists():
         try:
             raw = mcp_json.read_text(encoding="utf-8")
-            if "/Users/john.keeney/nexus-task-tracker" in raw:
+            if "__INSTALL_ROOT__" in raw:
                 return [CheckResult(
                     "broker.mcp_boots", "INFO",
                     "Broker not yet configured (install.sh substitution pending)",
@@ -1738,7 +1738,7 @@ def check_mcp_servers_boot(project_path: str) -> list[CheckResult]:
             "mcp_boot.servers", "SKIP",
             ".mcp.json unreadable — skipping MCP boot probe",
         )]
-    if "/Users/john.keeney/nexus-task-tracker" in raw or re.search(r"__[A-Z_]+__", raw):
+    if "__INSTALL_ROOT__" in raw or re.search(r"__[A-Z_]+__", raw):
         return [CheckResult(
             "mcp_boot.servers", "SKIP",
             "MCP config not yet substituted (install.sh pending) — skipping boot probe",
@@ -1946,6 +1946,242 @@ def check_session_has_open(project_path: str) -> list[CheckResult]:
             "session.has_open", "INFO",
             f"DB error reading sessions: {exc}",
         )]
+
+
+# Recent-row window + rounding precision for the completion-time KPI summary.
+_DISPATCH_KPI_RECENT_N = 20
+
+
+def check_dispatch_telemetry_kpi(project_path: str) -> list[CheckResult]:
+    """Completion-time KPI (NATIVE-42 / R1-T01) — INFO only, never FAIL.
+
+    Surfaces the exact, orchestrator-captured per-dispatch token+time telemetry
+    that makes the doer+reviewer "architecture beats capability" thesis
+    falsifiable: a recent-N row count plus per-persona AND per-model
+    aggregates (count, avg tokens, avg duration_ms, exact-vs-approx ratio).
+    Missing project.db or missing/empty dispatch_telemetry renders a graceful
+    empty state — this check must never raise or FAIL.
+    """
+    db_path = Path(project_path) / ".memory" / "project.db"
+    if not db_path.exists():
+        return [CheckResult(
+            "dispatch_telemetry.kpi", "INFO",
+            "project.db not found",
+        )]
+    try:
+        conn = sqlite3.connect(str(db_path))
+        conn.row_factory = sqlite3.Row
+        exists = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='dispatch_telemetry'"
+        ).fetchone()
+        if not exists:
+            conn.close()
+            return [CheckResult(
+                "dispatch_telemetry.kpi", "INFO",
+                "dispatch_telemetry table not present (pre-NATIVE-42 install)",
+            )]
+
+        total = conn.execute("SELECT COUNT(*) AS n FROM dispatch_telemetry").fetchone()["n"]
+        if not total:
+            conn.close()
+            return [CheckResult(
+                "dispatch_telemetry.kpi", "INFO",
+                "dispatch_telemetry is empty — no dispatches recorded yet",
+            )]
+
+        results: list[CheckResult] = [CheckResult(
+            "dispatch_telemetry.kpi", "INFO",
+            f"{total} dispatch(es) recorded; aggregates below scoped to last "
+            f"{min(total, _DISPATCH_KPI_RECENT_N)}",
+        )]
+
+        # Aggregates are scoped to the same recent-N window named in the summary
+        # above (not all-time) — both must describe the same population or the
+        # KPI surface silently drifts out of sync once the table exceeds N rows.
+        recent_window = """SELECT * FROM dispatch_telemetry
+                            ORDER BY recorded_at DESC LIMIT ?"""
+
+        by_persona = conn.execute(
+            f"""SELECT persona,
+                      COUNT(*) AS n,
+                      AVG(tokens) AS avg_tokens,
+                      AVG(duration_ms) AS avg_duration_ms,
+                      SUM(CASE WHEN token_source='exact' THEN 1 ELSE 0 END) AS exact_n
+               FROM ({recent_window})
+               GROUP BY persona
+               ORDER BY n DESC""",
+            (_DISPATCH_KPI_RECENT_N,),
+        ).fetchall()
+        for row in by_persona:
+            avg_tokens = round(row["avg_tokens"]) if row["avg_tokens"] is not None else 0
+            avg_ms = round(row["avg_duration_ms"]) if row["avg_duration_ms"] is not None else 0
+            exact_ratio = f"{row['exact_n']}/{row['n']} exact"
+            results.append(CheckResult(
+                "dispatch_telemetry.by_persona", "INFO",
+                f"{row['persona']}: n={row['n']} avg_tokens={avg_tokens} "
+                f"avg_duration_ms={avg_ms} ({exact_ratio})",
+            ))
+
+        by_model = conn.execute(
+            f"""SELECT COALESCE(model, 'unknown') AS model,
+                      COUNT(*) AS n,
+                      AVG(tokens) AS avg_tokens,
+                      AVG(duration_ms) AS avg_duration_ms,
+                      SUM(CASE WHEN token_source='exact' THEN 1 ELSE 0 END) AS exact_n
+               FROM ({recent_window})
+               GROUP BY model
+               ORDER BY n DESC""",
+            (_DISPATCH_KPI_RECENT_N,),
+        ).fetchall()
+        for row in by_model:
+            avg_tokens = round(row["avg_tokens"]) if row["avg_tokens"] is not None else 0
+            avg_ms = round(row["avg_duration_ms"]) if row["avg_duration_ms"] is not None else 0
+            exact_ratio = f"{row['exact_n']}/{row['n']} exact"
+            results.append(CheckResult(
+                "dispatch_telemetry.by_model", "INFO",
+                f"{row['model']}: n={row['n']} avg_tokens={avg_tokens} "
+                f"avg_duration_ms={avg_ms} ({exact_ratio})",
+            ))
+
+        conn.close()
+        return results
+    except sqlite3.Error as exc:
+        return [CheckResult(
+            "dispatch_telemetry.kpi", "INFO",
+            f"DB error reading dispatch_telemetry: {exc}",
+        )]
+
+
+# Subprocess timeout for the observability-report CLI probe below — the
+# report itself is local sqlite reads + in-memory bus/journal wiring (no
+# network, no b4 eval run), timed at ~0.2s warm; 10s leaves headroom for a
+# cold `uv` resolve on the first call, matching the margin
+# check_broker_mcp_boots/check_mcp_servers_boot leave over their own
+# measured-fast subprocess probes.
+_OBS_REPORT_TIMEOUT_S = 10
+
+
+def check_observability_report(project_path: str) -> list[CheckResult]:
+    """R5-T06 observability graduation (N58) — plan-gate accuracy + cost
+    panels, the skills-actually-loaded panel, and a live bus/tracing
+    structural probe, rendered from `broker.observability.report`.
+
+    Shells out to `uv run python -m broker.observability.report` (the
+    check_broker_mcp_boots subprocess-not-import convention: health.py runs
+    under the ambient interpreter, not nexus-broker's own >=3.12 uv venv)
+    rather than importing the module directly.
+
+    Severity: SKIP when nexus-broker/ is absent or not yet substituted
+    (mirrors check_broker_mcp_boots). FAIL only when the subprocess itself
+    is broken (nonzero exit, timeout, malformed JSON, uv missing) — a
+    genuinely dormant capability, same bar check_broker_mcp_boots already
+    applies to broker boot. Every individual panel's own data-availability
+    state (e.g. an empty project.db, a fresh install with no router
+    decisions yet) renders as INFO, never FAIL — panels degrade
+    gracefully by design (see `broker.observability.metrics`/`cost`), so an
+    empty-but-working install must stay green here.
+    """
+    # Resolve to absolute BEFORE handing to the subprocess: the child's cwd
+    # is broker_dir (below), so a relative project_path would silently
+    # resolve against nexus-broker/ instead of the real project root inside
+    # report.py's own Path(project_path) reads.
+    project_path = str(Path(project_path).resolve())
+    broker_dir = Path(project_path) / "nexus-broker"
+    if not broker_dir.exists():
+        return [CheckResult(
+            "observability.report", "SKIP",
+            "nexus-broker/ dir not found — skipping observability report",
+        )]
+    mcp_json = Path(project_path) / ".mcp.json"
+    if mcp_json.exists():
+        try:
+            if "__INSTALL_ROOT__" in mcp_json.read_text(encoding="utf-8"):
+                return [CheckResult(
+                    "observability.report", "INFO",
+                    "Broker not yet configured (install.sh substitution pending)",
+                )]
+        except OSError:
+            pass
+
+    cmd = [
+        "uv", "run", "--quiet", "python", "-m", "broker.observability.report",
+        "--project-path", str(project_path),
+    ]
+    try:
+        result = subprocess.run(
+            cmd, cwd=str(broker_dir), capture_output=True, text=True,
+            timeout=_OBS_REPORT_TIMEOUT_S,
+        )
+    except subprocess.TimeoutExpired:
+        return [CheckResult(
+            "observability.report", "FAIL",
+            f"observability report timed out after {_OBS_REPORT_TIMEOUT_S}s",
+            "Check nexus-broker/src/broker/observability/ for a blocking call",
+        )]
+    except FileNotFoundError:
+        return [CheckResult(
+            "observability.report", "FAIL",
+            "uv not found — cannot run observability report",
+            "Ensure uv is installed and on PATH",
+        )]
+    if result.returncode != 0:
+        return [CheckResult(
+            "observability.report", "FAIL",
+            f"observability report failed (rc={result.returncode})",
+            (result.stderr or result.stdout or "")[:200],
+        )]
+    try:
+        report = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        return [CheckResult(
+            "observability.report", "FAIL",
+            f"observability report produced non-JSON stdout: {exc}",
+            (result.stdout or "")[:200],
+        )]
+
+    results: list[CheckResult] = []
+    plan_gate = report.get("plan_gate", {})
+    accuracy = plan_gate.get("accuracy", {})
+    if accuracy.get("available"):
+        results.append(CheckResult(
+            "observability.plan_gate_accuracy", "INFO",
+            f"accuracy={accuracy['accuracy']} reject_rate={accuracy['reject_rate']} "
+            f"(window={accuracy['window']})",
+        ))
+    else:
+        results.append(CheckResult(
+            "observability.plan_gate_accuracy", "INFO",
+            accuracy.get("reason", "plan-gate accuracy unavailable"),
+        ))
+    cost_panel = report.get("cost", {})
+    dispatch_cost = cost_panel.get("dispatch", {})
+    if dispatch_cost.get("available"):
+        results.append(CheckResult(
+            "observability.cost", "INFO",
+            f"total_tokens={dispatch_cost['total_tokens']} "
+            f"estimated_cost_usd={dispatch_cost['estimated_cost_usd']} "
+            f"(window={dispatch_cost['window']})",
+        ))
+    else:
+        results.append(CheckResult(
+            "observability.cost", "INFO",
+            dispatch_cost.get("reason", "dispatch cost unavailable"),
+        ))
+    live_feed = report.get("live_feed", {})
+    if live_feed.get("wired"):
+        bus_stats = live_feed.get("bus", {})
+        results.append(CheckResult(
+            "observability.live_feed", "INFO",
+            f"bus+skill_load_recorder+tracing wired live "
+            f"(published_total={bus_stats.get('published_total')}, "
+            f"trace_id={live_feed.get('probe_trace_id')})",
+        ))
+    else:
+        results.append(CheckResult(
+            "observability.live_feed", "WARN",
+            "live-feed self-check did not report wired=true",
+        ))
+    return results
 
 
 # ---------------------------------------------------------------------------
@@ -2277,11 +2513,16 @@ def run_checks(
     # ones the hardcoded broker/prism checks miss, e.g. nexus-vault), so a
     # registered-but-broken server can no longer report a false-green install.
     runtime_checks.append(check_mcp_servers_boot)
+    # R5-T06 (N58): spawns its own `uv run` subprocess (like the two checks
+    # above), so it belongs in RUNTIME, not SESSION — never adds subprocess
+    # latency to the --no-runtime SessionStart banner path.
+    runtime_checks.append(check_observability_report)
 
     session_checks: list[Callable[[str], list[CheckResult]]] = [
         check_heartbeat_recent,
         check_router_recent_decisions,
         check_session_has_open,
+        check_dispatch_telemetry_kpi,
     ]
 
     drift_checks: list[Callable[[str], list[CheckResult]]] = [

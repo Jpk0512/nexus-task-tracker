@@ -179,7 +179,9 @@ started, detected via `git branch --show-current`. This may be `main` or any oth
 it is never hardcoded. The model:
 
 - **One commit per task** is the revertable checkpoint. No per-task feature branches,
-  no git worktrees, no PR-for-merge ceremony.
+  no PR-for-merge ceremony. A registered DEC-008 worktree per leg is the DEFAULT
+  isolation for parallel multi-part work (RDEC-018 Option 3); a single indivisible
+  task stays on the session branch with no worktree.
 - **Sub-agents commit** on the session branch but do **not push** — only the orchestrator
   or the user pushes (an explicit user-authorized bypass token allows a sub-agent push).
 - **REMOTE/PRODUCTION deploy** is a human handoff: the orchestrator stops and a human

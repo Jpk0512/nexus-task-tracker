@@ -8,6 +8,12 @@
 # surfaces stdout), so the reminder never reached the model.
 #
 # Trigger keywords: redelegation, revise, blocked, failure, root cause
+#
+# CAPPED MODE (R5/N45): when .claude/sessionstart-cap.enabled exists, the
+# per-decision `log.py lesson add` suggestion block collapses to a single
+# counts-only line (no per-decision command list). Flag ABSENT => byte-for-byte
+# the original full suggestion block (no-op merge to main until the flag is
+# created separately).
 
 import json
 import os
@@ -17,6 +23,14 @@ import sys
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DB_PATH = os.environ.get("_HOOK_DB_PATH", os.path.join(_REPO_ROOT, ".memory", "project.db"))
 TRIGGER_KEYWORDS = ("redelegation", "revise", "blocked", "failure", "root cause")
+# NEXUS_SESSIONSTART_CAP_FLAG lets tests point at an isolated flag file without
+# touching the real repo's .claude/ dir; real invocations fall back to the
+# repo-relative default path.
+_CAP_FLAG_PATH = os.environ.get(
+    "NEXUS_SESSIONSTART_CAP_FLAG",
+    os.path.join(_REPO_ROOT, ".claude", "sessionstart-cap.enabled"),
+)
+_CAPPED = os.path.isfile(_CAP_FLAG_PATH)
 
 
 def find_decisions_without_lessons(
@@ -80,20 +94,33 @@ def main() -> int:
         if not decisions:
             return 0
 
-        lines = [
-            f"\n[lesson-harvester] {len(decisions)} decision(s) from the prior session "
-            f"({prior_session_id}) match failure/revise/blocked keywords but have no lesson yet.",
-            "  Consider adding lessons with:",
-        ]
-        for d in decisions:
-            body_source = truncate_words(d["rationale"] or d["context"], 80)
-            lines.append(
-                f"\n  python3 .memory/log.py lesson add \\\n"
-                f"    --trigger redelegation \\\n"
-                f"    --title \"Lesson from {d['id']}: {d['title'][:60]}\" \\\n"
-                f"    --body \"{body_source}\" \\\n"
-                f"    --source-decision-id {d['id']}"
-            )
+        if _CAPPED:
+            # Counts only (R5/N45) — the full per-decision command list moves
+            # behind the broker JIT surface (N47); this hook emits the
+            # pointer, not the body, once capped.
+            lines = [
+                f"[lesson-harvester] {len(decisions)} decision(s) from the prior session "
+                f"({prior_session_id}) match failure/revise/blocked keywords but have no "
+                "lesson yet (counts only — capped). Run `python3 .memory/log.py lesson "
+                "list` to see them, then `log.py lesson add --source-decision-id <id> ...` "
+                "per decision; unset .claude/sessionstart-cap.enabled for the full "
+                "per-decision command list."
+            ]
+        else:
+            lines = [
+                f"\n[lesson-harvester] {len(decisions)} decision(s) from the prior session "
+                f"({prior_session_id}) match failure/revise/blocked keywords but have no lesson yet.",
+                "  Consider adding lessons with:",
+            ]
+            for d in decisions:
+                body_source = truncate_words(d["rationale"] or d["context"], 80)
+                lines.append(
+                    f"\n  python3 .memory/log.py lesson add \\\n"
+                    f"    --trigger redelegation \\\n"
+                    f"    --title \"Lesson from {d['id']}: {d['title'][:60]}\" \\\n"
+                    f"    --body \"{body_source}\" \\\n"
+                    f"    --source-decision-id {d['id']}"
+                )
 
         # Emit as a nested hookSpecificOutput object on STDOUT. SessionStart only
         # surfaces stdout to the model, and the settings.json `2>/dev/null` wrapper

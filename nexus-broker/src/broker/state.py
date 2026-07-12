@@ -11,6 +11,28 @@ NOTEPAD_STALE_SECONDS = 300
 TURN_STALE_SECONDS = 120
 
 
+def resolve_turn_stale_seconds() -> int:
+    """Resolve the turn-staleness window, env-overridable, default TURN_STALE_SECONDS.
+
+    ADDITIVE ONLY (R3-T02/N05 secondary deliverable) — TURN_STALE_SECONDS itself
+    stays a pinned module constant (test_batch18.py::TestTurnStaleSecondsNotRemoved
+    and test_drift_guard.py hard-assert it stays 120; this function does not
+    change that default or broker-gate.py's governance semantics). It exists so a
+    caller that wants a tighter re-validation window (e.g. nexus_run's staleness
+    check in discovery.py) can opt in via NEXUS_TURN_STALE_SECONDS without any
+    change to the governed default. Any non-positive or unparseable value falls
+    back to TURN_STALE_SECONDS.
+    """
+    raw = os.getenv("NEXUS_TURN_STALE_SECONDS")
+    if not raw:
+        return TURN_STALE_SECONDS
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return TURN_STALE_SECONDS
+    return value if value > 0 else TURN_STALE_SECONDS
+
+
 def _find_repo_root() -> Path:
     """Walk up from this file to find the repo root (.memory/ dir is the marker)."""
     here = Path(__file__).resolve()

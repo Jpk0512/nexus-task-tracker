@@ -221,11 +221,17 @@ def main() -> None:
     system_prompt_sha256 = ""
     # OPT-012: top-2 logprob margin, or None when the server returned no logprobs.
     confidence_margin: float | None = None
+    # AUDIT-5-router-cost: prompt/completion token counts from the model API's
+    # `usage` block, or None when absent — best-effort, never required for routing.
+    input_tokens: int | None = None
+    output_tokens: int | None = None
     if raw_result is not None:
         classification = raw_result.get("classification")
         messages = raw_result.get("messages", [])
         system_prompt_sha256 = raw_result.get("system_prompt_sha256", "")
         confidence_margin = raw_result.get("confidence_margin")
+        input_tokens = raw_result.get("input_tokens")
+        output_tokens = raw_result.get("output_tokens")
 
     files_dir = _files_dir()
     now_iso = datetime.now(timezone.utc).isoformat()  # noqa: UP017
@@ -257,6 +263,13 @@ def main() -> None:
             # OPT-007 eval/fine-tune harness accrues a calibrated signal to join
             # against the lens-gate validation outcome.
             "pred_confidence_margin": confidence_margin,
+            # AUDIT-5-router-cost: prompt/completion token counts from the model
+            # API's `usage` block. Optional/best-effort — None when the server
+            # omitted usage or the call errored; routing must keep working either
+            # way. Recorded on EVERY row (including fallthroughs/errors) so cost
+            # can be joined against decision outcome.
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
         }
         if model_out is not None:
             rec.update(

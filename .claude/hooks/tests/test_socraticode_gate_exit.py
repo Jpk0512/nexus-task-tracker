@@ -1,30 +1,29 @@
-"""Regression tests for socraticode-gate.sh exit-2 backstop + unrendered-token
-fail-closed guard (WF6 BACKSTOP fix).
+"""Regression tests for socraticode-gate.sh's ADVISORY-ONLY contract.
 
-This is a *security* gate (SocratiCode-first, CONSTITUTION Article III + CONTRACT
-Rule 2). Two enforcement modes:
+This is a SocratiCode-first *preference* gate (CONSTITUTION Article III +
+CONTRACT Rule 2) — not a block. Owner directive (this cycle): "we aren't
+retiring it... make it known to coders it's available, see how it goes."
+Two modes, BOTH now allow-and-nudge; NEITHER ever denies:
 
-  Mode 1 — PreToolUse(Bash): blocks grep/rg/find/ack/ag/fgrep/egrep at command
-           position unless a SocratiCode discovery tool fired this session (the
-           per-session FLAG file exists).
-  Mode 2 — PreToolUse(Read): blocks Read of a watched-prefix path unless the
-           FLAG exists or the path is cited in the task brief.
+  Mode 1 — PreToolUse(Bash): grep/rg/find/ack/ag/fgrep/egrep at command
+           position, run with no prior SocratiCode discovery call this
+           session (no per-session FLAG file), gets an advisory nudge and
+           is ALLOWED — for every code-writing persona, named-roster (see
+           TestMode1GrepExemptForCodeWriters) or not (see
+           TestMode1GrepAdvisory).
+  Mode 2 — PreToolUse(Read): Read of a watched-prefix path with no prior
+           discovery call gets the SAME advisory-allow treatment (see
+           TestMode2ReadAdvisory). Exception unchanged: a path already
+           cited in the task brief silences the nudge too.
 
-Before the fix the deny emitted a nested ``permissionDecision: deny`` over JSON
-but ALWAYS ``exit 0`` — so if the harness ignores the JSON channel the block is
-lost (fail-open). The fix adds ``exit 2`` on every deny path while KEEPING the
-nested JSON, and makes the predicate UNCHANGED (same when-to-deny).
+Read-only personas (orchestrator/scout/lens/lens-fast/palette) remain fully
+exempt from BOTH modes with NO nudge (DEC-027) — see the exemption case
+built into `_run`'s default persona choice.
 
-Separately, Mode 2 read ``/app/apps/, /app/packages/`` / ``/Users/john.keeney/nexus-task-tracker`` install
-tokens directly: if install-time rendering was skipped, the watched-prefix tuple
-became ``("/app/apps/, /app/packages/",)`` which no real path matches → Mode 2 silently
-fails OPEN. The fix adds ``_HOOK_WATCHED_PREFIXES`` / ``_HOOK_INSTALL_ROOT`` env
-overrides and, when the token is still literal at runtime, DENIES a watched-looking
-Read loud (fail CLOSED) instead of open-silent.
-
-These tests assert BOTH directions (deny when it should, allow when it should)
-and that the deny emits a VALID nested object the harness will not drop. They
-mirror the subprocess-with-stdin-JSON style of tests/test_p2_hooks.py.
+The gate NEVER exits nonzero and NEVER emits permissionDecision:deny. These
+tests assert the advisory JSON shape (nested hookSpecificOutput.
+additionalContext, no permissionDecision key) and that a flag/non-matching
+path stays fully silent (nothing to nudge about).
 
 Run from nexus-package/:
     uv run pytest .claude/hooks/tests/test_socraticode_gate_exit.py -v
@@ -60,11 +59,12 @@ def _run(
     env.pop("_HOOK_INSTALL_ROOT", None)
     env.pop("CLAUDE_TASK_DESCRIPTION", None)
     env.pop("_HOOK_TOOL_DESC", None)
-    # Default to a code-writing sub-agent persona so tests exercise the BLOCK
-    # path, not the DEC-027 top-level-orchestrator exemption (NATIVE-27-2).
-    # An unset CLAUDE_AGENT_TYPE now means "top-level orchestrator loop" and
-    # exits 0 unconditionally; callers that need to test the exemption itself
-    # must pass {"CLAUDE_AGENT_TYPE": ""} via env_overrides.
+    # Default to a code-writing sub-agent persona so tests exercise the
+    # advisory path, not the DEC-027 top-level-orchestrator exemption
+    # (NATIVE-27-2). An unset CLAUDE_AGENT_TYPE now means "top-level
+    # orchestrator loop" and exits 0 unconditionally with no nudge; callers
+    # that need to test the exemption itself must pass
+    # {"CLAUDE_AGENT_TYPE": ""} via env_overrides.
     env.setdefault("CLAUDE_AGENT_TYPE", "forge-wire")
     if env_overrides:
         env.update(env_overrides)
@@ -114,19 +114,32 @@ def _read_event(file_path: str, session_id: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Mode 1 — Bash grep gate: DENY direction (exit 2 + nested deny)
+# Mode 1 — Bash grep gate: advisory direction (exit 0 + nested additionalContext)
 # ---------------------------------------------------------------------------
 
 
-class TestMode1GrepDenied:
-    def test_blocked_grep_exits_2_with_nested_deny(self) -> None:
-        """Given a `grep` (banned at command position) with NO prior discovery
-        flag, When the gate runs, Then it hard-denies: exit code 2 AND a VALID
-        nested hookSpecificOutput object with permissionDecision=deny (the
-        durable backstop — the block survives even if the harness drops JSON)."""
-        result = _run(_bash_event("grep -r foo .", "sgexit-m1-deny"))
-        assert result.returncode == 2, (
-            f"blocked grep must exit 2 (durable backstop), got "
+class TestMode1GrepAdvisory:
+    """Mode 1 never denies — an agent_type outside the read-only-persona
+    exemption list (an unrecognized/malformed persona value included) gets
+    the SAME advisory nudge as a recognized code-writer (see
+    TestMode1GrepExemptForCodeWriters below), never a block."""
+
+    UNMAPPED_PERSONA = "totally-unrecognized-persona-xyz"
+
+    def test_blocked_grep_is_advised_and_allowed(self) -> None:
+        """Given a `grep` (a SocratiCode-preferred discovery tool) from an
+        agent_type outside the read-only-persona exemption, with NO prior
+        discovery flag, When the gate runs, Then it ALLOWS: exit 0, a VALID
+        nested hookSpecificOutput.additionalContext nudge naming
+        codebase_symbol / codebase_symbols, and NO permissionDecision key at
+        all (the WF6 exit-2 backstop is retired for this gate — it is
+        advisory-only now)."""
+        result = _run(
+            _bash_event("grep -r foo .", "sgexit-m1-deny"),
+            env_overrides={"CLAUDE_AGENT_TYPE": self.UNMAPPED_PERSONA},
+        )
+        assert result.returncode == 0, (
+            f"advisory grep must exit 0 (never blocked), got "
             f"{result.returncode}: {result.stdout!r} / {result.stderr!r}"
         )
         ho = _hook_specific(result.stdout)
@@ -134,36 +147,44 @@ class TestMode1GrepDenied:
             f"hookSpecificOutput must be a nested object, got: {result.stdout!r}"
         )
         assert ho.get("hookEventName") == "PreToolUse"
-        assert ho.get("permissionDecision") == "deny", (
-            f"Expected permissionDecision=deny, got: {result.stdout!r}"
+        assert "permissionDecision" not in ho, (
+            f"advisory path must never emit permissionDecision, got: {result.stdout!r}"
         )
-        reason = ho.get("permissionDecisionReason", "")
-        assert "SocratiCode-first" in reason
+        reason = ho.get("additionalContext", "")
+        assert "SocratiCode is available and preferred for code discovery" in reason
+        assert "codebase_symbol" in reason and "codebase_symbols" in reason
+        assert "grep is allowed" in reason
         assert "grep -r foo ." in reason, (
-            "The deny reason must echo the blocked command."
+            "The advisory reason must still echo the command that triggered it."
         )
 
     @pytest.mark.parametrize("tool", ["rg", "find", "ack", "ag", "fgrep", "egrep"])
-    def test_other_banned_tools_also_exit_2(self, tool: str) -> None:
-        """Every banned discovery tool at command position denies durably."""
-        result = _run(_bash_event(f"{tool} pattern", f"sgexit-m1-{tool}"))
-        assert result.returncode == 2, (
-            f"{tool} must exit 2, got {result.returncode}: {result.stdout!r}"
+    def test_other_banned_tools_also_advised_and_allowed(self, tool: str) -> None:
+        """Every banned discovery tool at command position gets the advisory
+        nudge and exit 0 for an agent_type outside the read-only-persona list."""
+        result = _run(
+            _bash_event(f"{tool} pattern", f"sgexit-m1-{tool}"),
+            env_overrides={"CLAUDE_AGENT_TYPE": self.UNMAPPED_PERSONA},
         )
-        assert _hook_specific(result.stdout).get("permissionDecision") == "deny"
+        assert result.returncode == 0, (
+            f"{tool} must be advised-and-allowed (exit 0), got "
+            f"{result.returncode}: {result.stdout!r}"
+        )
+        ho = _hook_specific(result.stdout)
+        assert "permissionDecision" not in ho
+        assert "additionalContext" in ho
 
 
 # ---------------------------------------------------------------------------
-# Mode 1 — Bash grep gate: ALLOW direction (must NOT fail closed)
+# Mode 1 — Bash grep gate: silent-allow direction (flag / non-banned command)
 # ---------------------------------------------------------------------------
 
 
 class TestMode1GrepAllowed:
     def test_flagged_grep_is_allowed_exit_0(self) -> None:
         """Given a grep AFTER a SocratiCode discovery call (the per-session flag
-        exists), When the gate runs, Then it allows: exit 0 and empty stdout.
-        This is the load-bearing ALLOW assertion — the fix must not turn the gate
-        into a permanent deny."""
+        exists), When the gate runs, Then it allows: exit 0 and empty stdout —
+        no nudge, since discovery already happened this session."""
         flag = _set_flag("sgexit-m1-allow")
         try:
             result = _run(_bash_event("grep -r foo .", "sgexit-m1-allow"))
@@ -174,7 +195,7 @@ class TestMode1GrepAllowed:
             f"{result.stdout!r} / {result.stderr!r}"
         )
         assert result.stdout.strip() == "", (
-            f"allowed grep must emit nothing, got: {result.stdout!r}"
+            f"flagged grep must emit no nudge, got: {result.stdout!r}"
         )
 
     def test_non_banned_command_passes_silently(self) -> None:
@@ -189,40 +210,92 @@ class TestMode1GrepAllowed:
 
 
 # ---------------------------------------------------------------------------
-# Mode 2 — Read gate: DENY direction (exit 2 + nested deny)
+# Mode 1 — code-writing personas get the SAME advisory nudge
 # ---------------------------------------------------------------------------
 
 
-class TestMode2ReadDenied:
-    def test_watched_read_exits_2_with_nested_deny(self) -> None:
+class TestMode1GrepExemptForCodeWriters:
+    """SocratiCode-first is an ADVISORY preference, not a hard grep gate, for
+    every code-writing persona (named-roster or not — see
+    TestMode1GrepAdvisory above for the unmapped-persona case). grep/rg/find
+    is allowed with NO prior discovery flag, but the gate now surfaces a
+    VISIBLE nudge (owner directive: "make it known to coders it's
+    available") instead of the prior fully-silent pass-through."""
+
+    @pytest.mark.parametrize(
+        "persona",
+        [
+            "hermes",
+            "forge-ui",
+            "forge-wire",
+            "pipeline-data",
+            "pipeline-async",
+            "atlas",
+            "quill-ts",
+            "quill-py",
+            "forge-ui-pro",
+        ],
+    )
+    def test_code_writer_grep_is_advised_and_allowed(self, persona: str) -> None:
+        result = _run(
+            _bash_event("grep -r foo .", f"sgexit-m1-exempt-{persona}"),
+            env_overrides={"CLAUDE_AGENT_TYPE": persona},
+        )
+        assert result.returncode == 0, (
+            f"{persona} must be allowed (exit 0) even with no discovery "
+            f"flag, got {result.returncode}: {result.stdout!r} / {result.stderr!r}"
+        )
+        ho = _hook_specific(result.stdout)
+        assert "permissionDecision" not in ho, (
+            f"{persona} must never be denied, got: {result.stdout!r}"
+        )
+        reason = ho.get("additionalContext", "")
+        assert "SocratiCode is available and preferred for code discovery" in reason, (
+            f"{persona}'s grep must carry the advisory nudge (owner directive: "
+            f"make it known to coders it's available), got: {result.stdout!r}"
+        )
+        assert "grep is allowed" in reason
+
+
+# ---------------------------------------------------------------------------
+# Mode 2 — Read gate: advisory direction (exit 0 + nested additionalContext)
+# ---------------------------------------------------------------------------
+
+
+class TestMode2ReadAdvisory:
+    def test_watched_read_is_advised_and_allowed(self) -> None:
         """Given a Read of a watched-prefix path with NO prior discovery flag and
         the prefixes rendered (via _HOOK_WATCHED_PREFIXES), When the gate runs,
-        Then it hard-denies: exit 2 AND a nested permissionDecision=deny."""
+        Then it ALLOWS: exit 0, a nested additionalContext nudge, and NO
+        permissionDecision — Mode 2 gets the SAME advisory-allow treatment as
+        Mode 1 (owner directive: nothing is hard-blocked)."""
         result = _run(
             _read_event("/app/foo.py", "sgexit-m2-deny"),
             env_overrides={"_HOOK_WATCHED_PREFIXES": _RENDERED_PREFIXES},
         )
-        assert result.returncode == 2, (
-            f"watched Read must exit 2 (durable backstop), got "
+        assert result.returncode == 0, (
+            f"watched Read must be allowed (exit 0), got "
             f"{result.returncode}: {result.stdout!r} / {result.stderr!r}"
         )
         ho = _hook_specific(result.stdout)
         assert ho.get("hookEventName") == "PreToolUse"
-        assert ho.get("permissionDecision") == "deny", (
-            f"Expected permissionDecision=deny, got: {result.stdout!r}"
+        assert "permissionDecision" not in ho, (
+            f"advisory path must never emit permissionDecision, got: {result.stdout!r}"
         )
-        assert "/app/foo.py" in ho.get("permissionDecisionReason", "")
+        reason = ho.get("additionalContext", "")
+        assert "/app/foo.py" in reason
+        assert "SocratiCode is available and preferred for code discovery" in reason
 
 
 # ---------------------------------------------------------------------------
-# Mode 2 — Read gate: ALLOW direction (must NOT fail closed)
+# Mode 2 — Read gate: silent-allow direction (flag / non-watched / brief-cited)
 # ---------------------------------------------------------------------------
 
 
 class TestMode2ReadAllowed:
     def test_flagged_watched_read_is_allowed(self) -> None:
         """A watched-prefix Read AFTER a discovery call (flag present) is allowed:
-        exit 0, empty stdout."""
+        exit 0, empty stdout — no nudge, discovery already happened."""
         flag = _set_flag("sgexit-m2-allow")
         try:
             result = _run(
@@ -239,7 +312,7 @@ class TestMode2ReadAllowed:
 
     def test_non_watched_read_is_allowed(self) -> None:
         """A Read OUTSIDE the watched prefixes is allowed even without a flag:
-        exit 0, empty stdout. Proves the deny predicate is unchanged."""
+        exit 0, empty stdout. Proves the nudge predicate is unchanged."""
         result = _run(
             _read_event("/README.md", "sgexit-m2-nonwatch"),
             env_overrides={"_HOOK_WATCHED_PREFIXES": _RENDERED_PREFIXES},
@@ -253,7 +326,7 @@ class TestMode2ReadAllowed:
     def test_brief_cited_path_is_allowed(self) -> None:
         """A watched path explicitly cited in the task brief
         (CLAUDE_TASK_DESCRIPTION) is allowed: exit 0, empty stdout. The
-        documented exception must survive the backstop change."""
+        documented exception must survive the advisory-only change."""
         result = _run(
             _read_event("/app/foo.py", "sgexit-m2-brief"),
             env_overrides={
@@ -269,34 +342,35 @@ class TestMode2ReadAllowed:
 
 
 # ---------------------------------------------------------------------------
-# Unrendered install token — fail CLOSED (not open-silent)
+# Unrendered install token — advisory, not fail-closed
 # ---------------------------------------------------------------------------
 
 
-class TestUnrenderedTokenFailsClosed:
-    def test_unrendered_watched_prefixes_denies_watched_read(self) -> None:
+class TestUnrenderedTokenAdvisory:
+    def test_unrendered_watched_prefixes_advises_and_allows(self) -> None:
         """Given the install-time /app/apps/, /app/packages/ token was NEVER rendered
         (no _HOOK_WATCHED_PREFIXES override) and a Read of a watched-looking path
-        with no flag, When the gate runs, Then it fails CLOSED: exit 2 + nested
-        deny whose reason names the unrendered token — NOT a silent exit-0 (which
-        was the latent fail-open the WF5 review flagged)."""
+        with no flag, When the gate runs, Then it ALLOWS with an advisory nudge
+        naming the unrendered token — NOT a deny. Every Mode-2 deny path is
+        retired; misconfiguration now just means the check couldn't run, so
+        the tool call proceeds with a nudge instead of a block."""
         result = _run(_read_event("/app/foo.py", "sgexit-unrendered-deny"))
-        assert result.returncode == 2, (
-            f"unrendered token + watched Read must fail CLOSED (exit 2), got "
+        assert result.returncode == 0, (
+            f"unrendered token + watched Read must be allowed (exit 0), got "
             f"{result.returncode}: {result.stdout!r}"
         )
         ho = _hook_specific(result.stdout)
-        assert ho.get("permissionDecision") == "deny"
-        assert "/app/apps/, /app/packages/" in ho.get("permissionDecisionReason", ""), (
-            "The deny reason must name the unrendered install token so the "
-            "operator knows to re-run the render step."
+        assert "permissionDecision" not in ho
+        reason = ho.get("additionalContext", "")
+        assert "/app/apps/, /app/packages/" in reason, (
+            "The advisory reason must still name the unrendered install token so "
+            "the operator knows to re-run the render step."
         )
 
-    def test_unrendered_token_with_flag_still_allows(self) -> None:
-        """The unrendered-token guard lives INSIDE the Mode-2 block, which is
+    def test_unrendered_token_with_flag_still_silently_allows(self) -> None:
+        """The unrendered-token nudge lives INSIDE the Mode-2 block, which is
         gated behind 'no flag yet'. A session that already did discovery (flag
-        present) must NOT be blocked by an unrendered token — exit 0, empty
-        stdout. This proves the fail-closed guard does not over-deny."""
+        present) gets NO nudge — exit 0, empty stdout."""
         flag = _set_flag("sgexit-unrendered-flag")
         try:
             result = _run(_read_event("/app/foo.py", "sgexit-unrendered-flag"))
@@ -310,56 +384,52 @@ class TestUnrenderedTokenFailsClosed:
 
 
 # ---------------------------------------------------------------------------
-# Rendered-but-EMPTY prefixes — fail CLOSED (TASK-102: not vacuous-true allow)
+# Rendered-but-EMPTY prefixes — advisory, not fail-closed
 # ---------------------------------------------------------------------------
 
 
-class TestEmptyRenderedPrefixesFailClosed:
-    def test_empty_rendered_prefixes_denies_watched_read(self) -> None:
+class TestEmptyRenderedPrefixesAdvisory:
+    def test_empty_rendered_prefixes_advises_and_allows(self) -> None:
         """Given the install RENDERED /app/apps/, /app/packages/ to an EMPTY string
         (socraticode_watched_prefixes detected no dirs → ``", ".join([]) == ""``)
         and a Read of a watched-looking path with no flag, When the gate runs,
-        Then it fails CLOSED: exit 2 + nested deny whose reason names the empty
-        watched_prefixes misconfig — NOT a vacuous-true silent exit-0 (the
-        TASK-102 fail-open: an empty prefix tuple makes ``any(... for p in ())``
-        False for every path so the gate would never fire)."""
+        Then it ALLOWS with an advisory nudge naming the empty-prefixes
+        misconfig — NOT a deny (every Mode-2 deny path is retired)."""
         result = _run(
             _read_event("/app/foo.py", "sgexit-empty-deny"),
             env_overrides={"_HOOK_WATCHED_PREFIXES": ""},
         )
-        assert result.returncode == 2, (
-            f"empty rendered prefixes + watched Read must fail CLOSED (exit 2), "
+        assert result.returncode == 0, (
+            f"empty rendered prefixes + watched Read must be allowed (exit 0), "
             f"got {result.returncode}: {result.stdout!r}"
         )
         ho = _hook_specific(result.stdout)
-        assert ho.get("permissionDecision") == "deny"
-        reason = ho.get("permissionDecisionReason", "")
+        assert "permissionDecision" not in ho
+        reason = ho.get("additionalContext", "")
         assert "watched_prefixes is empty" in reason, (
-            "The deny reason must name the empty-watched_prefixes misconfig so the "
-            f"operator knows the gate is misconfigured.\nGot: {reason!r}"
+            "The advisory reason must name the empty-watched_prefixes misconfig so "
+            f"the operator knows to fix the stack profile.\nGot: {reason!r}"
         )
-        assert "failing closed" in reason
 
     def test_empty_rendered_prefixes_distinct_from_unrendered_token(self) -> None:
-        """The empty-after-render deny message must be DISTINCT from the
-        unrendered-token deny (different misconfig, different remediation). The
+        """The empty-after-render advisory must be DISTINCT from the
+        unrendered-token advisory (different misconfig, different remediation). The
         empty case must NOT claim the token was 'never rendered' — it WAS
         rendered, just to nothing."""
         result = _run(
             _read_event("/app/foo.py", "sgexit-empty-distinct"),
             env_overrides={"_HOOK_WATCHED_PREFIXES": ""},
         )
-        reason = _hook_specific(result.stdout).get("permissionDecisionReason", "")
+        reason = _hook_specific(result.stdout).get("additionalContext", "")
         assert "watched_prefixes is empty" in reason
         assert "/app/apps/, /app/packages/ token was never rendered" not in reason, (
             "empty-after-render must not be conflated with the unrendered-token case"
         )
 
-    def test_empty_rendered_prefixes_with_flag_still_allows(self) -> None:
-        """The empty-prefixes guard lives INSIDE the Mode-2 no-flag block. A
-        session that already did discovery (flag present) must NOT be blocked by
-        empty prefixes — exit 0, empty stdout. Proves the guard does not
-        over-deny once the gate has legitimately opened."""
+    def test_empty_rendered_prefixes_with_flag_still_silently_allows(self) -> None:
+        """The empty-prefixes advisory lives INSIDE the Mode-2 no-flag block. A
+        session that already did discovery (flag present) gets NO nudge —
+        exit 0, empty stdout."""
         flag = _set_flag("sgexit-empty-flag")
         try:
             result = _run(
@@ -373,3 +443,102 @@ class TestEmptyRenderedPrefixesFailClosed:
             f"{result.returncode}: {result.stdout!r}"
         )
         assert result.stdout.strip() == ""
+
+
+# ---------------------------------------------------------------------------
+# R1-T02: fire (heartbeat) telemetry on every exit path
+# ---------------------------------------------------------------------------
+# heartbeat-emitter.sh has no env override; it walks up from its own script
+# location for a .memory/ ancestor. Isolate via a scratch two-level
+# .claude/hooks/ copy so these tests never touch the real repo's
+# .memory/files/hook_heartbeat.jsonl.
+
+
+def _run_scratch(
+    event: dict, *, env_overrides: dict[str, str] | None = None
+) -> tuple[subprocess.CompletedProcess[str], Path]:
+    import shutil
+
+    tmp_path = Path(tempfile.mkdtemp())
+    scratch_root = tmp_path / "repo"
+    scratch_hooks = scratch_root / ".claude" / "hooks"
+    scratch_hooks.mkdir(parents=True)
+    for name in ("heartbeat-emitter.sh", "socraticode-gate.sh"):
+        shutil.copy(HOOK_FILE.parent / name, scratch_hooks / name)
+    (scratch_root / ".memory" / "files").mkdir(parents=True)
+
+    env = dict(os.environ)
+    env.pop("_HOOK_WATCHED_PREFIXES", None)
+    env.pop("_HOOK_INSTALL_ROOT", None)
+    env.pop("CLAUDE_TASK_DESCRIPTION", None)
+    env.pop("_HOOK_TOOL_DESC", None)
+    env.setdefault("CLAUDE_AGENT_TYPE", "forge-wire")
+    if env_overrides:
+        env.update(env_overrides)
+    result = subprocess.run(
+        ["bash", str(scratch_hooks / "socraticode-gate.sh")],
+        input=json.dumps(event),
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=15,
+    )
+    heartbeat_path = scratch_root / ".memory" / "files" / "hook_heartbeat.jsonl"
+    return result, heartbeat_path
+
+
+class TestTelemetry:
+    def test_persona_exempt_allow_emits_heartbeat(self) -> None:
+        """The DEC-027 read-only-persona exemption exit is an early-return
+        path — a common bug is instrumenting only the final/advise path and
+        missing early returns like this one."""
+        result, heartbeat_path = _run_scratch(
+            _bash_event("grep -r foo .", "sgexit-hb-exempt"),
+            env_overrides={"CLAUDE_AGENT_TYPE": "scout"},
+        )
+        assert result.returncode == 0, "regression: persona-exempt exit code unchanged"
+        assert heartbeat_path.exists()
+        lines = [ln for ln in heartbeat_path.read_text().splitlines() if ln.strip()]
+        assert len(lines) == 1
+        hb = json.loads(lines[0])
+        assert hb["hook"] == "socraticode-gate"
+        assert hb["event"] == "PreToolUse"
+        assert hb["decision"] == "allow"
+        assert "ts" in hb and "latency_ms" in hb
+
+    def test_mode2_advisory_emits_heartbeat_advise(self) -> None:
+        result, heartbeat_path = _run_scratch(
+            _read_event("/app/foo.py", "sgexit-hb-m2deny"),
+            env_overrides={"_HOOK_WATCHED_PREFIXES": _RENDERED_PREFIXES},
+        )
+        assert result.returncode == 0, "regression: Mode-2 advisory must never block"
+        ho = _hook_specific(result.stdout)
+        assert "permissionDecision" not in ho
+        assert "additionalContext" in ho
+        lines = [ln for ln in heartbeat_path.read_text().splitlines() if ln.strip()]
+        assert len(lines) == 1
+        hb = json.loads(lines[0])
+        assert hb["hook"] == "socraticode-gate"
+        assert hb["decision"] == "advise"
+
+    def test_mode1_grep_advisory_emits_heartbeat_advise(self) -> None:
+        result, heartbeat_path = _run_scratch(_bash_event("grep -r foo .", "sgexit-hb-m1deny"))
+        assert result.returncode == 0, "regression: Mode-1 grep advisory must never block"
+        ho = _hook_specific(result.stdout)
+        assert "permissionDecision" not in ho
+        assert "additionalContext" in ho
+        lines = [ln for ln in heartbeat_path.read_text().splitlines() if ln.strip()]
+        assert len(lines) == 1
+        hb = json.loads(lines[0])
+        assert hb["hook"] == "socraticode-gate"
+        assert hb["decision"] == "advise"
+
+    def test_final_silent_pass_emits_heartbeat_allow(self) -> None:
+        result, heartbeat_path = _run_scratch(_bash_event("ls -la", "sgexit-hb-allow"))
+        assert result.returncode == 0, "regression: silent-pass exit code unchanged"
+        assert result.stdout.strip() == ""
+        lines = [ln for ln in heartbeat_path.read_text().splitlines() if ln.strip()]
+        assert len(lines) == 1
+        hb = json.loads(lines[0])
+        assert hb["hook"] == "socraticode-gate"
+        assert hb["decision"] == "allow"

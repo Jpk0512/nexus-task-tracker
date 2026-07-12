@@ -1,0 +1,21 @@
+# Requires the test to pass a codex_lane_flag_path override pointing at an
+# existing tmp file, so only the irreversible check is under test here.
+schema_version: 2
+nodes:
+  - node_id: N1
+    depends_on: []
+    downstream_consumers: []
+    agent_persona: pipeline-async
+    goal: "Confirm irreversible: true is rejected for executor: codex (v1 doctrine)."
+    context_files: []
+    acceptance_criteria: ["irreversible true is invalid for a codex leg"]
+    verification_method:
+      type: command
+      command: "echo ok"
+    risk_tier: T1
+    skills_required: [agent-protocol]
+    do_not_touch: []
+    write_scope: []
+    executor: codex
+    executor_model: gpt-5.4
+    irreversible: true

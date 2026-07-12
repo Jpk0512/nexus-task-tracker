@@ -1,25 +1,38 @@
 """Persona × intent legality table for the Nexus capability broker.
 
 Base names `forge` / `pipeline` / `quill` are RETIRED — they are NOT dispatch
-targets and deliberately absent here. The split personas
-(`forge-ui` / `forge-wire`, `pipeline-data` / `pipeline-async`,
-`quill-ts` / `quill-py`) plus their `-pro` escalation variants are the only
-implementers the broker recognises. A bare base name must be rejected by the
-broker exactly as `.claude/hooks/persona-alias-resolver.sh` rejects it — see
-`tests/test_base_name_retirement.py` for the enforced agreement.
+targets and deliberately absent here. As of R2-T03 FIX-4, the four `-pro`
+escalation NAMES for the merged base/pro pairs
+(`forge-ui-pro`, `forge-wire-pro`, `pipeline-data-pro`, `pipeline-async-pro`)
+are ALSO retired as dispatch targets: each base/pro pair collapsed to one
+tier-parameterized source (`tier=base|pro`), so escalation is now expressed as
+a parameter on `forge-ui` / `forge-wire` / `pipeline-data` / `pipeline-async`,
+not as a separate persona name. A dispatch to a retired `-pro` name must be
+rejected by the broker exactly as `.claude/hooks/persona-alias-resolver.sh`
+rejects it — see `tests/test_base_name_retirement.py` and
+`tests/test_pro_variant_retirement.py` for the enforced agreement.
+
+BUILD-SNAPSHOT NOTE (fable-planner, DEC-035): this module is byte-synced whole
+into `nexus-package/nexus-broker/src/broker/registry.py` by
+`tools/build_snapshot.sh` (unlike `.claude/**`, which is hand-reconciled per
+copy). Adding `fable-planner` here therefore also makes it legal in the
+PACKAGE broker, even though no `nexus-package/.claude/agents/fable-planner.md`
+ships and neither the package's `dispatch-shape-guard.sh` nor `router_core.py`
+name it — it stays practically undispatchable there (no on-disk agent file,
+no package dispatch-shape allow-list entry), but the package's own
+`test_deliverables_persona_drift.py` still requires a
+`nexus-package/.claude/hooks/deliverables.json` contract row for every
+`DISPATCHABLE_PERSONAS` member. That row exists and is marked inert; see its
+comment for the full accounting.
 """
 from __future__ import annotations
 
 PERSONA_INTENTS: dict[str, list[str]] = {
     "scout": ["investigate"],
     "forge-wire": ["implement_ui", "implement_api"],
-    "forge-wire-pro": ["implement_ui", "implement_api"],
     "forge-ui": ["implement_ui", "implement_api"],
-    "forge-ui-pro": ["implement_ui", "implement_api"],
     "pipeline-data": ["implement_ingestion"],
-    "pipeline-data-pro": ["implement_ingestion"],
     "pipeline-async": ["implement_ingestion"],
-    "pipeline-async-pro": ["implement_ingestion"],
     "atlas": ["implement_schema"],
     "hermes": ["implement_wiring", "implement_api"],
     "lens": ["validate"],
@@ -27,12 +40,47 @@ PERSONA_INTENTS: dict[str, list[str]] = {
     "quill-ts": ["test"],
     "quill-py": ["test"],
     "palette": ["design"],
+    # Plexus-meta-only deep-planning persona (DEC-035: scoped subagent-
+    # recursion exception, .memory decision log). Deliberately NOT shipped as
+    # nexus-package/.claude/agents/fable-planner.md — see this module's build
+    # snapshot note below and nexus-package/.claude/hooks/deliverables.json's
+    # "fable-planner" entry for why the package still needs a contract row.
+    "fable-planner": ["author_plan", "plan"],
+    # R3-T04 (FIX-5, node N10): the gated plan/decomposition-authoring persona.
+    # Live ONLY because its independent plan-validation gate
+    # (.claude/hooks/plan-validation-gate.py, SubagentStop, fail-closed —
+    # wraps N08's broker.plan_validation.score_plan, which already folds in
+    # N11's invocability check) landed in the SAME commit as this entry — the
+    # FIX-5 invariant is that an ungated live planner must never exist, not
+    # even transiently. Orchestrator-mechanism-only (see NON_CLASSIFIER_PERSONAS
+    # below): Plexus dispatches it deliberately as part of its own planning
+    # flow, never the user-prompt router classifier. Package accounting
+    # mirrors fable-planner's: `nexus-package/.claude/agents/planner.md` stays
+    # a `dispatchable: false` forward stub (never flipped live there), but
+    # this dict is synced whole into the package by build_snapshot.sh, so
+    # `nexus-package/.claude/hooks/deliverables.json` still needs an INERT
+    # "planner" row for test_deliverables_persona_drift.py.
+    "planner": ["plan"],
 }
 
 # Base persona names retired in favour of split variants. Kept as an explicit
 # constant so the agreement test and the drift guard can assert they are absent
 # from ALLOWED_PERSONAS rather than relying on them merely not being listed.
 RETIRED_BASE_PERSONAS: frozenset[str] = frozenset({"forge", "pipeline", "quill"})
+
+# R2-T03 FIX-4: the four `-pro` escalation NAMES retired when each base/pro pair
+# merged into one tier-parameterized source. Escalation now lives as a `tier`
+# parameter on the merged persona, never as a separate dispatchable name. Kept
+# explicit (mirroring RETIRED_BASE_PERSONAS) so the agreement test can assert
+# absence from ALLOWED_PERSONAS rather than relying on omission alone.
+RETIRED_PRO_PERSONAS: frozenset[str] = frozenset(
+    {
+        "forge-ui-pro",
+        "forge-wire-pro",
+        "pipeline-data-pro",
+        "pipeline-async-pro",
+    }
+)
 
 # ── OPT-002: the broker registry is the SINGLE SOURCE OF TRUTH for the
 # dispatchable-persona roster ────────────────────────────────────────────────
@@ -57,16 +105,24 @@ RETIRED_BASE_PERSONAS: frozenset[str] = frozenset({"forge", "pipeline", "quill"}
 # differ by NON_CLASSIFIER_PERSONAS: personas the ORCHESTRATOR dispatches as a
 # mechanism, never the user-prompt classifier. `lens-fast` is orchestrator-only —
 # it is dispatched as the parallel fast-lane sibling of `lens` after an
-# implementer's NEXUS:DONE, not selected from a user request. The four `-pro`
-# escalation variants REMAIN classifier-emittable (audit OPT-062: the classifier
-# must be ABLE to escalate `complex`/low-confidence work; the orchestrator's
-# PreToolUse escalation gate is the action-side partner, not a replacement).
+# implementer's NEXUS:DONE, not selected from a user request.
+#
+# R2-T03 FIX-4 supersedes the prior OPT-062 note here: the four `-pro` names
+# are no longer classifier-emittable NAMES — each base/pro pair merged into one
+# tier-parameterized source, so escalation is expressed via a `tier=pro`
+# parameter on the merged persona, not via a distinct dispatchable name. The
+# classifier may still request escalation; it does so by setting tier=pro on
+# the base name, not by emitting e.g. "forge-ui-pro".
 DISPATCHABLE_PERSONAS: frozenset[str] = frozenset(PERSONA_INTENTS.keys())
 
 # Dispatchable, but NOT emitted by the router classifier — orchestrator-mechanism
 # personas only. `lens-fast` is dispatched in a fixed parallel pair with `lens`
-# by the orchestrator's Lens gate, never chosen from a user prompt.
-NON_CLASSIFIER_PERSONAS: frozenset[str] = frozenset({"lens-fast"})
+# by the orchestrator's Lens gate, never chosen from a user prompt. `planner`
+# (R3-T04) is likewise orchestrator-driven only — Plexus dispatches it as part
+# of its own planning flow, never in response to a raw user utterance; keeping
+# it out of CLASSIFIER_PERSONAS also means no router_core.py mirror-list edit
+# is needed for it (see test_router_persona_roster.py's agreement tests).
+NON_CLASSIFIER_PERSONAS: frozenset[str] = frozenset({"lens-fast", "planner"})
 
 # The persona enum the router classifier may emit (DISPATCHABLE minus the
 # orchestrator-only mechanism personas). router_core.build_persona_enum must

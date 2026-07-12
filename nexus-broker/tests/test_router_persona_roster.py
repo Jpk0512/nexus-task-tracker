@@ -27,6 +27,7 @@ Two consumers DERIVE from that source; this module asserts neither has drifted:
 """
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -37,6 +38,7 @@ from broker.registry import (
     NON_CLASSIFIER_PERSONAS,
     PERSONA_INTENTS,
     RETIRED_BASE_PERSONAS,
+    RETIRED_PRO_PERSONAS,
 )
 from broker.router_train.label import NEXUS_PERSONAS
 
@@ -47,6 +49,38 @@ HOOKS_DIR = REPO_ROOT / ".claude" / "hooks"
 LIVE_AGENTS_DIR = HOOKS_DIR.parent / "agents"
 sys.path.insert(0, str(HOOKS_DIR))
 import router_core  # type: ignore[import]  # noqa: E402, I001
+
+# DEC-035: fable-planner (and R3-T04's planner) stay CLASSIFIER_PERSONAS members
+# in broker.registry — that module is synced byte-for-byte into the package by
+# build_snapshot.sh, so it can't diverge per-repo — but each ships NO on-disk
+# nexus-package/.claude/agents/*.md file, by design (deliverables.json marks
+# their contract rows "INERT" for exactly this reason: no agent file, no
+# package dispatch-shape-guard entry, practically undispatchable there).
+# build_persona_enum only ever emits CLASSIFIER_PERSONAS & on-disk-agent-files,
+# so in the package tree the enum legitimately omits them while the live tree
+# (which does ship fable-planner.md) legitimately includes them. The set below
+# is read from deliverables.json's own "_note" field rather than hardcoded, so
+# it can never drift silently from the documented exemption.
+#
+# deliverables.json's own two locations (mirrors test_deliverables_persona_drift.py's
+# resolution): live tree -> REPO_ROOT/nexus-package/.claude/hooks/deliverables.json;
+# package tree -> REPO_ROOT/.claude/hooks/deliverables.json directly.
+_DELIVERABLES_VIA_PACKAGE = REPO_ROOT / "nexus-package" / ".claude" / "hooks" / "deliverables.json"
+_DELIVERABLES_DIRECT = REPO_ROOT / ".claude" / "hooks" / "deliverables.json"
+DELIVERABLES_JSON = (
+    _DELIVERABLES_VIA_PACKAGE if _DELIVERABLES_VIA_PACKAGE.is_file() else _DELIVERABLES_DIRECT
+)
+
+
+def _package_inert_personas() -> frozenset[str]:
+    if not DELIVERABLES_JSON.is_file():
+        return frozenset()
+    config = json.loads(DELIVERABLES_JSON.read_text(encoding="utf-8"))
+    return frozenset(
+        name
+        for name, contract in config.items()
+        if isinstance(contract, dict) and "INERT" in contract.get("_note", "")
+    )
 
 
 # ── The single source is internally consistent ──────────────────────────────
@@ -60,6 +94,8 @@ def test_registry_is_the_single_source() -> None:
     assert CLASSIFIER_PERSONAS == DISPATCHABLE_PERSONAS - NON_CLASSIFIER_PERSONAS
     # The retired bases never leak into any dispatchable view.
     assert not (RETIRED_BASE_PERSONAS & DISPATCHABLE_PERSONAS)
+    # R2-T03 FIX-4: the retired -pro names never leak into any dispatchable view.
+    assert not (RETIRED_PRO_PERSONAS & DISPATCHABLE_PERSONAS)
 
 
 # ── router_train.NEXUS_PERSONAS derives from the source (no separate list) ───
@@ -90,36 +126,45 @@ def test_router_classifier_set_matches_broker_classifier_set() -> None:
 
 
 def test_router_enum_equals_classifier_set_plus_meta() -> None:
-    """build_persona_enum renders exactly CLASSIFIER_PERSONAS + the 'meta' route.
-
-    Asserted against the LIVE agents dir — the roster the router actually serves.
+    """build_persona_enum renders exactly CLASSIFIER_PERSONAS + the 'meta' route,
+    modulo the DEC-035 package-inert exemption (fable-planner / planner: real
+    CLASSIFIER_PERSONAS members with NO shipped nexus-package/.claude/agents/*.md
+    file — see deliverables.json's "INERT" notes). Asserted against the agents
+    dir for whichever repo (live or package) this test is running in — the
+    roster the router actually serves THERE.
     """
     enum = router_core.build_persona_enum(str(LIVE_AGENTS_DIR))
     assert "meta" in enum, "the synthetic no-dispatch 'meta' route must be present"
-    assert set(enum) - {"meta"} == CLASSIFIER_PERSONAS, (
-        "router enum drifted from the single-source CLASSIFIER_PERSONAS roster; "
+    on_disk_stems = {p.stem for p in LIVE_AGENTS_DIR.glob("*.md")}
+    inert_and_missing = _package_inert_personas() - on_disk_stems
+    expected = CLASSIFIER_PERSONAS - inert_and_missing
+    assert set(enum) - {"meta"} == expected, (
+        "router enum drifted from the single-source CLASSIFIER_PERSONAS roster "
+        "(minus any DEC-035 package-inert personas legitimately absent on disk here); "
         f"enum (minus meta)={sorted(set(enum) - {'meta'})}, "
-        f"CLASSIFIER_PERSONAS={sorted(CLASSIFIER_PERSONAS)}"
+        f"expected={sorted(expected)}, "
+        f"CLASSIFIER_PERSONAS={sorted(CLASSIFIER_PERSONAS)}, "
+        f"inert_and_missing={sorted(inert_and_missing)}"
     )
     # No duplicates.
     assert len(enum) == len(set(enum))
 
 
-def test_router_enum_includes_pro_escalation_variants() -> None:
-    """OPT-062 fix: the classifier CAN now emit the four -pro escalation slugs.
+def test_router_enum_excludes_retired_pro_variant_names() -> None:
+    """R2-T03 FIX-4: the four -pro escalation NAMES are retired dispatch targets.
 
-    The pre-OPT-002 build_persona_enum filtered `endswith("-pro")`, so the model
-    was structurally unable to escalate work it was told to escalate.
+    Each base/pro pair merged into one tier-parameterized source
+    (`tier=base|pro`), so escalation is now expressed as a `tier=pro` parameter
+    on the merged persona, never as a distinct classifier-emittable name. This
+    supersedes the pre-R2-T03 OPT-062 assertion that these names WERE
+    classifier-emittable — that was true only while the -pro variants were
+    separate dispatchable personas.
     """
     enum = set(router_core.build_persona_enum(str(LIVE_AGENTS_DIR)))
-    expected_pro = {
-        "forge-ui-pro",
-        "forge-wire-pro",
-        "pipeline-data-pro",
-        "pipeline-async-pro",
-    }
-    missing = expected_pro - enum
-    assert not missing, f"-pro escalation variants absent from router enum: {sorted(missing)}"
+    from broker.registry import RETIRED_PRO_PERSONAS
+
+    leaked = RETIRED_PRO_PERSONAS & enum
+    assert not leaked, f"retired -pro names leaked into the router enum: {sorted(leaked)}"
 
 
 def test_router_enum_excludes_orchestrator_only_personas() -> None:

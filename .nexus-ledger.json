@@ -1,7 +1,7 @@
 {
-  "version": "1.16.0",
+  "version": "1.17.0",
   "installed_at": "2026-06-16T19:15:41.734696+00:00",
-  "updated_at": "2026-06-30T10:18:10.179255+00:00",
+  "updated_at": "2026-07-12T01:04:27.930222+00:00",
   "source": "plexus",
   "phase_markers": [
     {
@@ -28,6 +28,11 @@
       "version": "1.16.0",
       "applied_at": "2026-06-30T10:18:10.179255+00:00",
       "summary": ""
+    },
+    {
+      "version": "1.17.0",
+      "applied_at": "2026-07-12T01:04:27.930222+00:00",
+      "summary": "corruption-freeze + worktree-default policy"
     }
   ]
 }

@@ -1,0 +1,74 @@
+schema_version: 2
+nodes:
+  - node_id: N1
+    depends_on: []
+    downstream_consumers: [N2, N3]
+    agent_persona: scout
+    goal: "Confirm project_registry has project_path, current_version, installed_at, last_updated_at columns needed for the registry-list acceptance criterion."
+    context_files:
+      - ".memory/schema.sql"
+      - "docs/features/FEAT-009-plexus-meta-orchestrator.md"
+    acceptance_criteria:
+      - "project_registry schema includes project_path, current_version, installed_at, last_updated_at (or equivalent columns already present are named in the report)"
+    verification_method:
+      type: command
+      command: "grep -A15 'CREATE TABLE project_registry' .memory/schema.sql"
+    risk_tier: T0
+    skills_required: []
+    do_not_touch: [".memory/log.py"]
+    write_scope: []
+
+  - node_id: N2
+    depends_on: [N1]
+    downstream_consumers: [N4]
+    agent_persona: pipeline-async
+    goal: "Implement `python3 .memory/log.py registry list [--project-path /path]` returning rows from project_registry as JSON."
+    context_files:
+      - ".memory/log.py"
+      - ".memory/schema.sql"
+    acceptance_criteria:
+      - "`registry list` with no args returns all active rows"
+      - "`registry list --project-path /path` filters to that path"
+      - "Each row includes project_path, current_version, installed_at, last_updated_at"
+    verification_method:
+      type: command
+      command: "python3 .memory/log.py registry list --project-path ."
+    skills_required: ["agent-protocol"]
+    risk_tier: T1
+    do_not_touch: ["nexus-package/"]
+    write_scope: [".memory/log.py::registry_list_query"]
+
+  - node_id: N3
+    depends_on: [N1]
+    downstream_consumers: [N4]
+    agent_persona: pipeline-async
+    goal: "Add a --format table option to `registry list` that renders path/version/timestamps as an aligned table instead of raw JSON."
+    context_files:
+      - ".memory/log.py"
+    acceptance_criteria:
+      - "`registry list --format table` prints one row per project with aligned columns"
+      - "Default (no --format) behavior is unchanged (still JSON)"
+    verification_method:
+      type: command
+      command: "python3 .memory/log.py registry list --format table | head -5"
+    skills_required: ["agent-protocol"]
+    risk_tier: T1
+    do_not_touch: ["nexus-package/"]
+    write_scope: [".memory/log.py::registry_list_format"]
+
+  - node_id: N4
+    depends_on: [N2, N3]
+    downstream_consumers: []
+    agent_persona: quill-py
+    goal: "Add a test asserting `registry list` returns the four required fields."
+    context_files:
+      - ".memory/log.py"
+    acceptance_criteria:
+      - "A test exists asserting project_path, current_version, installed_at, last_updated_at are present in `registry list` output"
+    verification_method:
+      type: command
+      command: "uv run pytest .claude/hooks/tests/test_registry_list.py -v"
+    skills_required: []
+    risk_tier: T1
+    do_not_touch: ["nexus-package/"]
+    write_scope: [".claude/hooks/tests/test_registry_list.py"]

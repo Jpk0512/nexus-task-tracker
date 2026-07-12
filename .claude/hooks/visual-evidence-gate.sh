@@ -46,19 +46,16 @@ REPO_ROOT = os.environ.get(
 # Code-writing implementer personas — same set as lens-gate.sh.
 # Orchestrator, scout, lens, lens-fast, palette are exempt.
 GATED_AGENTS = frozenset({
-    "forge",
     "forge-ui",
     "forge-wire",
     "forge-ui-pro",
     "forge-wire-pro",
-    "pipeline",
     "pipeline-data",
     "pipeline-async",
     "pipeline-data-pro",
     "pipeline-async-pro",
     "atlas",
     "hermes",
-    "quill",
     "quill-ts",
     "quill-py",
 })

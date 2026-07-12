@@ -9,10 +9,13 @@ except vault_jobs rows.
 """
 from __future__ import annotations
 
+import logging
 import sqlite3
 from pathlib import Path
 
 import sqlite_vec
+
+LOG = logging.getLogger("nexus-vault.db")
 
 
 def open_db(db_path: Path, *, read_only: bool = False) -> sqlite3.Connection:
@@ -26,11 +29,15 @@ def open_db(db_path: Path, *, read_only: bool = False) -> sqlite3.Connection:
     conn.enable_load_extension(True)
     sqlite_vec.load(conn)
     conn.enable_load_extension(False)
-    # WAL is set DB-wide; harmless to (re-)apply on each writer connection.
-    if not read_only:
-        try:
+    # busy_timeout applies regardless of read_only so concurrent readers wait
+    # out a writer's transaction instead of raising "database is locked".
+    # journal_mode/synchronous are DB-wide and only meaningful to (re-)apply
+    # from a writable connection.
+    try:
+        conn.execute("PRAGMA busy_timeout=5000")
+        if not read_only:
             conn.execute("PRAGMA journal_mode=WAL")
             conn.execute("PRAGMA synchronous=NORMAL")
-        except sqlite3.DatabaseError:
-            pass
+    except sqlite3.DatabaseError:
+        LOG.warning("failed to set pragmas on %s (read_only=%s)", db_path, read_only, exc_info=True)
     return conn

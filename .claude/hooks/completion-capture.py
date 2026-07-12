@@ -49,6 +49,16 @@ extension granting per-Workflow-step hook events.
 See: FEATURE-REQUEST-workflow-runtime.md (filed 2026-06-21).
 IMPACT: completion_events is a usable label source for DIRECT dispatch completions
 only. (session_id, prompt_hash) join to router_decisions recovers labels for those.
+
+R1-T05 (agent_activity live wiring): for a DIRECT completion this hook ALSO
+closes the cockpit activity row dispatch-capture.py opened, via
+`python3 .memory/log.py activity end --id <id> --status <mapped>`. The row id
+is recovered from .memory/files/activity_open.jsonl by (session_id, persona)
+— the same join key dispatch-capture.py wrote it under. Marker -> status:
+DONE -> done; REVISE|BLOCKED -> failed; CHECKPOINT|NEEDS-DECISION -> active
+(non-terminal, still in flight); unknown -> done (fallback so the row always
+closes rather than rotting as "active" forever). Best-effort / never blocks,
+mirrors feedback-capture.py's subprocess pattern.
 """
 
 from __future__ import annotations
@@ -57,6 +67,7 @@ import hashlib
 import json
 import os
 import re
+import subprocess
 import sys
 from datetime import datetime, timezone  # noqa: UP017
 from pathlib import Path
@@ -105,12 +116,102 @@ _MARKER_RE = re.compile(
     re.IGNORECASE | re.MULTILINE,
 )
 
+# Marker -> agent_activity.status (active|done|failed per log.py's CLI help).
+# DONE closes clean; REVISE/BLOCKED are terminal failures for THIS dispatch;
+# CHECKPOINT/NEEDS-DECISION are non-terminal (work continues) so the row stays
+# "active"; "unknown" (no H2 marker found) still closes as "done" so a row
+# never rots as "active" forever when the marker just couldn't be parsed.
+_MARKER_TO_ACTIVITY_STATUS = {
+    "DONE": "done",
+    "REVISE": "failed",
+    "BLOCKED": "failed",
+    "CHECKPOINT": "active",
+    "NEEDS-DECISION": "active",
+}
+
 
 def _files_dir() -> Path:
     override = os.environ.get("_HOOK_MEMORY_FILES_DIR")
     if override:
         return Path(override)
     return HOOKS_DIR.parent.parent / ".memory" / "files"
+
+
+def _repo_root() -> Path:
+    override = os.environ.get("_HOOK_REPO_ROOT")
+    if override:
+        return Path(override)
+    return HOOKS_DIR.parent.parent
+
+
+def _log_py(root: Path) -> Path:
+    return root / ".memory" / "log.py"
+
+
+def _open_activity_id(session_id: str, persona: str, files_dir: Path) -> int | None:
+    """Recover the activity_id dispatch-capture.py cached for (session_id, persona).
+
+    Scans activity_open.jsonl for the LAST matching row (the most recently
+    opened activity for this persona in this session) — mirrors the
+    nearest-preceding-row join pattern used elsewhere in this file for
+    prompt_hash recovery. Returns None when no joinable row exists (e.g. a
+    Workflow-internal completion that never got a SubagentStop-reachable
+    dispatch-capture.py invocation, or the sidecar file is missing).
+    """
+    if not session_id or session_id == "unknown" or not persona or persona == "unknown":
+        return None
+    path = files_dir / "activity_open.jsonl"
+    if not path.exists():
+        return None
+    try:
+        last_id = None
+        with path.open() as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    rec = json.loads(line)
+                except Exception:
+                    continue
+                if rec.get("session_id") == session_id and rec.get("persona") == persona:
+                    activity_id = rec.get("activity_id")
+                    if isinstance(activity_id, int):
+                        last_id = activity_id
+        return last_id
+    except Exception:
+        return None
+
+
+def _end_activity(root: Path, activity_id: int, status: str) -> None:
+    """Best-effort `log.py activity end`. Never raises; failure is swallowed.
+
+    Mirrors feedback-capture.py's subprocess invocation pattern: argv list
+    (never shell-interpolated), bounded timeout, swallow any failure.
+    """
+    log_py = _log_py(root)
+    if not log_py.is_file():
+        return
+    cmd = [
+        sys.executable,
+        str(log_py),
+        "activity",
+        "end",
+        "--id",
+        str(activity_id),
+        "--status",
+        status,
+    ]
+    try:
+        subprocess.run(
+            cmd,
+            cwd=str(root),
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except Exception:
+        return
 
 
 def _extract_payload(data: dict) -> tuple[str, str, str]:
@@ -244,6 +345,14 @@ def main() -> None:
         "prompt_hash": _prompt_hash_for_session(session_id, files_dir),
     }
     _append_jsonl(files_dir / "completion_events.jsonl", record)
+
+    # R1-T05: close the cockpit activity row dispatch-capture.py opened, if any.
+    marker = record["marker"]
+    activity_id = _open_activity_id(session_id, persona, files_dir)
+    if activity_id is not None:
+        status = _MARKER_TO_ACTIVITY_STATUS.get(marker, "done")
+        _end_activity(_repo_root(), activity_id, status)
+
     sys.exit(0)
 
 

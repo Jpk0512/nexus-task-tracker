@@ -1,0 +1,16 @@
+schema_version: 2
+nodes:
+  - node_id: N1
+    depends_on: []
+    downstream_consumers: []
+    agent_persona: scout
+    goal: "A node whose verification is prose, not a concrete command."
+    context_files: [".memory/schema.sql"]
+    acceptance_criteria: ["looks good on review"]
+    verification_method:
+      type: prose
+      description: "Have a human eyeball the diff and confirm it seems reasonable."
+    risk_tier: T0
+    skills_required: []
+    do_not_touch: []
+    write_scope: []

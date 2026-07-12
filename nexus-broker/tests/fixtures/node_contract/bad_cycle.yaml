@@ -1,0 +1,31 @@
+schema_version: 2
+nodes:
+  - node_id: N1
+    depends_on: [N2]
+    downstream_consumers: [N2]
+    agent_persona: scout
+    goal: "First node of a two-node cycle."
+    context_files: [".memory/schema.sql"]
+    acceptance_criteria: ["criterion A"]
+    verification_method:
+      type: command
+      command: "echo N1"
+    risk_tier: T0
+    skills_required: []
+    do_not_touch: []
+    write_scope: []
+
+  - node_id: N2
+    depends_on: [N1]
+    downstream_consumers: [N1]
+    agent_persona: scout
+    goal: "Second node of a two-node cycle, depends back on N1."
+    context_files: [".memory/schema.sql"]
+    acceptance_criteria: ["criterion B"]
+    verification_method:
+      type: command
+      command: "echo N2"
+    risk_tier: T0
+    skills_required: []
+    do_not_touch: []
+    write_scope: []

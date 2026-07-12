@@ -45,7 +45,16 @@ A valid stub is HARD-RED:
 
 - Fixtures match what production actually emits — same fields, same types, same shape.
 - For external APIs (Tableau, Azure-routed Anthropic, OpenAI/Azure embeddings), record a real response once, scrub secrets, save as `tests/fixtures/<api>-<scenario>.json`. Tests assert against that.
-- Mocking external services is OK; **mocking the database is not.** Use in-memory DuckDB or a fixture DB.
+
+### DuckDB-no-mock rule
+
+Mocking external services is OK; **mocking the database is not.** Use
+in-memory DuckDB (`duckdb.connect(":memory:")`, see the fixture below) or a
+fixture DB. A test that mocks a DuckDB connection/cursor to return
+canned rows is not exercising the query the production code actually runs —
+schema drift, join errors, and type-coercion bugs all pass a mocked-DB test
+and fail in production. This applies in both Python (`ingestion/tests/`) and
+TS (`app/__tests__/`, via `duckdb-test-shims`) test suites.
 
 ## In-memory DuckDB pattern (Python)
 
@@ -62,19 +71,15 @@ def db():
     conn.close()
 ```
 
-## Vitest + RTL idioms
+## Framework idioms (generic — not repeated here)
 
-- Test file path: `app/__tests__/<feature>.test.ts(x)`.
-- For RSC components, use a server-aware harness (`@testing-library/react` with `act` from React 19).
-- Avoid `toMatchSnapshot()` against freshly-generated baselines you authored seconds ago. Snapshots are only valid when a HUMAN has reviewed and committed them.
-- Prefer `getByRole` / `getByLabelText` (semantic) over `getByTestId` (brittle).
-
-## pytest idioms
-
-- Test file path: `ingestion/tests/test_<feature>.py`.
-- `pytest.mark.asyncio` for async functions.
-- `httpx.MockTransport` for HTTP mocking (NOT `requests-mock`).
-- One concept per test; multiple assertions for the same concept are OK.
+General pytest idioms (parametrize, fixture scoping, conftest layout, httpx
+mocking) and Vitest + RTL idioms (render, userEvent, queries, async patterns)
+are training-known and live in `Skill pytest-idioms` / `Skill vitest-rtl-idioms`
+as thin pointers — invoke them by explicit name if you need the mechanical
+how-to. The Nexus-specific residue that overrides or extends those generic
+patterns (xfail-ban, split-workflow rule, DuckDB-no-mock) is authoritative
+HERE, not there — if the two ever conflict, this file governs.
 
 ## Coverage threshold rule
 

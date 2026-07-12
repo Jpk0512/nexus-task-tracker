@@ -119,15 +119,19 @@ def test_router_core_build_persona_enum(tmp_path: Path) -> None:
 def test_build_persona_enum_includes_pro_excludes_lens_fast_includes_meta(
     tmp_path: Path,
 ) -> None:
-    """build_persona_enum INCLUDES the -pro escalation variants and 'meta', and
-    EXCLUDES orchestrator-only personas (lens-fast).
+    """build_persona_enum EXCLUDES the -pro escalation variants, includes
+    'meta', and EXCLUDES orchestrator-only personas (lens-fast).
 
-    OPT-002 single-sources the roster from CLASSIFIER_PERSONAS — a mirror of
-    broker.registry.CLASSIFIER_PERSONAS. The enum is that roster intersected with
-    the agent files on disk, plus 'meta'. The four -pro variants ARE in
-    CLASSIFIER_PERSONAS (OPT-062: the old endswith('-pro') filter left the
-    classifier structurally unable to escalate); lens-fast is NOT
-    (orchestrator-only mechanism persona).
+    OPT-002 single-sources the roster from broker.registry.CLASSIFIER_PERSONAS,
+    which the hook mirrors as router_core.CLASSIFIER_PERSONAS. The enum is that
+    roster intersected with the agent files on disk, plus 'meta'. R2-T03 FIX-4
+    supersedes OPT-062: the four -pro names were retired as separate
+    dispatchable entities and merged into their tier-parameterized base
+    personas (tier=pro is now a parameter, not a distinct persona string), so
+    CLASSIFIER_PERSONAS — and therefore this enum — no longer contains them.
+    lens-fast is also NOT included (orchestrator-only mechanism persona).
+    Source of truth: the live router_core.build_persona_enum +
+    nexus-broker/tests/test_router_persona_roster.py.
     """
     mod = _load_router_core()
 
@@ -146,11 +150,13 @@ def test_build_persona_enum_includes_pro_excludes_lens_fast_includes_meta(
     assert "forge-ui" in personas, f"forge-ui must be in enum. Got: {personas}"
     assert "pipeline-data" in personas, f"pipeline-data must be in enum. Got: {personas}"
     assert "meta" in personas, f"'meta' must be in enum. Got: {personas}"
-    assert "forge-ui-pro" in personas, (
-        f"-pro escalation variants must be INCLUDED (OPT-062). Got: {personas}"
+    assert "forge-ui-pro" not in personas, (
+        f"-pro escalation variants must be EXCLUDED (R2-T03 FIX-4 supersedes "
+        f"OPT-062). Got: {personas}"
     )
-    assert "pipeline-data-pro" in personas, (
-        f"-pro escalation variants must be INCLUDED (OPT-062). Got: {personas}"
+    assert "pipeline-data-pro" not in personas, (
+        f"-pro escalation variants must be EXCLUDED (R2-T03 FIX-4 supersedes "
+        f"OPT-062). Got: {personas}"
     )
     assert "lens-fast" not in personas, (
         f"orchestrator-only personas (lens-fast) must be excluded. Got: {personas}"

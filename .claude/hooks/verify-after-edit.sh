@@ -14,6 +14,19 @@
 #       declared scope, a hard REVISE block is emitted (exit 2) before the
 #       advisory lint pass runs.
 #
+#       TURN-SCOPING (TASK-049): the checked set is the agent-reported
+#       files_changed INTERSECTED with the actual working-tree delta
+#       (`git diff --name-only HEAD` UNION `git ls-files --others
+#       --exclude-standard`). Neither signal alone is enough — files_changed
+#       alone trusts a self-report with no floor, and the working-tree delta
+#       alone can't tell a file created THIS turn from stale untracked cruft
+#       left over from an earlier turn (both show as `??` in git status).
+#       Intersecting the two means: a brand-new file the agent reports AND
+#       that is actually untracked -> checked; a pre-existing untracked file
+#       the agent never mentions -> excluded, even though `git status` still
+#       lists it. Fail-open when PROJECT_ROOT isn't a git worktree: trust
+#       files_changed as-is rather than silently checking nothing.
+#
 # Wired via .claude/settings.json hooks.PostToolUse "Write|Edit|MultiEdit"
 # AND hooks.SubagentStop "".
 #
@@ -75,8 +88,9 @@ if [ "$EVENT" = "SubagentStop" ] || [ -z "$EVENT" ]; then
     .tool_response.text //
     ""
   ' 2>/dev/null)
+  reported_paths=""
   if [ -n "$text" ]; then
-    paths=$(printf '%s' "$text" | python3 -c '
+    reported_paths=$(printf '%s' "$text" | python3 -c '
 import sys, re, json
 text = sys.stdin.read()
 out = []
@@ -94,9 +108,29 @@ for block in re.findall(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL):
 for p in out:
     print(p)
 ' 2>/dev/null)
-    while IFS= read -r p; do
-      [ -n "$p" ] && FILES+=("$p")
-    done <<< "$paths"
+  fi
+
+  if [ -n "$reported_paths" ]; then
+    is_repo=$(cd "$PROJECT_ROOT" 2>/dev/null && git rev-parse --is-inside-work-tree 2>/dev/null) || true
+    if [ "$is_repo" = "true" ]; then
+      # THIS TURN's working-tree delta: tracked modifications vs HEAD, union
+      # untracked files. Used only to FLOOR the agent's self-report (see
+      # TURN-SCOPING note above) — never as the sole source of the file set.
+      delta=$(cd "$PROJECT_ROOT" && { git diff --name-only HEAD 2>/dev/null; git ls-files --others --exclude-standard 2>/dev/null; }) || true
+      norm_delta=$(printf '%s\n' "$delta" | sed -e 's#^\./##')
+      while IFS= read -r p; do
+        [ -z "$p" ] && continue
+        norm_p="${p#./}"; norm_p="${norm_p#/}"
+        if printf '%s\n' "$norm_delta" | grep -qxF "$norm_p"; then
+          FILES+=("$p")
+        fi
+      done <<< "$reported_paths"
+    else
+      # Not a git worktree — fail open, trust the agent's report as-is.
+      while IFS= read -r p; do
+        [ -n "$p" ] && FILES+=("$p")
+      done <<< "$reported_paths"
+    fi
   fi
 fi
 

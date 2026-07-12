@@ -11,6 +11,16 @@ from typing import Any, TypedDict
 from fastmcp import FastMCP
 
 from broker.db import log_broker_validation
+from broker.discovery import (
+    DiscoverResult,
+    PrepareResult,
+    RunResult,
+    nexus_discover_impl,
+    nexus_prepare_impl,
+    nexus_run_impl,
+)
+from broker.jit.context_expansion import JitCapabilityError
+from broker.jit.context_expansion import dispatch as jit_dispatch
 from broker.registry import ALLOWED_PERSONAS, PERSONA_INTENTS
 from broker.state import (
     REPO_ROOT,
@@ -18,6 +28,12 @@ from broker.state import (
     is_notepad_fresh,
     read_state,
     write_state,
+)
+from broker.worktree_registry import (
+    DEFAULT_TTL_SECONDS,
+    WorktreeRecord,
+    register_worktree,
+    release_worktree,
 )
 
 mcp = FastMCP("nexus-broker")
@@ -49,19 +65,16 @@ REQUIRED_BRIEF_FIELDS = ("goal", "context_files", "acceptance_criteria", "verifi
 # guarded by nexus-broker/tests/test_drift_guard.py / the gate-agreement tests.
 CODE_WRITING_PERSONAS = frozenset(
     {
-        "forge",
         "forge-ui",
         "forge-ui-pro",
         "forge-wire",
         "forge-wire-pro",
-        "pipeline",
         "pipeline-data",
         "pipeline-data-pro",
         "pipeline-async",
         "pipeline-async-pro",
         "atlas",
         "hermes",
-        "quill",
         "quill-ts",
         "quill-py",
     }
@@ -1079,6 +1092,90 @@ async def nexus_submit_feedback_tool(
         message=message,
         context_json=context_json,
     )
+
+
+@mcp.tool()
+async def nexus_discover() -> DiscoverResult:
+    """List every dispatchable persona and its legal intents.
+
+    R3-T02/N05 groundwork tool: pure, read-only, no state file touched. The
+    R4-T06 daemon serves this identical tool over its Unix socket unchanged
+    (C1.a) — the implementation lives in broker.discovery, which imports no
+    transport.
+    """
+    return nexus_discover_impl()
+
+
+@mcp.tool()
+async def nexus_prepare(persona: str, intent: str, turn_id: str) -> PrepareResult:
+    """Stage a prepared dispatch: validate persona/intent legality, mark prepared_at.
+
+    R3-T02/N05 groundwork tool. Call before nexus_run. Deterministic legality
+    check only — no model call, no network I/O, no sleep.
+    """
+    return nexus_prepare_impl(persona=persona, intent=intent, turn_id=turn_id)
+
+
+@mcp.tool()
+async def nexus_run(
+    turn_id: str = "",
+    capability_id: str | None = None,
+    params: dict[str, Any] | None = None,
+) -> RunResult | dict[str, Any]:
+    """Two jobs behind one tool — R5-T02 N47, proposal SS8/Phase-2's "zero new
+    top-level MCP tools" (the Claude-visible broker tool count stays exactly
+    what it was before this node).
+
+    1. `capability_id` absent (R3-T02/N05 groundwork, UNCHANGED): mark a
+       previously-prepared dispatch (nexus_prepare) as running. Requires a
+       matching, unexpired prepared_at — staleness window from
+       broker.state.resolve_turn_stale_seconds() (env NEXUS_TURN_STALE_SECONDS,
+       default 120, the pinned TURN_STALE_SECONDS). No fixed sleep anywhere on
+       this path.
+    2. `capability_id` given — one of `broker.jit.context_expansion.CAPABILITY_IDS`
+       (`memory.session_start_digest`, `tasks.reconcile`, `lessons.pending`,
+       `registry.query_full`): JIT context expansion. Returns the bounded
+       packet (token-capped, `source` marks daemon-vs-direct-fallback) for the
+       full/summary detail N45's capped SessionStart hooks replaced with a
+       pointer. An unknown capability id or unsupported mode is reported as
+       `{"ok": False, "error": ...}`, never raised across the tool boundary.
+    """
+    if capability_id is not None:
+        try:
+            return jit_dispatch(capability_id, params, project_path=REPO_ROOT)
+        except JitCapabilityError as exc:
+            return {"ok": False, "error": str(exc)}
+    return nexus_run_impl(turn_id=turn_id)
+
+
+@mcp.tool()
+async def nexus_register_worktree(
+    path: str,
+    owner_id: str,
+    branch: str,
+    ttl_seconds: int = DEFAULT_TTL_SECONDS,
+) -> WorktreeRecord:
+    """Register a worktree grant so worktree-guard.sh allows 'git worktree add <path>'.
+
+    DEC-008: worktrees are permitted for parallel workflows ONLY when the
+    workflow owns the full lifecycle — auto-merge-back AND removal as a
+    mandatory final phase. Call this BEFORE 'git worktree add', then call
+    nexus_release_worktree once the workflow merges back and removes the
+    worktree. path should be the absolute path the worktree will be created at
+    (must match what the guard resolves 'git worktree add <path>' to).
+    """
+    return register_worktree(path=path, owner_id=owner_id, branch=branch, ttl_seconds=ttl_seconds)
+
+
+@mcp.tool()
+async def nexus_release_worktree(path: str) -> bool:
+    """Release a worktree grant. Returns True iff a record existed and was removed.
+
+    Call this as the mandatory final phase of any DEC-008 workflow, right after
+    merge-back and 'git worktree remove' — an orphaned live record would let a
+    STALE path stay allow-listed until its TTL expires.
+    """
+    return release_worktree(path)
 
 
 if __name__ == "__main__":

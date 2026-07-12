@@ -7,17 +7,48 @@
 #   - A symptom-only fix remains a contract violation.
 #   - When an RCA block is absent entirely, emit ONE advisory nudge (exit 0).
 #   - scout/lens/lens-fast/palette on REVISE/BLOCKED: exempt entirely (exit 0).
-#   - Passes write a row to agent_root_cause_log in project.db.
+#   - Passes append a row to .memory/files/agent_root_cause_log.jsonl
+#     (ADR-001 Phase 0 — fire-and-forget telemetry; no gate reads this back
+#     synchronously, so a durable JSONL journal replaces the old raw
+#     sqlite3 INSERT + schema-init DDL entirely).
 #
 # Returns exit 0 always (advisory — never blocks).
 
+import importlib.util
 import json
 import os
 import re
-import sqlite3
 import subprocess
 import sys
+import time
 from datetime import datetime, timezone
+from pathlib import Path
+
+# Load _heartbeat from the same hooks directory. Best-effort only — see
+# _heartbeat.py; this MUST NEVER change exit code/behavior of this gate.
+try:
+    _hb_path = Path(__file__).parent / "_heartbeat.py"
+    _hb_spec = importlib.util.spec_from_file_location("_heartbeat", _hb_path)
+    _heartbeat_mod = importlib.util.module_from_spec(_hb_spec)
+    _hb_spec.loader.exec_module(_heartbeat_mod)
+except Exception:
+    _heartbeat_mod = None
+
+
+def _emit_heartbeat(event, decision, latency_ms):
+    if _heartbeat_mod is None:
+        return
+    _heartbeat_mod.emit_heartbeat("root-cause-gate", event, decision, latency_ms)
+
+
+_START_TIME = time.time()
+
+
+def _elapsed_ms():
+    try:
+        return int((time.time() - _START_TIME) * 1000)
+    except Exception:
+        return 0
 
 
 def _resolve_db_path() -> str:
@@ -46,6 +77,13 @@ def _resolve_db_path() -> str:
 
 DB_PATH = _resolve_db_path()
 
+# ADR-001 Phase 0: journal lives beside the (env/git-resolved) DB path rather
+# than a separate root — mirrors _HOOK_DB_PATH's existing test seam (a
+# scratch DB) so a test pointing _HOOK_DB_PATH at an isolated file also gets
+# an isolated journal, with zero new env plumbing.
+FILES_DIR = Path(DB_PATH).parent / "files"
+JOURNAL_PATH = FILES_DIR / "agent_root_cause_log.jsonl"
+
 # DEC-028: personas exempt from RCA checks on REVISE/BLOCKED markers.
 # Their job is to investigate / validate / report — not to fix.
 RCA_EXEMPT_PERSONAS = frozenset({"scout", "lens", "lens-fast", "palette"})
@@ -60,20 +98,22 @@ MARKER_RE = re.compile(
 )
 
 
-def init_table(conn: sqlite3.Connection) -> None:
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS agent_root_cause_log (
-            id              INTEGER PRIMARY KEY AUTOINCREMENT,
-            session_id      TEXT,
-            agent_name      TEXT,
-            task_summary    TEXT,
-            symptom         TEXT,
-            why_chain_json  TEXT,
-            pattern_fix     TEXT,
-            logged_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-    conn.commit()
+def _append_journal(row):
+    """Fire-and-forget JSONL append (ADR-001 Phase 0): no reader ever
+    synchronously blocks on this row (advisory RCA capture only), so a
+    durable append-only journal replaces the old raw sqlite3 INSERT + DDL —
+    no independent writer connection to project.db remains in this hook.
+
+    Returns an error string on failure (never raises) — mirrors the old
+    sqlite3.Error swallow so this hook still never blocks.
+    """
+    try:
+        FILES_DIR.mkdir(parents=True, exist_ok=True)
+        with open(JOURNAL_PATH, "a") as fh:
+            fh.write(json.dumps(row) + "\n")
+        return None
+    except OSError as exc:
+        return str(exc)
 
 
 def extract_rca(text: str) -> tuple[str, list[str], str]:
@@ -149,15 +189,26 @@ def main() -> int:
         or ""
     )
     session_id: str = payload.get("session_id", "unknown")
+    tool_input = payload.get("tool_input", {})
+    if not isinstance(tool_input, dict):
+        tool_input = {}
+    # NATIVE-4: agent_type / tool_input.agent_type added to the persona
+    # fallback chain (mirrors return-validator.py's _extract()). This harness
+    # dispatches via the Agent tool, which carries the persona under
+    # subagent_type for Task-shaped dispatches but under agent_type for
+    # Agent/Team-shaped dispatches — an Agent-tool SubagentStop payload was
+    # falling through all subagent_type-flavoured keys straight to "unknown".
     agent_name: str = (
         payload.get("agent_persona")
         or payload.get("subagent_type")
-        or payload.get("tool_input", {}).get("subagent_type")
+        or payload.get("agent_type")
+        or tool_input.get("subagent_type")
+        or tool_input.get("agent_type")
         or "unknown"
     )
     task_description: str = (
         payload.get("task_description")
-        or payload.get("tool_input", {}).get("description")
+        or tool_input.get("description")
         or os.environ.get("CLAUDE_TASK_DESCRIPTION", "")
         or ""
     )
@@ -203,34 +254,25 @@ def main() -> int:
         }))
         return 0
 
-    # Pass — log to DB.
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        init_table(conn)
-        conn.execute(
-            """
-            INSERT INTO agent_root_cause_log
-                (session_id, agent_name, task_summary, symptom, why_chain_json, pattern_fix, logged_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                session_id,
-                agent_name,
-                task_description[:200],
-                symptom,
-                json.dumps(why_chain),
-                pattern_fix,
-                datetime.now(timezone.utc).isoformat(),  # noqa: UP017
-            ),
-        )
-        conn.commit()
-        conn.close()
-    except sqlite3.Error:
-        # Fail-safe: DB write failure does not block the agent.
-        pass
+    # Pass — append to the JSONL journal (fail-safe: a write failure does
+    # not block the agent, mirroring the old sqlite3.Error swallow).
+    _append_journal({
+        "session_id": session_id,
+        "agent_name": agent_name,
+        "task_summary": task_description[:200],
+        "symptom": symptom,
+        "why_chain": why_chain,
+        "pattern_fix": pattern_fix,
+        "logged_at": datetime.now(timezone.utc).isoformat(),  # noqa: UP017
+    })
 
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    # main() returns an int (always 0 — advisory only, never blocks). Capture
+    # it here so heartbeat covers every one of main()'s early-return exit
+    # paths without touching its internal control flow.
+    _rc = main()
+    _emit_heartbeat("SubagentStop", "block" if _rc == 2 else "allow", _elapsed_ms())
+    sys.exit(_rc)

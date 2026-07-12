@@ -1,0 +1,17 @@
+schema_version: 2
+nodes:
+  - node_id: N1
+    depends_on: []
+    downstream_consumers: []
+    agent_persona: scout
+    goal: "Confirm an explicit executor: claude passes the enum check unchanged."
+    context_files: []
+    acceptance_criteria: ["executor is a recognized enum value"]
+    verification_method:
+      type: command
+      command: "echo ok"
+    risk_tier: T0
+    skills_required: []
+    do_not_touch: []
+    write_scope: []
+    executor: claude

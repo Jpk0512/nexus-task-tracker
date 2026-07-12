@@ -4,7 +4,7 @@ description: "Nexus-dispatched only — NOT for direct user invocation or auto-d
 model: sonnet
 effort: high
 color: magenta
-disallowedTools: Task, Agent
+tools: Read, Grep, Glob, Bash, Edit, Write, Skill, ToolSearch, mcp__plugin_socraticode_socraticode__*
 skills:
   - tdd-patterns
 ---

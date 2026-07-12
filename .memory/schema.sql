@@ -180,6 +180,31 @@ CREATE TABLE IF NOT EXISTS reflection_snapshot (
 --   dispatch_started_at TEXT  -- ISO-8601 UTC stamp of when the validating dispatch began
 --                             -- (distinct from validated_at = row-write time); lets
 --                             -- instrumentation compute lens wall-clock duration.
+--
+-- R1-T08 (lens-gate v2) adds two more nullable columns via the SAME idempotent
+-- ALTER migration (_migrate_validation_log_columns, log.py cmd_init) — additive,
+-- no backfill needed (NULL = pre-migration row, read as "tier unknown" by any
+-- future v2 gate query):
+--   lens_type   TEXT  -- 'T0' | 'T1' | 'T2' — depth tier the validating Lens
+--                     -- dispatch actually ran at (see lens.md 3-tier classifier).
+--                     -- Lets a future lens-gate query require >=1 PASS row at a
+--                     -- SPECIFIC tier instead of any row at any tier (closes the
+--                     -- stale-T0-satisfies-T2 gap named in the R1-T08 recon).
+--   risk_tier   TEXT  -- same domain as lens_type ('T0'|'T1'|'T2'); the tier the
+--                     -- ORCHESTRATOR'S classifier assigned to the dispatch ahead
+--                     -- of time (risk-based requirement), kept as a separate
+--                     -- column from lens_type (Lens's self-reported actual depth)
+--                     -- so a future gate can assert lens_type >= risk_tier rather
+--                     -- than collapsing "required" and "delivered" into one value.
+-- Existing agent_validated='lens' invariant is UNTOUCHED: nothing above changes
+-- how agent_validated is populated, queried, or gated — lens_type/risk_tier are
+-- purely additive siblings alongside it.
+--
+-- DDL + CLI-wiring design for this migration (ALTER statements, argparse flags
+-- for `validation add --lens-type/--risk-tier`, rollback, verification SELECTs):
+-- see .memory/migrations/M-002-validation-log-lens-tier.md. That file is the
+-- design-of-record Pipeline executes from; schema.sql stays documentation-only
+-- for ALTER-added nullable columns per this file's existing convention.
 CREATE TABLE IF NOT EXISTS validation_log (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
     session_id          TEXT,
@@ -261,6 +286,135 @@ CREATE TABLE IF NOT EXISTS embed_provenance (
     embedded_at  TEXT NOT NULL,          -- ISO-8601 UTC
     PRIMARY KEY(kind, ref_id)
 );
+
+-- Agent activity capture — R1-T05 (cockpit feed)
+-- Per-agent activity rows consumed by the observability cockpit.
+-- The cockpit queries: SELECT agent,task,started,elapsed,status,current_action
+-- FROM agent_activity ORDER BY started DESC LIMIT 50
+CREATE TABLE IF NOT EXISTS agent_activity (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    agent          TEXT NOT NULL,
+    task           TEXT,
+    started        TEXT NOT NULL,    -- ISO-8601 UTC
+    elapsed        TEXT,             -- human string, e.g. "3m42s"; set by `activity end`
+    status         TEXT,             -- active | done | failed
+    current_action TEXT,
+    session_id     TEXT,
+    updated_at     TEXT             -- ISO-8601 UTC; set on update + end
+);
+
+CREATE INDEX IF NOT EXISTS idx_agent_activity_started
+    ON agent_activity(started DESC);
+
+-- Dispatch telemetry — NATIVE-42 / R1-T01 (exact, orchestrator-captured
+-- per-dispatch token+time capture; the completion-time KPI substrate).
+-- The orchestrator reads exact subagent_tokens + duration_ms from each
+-- async/Workflow dispatch completion notification and logs one row here.
+-- token_source='approx' marks the char/4 heuristic fallback used only for
+-- synchronous dispatches with no usage block in the completion notification.
+CREATE TABLE IF NOT EXISTS dispatch_telemetry (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id    TEXT,
+    dispatch_id   TEXT,                              -- harness agent/dispatch id (nullable)
+    persona       TEXT NOT NULL,                     -- dispatched persona
+    model         TEXT,                              -- opus|sonnet|haiku|fable lineage (nullable)
+    task_id       TEXT,                              -- task/feature id (nullable)
+    marker        TEXT,                              -- terminal NEXUS marker: DONE|REVISE|BLOCKED|... (nullable)
+    tokens        INTEGER,                           -- exact subagent_tokens, or char/4 approx
+    token_source  TEXT NOT NULL DEFAULT 'exact',     -- 'exact' | 'approx'
+    tool_uses     INTEGER,                           -- from notification (nullable)
+    duration_ms   INTEGER,                           -- exact wall-clock ms
+    run_context   TEXT DEFAULT 'local',               -- 'local' | 'ci'
+    recorded_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_dispatch_telemetry_persona
+    ON dispatch_telemetry(persona, recorded_at DESC);
+
+-- Dispatch telemetry — nullable additive columns (R2-T15 / spec §7, FIX-2)
+-- NOT declared inline above because dispatch_telemetry's CREATE TABLE uses
+-- IF NOT EXISTS and would never touch a live (already-created) project.db —
+-- same documented-but-ALTER-applied convention as validation_log's three
+-- nullable columns (lines ~174-182 above) and the OPT-054 bi-temporal columns
+-- (lines ~423-441 above). Pipeline applies these via an idempotent ALTER in
+-- log.py cmd_init (_migrate_dispatch_telemetry_columns or equivalent), guarded
+-- by a PRAGMA table_info existence check so re-running is a no-op.
+--
+-- These are genuinely one-row-per-dispatch shaped (W4 instrumentation, spec
+-- §7 second bullet) — they do NOT collide with the strict one-row-per-dispatch
+-- invariant R1-T01 established and health.py's completion-time KPI test
+-- asserts against, because they describe a property of the dispatch itself,
+-- not an N-per-dispatch event stream (that's skill_load_events, below).
+--
+--   independent_subtask_count  INTEGER  -- count of independent subtasks the
+--                                       -- orchestrator identified before this
+--                                       -- dispatch (Art. XIII.d decompose-cue
+--                                       -- instrumentation); NULL = not recorded
+--                                       -- (pre-migration row, or dispatch predates
+--                                       -- W4 instrumentation in the calling code).
+--   decomposition_considered   INTEGER  -- 0/1 boolean-as-int; whether the
+--                                       -- orchestrator explicitly evaluated a
+--                                       -- Workflow/fan-out decomposition before
+--                                       -- issuing this dispatch (parallel-first-check
+--                                       -- discipline, DEC-029). NULL = not recorded.
+--
+-- Rollback (forward-only migration; documented for completeness, DuckDB/SQLite
+-- both support DROP COLUMN as of the versions in use):
+--   ALTER TABLE dispatch_telemetry DROP COLUMN independent_subtask_count;
+--   ALTER TABLE dispatch_telemetry DROP COLUMN decomposition_considered;
+
+-- Skill-load events — R2-T15 / spec §7 (FIX-2 corrected design)
+-- Event-sourced evidence that a persona actually invoked the Skill tool during
+-- a dispatch, as observed by the harness — NOT the persona's self-reported
+-- `skills_loaded: [...]` claim in its return text, which is DATA and
+-- unverifiable (spec §7: "A persona *claiming* skills_loaded [...] is DATA —
+-- unverifiable and gameable. The Skill tool invocation is an event the harness
+-- observes; that observed event is the only trustworthy signal.").
+--
+-- Deliberately a SEPARATE table from dispatch_telemetry, not merged into it:
+-- dispatch_telemetry (R1-T01, commit 9f2ad7a) is a strict one-row-per-dispatch
+-- shape asserted by health.py's completion-time KPI test. Skill-load events are
+-- N-per-dispatch (a persona may invoke 0, 1, or many Skill calls per dispatch).
+-- Collapsing the two would force either denormalization (repeating dispatch
+-- cost N times) or breaking the one-row invariant — both rejected. Do not
+-- collapse these tables for "simplicity" (spec §9, explicit non-relitigation
+-- item).
+--
+-- dispatch_id is TEXT (matches dispatch_telemetry.dispatch_id's type, not its
+-- id INTEGER PRIMARY KEY) because dispatch_telemetry.dispatch_id is the
+-- harness-assigned dispatch identifier and is itself nullable/non-unique in
+-- that table today (no UNIQUE constraint — see the comment above
+-- dispatch_telemetry's CREATE TABLE). The FK below is therefore advisory
+-- (DuckDB/SQLite do not enforce referential integrity strictly without
+-- PRAGMA foreign_keys=ON + a unique/PK target); Pipeline's write path is
+-- expected to only insert skill_load_events rows for a dispatch_id it also
+-- wrote (or is about to write) a dispatch_telemetry row for. A row here whose
+-- dispatch_id never appears in dispatch_telemetry is treated as orphaned data
+-- to be caught by verification, not blocked at write time.
+--
+-- `skills_required` (from persona metadata / the frozen packet schema)
+-- comparison against these rows is SHADOW/ADVISORY mode only in R2 —
+-- skills-required-guard.sh promotion to hard-deny is explicitly R3-T07/T08
+-- scope per spec §7; do not wire a deny path against this table in R2.
+CREATE TABLE IF NOT EXISTS skill_load_events (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    dispatch_id TEXT NOT NULL,        -- FK (advisory) -> dispatch_telemetry.dispatch_id
+    skill_id    TEXT NOT NULL,        -- skill name as passed to the Skill tool (e.g. "atlas-schema-patterns")
+    ts          TEXT NOT NULL,        -- ISO-8601 UTC; when the Skill invocation event was observed
+    byte_len    INTEGER,              -- size in bytes of the injected skill content; NULL if not measured
+    recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_skill_load_events_dispatch
+    ON skill_load_events(dispatch_id);
+
+CREATE INDEX IF NOT EXISTS idx_skill_load_events_skill
+    ON skill_load_events(skill_id, ts DESC);
+
+-- Rollback (forward-only migration; documented for completeness):
+--   DROP INDEX IF EXISTS idx_skill_load_events_skill;
+--   DROP INDEX IF EXISTS idx_skill_load_events_dispatch;
+--   DROP TABLE IF EXISTS skill_load_events;
 
 -- Nexus self-feedback — DEC-019 (self-feedback MVP)
 -- Per-project friction log: project agents self-report when Nexus itself blocks,

@@ -93,14 +93,14 @@ class TestLensGateSubagentStopShape:
     HOOK_FILE = "lens-gate.sh"
 
     def _source_done_payload(self) -> dict:
-        # NEXUS:DONE from a gated persona (forge) with a source file in
+        # NEXUS:DONE from a gated persona (forge-ui) with a source file in
         # files_changed — triggers the Lens-validation requirement.
         return {
             "last_assistant_message": (
                 "## NEXUS:DONE\n"
                 '```json\n{"files_changed": ["app/foo.ts"]}\n```'
             ),
-            "subagent_type": "forge",
+            "subagent_type": "forge-ui",
         }
 
     def test_block_exits_2_with_reason_on_stderr(self, tmp_path: Path) -> None:
@@ -152,7 +152,7 @@ class TestLensGateSubagentStopShape:
                     "## NEXUS:DONE\n"
                     '```json\n{"files_changed": ["docs/x.md"]}\n```'
                 ),
-                "subagent_type": "forge",
+                "subagent_type": "forge-ui",
             },
             env_overrides={"_HOOK_DB_PATH": str(db_path)},
         )
@@ -160,6 +160,124 @@ class TestLensGateSubagentStopShape:
             f"pure-docs NEXUS:DONE must allow (exit 0), got "
             f"{result.returncode}: stderr={result.stderr!r}"
         )
+
+
+class TestLensGateRetiredBasePersona:
+    """Regression for a NameError crash in the RETIRED_BASE_PERSONAS branch.
+
+    The package build of lens-gate.sh is self-contained by design (see
+    _record_block's own docstring: "no _gate_deny_mod import"). Every other
+    deny path in the file follows that convention — plain
+    print(reason, file=sys.stderr) + _record_block(...) + return 2. The
+    RETIRED_BASE_PERSONAS branch alone was a stale copy-paste of the LIVE
+    hook's shared-module call (_gate_deny_mod.deny(EVENT, ...)), and neither
+    `_gate_deny_mod` nor `EVENT` exist in this file — an uncaught NameError
+    (exit 1, uncontrolled crash) instead of the intended fail-closed exit 2.
+
+    R4d (build_snapshot.sh hook-syntax check) is py_compile/bash -n only —
+    a NameError on a module-global lookup is a RUNTIME error, invisible to
+    static compilation, which is why the syntax gate never caught this. Only
+    a real subprocess-execution test (this one) exercises the branch.
+
+    This is proven by directly invoking the hook subprocess (not mocking
+    _gate_deny_mod away) — a payload with agent_persona="forge" (or
+    "pipeline"/"quill") + a NEXUS:DONE marker reaches this branch through
+    main()'s real control flow.
+    """
+
+    HOOK_FILE = "lens-gate.sh"
+
+    @pytest.mark.parametrize("base_persona", ["forge", "pipeline", "quill"])
+    def test_retired_base_persona_blocks_with_exit_2(self, base_persona: str) -> None:
+        """GIVEN a NEXUS:DONE self-reported under a retired base persona name
+        WHEN lens-gate.sh runs
+        THEN it exits 2 (fail-closed block) — NOT exit 1 (uncaught NameError
+        crash) — with the DEC-051 reason on stderr naming the split variant."""
+        result = _run(
+            self.HOOK_FILE,
+            {
+                "agent_persona": base_persona,
+                "last_assistant_message": "## NEXUS:DONE\nall good",
+            },
+        )
+        assert result.returncode == 2, (
+            f"retired base persona '{base_persona}' must BLOCK via exit 2, got "
+            f"{result.returncode}. stdout={result.stdout!r} stderr={result.stderr!r}"
+        )
+        assert "NameError" not in result.stderr, (
+            f"lens-gate must not crash with NameError, got stderr: {result.stderr!r}"
+        )
+        assert "Traceback" not in result.stderr, (
+            f"lens-gate must not raise an uncaught exception, got stderr: {result.stderr!r}"
+        )
+        assert "retired base persona" in result.stderr and "DEC-051" in result.stderr, (
+            f"expected the DEC-051 retired-base-persona reason on stderr, got: {result.stderr!r}"
+        )
+        assert base_persona in result.stderr
+
+    def test_retired_base_persona_does_not_emit_nested_permission_decision(
+        self,
+    ) -> None:
+        """Same SubagentStop shape contract as the rest of this file: the
+        block must stay exit-2 + stderr, never the PreToolUse-only nested
+        hookSpecificOutput.permissionDecision JSON shape."""
+        result = _run(
+            self.HOOK_FILE,
+            {
+                "agent_persona": "forge",
+                "last_assistant_message": "## NEXUS:DONE\nall good",
+            },
+        )
+        assert not _has_nested_permission_decision(result.stdout), (
+            "lens-gate RETIRED_BASE_PERSONAS block must keep the exit-2+stderr "
+            f"SubagentStop shape, got stdout: {result.stdout!r}"
+        )
+
+    def test_retired_base_persona_writes_gate_blocks_sink(
+        self, tmp_path: Path
+    ) -> None:
+        """The fixed branch must record its block to the gate_blocks.jsonl
+        telemetry sink like every other deny path in this file (previously
+        impossible — the process crashed with NameError before reaching any
+        _record_block call)."""
+        sink_path = tmp_path / "gate_blocks.jsonl"
+        result = _run(
+            self.HOOK_FILE,
+            {
+                "agent_persona": "forge",
+                "last_assistant_message": "## NEXUS:DONE\nall good",
+            },
+            env_overrides={"NEXUS_GATE_BLOCKS_PATH": str(sink_path)},
+        )
+        assert result.returncode == 2
+        assert sink_path.is_file(), "expected gate_blocks.jsonl sink to be written"
+        rows = [json.loads(line) for line in sink_path.read_text().splitlines() if line]
+        assert any(
+            r.get("hook") == "LENS" and r.get("code") == "RETIRED-BASE-PERSONA"
+            for r in rows
+        ), f"expected a LENS/RETIRED-BASE-PERSONA row in the sink, got: {rows!r}"
+
+    def test_non_retired_gated_agent_still_reaches_lens_validation_check(
+        self, tmp_path: Path
+    ) -> None:
+        """Sanity check the RETIRED_BASE_PERSONAS branch does not swallow
+        non-retired gated agents: a split-variant persona (forge-ui) with no
+        Lens row still falls through to the ordinary Rule-17 block, unaffected
+        by this fix."""
+        db_path = tmp_path / "project.db"
+        result = _run(
+            self.HOOK_FILE,
+            {
+                "subagent_type": "forge-ui",
+                "last_assistant_message": (
+                    "## NEXUS:DONE\n"
+                    '```json\n{"files_changed": ["app/foo.ts"]}\n```'
+                ),
+            },
+            env_overrides={"_HOOK_DB_PATH": str(db_path)},
+        )
+        assert result.returncode == 2
+        assert "Rule 17" in result.stderr
 
 
 # ---------------------------------------------------------------------------
@@ -174,7 +292,7 @@ class TestRootCauseGateSubagentStopShape:
     def _revise_without_rca_payload(self) -> dict:
         return {
             "last_assistant_message": "## NEXUS:REVISE\nsomething went wrong",
-            "subagent_type": "forge",
+            "subagent_type": "forge-ui",
             "task_description": "fix the bug",
         }
 
@@ -208,7 +326,7 @@ class TestRootCauseGateSubagentStopShape:
             self.HOOK_FILE,
             {
                 "last_assistant_message": "## NEXUS:DONE\nadded a feature",
-                "subagent_type": "forge",
+                "subagent_type": "forge-ui",
                 "task_description": "add a new button",
             },
         )
@@ -227,7 +345,7 @@ class TestRootCauseGateSubagentStopShape:
             self.HOOK_FILE,
             {
                 "last_assistant_message": f"## NEXUS:{marker}\nno rca here",
-                "subagent_type": "forge",
+                "subagent_type": "forge-ui",
                 "task_description": "anything",
             },
         )
@@ -281,7 +399,7 @@ class TestLensGateGroundTruth:
         return {
             "last_assistant_message": text,
             "session_id": "S-lens-gt",
-            "subagent_type": "forge",
+            "subagent_type": "forge-ui",
             "task_description": "S2-14 ground-truth fixture task",
         }
 

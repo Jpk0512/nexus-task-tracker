@@ -7,7 +7,7 @@ description: Integration / auth patterns for Tableau REST + VDS + Metadata, Azur
 
 Canonical reference for service wiring, auth flows, and env-var routing.
 
-## Tableau auth (DEC-004) — THE TRAP
+## Tableau auth (ORIGIN-DEC-004) — THE TRAP
 
 - **`TABLEAU_SITE_ID` is the LUID** (UUID format, e.g. `a1b2c3d4-...`). DO NOT use it in the sign-in payload.
 - **`TABLEAU_SITE_CONTENT_URL` is the slug** (e.g. `mycompany` from `https://server/site/mycompany/`). USE THIS in the sign-in REST payload.

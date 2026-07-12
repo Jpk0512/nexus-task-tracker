@@ -36,39 +36,21 @@ form → CONFIRM with user ONCE → then DRIVE**.
 
 ---
 
-## Runaway-guard checklist (REQUIRED on every loop)
+## Runaway-guard checklist
 
-Before writing any `for` / `while` loop phase, verify ALL five ceilings:
-
-- [ ] **Max-iteration cap** — `budget({ maxIterations: N })` or an explicit loop
-      counter. The cap MUST be set before the first iteration runs.
-- [ ] **No-progress detection** — halt on identical findings / empty diffs /
-      recurring identical errors >= 3 consecutive times. Track `prev_findings` and
-      compare; if unchanged, `break` and escalate.
-- [ ] **Separate-judge pre-exit assertion** — before any RESOLVED exit (including the
-      scan early-exit), call `assertSeparateJudge()` (see §assertSeparateJudge below).
-      A Lens PASS row keyed to the accumulated `files_changed` MUST exist. If it does
-      not, exit UNRESOLVED and escalate. Self-report is DATA, not a verdict.
-- [ ] **Token/$ budget** — `budget({ maxTokens: N })` or a turn-count ceiling.
-      One of the three independent ceilings (max-iter / no-progress / budget).
-- [ ] **Circuit-breaker** — a failures-per-window rate limit. If the same error
-      fires N times in M iterations, `TaskStop` + escalate rather than grinding.
-- [ ] **Separate judge (Lens)** — the agent that produced the output NEVER decides
-      it is done. A separate Lens `agent()` (or the orchestrator reading the oracle)
-      confirms termination. A producer's self-reported completion marker is never
-      the loop exit condition.
+The five ceilings (max-iteration cap, no-progress detection, separate-judge pre-exit
+assertion, token/$ budget, circuit-breaker) are canonical in `Skill nexus-dispatch-catalog`
+§Runaway-guard checklist — load it before writing any `for`/`while` loop phase. The one
+piece that lives HERE because it's an executable pattern, not a checklist bullet, is
+`assertSeparateJudge()` below — the concrete gate-at-every-exit implementation.
 
 ---
 
 ## Fan-out width in loop bodies
 
-Fan out as wide as the work genuinely warrants — there is NO fixed K cap. The only
-hard limits are the harness's: ~16 agents run CONCURRENTLY (the rest QUEUE
-automatically — no failure, no API-rate penalty), 1000 agents total per run, 4096
-fan-out per single call. Two real pressures remain, NEITHER numeric: (a) diverse
-personas usually beat identical clones — prefer heterogeneous decomposition over
-wide homogeneous duplication; (b) a separate verify/critic phase (Lens) is still
-mandatory. Chunk by independent units, not by an arbitrary count.
+Same non-numeric guidance as everywhere else in the dispatch family (no fixed K cap; the
+harness caps + the two real pressures): `Skill nexus-dispatch-catalog`. Chunk loop
+batches by independent unit, not by an arbitrary count.
 
 ---
 
@@ -287,28 +269,17 @@ Use phase()-loop for: local oracle (tests, scan, gate), in-process iteration.
 
 ## Pattern 5 — Goal-model loop (iterate-until-verifiable-goal)
 
-For **goal-shaped** work, run the full goal model before the loop:
+The goal model itself (elicit→clarify→confirm→drive, LIGHT Goal Object vs HEAVY Loss
+Function) is owned by `Skill nexus-dispatch-catalog` §GOAL MODEL — load it for the
+schema and tier decision. Once CONFIRMed, the DRIVE step is just **Pattern 1** above with
+the Goal Object's `acceptance_checks` as the oracle:
 
 ```
-1. ELICIT  — if goal is vague, ask ONE sharp clarifying question
-2. CLARIFY — refine into a verifiable Goal Object:
-   {
-     success_criteria: ["uv run pytest exits 0", "ruff check exits 0"],
-     acceptance_checks: ["uv run pytest nexus-broker/tests/ -q", "uv run ruff check nexus-broker/src/"],
-     non_goals: ["do not change test fixtures"],
-     open_questions: []     // must be empty or tracked before driving
-   }
-3. CONFIRM — surface Goal Object to user; get ONE confirmation
-4. DRIVE   — use iterate-until-oracle (Pattern 1) with the acceptance_checks as the oracle
+DRIVE: iterate-until-oracle (Pattern 1), oracle = goal.acceptance_checks
 ```
 
 **Nexus mapping:** `acceptance_checks` = the oracle instruments; Lens = the separate judge;
 `.memory/log.py lesson add` = failure-boundary memory; git commit per phase = durable progress.
-
-**HEAVY tier (Loss Function):** escalate to `Skill nexus-loss-function` when the work is
-long-running, autonomous, or metric-optimization across many cycles — not a one-shot "make it
-green". The HEAVY tier adds a TARGET (blinded), CONSTRAINTS with instruments, FORCED ENTROPY
-with overfit reflection, and a dev/holdout split.
 
 ---
 

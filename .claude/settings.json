@@ -2,7 +2,8 @@
   "agent": "nexus-orchestrator",
   "env": {
     "ARIZE_PROJECT_NAME": "nexus-task-tracker",
-    "MEMORY_TOOL_PATH": ".memory/files"
+    "MEMORY_TOOL_PATH": ".memory/files",
+    "ENABLE_TOOL_SEARCH": "true"
   },
   "permissions": {
     "allow": [
@@ -73,27 +74,6 @@
       "Bash(sed -n:*)",
       "Bash(comm:*)",
       "Bash(flock:*)",
-      "mcp__plugin_socraticode_socraticode__codebase_search",
-      "mcp__plugin_socraticode_socraticode__codebase_symbol",
-      "mcp__plugin_socraticode_socraticode__codebase_symbols",
-      "mcp__plugin_socraticode_socraticode__codebase_status",
-      "mcp__plugin_socraticode_socraticode__codebase_about",
-      "mcp__plugin_socraticode_socraticode__codebase_health",
-      "mcp__plugin_socraticode_socraticode__codebase_context",
-      "mcp__plugin_socraticode_socraticode__codebase_context_search",
-      "mcp__plugin_socraticode_socraticode__codebase_context_index",
-      "mcp__plugin_socraticode_socraticode__codebase_graph_query",
-      "mcp__plugin_socraticode_socraticode__codebase_graph_status",
-      "mcp__plugin_socraticode_socraticode__codebase_graph_stats",
-      "mcp__plugin_socraticode_socraticode__codebase_graph_visualize",
-      "mcp__plugin_socraticode_socraticode__codebase_graph_build",
-      "mcp__plugin_socraticode_socraticode__codebase_graph_circular",
-      "mcp__plugin_socraticode_socraticode__codebase_flow",
-      "mcp__plugin_socraticode_socraticode__codebase_impact",
-      "mcp__plugin_socraticode_socraticode__codebase_list_projects",
-      "mcp__plugin_socraticode_socraticode__codebase_index",
-      "mcp__plugin_socraticode_socraticode__codebase_watch",
-      "mcp__plugin_socraticode_socraticode__codebase_update",
       "Workflow",
       "Monitor",
       "CronCreate",
@@ -153,36 +133,11 @@
         ]
       },
       {
-        "matcher": "Task|TeamCreate",
+        "matcher": "Task|TeamCreate|Agent",
         "hooks": [
           {
             "type": "command",
-            "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/broker-gate.py"
-          },
-          {
-            "type": "command",
-            "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/skills-required-guard.sh"
-          },
-          {
-            "type": "command",
-            "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/persona-alias-resolver.sh"
-          },
-          {
-            "type": "command",
-            "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/parallel-first-check.sh"
-          },
-          {
-            "type": "command",
-            "command": "python3 /Users/john.keeney/nexus-task-tracker/.claude/hooks/dispatch-capture.py || true"
-          }
-        ]
-      },
-      {
-        "matcher": "Agent",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 /Users/john.keeney/nexus-task-tracker/.claude/hooks/dispatch-capture.py || true"
+            "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/_py.sh /Users/john.keeney/nexus-task-tracker/.claude/hooks/gate_runner.py pretooluse-dispatch"
           }
         ]
       },
@@ -192,17 +147,30 @@
           {
             "type": "command",
             "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/secret-path-guard.sh"
+          },
+          {
+            "type": "command",
+            "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/oracle-immutability-guard.sh"
           }
         ]
       }
     ],
     "PostToolUse": [
       {
-        "matcher": "mcp__plugin_socraticode_socraticode__codebase_search|mcp__plugin_socraticode_socraticode__codebase_symbol|mcp__plugin_socraticode_socraticode__codebase_symbols|mcp__plugin_socraticode_socraticode__codebase_context_search|mcp__plugin_socraticode_socraticode__codebase_graph_query|mcp__plugin_socraticode_socraticode__codebase_impact|mcp__plugin_socraticode_socraticode__codebase_flow",
+        "matcher": "mcp__plugin_socraticode_socraticode__.*",
         "hooks": [
           {
             "type": "command",
             "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/socraticode-flag.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/_py.sh /Users/john.keeney/nexus-task-tracker/.claude/hooks/skill-load-capture.py || true"
           }
         ]
       },
@@ -229,7 +197,7 @@
         ]
       },
       {
-        "matcher": "Read|Grep|Glob|mcp__plugin_socraticode_socraticode__codebase_search|mcp__plugin_socraticode_socraticode__codebase_symbol|mcp__plugin_socraticode_socraticode__codebase_symbols|mcp__plugin_socraticode_socraticode__codebase_context_search|mcp__plugin_socraticode_socraticode__codebase_graph_query|mcp__plugin_socraticode_socraticode__codebase_impact|mcp__plugin_socraticode_socraticode__codebase_flow|Edit|Write|MultiEdit|NotebookEdit|Bash|Task",
+        "matcher": "Read|Grep|Glob|mcp__plugin_socraticode_socraticode__.*|Edit|Write|MultiEdit|NotebookEdit|Bash|Task",
         "hooks": [
           {
             "type": "command",
@@ -253,47 +221,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/verify-deliverables.sh"
-          },
-          {
-            "type": "command",
-            "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/verify-after-edit.sh"
-          },
-          {
-            "type": "command",
-            "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/root-cause-gate.sh"
-          },
-          {
-            "type": "command",
-            "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/lens-gate.sh"
-          },
-          {
-            "type": "command",
-            "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/no-deferral-gate.sh"
-          },
-          {
-            "type": "command",
-            "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/visual-evidence-gate.sh"
-          },
-          {
-            "type": "command",
-            "command": "python3 /Users/john.keeney/nexus-task-tracker/.claude/hooks/return-validator.py || true"
-          },
-          {
-            "type": "command",
-            "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/return-summarizer.sh 2>/dev/null || true"
-          },
-          {
-            "type": "command",
-            "command": "python3 /Users/john.keeney/nexus-task-tracker/.claude/hooks/completion-capture.py || true"
-          },
-          {
-            "type": "command",
-            "command": "python3 /Users/john.keeney/nexus-task-tracker/.claude/hooks/feedback-capture.py || true"
-          },
-          {
-            "type": "command",
-            "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/do-not-touch-guard.sh || true"
+            "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/_py.sh /Users/john.keeney/nexus-task-tracker/.claude/hooks/gate_runner.py subagentstop"
           }
         ]
       }
@@ -304,15 +232,15 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/memory-consolidator.sh 2>/dev/null || true"
-          },
-          {
-            "type": "command",
             "command": "python3 /Users/john.keeney/nexus-task-tracker/.memory/log.py context snapshot --action-type session_stop --summary \"Auto-snapshot at agent stop\" 2>/dev/null || true; python3 /Users/john.keeney/nexus-task-tracker/.memory/sync_docs.py 2>/dev/null || true"
           },
           {
             "type": "command",
             "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/session-end-reminder.sh 2>/dev/null || true"
+          },
+          {
+            "type": "command",
+            "command": "python3 /Users/john.keeney/nexus-task-tracker/.claude/hooks/lens-tier-backstop.sh 2>/dev/null || true"
           }
         ]
       }
@@ -344,17 +272,6 @@
           {
             "type": "command",
             "command": "/Users/john.keeney/nexus-task-tracker/.claude/hooks/inject-invariants.sh session-start 2>/dev/null || true"
-          }
-        ]
-      }
-    ],
-    "PreCompact": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 /Users/john.keeney/nexus-task-tracker/.claude/hooks/precompact-reinject.py 2>/dev/null || true"
           }
         ]
       }

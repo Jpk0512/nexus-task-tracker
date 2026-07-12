@@ -91,6 +91,31 @@ Before briefing any teammate in a dynamic Workflow, intersect the teammate's ass
 
 A brief that spans ownership lines is a dispatch contract violation — Lens will flag it and the task will require a REVISE cycle.
 
+## Isolation discipline — worktree vs session branch (RDEC-018 Option 3, DEC-008 default)
+
+**Worktree isolation is the DEFAULT for parallel multi-part implementation** — run 2-3
+independent phases at once in registered worktrees, not as an opt-in exception. When Nexus
+briefs teammates for a Workflow:
+
+- **≥2 independent code-writing legs in parallel** (forge-ui/forge-wire/pipeline-data/
+  pipeline-async/hermes/atlas each editing disjoint files): the orchestrator registers a
+  worktree per leg (`nexus_register_worktree`, owner_id=persona) BEFORE spawning, and each
+  brief carries `isolation_mode: worktree` + `worktree_path: <absolute-path>` (the
+  registration the orchestrator already made).
+- **A SINGLE indivisible workflow**: stays directly on the session branch, `isolation_mode:
+  main`, no worktree.
+- **Sequential legs inside one Workflow** (a write-dependency chain) or **read-only legs**
+  (Scout/Lens): stay on the session branch by default — isolation buys nothing when there's
+  no concurrent write.
+- **Self-modifying lanes** (`.claude/hooks/**`, `.claude/settings.json`, `.claude/agents/**`)
+  get `worktree_required: true` regardless of leg count (DEC-008's original hazard class).
+
+Fail-closed, unchanged: an unregistered worktree path is hard-DENIED by `worktree-guard.sh`
+on `git worktree add` — registration is the orchestrator's responsibility, never implicit.
+Every registered worktree branches off the session branch (never hardcoded `main`) and the
+merge-back+remove is a MANDATORY final phase — no orphan may ever survive. Full ladder +
+registration mechanics: `Skill nexus-dispatch-catalog`.
+
 ## Pairing rules
 
 - **Tableau API work** → hermes leads, but ALWAYS Scout first to map the existing client surface

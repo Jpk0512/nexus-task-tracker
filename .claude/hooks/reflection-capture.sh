@@ -2,19 +2,25 @@
 # PostToolUse hook: captures a snapshot row whenever a doc-critical file is
 # edited (docs/features/*, docs/CONSTITUTION.md, docs/DECISIONS.md).
 # Non-blocking — records only.
+#
+# ADR-001 Phase 0: appends to .memory/files/reflection_snapshot.jsonl instead
+# of INSERTing into project.db — fire-and-forget telemetry (no gate reads
+# this back synchronously), so a durable JSONL journal replaces the old raw
+# sqlite3 INSERT + schema-init DDL entirely.
 
 import json
 import os
 import re
-import sqlite3
 import sys
 from datetime import datetime, timezone
+from pathlib import Path
 
 # Install-time substitution renders /Users/john.keeney/nexus-task-tracker. Tests (and a runtime
 # sanity check) can override via the _HOOK_INSTALL_ROOT env var. KEEP the literal
 # /Users/john.keeney/nexus-task-tracker as the default so render_template still substitutes it.
 REPO = os.environ.get("_HOOK_INSTALL_ROOT", "/Users/john.keeney/nexus-task-tracker")
-DB_PATH = f"{REPO}/.memory/project.db"
+FILES_DIR = Path(REPO) / ".memory" / "files"
+JOURNAL_PATH = FILES_DIR / "reflection_snapshot.jsonl"
 
 WATCHED_PATTERNS = (
     re.compile(r"docs/features/"),
@@ -25,18 +31,18 @@ WATCHED_PATTERNS = (
 MIN_LINE_DIFF = 5
 
 
-def init_table(conn: sqlite3.Connection) -> None:
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS reflection_snapshot (
-            id              INTEGER PRIMARY KEY AUTOINCREMENT,
-            session_id      TEXT,
-            file_path       TEXT NOT NULL,
-            action_type     TEXT,
-            one_line_summary TEXT,
-            captured_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-    conn.commit()
+def _append_journal(row):
+    """Fire-and-forget JSONL append (ADR-001 Phase 0). Returns an error
+    string on failure (never raises) — mirrors the old sqlite3.Error swallow
+    so this hook still never blocks.
+    """
+    try:
+        FILES_DIR.mkdir(parents=True, exist_ok=True)
+        with open(JOURNAL_PATH, "a") as fh:
+            fh.write(json.dumps(row) + "\n")
+        return None
+    except OSError as exc:
+        return str(exc)
 
 
 def classify_action(file_path: str) -> str:
@@ -79,13 +85,14 @@ def summarize_diff(old_content: str, new_content: str) -> tuple[str, int]:
 
 def _emit_unrendered_warning() -> None:
     """The install-time /Users/john.keeney/nexus-task-tracker token was never rendered. This hook
-    would otherwise silently no-op (DB_PATH points at a literal-token path that
-    does not exist), so doc-critical edits would never be snapshotted. Fail SAFE
-    (do not block the edit) but LOUD: emit a nested additionalContext warning
-    naming the unrendered token so the orchestrator notices the hook is inert."""
+    would otherwise silently no-op (FILES_DIR points at a literal-token path
+    that does not exist), so doc-critical edits would never be snapshotted.
+    Fail SAFE (do not block the edit) but LOUD: emit a nested additionalContext
+    warning naming the unrendered token so the orchestrator notices the hook
+    is inert."""
     ctx = (
         "[reflection-capture] WARNING — the install-time /Users/john.keeney/nexus-task-tracker token was "
-        "never rendered, so this PostToolUse hook cannot locate .memory/project.db and "
+        "never rendered, so this PostToolUse hook cannot locate .memory/files/ and "
         "is silently NOT recording reflection snapshots of doc-critical edits. Re-run "
         "the Nexus install/render step (or set _HOOK_INSTALL_ROOT) to restore capture."
     )
@@ -144,27 +151,13 @@ def main() -> int:
 
     action_type = classify_action(rel_path)
 
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        init_table(conn)
-        conn.execute(
-            """
-            INSERT INTO reflection_snapshot
-                (session_id, file_path, action_type, one_line_summary, captured_at)
-            VALUES (?, ?, ?, ?, ?)
-            """,
-            (
-                session_id,
-                rel_path,
-                action_type,
-                summary,
-                datetime.now(timezone.utc).isoformat(),
-            ),
-        )
-        conn.commit()
-        conn.close()
-    except sqlite3.Error:
-        pass
+    _append_journal({
+        "session_id": session_id,
+        "file_path": rel_path,
+        "action_type": action_type,
+        "one_line_summary": summary,
+        "captured_at": datetime.now(timezone.utc).isoformat(),  # noqa: UP017
+    })
 
     return 0
 

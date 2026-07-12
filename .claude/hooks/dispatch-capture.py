@@ -29,6 +29,19 @@ session_id alone.
 Fail-soft and fail-open: ANY error exits 0 with no output. It NEVER blocks a
 dispatch (no permissionDecision is ever emitted). Wired via
 .claude/settings.json hooks.PreToolUse matcher "Agent".
+
+R1-T05 (agent_activity live wiring): for a "single" dispatch (real Agent-tool
+call with a persona) this hook ALSO opens a cockpit activity row via
+`python3 .memory/log.py activity start --agent <persona> --task <brief> \
+--session <session_id>` and caches the returned activity_id to
+.memory/files/activity_open.jsonl keyed by (session_id, persona) so
+completion-capture.py (SubagentStop) can find and close it. "fanout" rows
+(Workflow/TeamCreate) are skipped — BUG #1 in completion-capture.py means no
+SubagentStop ever fires for Workflow-internal teammates, so an activity row
+opened for a fanout dispatch could never close and would rot as "active"
+forever; only direct single-Agent dispatches get a cockpit row. This mirrors
+feedback-capture.py's subprocess invocation pattern (argv list, never shell-
+interpolated, best-effort / never blocks).
 """
 
 from __future__ import annotations
@@ -37,6 +50,7 @@ import contextlib
 import hashlib
 import json
 import os
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -270,6 +284,81 @@ def _append_jsonl(path: Path, record: dict) -> None:
         pass
 
 
+def _repo_root() -> Path:
+    """Repo root is two levels up from .claude/hooks/ (mirrors feedback-capture)."""
+    override = os.environ.get("_HOOK_REPO_ROOT")
+    if override:
+        return Path(override)
+    return HOOKS_DIR.parent.parent
+
+
+def _log_py(root: Path) -> Path:
+    return root / ".memory" / "log.py"
+
+
+def _dispatch_task_label(tool_input: dict) -> str:
+    """Short human-readable task label for the activity row.
+
+    Prefers "description" (CONTRACT.md brief field), falls back to the first
+    line of "prompt". Truncated to keep the cockpit table readable.
+    """
+    for key in ("description", "prompt"):
+        val = tool_input.get(key)
+        if isinstance(val, str) and val.strip():
+            first_line = val.strip().splitlines()[0]
+            return first_line[:120]
+    return ""
+
+
+def _start_activity(root: Path, persona: str, task: str, session_id: str) -> int | None:
+    """Best-effort `log.py activity start`; returns the new activity_id or None.
+
+    Mirrors feedback-capture.py's subprocess invocation: argv list (never
+    shell-interpolated), bounded timeout, swallow any failure. Never raises;
+    a failed activity-start must never block or surface to the dispatch.
+    """
+    log_py = _log_py(root)
+    if not log_py.is_file():
+        return None
+    cmd = [sys.executable, str(log_py), "activity", "start", "--agent", persona]
+    if task:
+        cmd += ["--task", task]
+    if session_id and session_id != "unknown":
+        cmd += ["--session", session_id]
+    try:
+        proc = subprocess.run(
+            cmd,
+            cwd=str(root),
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if proc.returncode != 0:
+            return None
+        out = json.loads(proc.stdout.strip())
+        activity_id = out.get("activity_id")
+        return int(activity_id) if activity_id is not None else None
+    except Exception:
+        return None
+
+
+def _cache_open_activity(files_dir: Path, session_id: str, persona: str, activity_id: int) -> None:
+    """Append the (session_id, persona) -> activity_id row completion-capture.py reads.
+
+    A plain append-only JSONL: completion-capture.py scans for the LAST
+    matching (session_id, persona) row, mirroring the join pattern already
+    used for prompt_hash recovery elsewhere in this file. No mutation/locking
+    needed — single-threaded hook execution, at-most-one writer at a time.
+    """
+    record = {
+        "session_id": session_id,
+        "persona": persona,
+        "activity_id": activity_id,
+        "ts": datetime.now(timezone.utc).isoformat(),  # noqa: UP017
+    }
+    _append_jsonl(files_dir / "activity_open.jsonl", record)
+
+
 def main() -> None:
     try:
         data = json.loads(sys.stdin.read())
@@ -324,6 +413,18 @@ def main() -> None:
         "ts": datetime.now(timezone.utc).isoformat(),  # noqa: UP017
     }
     _append_jsonl(files_dir / "router_dispatches.jsonl", record)
+
+    # R1-T05: open a cockpit activity row for real single-Agent dispatches only.
+    # "fanout" (Workflow/TeamCreate) is skipped — see module docstring BUG #1:
+    # no SubagentStop ever fires for Workflow-internal teammates, so a fanout
+    # activity row could never be closed by completion-capture.py.
+    if kind == "single" and persona:
+        activity_id = _start_activity(
+            _repo_root(), persona, _dispatch_task_label(tool_input), session_id
+        )
+        if activity_id is not None:
+            _cache_open_activity(files_dir, session_id, persona, activity_id)
+
     sys.exit(0)
 
 
