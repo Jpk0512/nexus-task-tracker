@@ -1,38 +1,53 @@
 # FEAT-003 — Project Starter (Idea → Wayfind → Grill → Handoff → Kanban → Code)
 
-**Status:** design / multi-plan (no implementation yet)  
+**Status:** design (REV 2 — reviewed; gaps from v1 addressed, UI deepened)  
 **Owner surface:** Nexus dashboard (`apps/dashboard`) + host-side Agent Runtime  
 **Drivers:** Claude Code (OAuth sub) + Codex CLI (OAuth sub) — **no API keys**  
-**Skill spine:** Matt Pocock [`wayfinder`](https://github.com/mattpocock/skills/blob/main/skills/engineering/wayfinder/SKILL.md) + [`grill-with-docs`](https://github.com/mattpocock/skills/blob/main/skills/engineering/grill-with-docs/SKILL.md) (+ `prototype`, `to-spec`, `to-tickets`, `implement`)  
-**Related local skills:** `AI Agent:Skills Catalog/{grill-me-with-docs,grill-me-chat,handoff-chat,project-creation-chat-instructions}`
+**Skill spine:** Matt Pocock [`wayfinder`](https://github.com/mattpocock/skills/blob/main/skills/engineering/wayfinder/SKILL.md) + [`grill-with-docs`](https://github.com/mattpocock/skills/blob/main/skills/engineering/grill-with-docs/SKILL.md) (+ `prototype`, `to-spec`, `to-tickets`, `implement`, `grilling`, `domain-modeling`)  
+**Related local skills:** `AI Agent:Skills Catalog/{grill-me-with-docs,grill-me-chat,handoff-chat,project-creation-chat-instructions}`  
+**Mockups:** [`project-starter/mockups.html`](./project-starter/mockups.html) (11 interactive screens + modals)
+
+---
+
+## 0. What changed in REV 2 (review summary)
+
+REV 1 had real gaps. This revision fixes them; nothing here is hand-waved.
+
+| # | Issue found in v1 | Severity | Resolution in REV 2 |
+|---|---|---|---|
+| R1 | **Nexus has no task-blocking/dependency model.** `tasks` (schema.ts:224) has `statusId`, `order`, `priority` — nothing for "blocked by". v1 said "encode blockers as relations" without a table. | **Blocker** | New `task_dependencies` table + frontier computed in app. See §9. |
+| R2 | **Codex `app-server` is `[experimental]`.** Plan C (Dual-Lane) rested on it as if mature. | High | Plan C downgraded to "research mode." Stable execute path = `codex exec resume`. See §7.4, §11. |
+| R3 | **Over-engineered auth.** v1 implied multi-tenant RBAC for the host runtime. The app is **local-only** since FEAT-001/DEC-014/DEC-018 — single user, fixed team. | Med | Runtime uses a local pairing token; no tenant model. See §7.5, §10. |
+| R4 | **Missed the existing `nexus-mcp` server** (`mcp-server/server.ts`) which already writes tasks/projects/knowledge to Postgres over stdio. v1 invented a parallel tRPC path. | High | Reuse `nexus-mcp` as the execute driver's board tool. See §11. |
+| R5 | **Skill vendoring was incomplete.** `grill-with-docs` depends on `grilling` + `domain-modeling`; `to-tickets` needs the tracker setup. v1 listed a subset. | Med | Vendor the full closure + pre-answered local-markdown tracker. See §12. |
+| R6 | **Quota/budget on an OAuth subscription unaddressed.** The whole point was to minimize `-p`; v1 never modeled the weekly headless cap. | High | Per-phase `maxBudgetUsd` + soft quota gauge + pause-near-limit. See §13. |
+| R7 | **Dashboard-in-container ↔ host-runtime data flow was fuzzy.** | Med | Local-only ⇒ browser→runtime WS; materialize via browser tRPC or runtime-spawned `nexus-mcp`. See §7.5, §10. |
+| R8 | **"1 long-lived session per phase" was asserted, not proven.** | — | **Verified against SDK types:** `query({ prompt: string \| AsyncIterable<SDKUserMessage> })` + `streamInput()` + "streaming input mode" exist. ONE process per phase, turns pushed in. v1 was right; REV 2 specifies it precisely with the verified fallback. See §7.2. |
+| R9 | **No lifecycle for starter → real project.** v1 left it open. | Med | Draft project at Seed → promote to full project at BoardBuild → starter archived as provenance. See §9.4. |
+| R10 | **Per-phase tool allowlists missing.** Wayfinder says "decisions, not deliverables" — nothing stopped the agent coding early. | Med | Per-phase `allowedTools`/`permissionMode` matrix. See §8.3. |
+| R11 | **No preflight.** If `claude`/`codex` aren't logged in or the runtime is down, Seed silently fails. | Med | Pairing screen with health checks. See §8 screen "Pairing". |
+| R12 | **UI was shallow** (5 screens, no states/modals). | High | 11 screens + permission/phase-gate/ADR/quota/activity/resume modals. See §8 + mockups.html. |
+| R13 | **No acceptance criteria per slice.** | Med | Given/When/Then per slice. See §16. |
+
+> What did **not** turn out to be a flaw (verified, not assumed): the streaming-input multi-turn model (R8) is real in the SDK; the local-only simplification (R3) makes the host-runtime approach viable, not exotic.
 
 ---
 
 ## 1. Problem
 
-Starting a greenfield project today is a pile of disconnected chats:
+Starting a greenfield project today is a pile of disconnected chats: brainstorm → maybe `/grill-me` → maybe `/wayfinder` → scattered handoff docs → manual Nexus project + kanban → a coding agent that starts cold and drifts.
 
-1. You brainstorm an idea in a terminal.
-2. You (maybe) run `/grill-me` or `/wayfinder` by hand.
-3. Handoff docs scatter across folders.
-4. You manually create a Nexus project + kanban cards.
-5. A coding agent starts cold, re-asks everything, and drifts.
-
-You want Nexus to be the **guided factory**:
-
-> idea → concept lock → architecture → UX mockups → phased plan → handoff pack → second grill (coding agent) → kanban ops board → Claude/Codex execute against the board
-
-…with results rendered **natively in the dashboard**, not only as a scrolling TTY. Claude/Codex must drive via **existing OAuth subscriptions**, minimizing one-shot `claude -p` tax and never requiring API keys.
+You want Nexus to be the **guided factory**: idea → concept lock → architecture → UX mockups → phased plan → handoff pack → second grill (coding agent) → kanban ops board → Claude/Codex execute against the board, with results rendered **natively in the dashboard**, driven by **existing OAuth subscriptions**, minimizing one-shot `claude -p` tax, never requiring API keys.
 
 ---
 
 ## 2. Product promise (one sentence)
 
-**Project Starter** is a multi-phase, visual workshop inside Nexus that runs Matt Pocock’s idea→ship skill chain through a host-side agent runtime (Claude Agent SDK + Codex app-server), writes a local project directory + handoff pack, materializes a Nexus project + kanban board as the single ops surface, then hands the board to Claude or Codex to implement.
+**Project Starter** is a multi-phase visual workshop in Nexus that runs Matt Pocock's idea→ship skill chain through a host-side agent runtime (Claude Agent SDK + Codex), writes a local project directory + handoff pack, materializes a Nexus project + dependency-aware kanban board as the single ops surface, then hands the board to Claude or Codex — via the existing `nexus-mcp` server — to implement.
 
 ---
 
-## 3. End-to-end journey (canonical)
+## 3. End-to-end journey
 
 ```text
 ┌──────────┐   ┌─────────────┐   ┌──────────────┐   ┌────────────┐   ┌─────────────┐
@@ -45,8 +60,8 @@ You want Nexus to be the **guided factory**:
      ▼
 ┌──────────────┐   ┌────────────────┐   ┌──────────────────┐   ┌────────────────────┐
 │ 5. Handoff   │──▶│ 6. Coding-agent│──▶│ 7. Impl plan +   │──▶│ 8. Run board       │
-│ pack on disk │   │ second grill   │   │ /to-tickets →    │   │ Claude|Codex pull  │
-│ + Nexus proj │   │ (open Qs only) │   │ kanban materialize│   │ tasks, update board│
+│ pack on disk │   │ 2nd grill      │   │ /to-tickets →    │   │ Claude|Codex pull  │
+│ + draft proj │   │ (open Qs only) │   │ kanban + deps    │   │ tasks via nexus-mcp│
 └──────────────┘   └────────────────┘   └──────────────────┘   └────────────────────┘
 ```
 
@@ -54,95 +69,78 @@ You want Nexus to be the **guided factory**:
 
 | # | Phase | Skill(s) | Human role | Agent role | Artifacts written |
 |---|---|---|---|---|---|
-| 0 | **Seed** | — (deterministic UI) | Name, one-liner idea, parent dir, driver preference | Validate path, scaffold empty dir + git | `<dir>/`, `.nexus-starter.json`, Nexus `projects` row (draft) |
-| 1 | **Concept lock** | `grill-with-docs` (+ domain-modeling) | Answer one Q at a time | Interview; update `CONTEXT.md` + ADRs live | `CONTEXT.md`, `docs/adr/*`, concept card in UI |
-| 2 | **Architecture** | `wayfinder` (chart + work) | Resolve HITL tickets (grilling/prototype) | Chart map, AFK research, claim/resolve tickets | `.scratch/starter/map.md`, decision tickets, Decisions-so-far |
-| 3 | **UX design** | `prototype` (UI branch) | Pick variants, annotate | Generate 3–5 mockup variants + flows | `docs/ux/*`, mockup gallery, selected variant ADR |
-| 4 | **Phased plan** | `to-spec` | Approve seams + stories | Synthesize PRD/spec from prior phases | `docs/spec.md` (or `.scratch/*/spec.md`) |
-| 5 | **Handoff** | `handoff` (catalog) | Confirm ready | Emit 7 docs; no invention | `PRD.md`, `user-stories.md`, `tech-spec.md`, `plan.md`, `CLAUDE.md`, `handoff.md`, `README.md` |
-| 6 | **Second grill** | `grill-with-docs` (coding agent persona) | Answer remaining open Qs only | Read handoff, grill **only** `handoff.md` open questions + contradictions | Updated ADRs/CONTEXT, closed open-Qs list |
-| 7 | **Impl plan → board** | `to-tickets` | Approve slice granularity | Vertical-slice tickets + blockers → Nexus tasks | Nexus statuses + tasks on project kanban, `.scratch/*/issues/*` mirror |
-| 8 | **Execute** | `implement` (+ tdd, code-review) | Watch board, unblock HITL | Pull ready frontier task, implement, move card, PR/commit | Code in `<dir>`, board progress, session logs |
+| 0 | **Seed** | — (deterministic UI) | Name, idea, parent dir, drivers | Validate path; scaffold empty dir + git; vendor skills; create **draft** Nexus project | `<dir>/`, `.nexus-starter.json`, draft `projects` row |
+| 1 | **Concept** | `grill-with-docs` (+ domain-modeling) | Answer one Q at a time | Interview; update `CONTEXT.md` + ADRs live | `CONTEXT.md`, `docs/adr/*` |
+| 2 | **Architecture** | `wayfinder` (chart + work) | Resolve HITL tickets | Chart map, AFK research, claim/resolve tickets | `.scratch/starter/map.md`, decision tickets |
+| 3 | **UX** | `prototype` (UI branch) | Pick variant, annotate | Generate 3–5 mockup variants + flows | `docs/ux/*`, selected-variant ADR |
+| 4 | **Plan** | `to-spec` | Approve seams + stories | Synthesize PRD/spec | `docs/spec.md` |
+| 5 | **Handoff** | `handoff` (catalog) | Confirm ready | Emit 7 docs; refuse to invent | `PRD/user-stories/tech-spec/plan/CLAUDE/handoff/README.md` |
+| 6 | **Grill²** | `grill-with-docs` (coding-agent persona) | Answer residual open Qs only | Read handoff; grill **only** `handoff.md` open Qs/contradictions | updated ADRs/CONTEXT, closed-Qs list |
+| 7 | **Board build** | `to-tickets` | Approve slice granularity | Vertical-slice tickets + blockers → Nexus tasks **+ `task_dependencies`** | Nexus statuses/tasks/deps, `.scratch/*/issues/*` mirror |
+| 8 | **Execute** | `implement` (+ tdd, code-review) | Watch board, unblock HITL | Pull ready-frontier task via `nexus-mcp`, implement, move card, commit/PR | Code in `<dir>`, board progress, session logs |
 
-**Hard rule (from wayfinder):** produce **decisions, not deliverables** until phase 8. The pull to code early is the signal the map is done — not a cue to skip phases.
+**Hard rule (from wayfinder):** produce **decisions, not deliverables** until phase 8. The pull to code early is the signal the map is done — enforced by per-phase tool allowlists (§8.3), not vibes.
 
 ---
 
 ## 4. Flowcharts
 
-### 4.1 System context
+### 4.1 System context (local-only)
 
 ```mermaid
 flowchart LR
   User((You))
-
-  subgraph Dashboard["Nexus Dashboard :5179"]
+  subgraph Dashboard["Nexus Dashboard :5179 (container)"]
     UI[Project Starter UI]
     Kanban[Existing Kanban]
-    DocsView[Artifact / Mockup panes]
   end
-
-  subgraph API["Nexus API :3003"]
+  subgraph API["Nexus API :3003 (container)"]
     tRPC[tRPC routers]
-    PG[(Postgres)]
+    PG[(Postgres + pgvector)]
   end
-
   subgraph Host["Host Agent Runtime :7788 (NOT in Docker)"]
     Bridge[Session Broker]
-    CAS["@anthropic-ai/claude-agent-sdk\nquery() + resume + OAuth"]
-    CX[Codex app-server / exec]
+    CAS["@anthropic-ai/claude-agent-sdk\nquery() + streamInput + OAuth"]
+    CX["codex exec resume\n(stable) / app-server (experimental)"]
+    NMCP[nexus-mcp spawn\nper project: NEXUS_TEAM_ID]
     FS[Filesystem + git]
   end
-
   Disk[(Local project dir)]
   ClaudeOAuth[[Claude OAuth sub]]
   CodexOAuth[[Codex OAuth sub]]
-
   User --> UI
   UI <-->|WS + REST| Bridge
   UI <--> tRPC
   tRPC --> PG
-  Bridge --> CAS
-  Bridge --> CX
-  Bridge --> FS
-  CAS --> ClaudeOAuth
-  CX --> CodexOAuth
-  FS --> Disk
-  Bridge -->|materialize tasks| tRPC
+  Bridge --> CAS --> ClaudeOAuth
+  Bridge --> CX --> CodexOAuth
+  Bridge --> NMCP --> PG
+  Bridge --> FS --> Disk
   Kanban --> tRPC
-  DocsView --> Bridge
 ```
 
-### 4.2 Phase state machine
+**Key (REV 2):** the browser (on host) opens `ws://localhost:7788` to the host runtime directly — this works because the browser is on the host even though the dashboard server is in a container. The runtime is the **only** OAuth touchpoint; Postgres writes for the execute driver go through the reused `nexus-mcp` (§11).
+
+### 4.2 Phase state machine (with gates)
 
 ```mermaid
 stateDiagram-v2
-  [*] --> Seed
-  Seed --> Concept: dir created + draft project
-  Concept --> Architecture: CONTEXT.md has core glossary
-  Architecture --> UX: wayfinder map empty frontier\n(or user force-advance)
-  UX --> PhasedPlan: mockup variant selected
-  PhasedPlan --> Handoff: spec approved
-  Handoff --> SecondGrill: 7 docs on disk
-  SecondGrill --> BoardBuild: open Qs closed or deferred
-  BoardBuild --> Execute: kanban populated
-  Execute --> [*]: all ready tasks Done / project Archived
-
-  Concept --> Paused: user leave
-  Architecture --> Paused
-  UX --> Paused
-  PhasedPlan --> Paused
-  SecondGrill --> Paused
-  Execute --> Paused
-  Paused --> Concept: resume session_id
-  Paused --> Architecture
-  Paused --> UX
-  Paused --> PhasedPlan
-  Paused --> SecondGrill
-  Paused --> Execute
+  [*] --> Paired: runtime healthy + CLIs logged in
+  Paired --> Seed
+  Seed --> Concept: dir+git+skills vendored, draft project
+  Concept --> Architecture: gate: CONTEXT has ≥N core terms, 0 contradictions
+  Architecture --> UX: gate: map frontier empty OR user force-advance
+  UX --> Plan: gate: one variant selected (ADR written)
+  Plan --> Handoff: gate: spec seams + stories approved
+  Handoff --> Grill2: gate: 7 docs valid (handoff.md populated)
+  Grill2 --> BoardBuild: gate: open Qs = 0 OR all deferred-with-owner
+  BoardBuild --> Execute: gate: ≥1 task in Todo, deps wired
+  Execute --> Done: all ready tasks Done
+  Done --> [*]: starter archived as provenance; project promoted
+  note right of Seed: resume session_id on reload
 ```
 
-### 4.3 Single long-lived agent turn (minimize `-p`)
+### 4.3 One living process per phase (verified — R8)
 
 ```mermaid
 sequenceDiagram
@@ -152,626 +150,607 @@ sequenceDiagram
   participant CLI as claude binary (OAuth)
   participant Disk as Project dir
 
-  UI->>RT: WS startPhase(concept, {cwd, skills})
-  RT->>SDK: query({ prompt: /grill-with-docs, options:{cwd, resume?} })
-  SDK->>CLI: spawn once (uses keychain OAuth)
-  CLI-->>SDK: stream assistant + tool_use
-  SDK-->>RT: SDKMessage frames
-  RT-->>UI: typed events (question, doc_write, thinking)
-  UI-->>UI: render QuestionCard + live CONTEXT.md diff
-  User->>UI: answer
-  UI->>RT: WS userMessage(text)
-  RT->>SDK: push into same session (no new -p)
-  Note over SDK,CLI: ONE process per phase;\nresume session_id across reloads
-  CLI->>Disk: write CONTEXT.md / ADR
-  Disk-->>RT: fs watch
-  RT-->>UI: artifact_updated
+  UI->>RT: WS start_phase(concept,{cwd,skills})
+  RT->>SDK: query({ prompt: AsyncIterable<SDKUserMessage>, options:{cwd,resume?,maxBudgetUsd,allowedTools} })
+  SDK->>CLI: spawn ONCE (OAuth from keychain)
+  loop one question per assistant turn
+    CLI-->>SDK: assistant msg (the question) + turn ends
+    SDK-->>RT: SDKMessage stream
+    RT-->>UI: question event → QuestionCard
+    User->>UI: answer
+    UI->>RT: WS user_message
+    RT->>SDK: yield next SDKUserMessage into the async iterable
+    CLI->>Disk: write CONTEXT.md / ADR (canUseTool: acceptEdits or →UI)
+    Disk-->>RT: fs watch → artifact_upsert
+    RT-->>UI: live diff pulse
+  end
+  RT->>UI: phase_gate{canAdvance, reasons}
 ```
 
-### 4.4 Execute loop (kanban as ops board)
+This is **one** process spawn per phase. `AsyncIterable<SDKUserMessage>` + `streamInput()` (SDK types verified, §7.2) keep the session alive while turns are pushed in. On reload/WS drop, `options.resume = sessionId` re-attaches to the persisted session.
+
+### 4.4 Pairing / auth (local-only — R3)
 
 ```mermaid
 flowchart TD
-  A[Compute ready frontier\nstatus=Todo ∧ blockers Done] --> B{Driver}
-  B -->|Claude| C[SDK query resume=implSession\nprompt: implement ticket #N]
-  B -->|Codex| D[codex exec resume --last\nor app-server turn]
-  C --> E[Agent moves card → In Progress via MCP/tRPC tool]
+  A[User opens /starter] --> B{runtime reachable on :7788?}
+  B -- no --> C[Show pairing screen: run `nexus-runtime start`]
+  C --> D[Runtime prints one-time token to terminal]
+  D --> E[User pastes token in dashboard]
+  E --> F{claude --whoami ok? codex login ok?}
+  F -- no --> G[Show login instructions + retry]
+  F -- yes --> H[Persist token in team settings; mark Paired]
+  H --> Seed
+  B -- yes --> F
+```
+
+No multi-tenant RBAC — local-only app, fixed team `local-dev-team`. Token gates the runtime; everything else trusts the local user.
+
+### 4.5 Permission decision (file writes by the agent)
+
+```mermaid
+flowchart TD
+  T[Agent calls Write/Edit] --> P{permissionMode}
+  P -- acceptEdits --> W[auto-write + fs watch → UI diff]
+  P -- default --> C{canUseTool callback}
+  C -- in allowlist --> W
+  C -- needs approval --> U[forward to UI: permission_request]
+  U --> R{user}
+  R -- allow once --> W
+  R -- allow always( this phase) --> AL[add to phase allowlist] --> W
+  R -- deny --> D[deny → agent told, may retry differently]
+```
+
+### 4.6 Quota / budget (R6)
+
+```mermaid
+flowchart LR
+  S[start_phase] --> B[maxBudgetUsd set per phase]
+  B --> Q[track tokens + estimated $ from SDK usage events]
+  Q --> G{near weekly headless cap?}
+  G -- no --> RUN[continue]
+  G -- yes --> PAUSE[soft-pause: ask user to continue or defer]
+  RUN --> Q
+  PAUSE --> RESUME{user}
+  RESUME -- continue --> RUN
+  RESUME -- defer --> SAVE[persist session_id, mark Paused]
+```
+
+### 4.7 Execute loop (board as ops surface via nexus-mcp — R4)
+
+```mermaid
+flowchart TD
+  A[Compute ready frontier: status=Todo AND all deps Done] --> B{Driver}
+  B -->|Claude| C[SDK query resume=impl, mcpServers:{nexus}]
+  B -->|Codex| D[codex exec resume --last, MCP config nexus]
+  C --> E[agent: nexus.claim_task → In Progress]
   D --> E
-  E --> F[Implement + tests in project cwd]
-  F --> G{Verify}
-  G -->|pass| H[Move → Done + write comment]
-  G -->|fail| I[Move → Blocked + failure note]
+  E --> F[implement + tests in cwd]
+  F --> G{verify via nexus task acceptance}
+  G -->|pass| H[nexus.move_task Done + comment]
+  G -->|fail| I[nexus.move_task Blocked + note]
   H --> A
-  I --> J[Human unblocks or re-grill]
+  I --> J[human unblock or re-grill]
   J --> A
 ```
 
 ---
 
-## 5. UI layout & mockups
+## 5. Why a host runtime (and not the container)
 
-Full interactive HTML mockups:  
-[`project-starter/mockups.html`](./project-starter/mockups.html) (open in browser).
-
-### 5.1 Information architecture
-
-```
-/team/[team]/projects                          ← existing grid; new CTA "Start from idea"
-/team/[team]/starter                           ← workshop home (list in-flight starters)
-/team/[team]/starter/[id]                      ← active workshop shell
-/team/[team]/starter/[id]/concept
-/team/[team]/starter/[id]/architecture        ← wayfinder map viz
-/team/[team]/starter/[id]/ux
-/team/[team]/starter/[id]/plan
-/team/[team]/starter/[id]/handoff
-/team/[team]/starter/[id]/grill-2
-/team/[team]/projects/[projectId]/board        ← existing kanban (execute home)
-```
-
-### 5.2 Workshop shell (all phases)
-
-```
-┌─ Nexus ──────────────────────────────── Sidebar ┬──────────────────────────────────────────┐
-│ Projects > Starter > acme-ops                   │ Phase rail (horizontal)                  │
-│                                                 │ ○ Seed ● Concept ○ Arch ○ UX ○ Plan …    │
-├──────────────────────────┬──────────────────────┴──────────────────────────────────────────┤
-│                          │                                                                  │
-│  LEFT: Dialogue          │  RIGHT: Living artifacts                                         │
-│  ────────────────────    │  ┌ tabs: CONTEXT | ADRs | Map | Mockups | Spec | Handoff ┐     │
-│  Agent question card     │  │                                                       │     │
-│  (one at a time)         │  │  markdown preview / mermaid / mockup iframe           │     │
-│                          │  │  + diff pulse when agent writes disk                  │     │
-│  [Recommended: …]        │  │                                                       │     │
-│                          │  └───────────────────────────────────────────────────────┘     │
-│  Your answer             │                                                                  │
-│  ┌────────────────────┐  │  BOTTOM-RIGHT: session strip                                     │
-│  │                    │  │  driver: Claude · session abc123 · tokens · Resume               │
-│  └────────────────────┘  │                                                                  │
-│  [Send]  [Accept rec]    │  [◀ Back]                    [Advance phase ▶]                   │
-└──────────────────────────┴──────────────────────────────────────────────────────────────────┘
-```
-
-### 5.3 Seed phase
-
-- Big idea textarea (“What are we building?”)
-- Project name → kebab slug
-- **Directory picker** (host runtime lists `~/code`, `~/Projects`, …; user confirms absolute path)
-- Driver default: Claude (discovery) / Codex (execute) — editable per phase
-- Stack hints optional (blank = grilled later)
-- Primary CTA: **Create workspace & begin concept lock**
-
-### 5.4 Concept phase (grill-with-docs)
-
-- Question stack: current Q, recommended answer chip, freeform reply
-- Right pane auto-opens `CONTEXT.md`; glossary terms highlight as they’re locked
-- ADR toast: “Hard-to-reverse decision detected — draft ADR?” → Accept / Skip
-- Progress: “Branches resolved 6/N · open contradictions 1”
-
-### 5.5 Architecture phase (wayfinder map)
-
-Reuse the spirit of Dimon94’s map-dashboard + Linear:
-
-```
-┌ Destination ─────────────────────────────────────────────────────────────┐
-│ “Ship a local ops dashboard that turns ideas into kanban-driven builds”  │
-├─ Frontier (ready) ──────────┬─ Blocked ─────────────┬─ Fog ──────────────┤
-│ ● Pick monorepo shape       │ ○ Auth model          │ ~ billing later    │
-│ ● Research: Claude SDK auth │   (blocked by monorepo)│ ~ multi-tenant     │
-├─ Decisions so far ──────────┴───────────────────────┴────────────────────┤
-│ ✓ Local markdown tracker — gist…                                         │
-│ ✓ Host runtime outside Docker — gist…                                    │
-└─ [Claim next] [Open grilling] [Run AFK research batch] ──────────────────┘
-```
-
-Graph view (optional toggle): DAG of tickets with blocking edges (react-flow or mermaid).
-
-### 5.6 UX phase
-
-- Gallery of 3–5 prototype variants (iframe or static HTML from `/prototype`)
-- Side-by-side compare, annotation pins
-- “Select variant B” → writes ADR + locks design tokens note
-
-### 5.7 Handoff phase
-
-- Checklist of 7 docs with completeness meters (handoff skill hard rules)
-- Red flags if `handoff.md` can’t be populated → block generate, return to grill
-- CTA: **Seal handoff & start coding-agent grill**
-
-### 5.8 Execute (kanban)
-
-Existing Nexus kanban columns, augmented:
-
-| Column | Meaning in Starter mode |
-|---|---|
-| Backlog | Not yet unblocked |
-| Todo | Ready frontier |
-| In Progress | Claimed by driver session |
-| In Review | Waiting code-review skill / human |
-| Blocked | Needs human / re-grill |
-| Done | Verified |
-
-Task card extras: driver badge (Claude/Codex), session link, verification criteria from ticket, “Open agent log”.
+| Constraint | Implication | Resolution |
+|---|---|---|
+| No API keys; Claude + Codex OAuth only | Runtime **must run on the host** (keychain) | New `nexus-agent-runtime` daemon on `127.0.0.1:7788` |
+| Minimize `-p` | One living process per phase | SDK `AsyncIterable<SDKUserMessage>` streaming input (§7.2) |
+| Native UI, not a TTY | Parse structured events → React | Typed WS protocol (§10); optional terminal drawer as escape hatch |
+| Local-only app (FEAT-001) | No tenant model needed | Pairing token; fixed team |
+| Existing chat uses API-key AI SDK | Do **not** route Starter through it | Starter is a separate, OAuth-only surface |
 
 ---
 
-## 6. Agent runtime — the hard part (OAuth, minimize `-p`)
+## 6. The agent runtime
 
-### 6.1 Constraint summary
-
-| Constraint | Implication |
-|---|---|
-| No API keys; Claude + Codex OAuth only | Runtime **must run on the host** (keychain / `~/.claude` / `~/.codex`), not inside the API container |
-| Minimize `claude -p` | Prefer **one long-lived session per phase** with multi-turn input, not one process per question |
-| Native UI, not just TTY | Parse structured agent events → React components; optional raw log drawer |
-| Docker dashboard still useful | Dashboard talks to host runtime via `host.docker.internal:7788` or dashboard-on-host dev mode |
-
-### 6.2 Primary mechanism: Claude Agent SDK (recommended)
-
-Package: [`@anthropic-ai/claude-agent-sdk`](https://www.npmjs.com/package/@anthropic-ai/claude-agent-sdk) (v0.3.x).
-
-```ts
-import { query } from "@anthropic-ai/claude-agent-sdk";
-
-// ONE session for the whole Concept phase
-const q = query({
-  prompt: {
-    type: "asyncIterable", // push user answers over time
-    stream: userAnswerStream,
-  },
-  options: {
-    cwd: projectDir,
-    // OAuth from local CLI login — tokenSource: 'oauth'
-    permissionMode: "acceptEdits", // or bridge prompts to UI
-    allowedTools: ["Read", "Write", "Edit", "Glob", "Grep", "Skill"],
-    // Preload Matt Pocock skills from project .claude/skills
-    // resume: priorSessionId across page reload
-  },
-});
-
-for await (const msg of q) {
-  // map SDKMessage → WS events for the dashboard
-}
-```
-
-**Why this beats raw `-p` loops**
-
-- Programmatic multi-turn without shelling a new process each answer  
-- `resume` / `forkSession` / `getSessionMessages` for reload-safe workshops  
-- `listSessions` for the Starter home screen  
-- Skills load from the project’s `.claude/skills` (we vendor wayfinder + grill-with-docs into the new dir at Seed)  
-- Still uses the **same OAuth subscription** as interactive `claude`  
-- Permission prompts can be forwarded to the dashboard (`canUseTool` / control messages) instead of blocking a hidden TTY
-
-Raw CLI equivalent (fallback if SDK gaps appear):
-
-```bash
-claude -p --output-format stream-json --input-format stream-json \
-  --replay-user-messages --include-partial-messages \
-  --cwd "$PROJECT_DIR"
-# keep stdin open; write user turns as stream-json messages
-```
-
-Still **one** `-p` process per phase — not per question.
-
-### 6.3 Codex path (OAuth, no key)
-
-| Mode | Use |
-|---|---|
-| `codex app-server --listen ws://127.0.0.1:7790` | Long-lived WS protocol for Execute phase + AFK lanes |
-| `codex exec resume --last` | Continue implementation session |
-| `codex mcp-server` | Optional: expose Codex as MCP tool **to** Claude during dual-driver runs |
-
-Role split (default policy):
-
-- **Claude** — Concept, Architecture HITL, UX critique, Second grill, code-review  
-- **Codex** — AFK research batches, Execute lane implementation  
-
-User can override per phase in Seed settings.
-
-### 6.4 Host runtime shape (`nexus-agent-runtime`)
-
-New small Bun/Node package (repo root or `app/packages/agent-runtime`):
+### 6.1 Shape
 
 ```
-agent-runtime/
+nexus-agent-runtime/   (host process, NOT in compose)
   src/
-    server.ts          # WS + HTTP on 127.0.0.1:7788
+    server.ts          # WS + REST on 127.0.0.1:7788
+    pairing.ts         # one-time token; team-settings persistence
+    preflight.ts       # claude --whoami, codex login, path allowlist
     sessions/
-      claude.ts        # SDK wrapper
-      codex.ts         # app-server client
+      claude.ts        # SDK wrapper: AsyncIterable<SDKUserMessage>, streamInput
+      codex.ts         # codex exec resume (stable); app-server opt-in
     fs/
-      scaffold.ts      # mkdir, git init, skill vendor
+      scaffold.ts      # mkdir, git init, skill vendor (full closure)
       watch.ts         # chokidar → artifact_updated events
-    nexus/
-      materialize.ts   # call API to create project/tasks
+    mcp/
+      spawn.ts         # launch nexus-mcp per project w/ NEXUS_TEAM_ID/USER_ID
     protocol.ts        # zod event schema shared with dashboard
   bin/nexus-runtime
 ```
 
-**Security**
+Install model (REV 2): `brew services`/`launchd` plist or `nexus-runtime start --foreground`. Pairing token printed to the terminal on first start.
 
-- Bind `127.0.0.1` only  
-- Dashboard presents a runtime pairing token (file `~/.nexus/runtime.token`)  
-- Path allowlist: user-confirmed roots only  
-- Never relay raw keychain secrets to the browser  
+### 6.2 Claude path — verified SDK mechanics (R8)
 
-**Docker note:** API container does **not** spawn Claude. Only the host runtime does. Compose adds no new privileged mounts beyond what Seed already needs for path browse (optional: none — runtime stays host-native, dashboard reaches it via browser→localhost).
+```ts
+import { query, type SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
 
-> Important: if the dashboard runs **inside** Docker, browser WS to `localhost:7788` still works (browser is on host). Server-side calls from API→runtime should use `host.docker.internal`. Prefer **browser→runtime** for agent streams to avoid extra hops.
+// One living process for the whole Concept phase.
+async function* userTurns(): AsyncIterable<SDKUserMessage> {
+  yield { type: "user", message: { role: "user", content: initialPrompt } };
+  // then block on the WS queue; yield as the human answers each question
+  for await (const answer of wsAnswerQueue) {
+    yield { type: "user", message: { role: "user", content: answer } };
+  }
+}
 
-### 6.5 Creative alternatives considered
+const q = query({
+  prompt: userTurns(),
+  options: {
+    cwd: projectDir,
+    pathToClaudeCodeExecutable: claudeBin,   // OAuth from keychain
+    permissionMode: "acceptEdits",            // or forward via canUseTool
+    allowedTools: ["Read","Write","Edit","Glob","Grep","Skill","TodoWrite"],
+    mcpServers: { nexus: { command: "node", args: [nexusMcpPath],
+                           env: { NEXUS_TEAM_ID, NEXUS_USER_ID } } },
+    maxBudgetUsd: phaseBudget,                // R6 hard cap
+    resume: priorSessionId ?? undefined,      // reload-safe
+    includePartialMessages: true,
+  },
+});
+
+for await (const msg of q) emitToWs(msg);     // map SDKMessage → typed events
+```
+
+Verified against `@anthropic-ai/claude-agent-sdk@0.3.215` types: `query({ prompt: string | AsyncIterable<SDKUserMessage>, options })`, `Query.streamInput(stream)`, "streaming input mode", `AccountInfo.tokenSource = 'oauth'`, `options.resume`, `options.maxBudgetUsd`, `options.mcpServers`, `options.canUseTool`. **Fallback if streaming-input proves flaky:** `resume`-per-turn (one spawn per question, shared memory) — same UX, more spawns, still OAuth.
+
+### 6.3 Codex path — stable vs experimental (R2)
+
+| Surface | Status | Use |
+|---|---|---|
+| `codex exec resume [SESSION_ID\|--last] [PROMPT]` | **Stable** | v1 Execute: one resume per ticket; shared memory via session id |
+| `codex exec` (fresh) | Stable | AFK research batches |
+| `codex app-server --listen ws://…` | `[experimental]` | Plan C only; daemon + remote-control, not v1 |
+| `codex mcp-server` | Stable | expose Codex as a tool **to** Claude in dual-driver review |
+
+Default role split: **Claude = discovery/HITL (Concept, Arch HITL, UX critique, Grill², code-review)**; **Codex = AFK research + Execute lanes**. Overridable per phase at Seed.
+
+### 6.4 Security
+
+- Bind `127.0.0.1` only; pairing token gates every WS.  
+- Path allowlist: only user-confirmed roots (browse returns allowlisted dirs only).  
+- Never relay keychain secrets to the browser; the SDK reads OAuth itself.  
+- `nexus-mcp` spawned per-project with the fixed local team/user.
+
+---
+
+## 7. Creative alternatives (re-scored)
 
 | Idea | Pros | Cons | Verdict |
 |---|---|---|---|
-| **A. Host Runtime + Claude Agent SDK + Codex app-server** | OAuth native, multi-turn, structured events, resume | New daemon to install/run | **Recommended** |
-| **B. node-pty + xterm.js embed** | Faithful CLI, zero protocol work | Not “native” UI; hard to extract Q/A; brittle | Escape hatch only (“Terminal drawer”) |
-| **C. One `claude -p` per question** | Simple | Worst OAuth/rate/latency; no memory without manual resume | Reject |
-| **D. API keys in `.env` via AI SDK** | Fits existing `apps/api` chat | Violates “no API keys” | Reject for Starter |
-| **E. Orca worktrees + orca-cli spawn** | Great isolation for Execute lanes | Heavier UX; discovery phases awkward | Optional Execute backend later |
-| **F. Codex as only driver** | One stack | Weaker HITL grilling UX today | Secondary |
-| **G. `claude` remote-control / bridge export** | Cloud UI pairing | Extra moving parts; not local-first | Out of scope v1 |
+| **Host Runtime + Claude Agent SDK + Codex exec** | OAuth native, streaming input (verified), resume, structured events | New daemon | **Recommended (REV 2)** |
+| node-pty + xterm.js embed | Faithful CLI | Not native UI; brittle | Escape-hatch "Terminal drawer" |
+| One `claude -p` per question | Simple | Worst OAuth/latency; only via resume | Reject |
+| API keys in `.env` via AI SDK | Fits existing chat | Violates "no API keys" | Reject for Starter |
+| Orca worktrees + orca-cli | Great isolation for Execute | Heavier UX | Optional Execute backend |
+| Codex app-server as primary | Living process | **Experimental** (R2) | Plan C only |
+| Claude remote-control / bridge | Cloud UI pairing | Not local-first | Out of scope v1 |
 
 ---
 
-## 7. Three full plans (pick one)
+## 8. UI design (deep — R12)
 
-### Plan A — “Workshop Native” (recommended)
+Design tokens are the existing **Linear** palette in `DESIGN.md` (`#010102` canvas, `#5e6ad2` accent, `#f7f8f8` ink, charcoal panels, hairline borders). Every screen below is implemented in [`project-starter/mockups.html`](./project-starter/mockups.html) with the same tokens.
 
-**Thesis:** Build the Starter as a first-class Nexus workshop UI; agents are invisible infrastructure behind a host runtime.
+### 8.1 Information architecture
 
-| Slice | Deliverable |
-|---|---|
-| A0 | Host runtime MVP: health, path browse, scaffold dir, Claude SDK single session echo |
-| A1 | Seed UI + draft Nexus project + skill vendoring (mattpocock skills subset + handoff) |
-| A2 | Concept phase UI + grill-with-docs session + CONTEXT/ADR live preview |
-| A3 | Wayfinder map UI + local markdown tracker + research AFK batch |
-| A4 | UX prototype gallery phase |
-| A5 | to-spec + handoff generation with hard-rule gates |
-| A6 | Second grill phase (coding-agent system prompt) |
-| A7 | to-tickets → Nexus kanban materialize (statuses, tasks, blockers as deps) |
-| A8 | Execute driver (Claude and/or Codex) pulling Todo cards via tools |
-| A9 | Polish: resume, pairing, session strip, failure UX |
-
-**Effort:** L–XL (multi-week)  
-**Risk:** Medium (SDK + UX)  
-**OAuth fit:** Excellent  
-**Minimize `-p`:** Excellent (1 session/phase)
-
----
-
-### Plan B — “Thin Shell + Skill Orchestra” (fastest path to value)
-
-**Thesis:** Don’t build a rich workshop first. Build a **runbook UI** that launches scripted skill phases in the host runtime and streams a structured log + artifact list. Kanban materialize still happens at the end.
-
-```text
-UI = phase checklist + log + artifact links
-Brain = shell scripts invoking skills via SDK with fixed prompts
+```
+/team/[team]/projects                          existing grid; new CTA "Start from idea"
+/team/[team]/starter                           workshop home (in-flight starters)
+/team/[team]/starter/[id]                      active workshop shell (all phases)
+/team/[team]/starter/[id]?phase=concept|architecture|ux|plan|handoff|grill2
+/team/[team]/projects/[projectId]/board        existing kanban (execute home)
 ```
 
-| Slice | Deliverable |
-|---|---|
-| B0 | Runtime + `starter run --phase concept` CLI |
-| B1 | Dashboard page that tails runtime events |
-| B2 | Scripted chain: seed→grill→wayfind→spec→handoff→tickets |
-| B3 | Import `.scratch/*/issues` → Nexus tasks |
-| B4 | Execute: `starter exec --driver codex` loops ready tasks |
+The shell is one route; the `phase` query param + phase rail drives which panes render.
 
-**Effort:** M  
-**Risk:** Low–Medium  
-**UX:** Functional, not delightful  
-**Upgrade path:** Each phase script becomes a Plan A panel later  
+### 8.2 The workshop shell (all phases)
 
-**Best if:** you want to dogfood the skill chain this week.
+```
+┌─ Nexus ──────────────────── Sidebar ┬──────── Phase rail (sticky) ─────────────────────┐
+│ Projects > Starter > acme-ops       │ ✓Seed ●1 Concept ○2 Arch ○3 UX ○4 Plan ○5 ○6 ○7 ○8 │
+├──────────────────────────┬──────────┴───────────────────────────────────────────────────┤
+│ LEFT  Dialogue           │ RIGHT  Living artifacts (tabs per phase)                      │
+│  Question card           │  CONTEXT │ ADRs │ Map │ Mockups │ Spec │ Handoff              │
+│  + recommended answer    │  markdown/mermaid/iframe + diff pulse on disk write           │
+│  + freeform reply        │                                                              │
+│  [Send][Accept rec][Skip]│ BOTTOM-RIGHT session strip: driver · session · quota · Resume │
+└──────────────────────────┴──────────────────────────────────────────────────────────────┘
+```
 
----
+Persistent chrome across all phases: **phase rail** (clickable, gate-locked), **left dialogue**, **right artifact pane** (phase-specific tabs), **session strip** (driver, session id, quota gauge, resume). The right pane is the source of truth viewer; the left is the only place the human types.
 
-### Plan C — “Dual-Lane Factory” (max autonomy)
+### 8.3 Per-phase tool allowlists (R10 — "decisions, not deliverables")
 
-**Thesis:** After handoff, split Execute into parallel Codex lanes (worktrees) coordinated by a Claude conductor — inspired by [Dimon94/wayfinder-implement-orchestrator](https://github.com/Dimon94/wayfinder-implement-orchestrator).
-
-| Slice | Deliverable |
-|---|---|
-| C0 | Plan A through Handoff (or Plan B chain) |
-| C1 | Conductor session owns map frontier |
-| C2 | Per-lane git worktrees + Codex exec |
-| C3 | Live map dashboard (DAG + swimlanes) inside Nexus |
-| C4 | Integration ticket + human review gate |
-
-**Effort:** XL  
-**Risk:** High (merge conflicts, runaway cost on OAuth rate limits)  
-**When:** After Plan A Execute works single-lane  
-
----
-
-### Plan comparison
-
-| Criterion | A Workshop Native | B Thin Shell | C Dual-Lane |
+| Phase | `allowedTools` | `permissionMode` | Can write code? |
 |---|---|---|---|
-| Time to first sealed handoff | Medium | **Fast** | Slow |
-| Visual walkthrough quality | **High** | Low | High (later) |
-| OAuth / no-key | **Yes** | **Yes** | **Yes** |
-| Minimize agent process thrash | **Yes** | Medium | Medium |
-| Kanban-as-ops-board | **Yes** | Yes | Yes + lanes |
-| Fits Nexus design language | **Yes** | Weak | Yes |
-| Dogfood Matt Pocock chain faithfully | **Yes** | Yes | Yes + orchestrator |
-| Recommended default | **✅** | MVP wedge | Phase-2 autonomy |
+| Seed | — (no agent) | — | n/a |
+| Concept | Read, Write(targeted: CONTEXT/ADRs), Glob, Grep, Skill | acceptEdits (scoped) | **No** |
+| Architecture | Read, Glob, Grep, Skill, WebFetch, TodoWrite | default (writes → ADRs only) | **No** |
+| UX | + Write(`docs/ux/**`), Bash(`pnpm dev` scoped) | acceptEdits (scoped) | Prototype HTML only (throwaway) |
+| Plan | Read, Glob, Grep, Skill | plan | **No** |
+| Handoff | Write(`docs/**`, root `.md`s) | acceptEdits | Docs only |
+| Grill² | Read, Write(CONTEXT/ADRs) | acceptEdits | **No** |
+| Board build | Write(`.scratch/**`), nexus-mcp | acceptEdits | Tickets only |
+| Execute | full claude_code preset + nexus-mcp | acceptEdits or default | **Yes** |
 
-**Suggested sequencing:** ship **B0–B3 in a spike week** to validate OAuth sessions + skill fidelity, then build **A** UI on the same runtime protocol, keep **C** as a future Execute mode flag.
+Enforced via the SDK `tools`/`allowedTools`/`permissionMode` per phase.
+
+### 8.4 Screen catalog (all in mockups.html)
+
+1. **Pairing** (R11) — runtime health, `claude --whoami`, `codex login`, paste one-time token, path-allowlist hint. Blocking until Paired.
+2. **Seed** — idea, host directory picker (runtime-browsed), driver defaults, stack hints; scaffold + skills-vendor progress.
+3. **Concept** — question card (Q N/~M), recommended-answer chip, freeform reply; right pane live `CONTEXT.md` with diff pulse; ADR toast.
+4. **Architecture** — two sub-views: **map** (Destination / Frontier / Blocked / Fog / Decisions) + optional **DAG graph**; dialogue shows the current grilling ticket.
+5. **UX** — variant gallery (3–5), compare, annotation pins, "Lock variant + ADR".
+6. **Plan** — spec checklist (problem/solution/stories/seams/testing), approve to advance.
+7. **Handoff** — 7-doc completeness meters; red flag if `handoff.md` under-populated; "Seal" gated.
+8. **Grill²** — only `handoff.md` open-questions surfaced as question cards; close/defer each.
+9. **Execute board** — existing kanban, augmented with driver badges, session links, verification criteria, live agent-log drawer, ready-frontier highlight.
+10. **Modals/overlays** — Permission prompt; Phase-gate advance; ADR draft toast; Quota warning; Activity/reasoning drawer; Resume/reconnect banner.
+
+### 8.5 State variations (every interactive screen has)
+
+- **Empty** — no starter yet (Seed CTA), no map yet (Architecture placeholder), empty frontier (Done-ish).
+- **Loading** — "agent thinking…" skeleton in dialogue; spinner on artifact tab while fs read.
+- **Streaming** — partial-assistant-message shimmer; typed cursor.
+- **Error** — agent errored (show `result` error + Retry/Resume); runtime disconnected (reconnect banner); CLAUDE_LOGGED_OUT (re-pair).
+- **Paused** — quota-paused or user-paused; session id saved; big Resume button.
+- **Permission** — pending `permission_request` blocks the turn; countdown to auto-deny.
+
+### 8.6 Accessibility / interaction notes
+
+- Every question reachable by keyboard; `Accept recommendation` = `Cmd+Enter`, `Send` = `Enter`, `Skip` = `Esc`.
+- Diff pulse is motion-limited (respect `prefers-reduced-motion`).
+- Session strip's quota gauge is the only always-visible cost affordance.
 
 ---
 
-## 8. Data model (Nexus)
+## 9. Data model (corrected — R1, R9)
 
-Additive tables (draft):
+### 9.1 New tables
 
 ```sql
 project_starters (
   id text pk,
   team_id text not null,
-  project_id text null,              -- set once Nexus project created
+  project_id text null,                -- draft at Seed; full at BoardBuild
   name text not null,
   slug text not null,
   idea text not null,
-  root_path text not null,           -- absolute host path
-  phase text not null,               -- seed|concept|architecture|ux|plan|handoff|grill2|board|execute|done
+  root_path text not null,             -- absolute host path
+  phase text not null,                 -- seed..done
   driver_discovery text default 'claude',
   driver_execute text default 'codex',
-  claude_session_id text null,
+  claude_session_id text null,         -- resume key
   codex_session_id text null,
-  runtime_state jsonb default {},    -- map path, fog, counters
+  runtime_state jsonb default {},      -- map path, fog, counters, quota
+  pairing_token_hash text,             -- local-only gate
+  archived boolean default false,      -- provenance after promote
   created_by text not null,
   created_at, updated_at
 )
 
-project_starter_events (
-  id text pk,
-  starter_id text not null,
-  phase text not null,
-  kind text not null,                -- question|answer|artifact|decision|error|status
-  payload jsonb not null,
-  created_at
+project_starter_events (       -- append-only transcript for replay/resume
+  id text pk, starter_id text not null, phase text not null,
+  kind text not null,                 -- question|answer|artifact|decision|error|status|quota
+  payload jsonb not null, created_at
 )
 
 project_starter_artifacts (
-  id text pk,
-  starter_id text not null,
-  kind text not null,                -- context|adr|map|ticket|mockup|spec|handoff_doc
-  relative_path text not null,
-  title text,
-  meta jsonb,
-  updated_at
+  id text pk, starter_id text not null,
+  kind text not null,                 -- context|adr|map|ticket|mockup|spec|handoff_doc
+  relative_path text not null, title text, meta jsonb, updated_at
 )
 
--- task linkage for execute
-tasks.starter_ticket_key text null   -- e.g. "07-auth-model" mirroring .scratch issue
-tasks.driver text null               -- claude|codex
+-- R1: Nexus has NO task-blocking model today. Add it.
+task_dependencies (
+  task_id text not null,              -- the blocked task
+  blocks_task_id text not null,       -- the task it blocks (or vice-versa)
+  source text default 'starter',      -- starter | manual
+  primary key (task_id, blocks_task_id)
+)
+-- frontier = tasks WHERE status.type='todo' AND project=starter
+--           AND NOT EXISTS (dep WHERE dep.blocks_task_id = task.id AND dep.task not done)
+```
+
+`tasks` gains two nullable columns mirroring the wayfinder issue:
+
+```sql
+tasks.starter_ticket_key text null    -- e.g. "07-auth-model" ↔ .scratch/issues/07-*.md
+tasks.driver text null                -- claude | codex
 tasks.agent_session_id text null
 ```
 
-Disk remains source of truth for docs (same philosophy as Knowledge vault + Skill library). DB indexes for UI + board.
+### 9.2 Reuse, not rebuild
 
-### Seed filesystem layout
+- **Kanban columns = `statuses`** (schema.ts:418). `statuses.projectIds[]` lets Starter scope a Backlog/Todo/In Progress/In Review/Blocked/Done set to its project without touching other projects. `statuses.type` + `isFinalState` drive frontier math.
+- **Draft project** reuses `projects` (schema.ts:1355): created at Seed with `status='planning'`; promoted at BoardBuild.
+- Disk stays source of truth for docs (Knowledge-vault/Skill-library pattern).
+
+### 9.3 Seed filesystem layout
 
 ```text
 /<parent>/<slug>/
   .git/
-  .nexus-starter.json          # { starterId, phase, sessions }
+  .nexus-starter.json          # { starterId, phase, sessions, skillsPin }
   .claude/
-    skills/                    # vendored: wayfinder, grill-with-docs, prototype, to-spec, to-tickets, implement, ...
-    CLAUDE.md                  # grows over phases; sealed at handoff
-  .scratch/
-    starter/
-      map.md
-      issues/01-....md
-      spec.md
+    skills/                    # vendored FULL closure (§12)
+    settings.local.json        # permission defaults for this workspace
+    CLAUDE.md                  # grows across phases; sealed at Handoff
+  .mcp.json                    # nexus-mcp entry (NEXUS_TEAM_ID/USER_ID)
+  .scratch/starter/            # local-markdown tracker (Matt's format)
+    map.md
+    issues/01-*.md
+    spec.md
   CONTEXT.md
   docs/adr/
   docs/ux/
-  README.md                    # appears at handoff
-  PRD.md
-  ...
+  README.md  PRD.md  user-stories.md  tech-spec.md  plan.md  handoff.md  # appear at Handoff
 ```
 
-Local markdown tracker matches Matt’s `issue-tracker-local.md` so skills run unchanged. At BoardBuild, runtime translates issues → Nexus tasks (and keeps a bidirectional key).
+Local-markdown tracker matches Matt's `issue-tracker-local.md`, so skills run unchanged.
+
+### 9.4 Lifecycle (R9)
+
+```text
+Seed        → projects row (status=planning, draft) ; starter.project_id set
+BoardBuild  → projects row promoted (status=active); statuses scoped; tasks+deps created
+Execute     → starter still referenced; agent updates tasks via nexus-mcp
+Done/Abort  → starter.archived=true (provenance, read-only); project continues as normal Nexus project
+```
 
 ---
 
-## 9. Protocol (dashboard ↔ runtime)
+## 10. Protocol (dashboard ↔ runtime), local-only (R3, R7)
 
-Zod-typed WS messages (sketch):
+Zod-typed WS; the browser is the only client.
 
 ```ts
 // client → runtime
 type ClientMsg =
   | { type: "pair"; token: string }
+  | { type: "preflight" }
   | { type: "browse"; path: string }
-  | { type: "scaffold"; name: string; parent: string; idea: string }
+  | { type: "scaffold"; name: string; parent: string; idea: string; drivers: Drivers }
   | { type: "start_phase"; starterId: string; phase: Phase; driver: "claude"|"codex" }
   | { type: "user_message"; starterId: string; text: string }
-  | { type: "permission_response"; requestId: string; allow: boolean }
+  | { type: "permission_response"; requestId: string; allow: boolean; always?: boolean }
   | { type: "advance_phase"; starterId: string }
-  | { type: "materialize_board"; starterId: string }
-  | { type: "exec_loop_start"|"exec_loop_stop"; starterId: string };
+  | { type: "pause"|"resume_phase"; starterId: string }
+  | { type: "materialize_board"; starterId: string };   // → runtime returns ticket graph
 
 // runtime → client
 type ServerMsg =
-  | { type: "ready"; version: string }
+  | { type: "ready"; version: string; preflight: Preflight }
   | { type: "session"; sessionId: string; driver: string }
   | { type: "assistant_delta"; text: string }
   | { type: "question"; id: string; prompt: string; recommended?: string }
   | { type: "artifact_upsert"; path: string; kind: string }
   | { type: "decision"; title: string; gist: string }
   | { type: "permission_request"; requestId: string; tool: string; input: unknown }
+  | { type: "quota"; spentUsd: number; capUsd: number; weeklyPct: number }
   | { type: "phase_gate"; canAdvance: boolean; reasons: string[] }
-  | { type: "task_event"; taskId: string; status: string }
+  | { type: "materialize_result"; created: TaskDraft[]; deps: [string,string][] }
+  | { type: "task_event"; taskId: string; status: string }   // from nexus-mcp during execute
   | { type: "error"; message: string; recoverable: boolean };
 ```
 
-Dashboard renders **question** events as cards (native), **assistant_delta** into a collapsible “reasoning” stream, **artifact_upsert** into the right pane via runtime static file read or `read_artifact` RPC.
+**Who writes Postgres?**
+- Phases 0–7: the **browser** calls tRPC (`projects.create`, `tasks.create`, `taskDependencies.create`) after the runtime emits `materialize_result`. Authed by the existing session cookie.
+- Phase 8 (Execute): the **agent** moves cards itself via the spawned `nexus-mcp` (direct pg, fixed local team). The dashboard subscribes to task changes (existing realtime) and re-renders the board.
 
 ---
 
-## 10. Skill packaging
+## 11. Execute via the existing nexus-mcp (R4)
 
-At Seed, vendor (copy or submodule pin) from `mattpocock/skills`:
+`mcp-server/server.ts` already exposes, over stdio with direct Postgres access: `add_task`, `list_projects`, `add_todo`, `list_todos`, `check_todo`, `search_knowledge`, `read_note`, `write_note`, `list_prompts`, `get_prompt`, `list_tasks_due_soon`. Identity comes from env (`NEXUS_TEAM_ID`, `NEXUS_USER_ID`).
+
+REV 2 additions needed on `nexus-mcp` for Starter:
+- `list_tasks(project_slug, status?)` — read the board + return `starter_ticket_key`, `driver`, deps.
+- `claim_task(task_id)` / `move_task(task_id, status_name)` — transitions with frontier validation.
+- `set_task_driver`, `add_task_comment`, `list_dependencies(task_id)`.
+- Acceptance-criteria field echoed from the ticket so the agent self-verifies.
+
+The runtime spawns `nexus-mcp` per-project with `NEXUS_TEAM_ID=local-dev-team NEXUS_USER_ID=<owner>` and injects it as an MCP server into the Claude SDK `mcpServers` / Codex MCP config. The agent then claims/reads/moves cards natively — no tRPC-from-runtime, no invented parallel path.
+
+---
+
+## 12. Skill packaging — full closure (R5)
+
+At Seed, vendor from `mattpocock/skills` **and their deps**:
 
 - `engineering/wayfinder`
-- `engineering/grill-with-docs` (+ grilling, domain-modeling)
-- `engineering/prototype`
+- `engineering/grill-with-docs` → **+ `grilling`, `+ domain-modeling`** (its declared deps)
+- `engineering/prototype` → `+ LOGIC.md/UI.md`
 - `engineering/to-spec`
 - `engineering/to-tickets`
 - `engineering/implement`
-- `engineering/research`
+- `engineering/research` (AFK subagents)
 - `engineering/code-review`
-- `engineering/setup-matt-pocock-skills` **pre-answered** with **local markdown** tracker
-
-Plus catalog:
-
-- `handoff` (from Skills Catalog `handoff-chat.md` → proper `SKILL.md`)
+- `engineering/setup-matt-pocock-skills` **pre-answered** → **local markdown** tracker (so the above run unchanged)
+- catalog: `handoff` (from `AI Agent:Skills Catalog/handoff-chat.md` → proper `SKILL.md`)
 - optional `project-creation` system preamble
 
-Pin version in `.nexus-starter.json` → `skillsPin: "mattpocock/skills@<sha>"` for reproducibility.
+Pin: `.nexus-starter.json.skillsPin = "mattpocock/skills@<sha>"`. Closure verified by a Seed-time check that every `See ./X` / sibling reference in a vendored SKILL.md resolves to a vendored file.
 
 ---
 
-## 11. Handoff → second grill → board (detail)
+## 13. Quota / budget (R6)
 
-```text
-Handoff skill writes 7 docs
-        │
-        ▼
-Coding-agent grill system prompt:
-  "You are the implementing agent. Read README→handoff.md.
-   ONLY ask about open questions, contradictions, and missing
-   verification criteria. One question at a time. Update docs inline.
-   Do not redesign settled decisions unless contradictory."
-        │
-        ▼
-Gate: openQuestions.count == 0 OR all marked deferred-with-owner
-        │
-        ▼
-to-tickets → approve slices with user
-        │
-        ▼
-materialize:
-  ensure project statuses
-  create task per issue (title, description=body, verification block)
-  encode Blocked-by as task relations / blocked status
-  put unblocked in Todo, blocked in Backlog
-        │
-        ▼
-User hits Start execution
-  driver loops ready frontier until empty or stop
-```
+- Each phase start sets `options.maxBudgetUsd` (configurable; default e.g. $2/phase).
+- Runtime accumulates `spentUsd` + a heuristic **weekly headless %** from SDK usage events; emits `quota` events → the session-strip gauge.
+- Near cap → **soft pause**: the agent finishes the current turn, runtime asks continue/defer; on defer, session id persisted, starter marked Paused.
+- This is the explicit, visible answer to "minimize `-p`": one process per phase *and* a budget governor, not just fewer spawns.
 
 ---
 
-## 12. Verification strategy (when building)
+## 14. Three plans (re-scored — R2)
 
-| Layer | Gate |
+### Plan A — "Workshop Native" (recommended product)
+
+Full multi-pane workshop (§8) on the host runtime protocol. One living SDK process per phase. Kanban + `task_dependencies` + `nexus-mcp` execute.
+
+### Plan B — "Thin Shell" (fastest dogfood)
+
+Phase checklist + structured log on the **same** runtime + protocol. Scripted skill chain (`starter run --phase …`). Issues → Nexus tasks. Execute via `codex exec resume`. **Upgrade path: each phase script becomes a Plan A panel.** Ship B0–B3 in a spike week to validate OAuth sessions + skill fidelity, then build A on the same protocol.
+
+### Plan C — "Dual-Lane Factory" (research mode — R2 downgrade)
+
+Claude conductor + parallel Codex lanes in git worktrees, coordinated on the map frontier. **Rests on `codex app-server`, which is `[experimental]`** — so C is now explicitly **research/phase-2**, gated behind (a) Plan A single-lane Execute working, and (b) app-server stabilizing or a proven lane protocol via `codex exec` per worktree. Not v1.
+
+### Comparison
+
+| Criterion | A Workshop | B Thin Shell | C Dual-Lane |
+|---|---|---|---|
+| Time to sealed handoff | Medium | **Fast** | Slow |
+| Visual walkthrough | **High** | Low | High (later) |
+| OAuth / no-key | Yes | Yes | Yes |
+| Minimize `-p` | Yes (streaming input) | Medium | Medium |
+| Board as ops | Yes + deps | Yes | Yes + lanes |
+| Stability of primitives | **SDK verified + codex exec stable** | Same | **app-server experimental** |
+| Recommended | **✅ product** | **✅ spike first** | phase-2 only |
+
+**Sequence: B spike → A product. C deferred until app-server or a lane protocol is proven.**
+
+---
+
+## 15. Phase gates (concrete — R8/R10)
+
+| Phase | `canAdvance` when |
 |---|---|
-| Runtime unit | scaffold path safety, protocol zod, session resume mock |
-| Skill fidelity | fixture idea (“todo cli”) produces CONTEXT + ≥1 ADR + map |
-| UI | RTL: question card submit, phase gate disabled when incomplete |
-| E2E (host) | OAuth present → full concept phase 3 questions → files on disk |
-| Board | N issues → N tasks, blocker topology preserved |
-| Execute dry-run | driver claims 1 task, moves columns, no code required (mock tool) |
+| Seed | dir created + git init + skills vendored (closure check ✓) + draft project row |
+| Concept | `CONTEXT.md` has ≥ N core glossary terms (configurable, default 5) AND 0 open contradictions in `handoff.md` scratch |
+| Architecture | map frontier empty (all tickets resolved/OutOfScope) **OR** user force-advance (recorded as decision) |
+| UX | ≥1 variant selected + ADR written |
+| Plan | spec seams + ≥1 user story per seam approved |
+| Handoff | all 7 docs present AND `handoff.md` populated (no empty required sections) |
+| Grill² | `openQuestions == 0` OR every open Q marked `deferred-with-owner` |
+| Board build | ≥1 task in Todo AND all `task_dependencies` reference existing tasks |
+| Execute | ready-frontier non-empty AND chosen driver healthy |
 
 ---
 
-## 13. Risks & mitigations
+## 16. Implementation slices + acceptance (R13)
+
+**B0 — Runtime spike**
+- G/W/T: runtime up on :7788 → `preflight` returns claude+codex ok → one SDK streaming-input query asks "what's the project?" → user answers via WS → second turn received by the **same** process.
+
+**B1 — Seed + draft project**
+- G/W/T: Seed form posts `scaffold` → dir exists, `.git`, vendored skills pass closure check, draft `projects` row visible.
+
+**A1 — Concept UI**
+- G/W/T: question card renders from `question` event; answer posts `user_message`; same session continues; `CONTEXT.md` diff pulses on write; reload mid-phase resumes without re-asking settled Qs.
+
+**A2 — Architecture (map + DAG)**
+- G/W/T: wayfinder chart creates `.scratch/starter/map.md` + ≥1 ticket; resolving a ticket appends to Decisions-so-far; frontier recomputes; DAG renders blocking edges.
+
+**A3 — UX gallery**
+- G/W/T: ≥3 prototype variants generated; selecting one writes ADR; gallery diff highlights the locked variant.
+
+**A4 — Plan + Handoff gates**
+- G/W/T: handoff blocked when `handoff.md` has empty required sections; after grill fills them, "Seal" enables and writes 7 docs.
+
+**A5 — Grill²**
+- G/W/T: only `handoff.md` open-questions surface as cards; closing all flips gate to BoardBuild.
+
+**A6 — Board build + `task_dependencies`**
+- G/W/T: N approved tickets → N tasks with correct `task_dependencies`; a blocked task is NOT in the ready frontier; deps survive reload.
+
+**A7 — Execute via nexus-mcp**
+- G/W/T: driver claims a Todo task → moves to In Progress via `nexus-mcp`; on verify-pass moves to Done; failure moves to Blocked with a note; board updates in realtime.
+
+**A8 — Polish**
+- pairing, quota gauge, resume banner, permission modal, error/empty states.
+
+---
+
+## 17. Risks & mitigations
 
 | Risk | Mitigation |
 |---|---|
-| OAuth rate limits / weekly caps | Phase sessions > chatty `-p`; cache research; allow pause |
-| SDK behavior drift | Pin SDK + skills SHA; runtime compatibility test |
-| Agent codes during wayfind | System prompt + tool deny (`Bash` limited) until Execute |
-| Docker/host split confuses paths | Only host runtime touches disk; UI shows host paths only |
-| Handoff invents details | Enforce handoff skill hard stop; gate on open Qs |
-| Kanban topology loss | Store `Blocked by` on task meta; visual dependency drawer |
-| User abandons mid-grill | resume session_id + event log replay |
+| Streaming-input edge cases (R8 fallback) | `resume`-per-turn fallback; both paths behind one interface |
+| OAuth weekly headless cap | §13 budget governor + soft pause |
+| Agent codes during wayfind | §8.3 per-phase tool allowlists |
+| Codex app-server instability | R2: only `codex exec resume` in v1 |
+| Docker/host path confusion | runtime-only disk access; UI shows host paths |
+| Handoff invents details | handoff skill hard-stop + Grill² gate |
+| Kanban topology loss (R1) | dedicated `task_dependencies`; frontier recomputed, not stored stale |
+| Runtime down / CLIs logged out | R11 pairing + preflight; blocking gate |
+| Skill closure drift (R5) | Seed-time closure verification vs skillsPin |
+| Abandoned mid-grill | session_id + event log replay |
 
 ---
 
-## 14. Implementation roadmap (if Plan A after B spike)
+## 18. Open decisions for you
 
-**Week 0 — Spike (Plan B core)**  
-Runtime health, Claude SDK OAuth session, scaffold, stream 1 grill question to a stub HTML page.
-
-**Week 1 — Seed + Concept**  
-Dashboard routes, pairing, CONTEXT live preview.
-
-**Week 2 — Wayfinder map**  
-Local tracker + map UI + research batch.
-
-**Week 3 — UX + Spec + Handoff**  
-Prototype gallery, to-spec, handoff gates.
-
-**Week 4 — Second grill + Board + Execute single-lane**  
-Materialize kanban, Claude/Codex exec loop, dogfood Starter **on itself** (meta).
+1. **Sequence:** B spike → A (rec), or straight A?
+2. **Default execute driver:** Codex, Claude, or ask each project?
+3. **Path allowlist** (e.g. only `~/code` + `~/Projects`)?
+4. **Tracker v1:** local markdown only, or GitHub issues too?
+5. **Project created at Seed (draft) — agreed?** (rec: yes)
+6. **Quota defaults:** per-phase $ cap, weekly % soft-pause threshold?
+7. **Meta:** build Starter as FEAT-003 in this repo, or is Starter the first child project born from a manual skill run?
 
 ---
 
-## 15. Open decisions for you
+## 19. What "done" looks like (acceptance sketch)
 
-1. **Default plan:** A, B→A, or straight C?  
-2. **Default execute driver:** Codex, Claude, or ask every project?  
-3. **Directory roots allowlist:** e.g. only `~/code` + `~/Projects`?  
-4. **Tracker:** local markdown only (v1), or also GitHub issues for wayfinder maps?  
-5. **Should Starter create the Nexus project at Seed or only at Handoff?** (rec: draft at Seed, full at BoardBuild)  
-6. **Meta:** build Starter inside this repo as FEAT-003, or is Starter itself the first project born from a manual run of the skill chain?
+Given OAuth-logged `claude` + `codex` on the host and the runtime running:
 
----
-
-## 16. What “done” looks like (acceptance sketch)
-
-Given OAuth-logged `claude` and `codex` on the host and the runtime running,
-
-1. From Projects, **Start from idea** → enter idea + pick `~/code/acme`  
-2. Complete Concept with ≥5 locked glossary terms visible in UI and on disk  
-3. Architecture map shows ≥3 resolved decisions and empty or acknowledged fog  
-4. Select a UX mockup variant  
-5. Seal handoff → 7 docs present, `handoff.md` lists zero unacknowledged open Qs after second grill  
-6. Board shows vertical-slice tasks; blockers respected  
-7. Start execution → driver moves a task In Progress → Done with verification note  
-8. Reload mid-phase → session resumes without re-asking settled questions  
+1. Projects → **Start from idea** → idea + `~/code/acme` → pairing passes.
+2. Concept: ≥5 locked glossary terms visible in UI **and** on disk; reload resumes the same session.
+3. Architecture map: ≥3 resolved decisions; frontier empty or force-advanced.
+4. UX: variant selected; ADR on disk.
+5. Handoff sealed: 7 docs present; `handoff.md` lists zero unacknowledged open Qs after Grill².
+6. Board: vertical-slice tasks; `task_dependencies` respected (a blocked task never appears ready).
+7. Execute: driver moves a task In Progress → Done with a verification note, via `nexus-mcp`, no API key used.
 
 ---
 
-## 17. References
+## 20. References
 
-- Matt Pocock skills: https://github.com/mattpocock/skills  
-- Wayfinder skill: `skills/engineering/wayfinder/SKILL.md`  
-- Grill-with-docs: `skills/engineering/grill-with-docs/SKILL.md`  
-- Local tracker: `setup-matt-pocock-skills/issue-tracker-local.md`  
-- Implement orchestrator (lane ideas): https://github.com/Dimon94/wayfinder-implement-orchestrator  
-- Claude Agent SDK: `@anthropic-ai/claude-agent-sdk`  
-- Codex: `codex app-server`, `codex exec`, `codex mcp-server`  
-- Local catalog: `AI Agent:Skills Catalog/{grill-me-with-docs,handoff-chat,project-creation-chat-instructions}`  
-- Nexus existing surfaces: projects grid, kanban (`components/tasks-view/kanban`), chat AI, knowledge vault path patterns  
+- Matt Pocock skills: https://github.com/mattpocock/skills (wayfinder, grill-with-docs, prototype, to-spec, to-tickets, implement, research, code-review, setup-matt-pocock-skills)
+- Wayfinder local tracker: `setup-matt-pocock-skills/issue-tracker-local.md`
+- Implement orchestrator (lane ideas, app-server caveat): https://github.com/Dimon94/wayfinder-implement-orchestrator
+- Claude Agent SDK `@anthropic-ai/claude-agent-sdk@0.3.215` — `query({prompt: string | AsyncIterable<SDKUserMessage>})`, `streamInput`, `Options.{resume,maxBudgetUsd,mcpServers,canUseTool,permissionMode,allowedTools,tools}`, `AccountInfo.tokenSource='oauth'`
+- Codex: `codex exec resume` (stable), `codex app-server` (experimental), `codex mcp-server`
+- Existing Nexus surfaces: `mcp-server/server.ts` (nexus-mcp), `components/tasks-view/kanban`, `apps/api/src/ai`, knowledge-vault path patterns, `packages/db/src/schema.ts` (projects:1355, tasks:224, statuses:418)
+- Local-only context: FEAT-001, DEC-014, DEC-018
+- Design tokens: `DESIGN.md` (Linear palette)
 
 ---
 
-## 18. Appendix — ASCII full-feature flow (print-friendly)
+## 21. Appendix — print-friendly full flow
 
 ```
-YOU                     NEXUS UI                    HOST RUNTIME                 DISK / BOARD
- │                         │                             │                          │
- │ Start from idea         │                             │                          │
- │────────────────────────▶│ scaffold + pair             │                          │
- │                         │────────────────────────────▶│ mkdir, git, vendor skills│
- │                         │                             │─────────────────────────▶│
- │                         │                             │                          │
- │◀── question cards ──────│◀── SDK grill session ───────│                          │
- │ answers ───────────────▶│────────────────────────────▶│ write CONTEXT/ADRs ─────▶│
- │                         │                             │                          │
- │ wayfind HITL            │ map UI                      │ claim/resolve tickets ──▶│
- │ mockup pick             │ gallery                     │ /prototype HTML ────────▶│
- │ approve spec            │                             │ /to-spec /handoff ──────▶│
- │ second grill answers    │                             │ close open Qs ──────────▶│
- │ approve tickets         │                             │ /to-tickets              │
- │                         │ materialize board ─────────▶│ tRPC create tasks ──────▶│ KANBAN
- │ Start execution         │                             │                          │
- │                         │ exec loop ─────────────────▶│ Claude/Codex implement ─▶│ code+cards
- │ watch progress          │◀── task_event ──────────────│                          │
+YOU              NEXUS UI                HOST RUNTIME :7788            DISK / BOARD
+ │                  │                          │                            │
+ │ Start from idea  │                          │                            │
+ │─────────────────▶│ pair + preflight         │                            │
+ │                  │─────────────────────────▶│ claude/codex logged in?    │
+ │                  │ scaffold + vendor skills │ mkdir/git/skills ─────────▶│
+ │◀── question ─────│◀── SDK streaming-input ──│                            │
+ │ answers ─────────▶│────────────────────────▶│ write CONTEXT/ADRs ───────▶│
+ │ wayfind HITL     │ map UI                   │ claim/resolve tickets ────▶│
+ │ mockup pick      │ gallery                  │ /prototype HTML ──────────▶│
+ │ approve spec     │                          │ /to-spec /handoff ────────▶│
+ │ grill² answers   │                          │ close open Qs ────────────▶│
+ │ approve tickets  │                          │ /to-tickets + deps        │
+ │                  │ materialize (browser tRPC)│ parse issues ─────────────▶│ KANBAN+deps
+ │ Start execution  │                          │                            │
+ │                  │ exec loop ───────────────▶│ Claude/Codex via nexus-mcp│ code+cards
+ │ watch progress   │◀── task_event ───────────│                            │
 ```
