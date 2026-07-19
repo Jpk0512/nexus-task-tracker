@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Nexus Project Starter — UI Mockups</title>
+<style>
+  :root {
+    --canvas: #010102;
+    --s1: #0f1011;
+    --s2: #141516;
+    --s3: #18191a;
+    --hair: #23252a;
+    --hair2: #34343a;
+    --ink: #f7f8f8;
+    --muted: #8a8f98;
+    --subtle: #62666d;
+    --accent: #5e6ad2;
+    --accent-h: #828fff;
+    --ok: #27a644;
+    --warn: #d4a017;
+    --danger: #e5484d;
+    --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Linear Text", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--canvas); color: var(--ink);
+    font-family: var(--font); font-size: 14px; line-height: 1.45;
+  }
+  header.app {
+    position: sticky; top: 0; z-index: 20;
+    display: flex; align-items: center; gap: 16px;
+    padding: 12px 20px; border-bottom: 1px solid var(--hair);
+    background: rgba(1,1,2,.92); backdrop-filter: blur(8px);
+  }
+  header.app .mark {
+    width: 22px; height: 22px; border-radius: 6px;
+    background: linear-gradient(135deg, var(--accent), #8b5cf6);
+  }
+  header.app h1 { font-size: 14px; font-weight: 600; margin: 0; letter-spacing: -.2px; }
+  header.app .sub { color: var(--muted); font-size: 12px; }
+  .tabs { display: flex; gap: 6px; margin-left: auto; flex-wrap: wrap; }
+  .tabs button {
+    background: transparent; border: 1px solid var(--hair);
+    color: var(--muted); border-radius: 999px; padding: 6px 12px;
+    cursor: pointer; font-size: 12px;
+  }
+  .tabs button:hover { border-color: var(--hair2); color: var(--ink); }
+  .tabs button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  main { max-width: 1280px; margin: 0 auto; padding: 24px 20px 80px; }
+  .screen { display: none; }
+  .screen.active { display: block; }
+  .caption {
+    color: var(--muted); font-size: 12px; margin: 0 0 14px;
+    padding: 10px 12px; border: 1px dashed var(--hair2); border-radius: 8px;
+    background: var(--s1);
+  }
+  .caption strong { color: var(--ink); }
+
+  /* chrome frame */
+  .frame {
+    border: 1px solid var(--hair); border-radius: 12px; overflow: hidden;
+    background: var(--s1); box-shadow: 0 30px 80px rgba(0,0,0,.45);
+  }
+  .titlebar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 14px; border-bottom: 1px solid var(--hair); background: var(--s2);
+    font-size: 12px; color: var(--muted);
+  }
+  .dots { display: flex; gap: 6px; margin-right: 8px; }
+  .dots i { width: 10px; height: 10px; border-radius: 50%; background: var(--hair2); display: block; }
+  .shell { display: grid; grid-template-columns: 220px 1fr; min-height: 640px; }
+  .nav {
+    border-right: 1px solid var(--hair); background: var(--s1); padding: 14px 10px;
+  }
+  .nav .item {
+    padding: 8px 10px; border-radius: 8px; color: var(--muted); font-size: 13px;
+    margin-bottom: 2px;
+  }
+  .nav .item.active { background: var(--s3); color: var(--ink); }
+  .nav .label { font-size: 11px; color: var(--subtle); text-transform: uppercase;
+    letter-spacing: .06em; padding: 12px 10px 6px; }
+  .content { display: flex; flex-direction: column; min-width: 0; background: var(--canvas); }
+
+  .phase-rail {
+    display: flex; gap: 4px; padding: 12px 16px; border-bottom: 1px solid var(--hair);
+    overflow-x: auto; background: var(--s1);
+  }
+  .phase {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 10px; border-radius: 8px; color: var(--muted); white-space: nowrap;
+    font-size: 12px; border: 1px solid transparent;
+  }
+  .phase .n {
+    width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--hair2);
+    display: grid; place-items: center; font-size: 10px;
+  }
+  .phase.done { color: var(--ok); }
+  .phase.done .n { border-color: var(--ok); background: rgba(39,166,68,.12); }
+  .phase.now { color: var(--ink); background: rgba(94,106,210,.12); border-color: rgba(94,106,210,.35); }
+  .phase.now .n { border-color: var(--accent); background: var(--accent); color: #fff; }
+
+  .workspace { display: grid; grid-template-columns: 1.05fr 1fr; flex: 1; min-height: 0; }
+  .pane { min-width: 0; display: flex; flex-direction: column; }
+  .pane + .pane { border-left: 1px solid var(--hair); }
+  .pane-h {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px; border-bottom: 1px solid var(--hair); color: var(--muted); font-size: 12px;
+  }
+  .pane-b { padding: 14px; flex: 1; overflow: auto; }
+
+  .q-card {
+    border: 1px solid var(--hair2); background: var(--s2); border-radius: 12px; padding: 16px;
+  }
+  .q-card .eyebrow { color: var(--accent-h); font-size: 11px; font-weight: 600;
+    letter-spacing: .04em; text-transform: uppercase; margin-bottom: 8px; }
+  .q-card h3 { margin: 0 0 10px; font-size: 16px; font-weight: 600; letter-spacing: -.2px; }
+  .q-card p { margin: 0 0 12px; color: var(--muted); }
+  .rec {
+    background: rgba(94,106,210,.1); border: 1px solid rgba(94,106,210,.35);
+    border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; font-size: 13px;
+  }
+  .rec b { color: var(--accent-h); font-weight: 600; }
+  textarea, input[type=text] {
+    width: 100%; background: var(--s1); border: 1px solid var(--hair2); color: var(--ink);
+    border-radius: 8px; padding: 10px 12px; font: inherit; resize: vertical;
+  }
+  textarea:focus, input[type=text]:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+  .row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .btn {
+    border: 1px solid var(--hair2); background: var(--s3); color: var(--ink);
+    border-radius: 8px; padding: 8px 12px; font-size: 13px; cursor: pointer;
+  }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.ghost { background: transparent; color: var(--muted); }
+  .btn:hover { filter: brightness(1.08); }
+
+  .tabs-mini { display: flex; gap: 2px; }
+  .tabs-mini span {
+    padding: 4px 8px; border-radius: 6px; cursor: default;
+  }
+  .tabs-mini span.on { background: var(--s3); color: var(--ink); }
+
+  pre.md {
+    margin: 0; white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px; color: var(--ink); background: var(--s1); border: 1px solid var(--hair);
+    border-radius: 8px; padding: 12px; line-height: 1.5;
+  }
+  pre.md .hi { background: rgba(94,106,210,.25); border-radius: 3px; padding: 0 3px; }
+  pre.md .add { color: #3dd68c; }
+
+  .session-strip {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    padding: 8px 14px; border-top: 1px solid var(--hair); background: var(--s2);
+    font-size: 11px; color: var(--muted);
+  }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 3px 8px; border-radius: 999px; border: 1px solid var(--hair2);
+  }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); }
+
+  /* seed */
+  .seed-hero { max-width: 720px; margin: 40px auto; padding: 0 20px 40px; }
+  .seed-hero h2 { font-size: 28px; letter-spacing: -.6px; margin: 0 0 8px; font-weight: 600; }
+  .seed-hero .lead { color: var(--muted); margin-bottom: 28px; }
+  .field { margin-bottom: 16px; }
+  .field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  .path {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--s1); border: 1px solid var(--hair2); border-radius: 8px; padding: 4px 4px 4px 12px;
+  }
+  .path input { border: 0; background: transparent; padding: 8px 0; }
+  .path input:focus { outline: none; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .choice {
+    border: 1px solid var(--hair2); border-radius: 10px; padding: 12px; background: var(--s2); cursor: pointer;
+  }
+  .choice.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  .choice b { display: block; margin-bottom: 4px; }
+  .choice span { color: var(--muted); font-size: 12px; }
+
+  /* map */
+  .map-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .col-card {
+    background: var(--s1); border: 1px solid var(--hair); border-radius: 10px; padding: 10px; min-height: 220px;
+  }
+  .col-card h4 { margin: 0 0 10px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .ticket {
+    background: var(--s2); border: 1px solid var(--hair2); border-radius: 8px; padding: 10px;
+    margin-bottom: 8px; font-size: 12px;
+  }
+  .ticket .meta { color: var(--subtle); font-size: 11px; margin-top: 6px; }
+  .ticket.hitl { border-left: 3px solid var(--accent); }
+  .ticket.afk { border-left: 3px solid var(--ok); }
+  .dest {
+    grid-column: 1 / -1; background: rgba(94,106,210,.08);
+    border: 1px solid rgba(94,106,210,.3); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px;
+  }
+  .dest b { color: var(--accent-h); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+
+  /* mockups gallery */
+  .gallery { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .variant {
+    border: 1px solid var(--hair2); border-radius: 10px; overflow: hidden; background: var(--s2);
+    cursor: pointer;
+  }
+  .variant.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .variant .preview {
+    height: 120px; background:
+      linear-gradient(180deg, #12131a, #0a0b10);
+    display: grid; place-items: center; color: var(--muted); font-size: 11px;
+    position: relative;
+  }
+  .variant .preview .wire {
+    width: 70%; height: 70%; border: 1px dashed var(--hair2); border-radius: 6px;
+    display: grid; grid-template-rows: 16px 1fr; gap: 6px; padding: 6px;
+  }
+  .variant .preview .wire i { background: var(--hair2); display: block; border-radius: 2px; }
+  .variant .preview .wire .body { display: grid; grid-template-columns: 1fr 2fr; gap: 6px; }
+  .variant figcaption { padding: 8px 10px; font-size: 12px; }
+  .variant figcaption b { display: block; }
+  .variant figcaption span { color: var(--muted); font-size: 11px; }
+
+  /* kanban */
+  .kanban { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; padding: 12px; }
+  .kcol { background: var(--s1); border-radius: 10px; border: 1px solid var(--hair); padding: 8px; min-height: 360px; }
+  .kcol h4 { margin: 0 8px 8px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  .kcard {
+    background: var(--s2); border: 1px solid var(--hair2); border-radius: 8px; padding: 10px;
+    margin-bottom: 8px; font-size: 12px;
+  }
+  .kcard .title { font-weight: 500; margin-bottom: 6px; }
+  .badges { display: flex; gap: 4px; flex-wrap: wrap; }
+  .badge {
+    font-size: 10px; padding: 2px 6px; border-radius: 999px; border: 1px solid var(--hair2); color: var(--muted);
+  }
+  .badge.claude { color: #d4a574; border-color: #5c4030; }
+  .badge.codex { color: #7dd3fc; border-color: #0c4a6e; }
+
+  .flow {
+    margin-top: 28px; padding: 16px; border: 1px solid var(--hair); border-radius: 12px; background: var(--s1);
+  }
+  .flow h3 { margin: 0 0 10px; font-size: 14px; }
+  .flow pre {
+    margin: 0; overflow: auto; color: var(--muted); font-size: 11px; line-height: 1.35;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  .plans { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 12px; }
+  .plan {
+    border: 1px solid var(--hair); border-radius: 12px; padding: 14px; background: var(--s2);
+  }
+  .plan.rec { border-color: rgba(94,106,210,.5); }
+  .plan h3 { margin: 0 0 6px; font-size: 15px; }
+  .plan .tag { font-size: 11px; color: var(--accent-h); margin-bottom: 8px; }
+  .plan ul { margin: 0; padding-left: 16px; color: var(--muted); font-size: 12px; }
+  .plan li { margin-bottom: 4px; }
+</style>
+</head>
+<body>
+<header class="app">
+  <div class="mark"></div>
+  <div>
+    <h1>Project Starter — visual mockups</h1>
+    <div class="sub">FEAT-003 · idea → wayfind → grill → handoff → kanban → code</div>
+  </div>
+  <div class="tabs" id="tabs">
+    <button data-tab="overview" class="active">Overview</button>
+    <button data-tab="seed">0 · Seed</button>
+    <button data-tab="concept">1 · Concept</button>
+    <button data-tab="arch">2 · Architecture</button>
+    <button data-tab="ux">3 · UX</button>
+    <button data-tab="handoff">5 · Handoff</button>
+    <button data-tab="board">8 · Execute board</button>
+  </div>
+</header>
+
+<main>
+  <!-- OVERVIEW -->
+  <section class="screen active" id="overview">
+    <p class="caption">
+      <strong>How to read this.</strong> Click the phase tabs to walk the workshop UI.
+      Full design write-up: <code>docs/design/PROJECT-STARTER-FEATURE.md</code>.
+      Drivers use host-side OAuth (Claude Agent SDK + Codex app-server) — no API keys.
+    </p>
+
+    <div class="frame">
+      <div class="titlebar"><div class="dots"><i></i><i></i><i></i></div> End-to-end flow</div>
+      <div style="padding:18px;overflow:auto">
+<pre style="margin:0;color:var(--muted);font-size:12px;line-height:1.4;font-family:ui-monospace,monospace">
+ Seed          Concept           Architecture        UX mockups         Phased plan
+ ┌────┐       ┌──────────┐      ┌────────────┐     ┌───────────┐      ┌───────────┐
+ │idea│──────▶│grill-with│─────▶│ wayfinder  │────▶│ prototype │─────▶│  to-spec  │
+ │dir │       │  -docs   │      │ map+tickets│     │ gallery   │      │           │
+ └────┘       └──────────┘      └────────────┘     └───────────┘      └─────┬─────┘
+                                                                            │
+ Handoff pack     2nd grill (coding agent)     to-tickets → kanban      Execute
+ ┌──────────┐      ┌──────────────────┐       ┌─────────────────┐    ┌─────────────┐
+ │ 7 docs   │─────▶│ open Qs only     │──────▶│ Nexus board     │───▶│Claude/Codex │
+ │ on disk  │      │ grill-with-docs  │       │ ops surface     │    │ pull cards  │
+ └──────────┘      └──────────────────┘       └─────────────────┘    └─────────────┘
+</pre>
+      </div>
+    </div>
+
+    <div class="flow">
+      <h3>Three plans (see design doc §7)</h3>
+      <div class="plans">
+        <div class="plan rec">
+          <div class="tag">RECOMMENDED SEQUENCE: B spike → A</div>
+          <h3>A · Workshop Native</h3>
+          <ul>
+            <li>Full multi-pane workshop UI</li>
+            <li>Host runtime + Claude Agent SDK</li>
+            <li>1 long-lived session per phase</li>
+            <li>Kanban materialize + exec loop</li>
+          </ul>
+        </div>
+        <div class="plan">
+          <div class="tag">FASTEST DOGFOOD</div>
+          <h3>B · Thin Shell</h3>
+          <ul>
+            <li>Phase checklist + log stream</li>
+            <li>Same runtime protocol</li>
+            <li>Scripted skill chain</li>
+            <li>Upgrade panels later → A</li>
+          </ul>
+        </div>
+        <div class="plan">
+          <div class="tag">LATER AUTONOMY</div>
+          <h3>C · Dual-Lane Factory</h3>
+          <ul>
+            <li>Claude conductor + Codex lanes</li>
+            <li>Git worktrees per lane</li>
+            <li>Live DAG / swimlanes</li>
+            <li>After single-lane Execute works</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="flow">
+      <h3>System context (host runtime is mandatory for OAuth)</h3>
+<pre>
+Browser (Dashboard) ──WS──▶ nexus-agent-runtime :7788 ──▶ Claude Agent SDK ──OAuth──▶ claude binary
+         │                           │
+         │                           ├──▶ Codex app-server :7790 ──OAuth──▶ codex
+         │                           └──▶ filesystem (project dir)
+         └──tRPC──▶ Nexus API/Postgres (project + kanban only)
+</pre>
+    </div>
+  </section>
+
+  <!-- SEED -->
+  <section class="screen" id="seed">
+    <p class="caption"><strong>Phase 0 · Seed.</strong> Deterministic UI — no agent yet. Pick directory on the host, name the project, choose default drivers, drop the idea.</p>
+    <div class="frame">
+      <div class="titlebar"><div class="dots"><i></i><i></i><i></i></div> nexus.local / projects / start from idea</div>
+      <div class="shell">
+        <aside class="nav">
+          <div class="label">Workspace</div>
+          <div class="item">Home</div>
+          <div class="item">Inbox</div>
+          <div class="item active">Projects</div>
+          <div class="item">Tasks</div>
+          <div class="item">Knowledge</div>
+          <div class="label">Build</div>
+          <div class="item">Starter</div>
+        </aside>
+        <div class="content">
+          <div class="seed-hero">
+            <h2>Start from an idea</h2>
+            <p class="lead">We’ll lock the concept, chart architecture, design UX, seal a handoff, then run the build on a kanban board — driven by Claude &amp; Codex via your OAuth subscriptions.</p>
+
+            <div class="field">
+              <label>Working title</label>
+              <input type="text" value="Acme Ops Desk" />
+            </div>
+            <div class="field">
+              <label>Idea</label>
+              <textarea rows="4">A local ops desk that turns a product idea into a grilled, wayfinded handoff and a kanban board coding agents can execute without API keys.</textarea>
+            </div>
+            <div class="field">
+              <label>Project directory (host)</label>
+              <div class="path">
+                <span style="color:var(--subtle)">~/code/</span>
+                <input type="text" value="acme-ops-desk" style="flex:1" />
+                <button class="btn">Browse…</button>
+              </div>
+            </div>
+            <div class="grid2">
+              <div class="field">
+                <label>Discovery driver</label>
+                <div class="choice on"><b>Claude</b><span>OAuth · best for grill / wayfind HITL</span></div>
+              </div>
+              <div class="field">
+                <label>Execute driver</label>
+                <div class="choice on"><b>Codex</b><span>OAuth · strong AFK implementation lanes</span></div>
+              </div>
+            </div>
+            <div class="row">
+              <button class="btn primary">Create workspace &amp; begin concept lock</button>
+              <button class="btn ghost">Save draft</button>
+            </div>
+          </div>
+          <div class="session-strip">
+            <span class="pill"><span class="dot"></span> runtime paired · v0.1.0</span>
+            <span class="pill">path ok · empty dir</span>
+            <span class="pill">skills will vendor @ mattpocock/skills#pin</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONCEPT -->
+  <section class="screen" id="concept">
+    <p class="caption"><strong>Phase 1 · Concept lock.</strong> <code>grill-with-docs</code> — one question at a time, recommended answer, live <code>CONTEXT.md</code> / ADR updates. Long-lived Claude SDK session (not a new <code>-p</code> per answer).</p>
+    <div class="frame">
+      <div class="titlebar"><div class="dots"><i></i><i></i><i></i></div> Starter / acme-ops-desk / concept</div>
+      <div class="shell">
+        <aside class="nav">
+          <div class="label">Workspace</div>
+          <div class="item">Projects</div>
+          <div class="item active">Starter</div>
+          <div class="item">Tasks</div>
+        </aside>
+        <div class="content">
+          <div class="phase-rail">
+            <div class="phase done"><span class="n">✓</span> Seed</div>
+            <div class="phase now"><span class="n">1</span> Concept</div>
+            <div class="phase"><span class="n">2</span> Architecture</div>
+            <div class="phase"><span class="n">3</span> UX</div>
+            <div class="phase"><span class="n">4</span> Plan</div>
+            <div class="phase"><span class="n">5</span> Handoff</div>
+            <div class="phase"><span class="n">6</span> Grill²</div>
+            <div class="phase"><span class="n">7</span> Board</div>
+            <div class="phase"><span class="n">8</span> Execute</div>
+          </div>
+          <div class="workspace">
+            <div class="pane">
+              <div class="pane-h"><span>Dialogue · grill-with-docs</span><span>Q 4 of ~12</span></div>
+              <div class="pane-b">
+                <div class="q-card">
+                  <div class="eyebrow">Decision · domain language</div>
+                  <h3>When you say “project,” is that the Nexus workspace entity, the git repo on disk, or both?</h3>
+                  <p>Your earlier answers treat them as 1:1, but the handoff pack lives on disk while the kanban lives in Nexus. Overloaded terms will poison CONTEXT.md.</p>
+                  <div class="rec"><b>Recommended:</b> Call the disk tree a <i>Workspace</i> and the Nexus record a <i>Project</i>. One Project points at one Workspace path.</div>
+                  <textarea rows="3" placeholder="Your answer…">Agree — Workspace = disk, Project = Nexus. Starter binds them 1:1 for v1.</textarea>
+                  <div class="row">
+                    <button class="btn primary">Send answer</button>
+                    <button class="btn">Accept recommendation</button>
+                    <button class="btn ghost">Skip for later</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="pane">
+              <div class="pane-h">
+                <div class="tabs-mini">
+                  <span class="on">CONTEXT.md</span>
+                  <span>ADRs</span>
+                  <span>Session log</span>
+                </div>
+                <span class="pill"><span class="dot"></span> live</span>
+              </div>
+              <div class="pane-b">
+<pre class="md"># CONTEXT
+
+## Glossary
+
+- <span class="hi">Workspace</span> — git repository root on the host filesystem created by Starter.
+- <span class="hi">Project</span> — Nexus DB entity that tracks board, tasks, and members.
+- <span class="add">+ Starter run</span> — one guided workshop instance binding a Workspace to a Project.
+
+## Relationships
+
+- A Starter run creates exactly one Workspace and eventually one Project.
+</pre>
+              </div>
+            </div>
+          </div>
+          <div class="session-strip">
+            <span class="pill"><span class="dot"></span> Claude session 7f3a…c21</span>
+            <span class="pill">oauth · subscription</span>
+            <span class="pill">turns this phase: 4</span>
+            <span class="pill">artifacts: CONTEXT.md · 0 ADRs</span>
+            <button class="btn ghost" style="margin-left:auto;padding:4px 8px;font-size:11px">Advance when ready →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ARCH -->
+  <section class="screen" id="arch">
+    <p class="caption"><strong>Phase 2 · Architecture.</strong> Matt Pocock <code>wayfinder</code> — destination, fog, frontier decision tickets (research AFK / grilling HITL / prototype). Map is planning-only until the way is clear.</p>
+    <div class="frame">
+      <div class="titlebar"><div class="dots"><i></i><i></i><i></i></div> Starter / acme-ops-desk / architecture · wayfinder map</div>
+      <div class="shell">
+        <aside class="nav">
+          <div class="item active">Starter</div>
+          <div class="item">Projects</div>
+        </aside>
+        <div class="content">
+          <div class="phase-rail">
+            <div class="phase done"><span class="n">✓</span> Seed</div>
+            <div class="phase done"><span class="n">✓</span> Concept</div>
+            <div class="phase now"><span class="n">2</span> Architecture</div>
+            <div class="phase"><span class="n">3</span> UX</div>
+            <div class="phase"><span class="n">4</span> Plan</div>
+            <div class="phase"><span class="n">5+</span> …</div>
+          </div>
+          <div class="pane-b">
+            <div class="dest">
+              <b>Destination</b>
+              <div style="margin-top:6px">Seal a handoff pack and Nexus kanban that let Codex implement Acme Ops Desk without re-discovering architecture.</div>
+            </div>
+            <div class="map-grid">
+              <div class="col-card">
+                <h4>Frontier · ready</h4>
+                <div class="ticket hitl">
+                  <b>Host runtime transport</b>
+                  <div>WS vs SDK-only embedding?</div>
+                  <div class="meta">type: grilling · HITL</div>
+                </div>
+                <div class="ticket afk">
+                  <b>Research: Claude Agent SDK OAuth</b>
+                  <div>Confirm tokenSource oauth without API key</div>
+                  <div class="meta">type: research · AFK · running</div>
+                </div>
+              </div>
+              <div class="col-card">
+                <h4>Blocked</h4>
+                <div class="ticket">
+                  <b>Permission prompt UX</b>
+                  <div class="meta">blocked by: Host runtime transport</div>
+                </div>
+                <div class="ticket">
+                  <b>Execute driver policy</b>
+                  <div class="meta">blocked by: Host runtime transport</div>
+                </div>
+              </div>
+              <div class="col-card">
+                <h4>Fog · not yet specified</h4>
+                <div class="ticket" style="opacity:.75">Multi-tenant Starter later?</div>
+                <div class="ticket" style="opacity:.75">GitHub issues tracker option</div>
+                <h4 style="margin-top:16px">Decisions so far</h4>
+                <div class="ticket" style="border-left:3px solid var(--ok)">
+                  <b>Local markdown tracker</b>
+                  <div class="meta">gist: skills run unchanged on .scratch/</div>
+                </div>
+              </div>
+            </div>
+            <div class="row" style="margin-top:12px">
+              <button class="btn primary">Claim next frontier ticket</button>
+              <button class="btn">Run AFK research batch</button>
+              <button class="btn ghost">Open map.md</button>
+            </div>
+          </div>
+          <div class="session-strip">
+            <span class="pill"><span class="dot"></span> map · .scratch/starter/map.md</span>
+            <span class="pill">frontier 2 · blocked 2 · fog 2</span>
+            <span class="pill">Claude + research subagents</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- UX -->
+  <section class="screen" id="ux">
+    <p class="caption"><strong>Phase 3 · UX design.</strong> <code>/prototype</code> UI branch — multiple throwaway variants, pick one, lock ADR. Gallery renders generated HTML from the workspace.</p>
+    <div class="frame">
+      <div class="titlebar"><div class="dots"><i></i><i></i><i></i></div> Starter / acme-ops-desk / ux</div>
+      <div class="shell">
+        <aside class="nav"><div class="item active">Starter</div></aside>
+        <div class="content">
+          <div class="phase-rail">
+            <div class="phase done"><span class="n">✓</span> Concept</div>
+            <div class="phase done"><span class="n">✓</span> Arch</div>
+            <div class="phase now"><span class="n">3</span> UX</div>
+            <div class="phase"><span class="n">4</span> Plan</div>
+          </div>
+          <div class="workspace">
+            <div class="pane">
+              <div class="pane-h"><span>Variants</span><span>pick one to lock</span></div>
+              <div class="pane-b">
+                <div class="gallery">
+                  <div class="variant on">
+                    <div class="preview"><div class="wire"><i></i><div class="body"><i></i><i></i></div></div></div>
+                    <figcaption><b>A · Split workshop</b><span>Dialogue | artifacts — recommended</span></figcaption>
+                  </div>
+                  <div class="variant">
+                    <div class="preview"><div class="wire" style="grid-template-rows:1fr"><i style="height:100%"></i></div></div>
+                    <figcaption><b>B · Single column</b><span>Linear-style document flow</span></figcaption>
+                  </div>
+                  <div class="variant">
+                    <div class="preview"><div class="wire"><i></i><div class="body" style="grid-template-columns:1fr"><i></i></div></div></div>
+                    <figcaption><b>C · Map-first</b><span>Wayfinder DAG dominates</span></figcaption>
+                  </div>
+                </div>
+                <div class="row">
+                  <button class="btn primary">Lock variant A + write ADR</button>
+                  <button class="btn">Regenerate 2 more</button>
+                </div>
+              </div>
+            </div>
+            <div class="pane">
+              <div class="pane-h"><span>Preview · variant A</span></div>
+              <div class="pane-b">
+                <div style="border:1px solid var(--hair);border-radius:8px;height:280px;background:var(--s1);display:grid;place-items:center;color:var(--muted);font-size:12px">
+                  iframe → docs/ux/variant-a/index.html
+                </div>
+                <p style="color:var(--muted);font-size:12px;margin:12px 0 0">Annotations: “Keep phase rail sticky”, “Question card needs Accept-rec shortcut”.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- HANDOFF -->
+  <section class="screen" id="handoff">
+    <p class="caption"><strong>Phase 5 · Handoff.</strong> Seven documents, hard rules from the handoff skill. Incomplete <code>handoff.md</code> blocks seal. Phase 6 second grill closes residual open questions for the coding agent.</p>
+    <div class="frame">
+      <div class="titlebar"><div class="dots"><i></i><i></i><i></i></div> Starter / acme-ops-desk / handoff</div>
+      <div class="shell">
+        <aside class="nav"><div class="item active">Starter</div></aside>
+        <div class="content">
+          <div class="phase-rail">
+            <div class="phase done"><span class="n">✓</span> …</div>
+            <div class="phase now"><span class="n">5</span> Handoff</div>
+            <div class="phase"><span class="n">6</span> Grill²</div>
+            <div class="phase"><span class="n">7</span> Board</div>
+          </div>
+          <div class="pane-b">
+            <div class="grid2">
+              <div>
+                <div class="ticket" style="display:flex;justify-content:space-between"><span>README.md</span><span style="color:var(--ok)">ready</span></div>
+                <div class="ticket" style="display:flex;justify-content:space-between"><span>PRD.md</span><span style="color:var(--ok)">ready</span></div>
+                <div class="ticket" style="display:flex;justify-content:space-between"><span>user-stories.md</span><span style="color:var(--ok)">ready</span></div>
+                <div class="ticket" style="display:flex;justify-content:space-between"><span>tech-spec.md</span><span style="color:var(--ok)">ready</span></div>
+                <div class="ticket" style="display:flex;justify-content:space-between"><span>plan.md</span><span style="color:var(--warn)">2 tasks lack verification</span></div>
+                <div class="ticket" style="display:flex;justify-content:space-between"><span>CLAUDE.md</span><span style="color:var(--ok)">ready</span></div>
+                <div class="ticket" style="display:flex;justify-content:space-between"><span>handoff.md</span><span style="color:var(--danger)">3 open questions</span></div>
+              </div>
+              <div class="q-card">
+                <div class="eyebrow">Gate</div>
+                <h3>Handoff not sealed</h3>
+                <p>The handoff skill refuses to invent. Resolve verification criteria on plan.md and either answer or explicitly defer the 3 open questions.</p>
+                <div class="row">
+                  <button class="btn">Return to plan</button>
+                  <button class="btn">Start Grill² now</button>
+                  <button class="btn primary" disabled style="opacity:.4">Seal handoff</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- BOARD -->
+  <section class="screen" id="board">
+    <p class="caption"><strong>Phase 8 · Execute.</strong> Existing Nexus kanban is the ops board. Claude/Codex claim ready-frontier cards, implement in the workspace, move columns, attach verification. No API keys — host runtime sessions.</p>
+    <div class="frame">
+      <div class="titlebar"><div class="dots"><i></i><i></i><i></i></div> Projects / Acme Ops Desk / board · exec live</div>
+      <div class="shell">
+        <aside class="nav">
+          <div class="item">Starter</div>
+          <div class="item active">Projects</div>
+          <div class="item">Tasks</div>
+        </aside>
+        <div class="content">
+          <div class="pane-h">
+            <span>Acme Ops Desk · implementation board</span>
+            <div class="row" style="margin:0">
+              <span class="pill"><span class="dot"></span> exec loop on · codex</span>
+              <button class="btn" style="padding:4px 8px;font-size:11px">Pause</button>
+              <button class="btn ghost" style="padding:4px 8px;font-size:11px">Switch driver</button>
+            </div>
+          </div>
+          <div class="kanban">
+            <div class="kcol">
+              <h4>Backlog</h4>
+              <div class="kcard"><div class="title">Permission prompt UX</div><div class="badges"><span class="badge">blocked-by #03</span></div></div>
+            </div>
+            <div class="kcol">
+              <h4>Todo · frontier</h4>
+              <div class="kcard"><div class="title">Seed scaffold API</div><div class="badges"><span class="badge">slice</span><span class="badge">verify: vitest</span></div></div>
+              <div class="kcard"><div class="title">Pairing token flow</div><div class="badges"><span class="badge">slice</span></div></div>
+            </div>
+            <div class="kcol">
+              <h4>In progress</h4>
+              <div class="kcard" style="border-color:rgba(125,211,252,.4)">
+                <div class="title">Claude SDK session wrapper</div>
+                <div class="badges">
+                  <span class="badge codex">codex</span>
+                  <span class="badge">sess 12ab…</span>
+                </div>
+              </div>
+            </div>
+            <div class="kcol">
+              <h4>In review</h4>
+              <div class="kcard">
+                <div class="title">Protocol zod types</div>
+                <div class="badges"><span class="badge claude">claude review</span></div>
+              </div>
+            </div>
+            <div class="kcol">
+              <h4>Done</h4>
+              <div class="kcard" style="opacity:.75"><div class="title">git init + skills vendor</div></div>
+            </div>
+          </div>
+          <div class="session-strip">
+            <span class="pill">ready frontier: 2</span>
+            <span class="pill">lane: main worktree</span>
+            <span class="pill">last verify: pass · 42s ago</span>
+            <span class="pill">OAuth · no API key</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+  const tabs = document.getElementById('tabs');
+  const screens = [...document.querySelectorAll('.screen')];
+  tabs.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-tab]');
+    if (!btn) return;
+    tabs.querySelectorAll('button').forEach(b => b.classList.toggle('active', b === btn));
+    screens.forEach(s => s.classList.toggle('active', s.id === btn.dataset.tab));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+</script>
+</body>
+</html>
