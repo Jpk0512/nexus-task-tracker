@@ -59,7 +59,8 @@ export function AppSidebar() {
 					/>
 				</div>
 			</SidebarHeader>
-			<SidebarContent className="pb-12">
+			{/* scrollbar-none: Dashboard OS lock — no visible scrollbar on side panel */}
+			<SidebarContent className="scrollbar-none pb-12 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
 				<SidebarFocus />
 				<SidebarProjects />
 				<SidebarWorkspace />

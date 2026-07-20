@@ -18,6 +18,7 @@ import {
 	resetHomeConfig,
 	saveHomeConfig,
 } from "./home-config";
+import { OsQuickTiles } from "./os-quick-tiles";
 import { QuickCapture } from "./quick-capture";
 import { StaleCommitmentDigest } from "./stale-commitment-digest";
 import { UpNextCard } from "./up-next-card";
@@ -170,6 +171,8 @@ export const HomeShell = () => {
 					);
 				})
 			)}
+			{/* Dashboard OS quick tiles — Notes / Skills / Meetings / Starter */}
+			<OsQuickTiles />
 			{config ? (
 				<DashboardConfigModal
 					open={open}

@@ -46,7 +46,7 @@ body{margin:0;background:radial-gradient(1200px 600px at 70% -10%,rgba(94,106,21
 .railon .body{grid-template-columns:230px 1fr 260px}
 
 /* ====== vibrancy sidebar ====== */
-.sb{background:var(--vib);backdrop-filter:blur(20px) saturate(140%);border-right:1px solid var(--hair);display:flex;flex-direction:column;padding:8px 8px;overflow:auto}
+.sb{background:var(--vib);backdrop-filter:blur(20px) saturate(140%);border-right:1px solid var(--hair);display:flex;flex-direction:column;padding:8px 8px;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;-ms-overflow-style:none}.sb::-webkit-scrollbar{display:none;width:0;height:0}
 .spacep{display:flex;gap:5px;padding:4px 4px 8px;border-bottom:1px solid var(--hair);margin-bottom:6px}
 .spacep .sp{flex:1;height:26px;border-radius:7px;display:grid;place-items:center;font-size:10px;color:var(--muted);cursor:pointer;border:1px solid transparent}
 .spacep .sp.on{background:var(--s3);color:var(--ink);border-color:var(--hair2)}
@@ -237,6 +237,7 @@ hr.sep{border:0;border-top:1px solid var(--hair);margin:12px 0}
       <button class="nav" data-v="focus"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2"/></svg><span class="lbl">Focus</span><span class="bdg red">2</span></button>
       <button class="nav" data-v="capture"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span class="lbl">Capture</span><span class="bdg">4</span></button>
       <button class="nav" data-v="projects"><svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg><span class="lbl">Projects</span></button>
+      <button class="nav" data-v="starter"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg><span class="lbl">Create Project</span></button>
 
       <div class="sec">Favorites</div>
       <div class="fav"><span class="cdot" style="background:var(--green)"></span> Voice Agent Studio</div>
@@ -576,14 +577,54 @@ hr.sep{border:0;border-top:1px solid var(--hair);margin:12px 0}
 
       <!-- SETTINGS -->
       <section class="view" id="settings">
-        <div class="vhead"><h1>Settings</h1></div>
-        <div class="vbody grid2">
-          <div class="card"><h4>Appearance</h4><div class="row" style="margin-top:6px;gap:10px"><span class="row" style="gap:5px;font-size:11px;color:var(--muted)"><i style="width:14px;height:14px;border-radius:4px;background:#5e6ad2;display:block"></i>lavender</span><span class="row" style="gap:5px;font-size:11px;color:var(--muted)"><i style="width:14px;height:14px;border-radius:4px;background:#4cb782;display:block"></i>green</span></div><p style="margin-top:8px">Density · ADHD-calm mode</p></div>
-          <div class="card"><h4>Models</h4><p>Cloud · LM Studio URL · Gemini fallback · default chat/embed</p></div>
-          <div class="card"><h4>Notes vault</h4><p>Root path · Open in ZenNotes command · embeddings</p></div>
-          <div class="card"><h4>Infisical</h4><p>Local Docker URL · identity</p></div>
-          <div class="card"><h4>Menu bar &amp; hotkeys</h4><p>⌘⇧Space capture · menu-bar item on · dock badge</p></div>
-          <div class="card"><h4>Spaces</h4><p>Work · Personal · Nexus — vault + secret scope per space</p></div>
+        <div class="vhead"><h1>Settings</h1><span class="sub">grouped · search below</span></div>
+        <div class="filters"><input placeholder="Search settings…"><span class="chip on">All</span><span class="chip">General</span><span class="chip">AI</span><span class="chip">Brain</span><span class="chip">Ops</span><span class="chip">Desktop</span></div>
+        <div class="vbody" style="display:grid;grid-template-columns:200px 1fr;gap:14px;min-height:420px">
+          <div style="border:1px solid var(--hair);border-radius:11px;background:var(--s1);padding:8px;height:fit-content">
+            <div class="lrow on" style="background:rgba(94,106,210,.12);border-radius:7px"><span class="ttl">General</span></div>
+            <div class="lrow"><span class="ttl">Appearance</span></div>
+            <div class="lrow"><span class="ttl">AI &amp; Models</span></div>
+            <div class="lrow"><span class="ttl">Notes vault</span></div>
+            <div class="lrow"><span class="ttl">Infisical / Secrets</span></div>
+            <div class="lrow"><span class="ttl">MCP defaults</span></div>
+            <div class="lrow"><span class="ttl">Hotkeys</span></div>
+            <div class="lrow"><span class="ttl">Spaces</span></div>
+            <div class="lrow"><span class="ttl">Notifications</span></div>
+            <div class="lrow"><span class="ttl">Account</span></div>
+          </div>
+          <div>
+            <div class="card" style="margin-bottom:10px">
+              <h4>Appearance</h4>
+              <p style="margin:6px 0 10px">Accent, density, ADHD-calm mode (fewer Home modules, larger targets, reduced motion).</p>
+              <div class="row" style="gap:10px;margin-bottom:10px">
+                <span class="row" style="gap:5px;font-size:11px;color:var(--muted)"><i style="width:16px;height:16px;border-radius:5px;background:#5e6ad2;display:block;box-shadow:0 0 0 2px rgba(94,106,210,.35)"></i>lavender</span>
+                <span class="row" style="gap:5px;font-size:11px;color:var(--muted)"><i style="width:16px;height:16px;border-radius:5px;background:#4cb782;display:block"></i>green</span>
+                <span class="row" style="gap:5px;font-size:11px;color:var(--muted)"><i style="width:16px;height:16px;border-radius:5px;background:#f2a65a;display:block"></i>amber</span>
+                <span class="row" style="gap:5px;font-size:11px;color:var(--muted)"><i style="width:16px;height:16px;border-radius:5px;background:#e879a9;display:block"></i>pink</span>
+              </div>
+              <div class="row" style="gap:8px"><span class="chip on">Comfy</span><span class="chip">Compact</span><span class="chip on">ADHD-calm</span><span class="chip">Dark</span></div>
+            </div>
+            <div class="card" style="margin-bottom:10px">
+              <h4>AI &amp; Models</h4>
+              <p style="margin:6px 0">Primary: LM Studio · Fallback: Gemini (labeled). Default chat + embed models.</p>
+              <div class="row" style="margin-top:8px;gap:8px"><span class="tag g">LM Studio · up</span><span class="tag">Gemini · key set</span></div>
+              <div style="margin-top:10px;display:grid;gap:6px">
+                <div class="lrow" style="border:1px solid var(--hair);border-radius:8px;background:var(--s2)"><span class="ttl">LM Studio URL</span><span class="subtle" style="font-family:var(--mono);font-size:11px">http://127.0.0.1:1234/v1</span></div>
+                <div class="lrow" style="border:1px solid var(--hair);border-radius:8px;background:var(--s2)"><span class="ttl">Chat model</span><span class="subtle">local-default</span></div>
+                <div class="lrow" style="border:1px solid var(--hair);border-radius:8px;background:var(--s2)"><span class="ttl">Embed model</span><span class="subtle">nomic-embed-text</span></div>
+              </div>
+            </div>
+            <div class="card" style="margin-bottom:10px">
+              <h4>Notes vault · ZenNotes</h4>
+              <p style="margin:6px 0">Disk root + Open in ZenNotes command. Paths use projects/{projectId}/.</p>
+              <div class="lrow" style="border:1px solid var(--hair);border-radius:8px;background:var(--s2);margin-top:8px"><span class="ttl">Root</span><span class="subtle" style="font-family:var(--mono);font-size:10.5px">~/nexus-knowledge</span><button class="btn sm">Browse</button></div>
+              <div class="row" style="margin-top:8px"><button class="btn sm">Test Open in ZenNotes</button><button class="btn sm">Reindex embeddings</button></div>
+            </div>
+            <div class="grid2">
+              <div class="card"><h4>Infisical</h4><p style="margin-top:4px">Local Docker URL · service identity · sync interval</p><div class="row" style="margin-top:8px"><span class="tag g">connected</span></div></div>
+              <div class="card"><h4>Hotkeys &amp; desktop</h4><p style="margin-top:4px">⌘K command · ⌘⇧Space capture · dock badge · quiet hours for digest</p></div>
+            </div>
+          </div>
         </div>
       </section>
 

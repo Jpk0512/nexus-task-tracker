@@ -3,58 +3,93 @@
 import {
 	SidebarGroup,
 	SidebarGroupContent,
+	SidebarGroupLabel,
 	SidebarMenu,
+	SidebarMenuBadge,
 	SidebarMenuButton,
 	SidebarMenuItem,
 } from "@ui/components/ui/sidebar";
-import { LayersIcon, MessagesSquareIcon, SunIcon } from "lucide-react";
+import {
+	FolderKanbanIcon,
+	HomeIcon,
+	InboxIcon,
+	PlusCircleIcon,
+	TargetIcon,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useUser } from "../user-provider";
 
+/**
+ * Workspace cluster — Dashboard OS IA lock:
+ * Home · Focus · Capture · Projects · Create Project
+ * (Chat demoted — available via header/⌘K, not peer of Home.)
+ */
 export function SidebarFocus() {
 	const user = useUser();
 	const pathname = usePathname();
+	const base = user.basePath;
 
-	const isMyTasksActive = pathname === `${user.basePath}/views/my-tasks`;
-	const isLensActive = pathname.startsWith(`${user.basePath}/lens`);
-	const isChatActive = pathname.startsWith(`${user.basePath}/chat`);
+	const items = [
+		{
+			href: base,
+			label: "Home",
+			icon: HomeIcon,
+			active: pathname === base || pathname === `${base}/`,
+		},
+		{
+			href: `${base}/focus`,
+			label: "Focus",
+			icon: TargetIcon,
+			active:
+				pathname.startsWith(`${base}/focus`) ||
+				pathname.startsWith(`${base}/lens`) ||
+				pathname.startsWith(`${base}/my-tasks`) ||
+				pathname.startsWith(`${base}/views/my-tasks`) ||
+				pathname.startsWith(`${base}/triage`),
+		},
+		{
+			href: `${base}/capture`,
+			label: "Capture",
+			icon: InboxIcon,
+			active:
+				pathname.startsWith(`${base}/capture`) ||
+				pathname.startsWith(`${base}/todos`) ||
+				pathname.startsWith(`${base}/inbox`),
+		},
+		{
+			href: `${base}/projects`,
+			label: "Projects",
+			icon: FolderKanbanIcon,
+			active:
+				pathname.startsWith(`${base}/projects`) &&
+				!pathname.includes("/create-project"),
+		},
+		{
+			href: `${base}/create-project`,
+			label: "Create Project",
+			icon: PlusCircleIcon,
+			active:
+				pathname.startsWith(`${base}/create-project`) ||
+				pathname.startsWith(`${base}/starter`),
+		},
+	] as const;
 
 	return (
 		<SidebarGroup>
+			<SidebarGroupLabel>Workspace</SidebarGroupLabel>
 			<SidebarGroupContent>
 				<SidebarMenu>
-					<SidebarMenuItem>
-						<SidebarMenuButton asChild isActive={isMyTasksActive}>
-							<Link href={`${user.basePath}/views/my-tasks`}>
-								<LayersIcon />
-								<span>My Tasks</span>
-							</Link>
-						</SidebarMenuButton>
-					</SidebarMenuItem>
-					{/* Codex delighter #2 — Things-style personal lens. Sits directly
-						  under "My Tasks" so the personal-overview cluster stays
-						  contiguous. */}
-					<SidebarMenuItem>
-						<SidebarMenuButton asChild isActive={isLensActive}>
-							<Link href={`${user.basePath}/lens`}>
-								<SunIcon />
-								<span>Lens</span>
-							</Link>
-						</SidebarMenuButton>
-					</SidebarMenuItem>
-				</SidebarMenu>
-			</SidebarGroupContent>
-			<SidebarGroupContent>
-				<SidebarMenu>
-					<SidebarMenuItem>
-						<SidebarMenuButton asChild isActive={isChatActive}>
-							<Link href={`${user.basePath}/chat`}>
-								<MessagesSquareIcon />
-								<span>Chat</span>
-							</Link>
-						</SidebarMenuButton>
-					</SidebarMenuItem>
+					{items.map((item) => (
+						<SidebarMenuItem key={item.href}>
+							<SidebarMenuButton asChild isActive={item.active} tooltip={item.label}>
+								<Link href={item.href}>
+									<item.icon />
+									<span>{item.label}</span>
+								</Link>
+							</SidebarMenuButton>
+						</SidebarMenuItem>
+					))}
 				</SidebarMenu>
 			</SidebarGroupContent>
 		</SidebarGroup>
