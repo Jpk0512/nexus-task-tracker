@@ -24,6 +24,8 @@ import {
 	LayersIcon,
 	LightbulbIcon,
 	type LucideIcon,
+	PanelRightIcon,
+	PanelRightCloseIcon,
 	PencilLineIcon,
 	PlusIcon,
 	RefreshCwIcon,
@@ -79,6 +81,13 @@ const RESERVED_TOP_DIRS = new Set([
 	"projects",
 	"ideas",
 ]);
+
+/** Option C layout — list rail width + inspector drawer persistence. */
+const LIST_WIDTH_KEY = "nexus.notes.listWidth";
+const INSPECTOR_OPEN_KEY = "nexus.notes.inspectorOpen";
+const LIST_WIDTH_DEFAULT = 300;
+const LIST_WIDTH_MIN = 220;
+const LIST_WIDTH_MAX = 480;
 
 const CATEGORY_DEFS: CategoryDef[] = [
 	{
@@ -271,17 +280,74 @@ export function KnowledgeView() {
 	const [category, setCategory] = useState<Category>("all");
 	const [status, setStatus] = useState("all");
 	const [updatedFilter, setUpdatedFilter] = useState<UpdatedFilter>("all");
-	const [viewMode, setViewMode] = useState<ViewMode>("list");
+	const [viewMode] = useState<ViewMode>("list");
 	const [selectedId, setSelectedId] = useState<string | null>(initialNoteId);
 	const [inspectorMode, setInspectorMode] = useState<InspectorMode>("preview");
 	const [showNew, setShowNew] = useState(false);
 	const [newPath, setNewPath] = useState("");
 	const [draft, setDraft] = useState("");
 	const [saveState, setSaveState] = useState<SaveState>("idle");
+	const [listWidth, setListWidth] = useState(LIST_WIDTH_DEFAULT);
+	const [inspectorOpen, setInspectorOpen] = useState(true);
 	const draftRef = useRef("");
 	const shaRef = useRef<string | null>(null);
 	const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const saveInFlight = useRef(false);
+	const dragRef = useRef<{ startX: number; startW: number } | null>(null);
+
+	useEffect(() => {
+		try {
+			const w = Number(localStorage.getItem(LIST_WIDTH_KEY));
+			if (Number.isFinite(w) && w >= LIST_WIDTH_MIN && w <= LIST_WIDTH_MAX) {
+				setListWidth(w);
+			}
+			const open = localStorage.getItem(INSPECTOR_OPEN_KEY);
+			if (open === "0") setInspectorOpen(false);
+		} catch {
+			/* ignore */
+		}
+	}, []);
+
+	useEffect(() => {
+		try {
+			localStorage.setItem(LIST_WIDTH_KEY, String(listWidth));
+		} catch {
+			/* ignore */
+		}
+	}, [listWidth]);
+
+	useEffect(() => {
+		try {
+			localStorage.setItem(INSPECTOR_OPEN_KEY, inspectorOpen ? "1" : "0");
+		} catch {
+			/* ignore */
+		}
+	}, [inspectorOpen]);
+
+	const onListResizeStart = (
+		e: {
+			preventDefault: () => void;
+			clientX: number;
+			pointerId: number;
+			currentTarget: EventTarget & HTMLDivElement;
+		},
+	) => {
+		e.preventDefault();
+		dragRef.current = { startX: e.clientX, startW: listWidth };
+		e.currentTarget.setPointerCapture(e.pointerId);
+	};
+	const onListResizeMove = (e: { clientX: number }) => {
+		if (!dragRef.current) return;
+		const dx = e.clientX - dragRef.current.startX;
+		const next = Math.min(
+			LIST_WIDTH_MAX,
+			Math.max(LIST_WIDTH_MIN, dragRef.current.startW + dx),
+		);
+		setListWidth(next);
+	};
+	const onListResizeEnd = () => {
+		dragRef.current = null;
+	};
 
 	const listInput = useMemo(
 		() => ({
@@ -532,221 +598,264 @@ export function KnowledgeView() {
 		});
 	};
 
+	const onDraftChange = (value: string) => {
+		draftRef.current = value;
+		setDraft(value);
+		setSaveState((state) => (state === "saving" ? state : "dirty"));
+	};
+	const onEditorBlur = () => {
+		if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+		autoSaveTimer.current = setTimeout(autoSave, 500);
+	};
+	const onDeleteSelected = () => {
+		if (!selectedId || !selectedNote) return;
+		if (
+			confirm(
+				`Delete "${displayTitle(selectedNote)}" from disk? This cannot be undone.`,
+			)
+		) {
+			deleteMut.mutate({ id: selectedId });
+		}
+	};
+
 	return (
 		<div className="flex h-full flex-col">
-			<header className="border-border border-b px-6 py-4">
-				<div className="flex flex-wrap items-start justify-between gap-4">
-					<div>
-						<h1 className="font-[510] text-[18px] text-foreground tracking-[-0.012em]">
-							Notes
-						</h1>
-						<p className="mt-1 max-w-2xl text-[12px] text-muted-foreground">
-							Project notebooks live under{" "}
-							<code className="rounded bg-muted px-1 py-0.5 text-[11px]">
-								projects/&#123;projectId&#125;/
-							</code>{" "}
-							— rename-stable. Obsidian-compatible markdown + wiki-links.
-						</p>
-					</div>
-					<div className="flex items-center gap-2">
-						<Button
-							variant="outline"
-							size="sm"
-							onClick={() => scanMut.mutate({})}
-							disabled={scanMut.isPending}
-						>
-							<RefreshCwIcon
-								className={cn("size-3.5", scanMut.isPending && "animate-spin")}
-							/>
-							{scanMut.isPending ? "Scanning..." : "Re-scan"}
-						</Button>
-						<Button
-							variant="outline"
-							size="sm"
-							asChild
-						>
-							<a
-								href="zennotes://open"
-								title="Open vault in ZenNotes if installed"
-							>
-								<BookOpenIcon className="size-3.5" />
-								Open ZenNotes
-							</a>
-						</Button>
-						<Button variant="outline" size="sm" onClick={createToday}>
-							<CalendarIcon className="size-3.5" />
-							Today
-						</Button>
-						<Button size="sm" onClick={() => setShowNew((value) => !value)}>
-							<PlusIcon className="size-3.5" />
-							New
-						</Button>
-					</div>
+			{/* Slim chrome — Option C: editor-primary + collapsible inspector */}
+			<header className="flex h-11 shrink-0 items-center justify-between gap-3 border-border border-b px-3">
+				<div className="flex min-w-0 items-center gap-2">
+					<h1 className="font-[510] text-[14px] tracking-[-0.015em]">Notes</h1>
+					<span className="hidden text-[11px] text-muted-foreground sm:inline">
+						{filteredNotes.length} note{filteredNotes.length === 1 ? "" : "s"}
+					</span>
 				</div>
-
-				{showNew && (
-					<div className="mt-4 flex max-w-xl gap-2">
-						<Input
-							value={newPath}
-							onChange={(event) => setNewPath(event.target.value)}
-							onKeyDown={(event) => {
-								if (event.key === "Enter") createNote();
-								if (event.key === "Escape") setShowNew(false);
-							}}
-							placeholder="projects/{projectId}/new-note"
-							className="h-8 text-[12px] font-mono"
-						/>
-						<Button size="sm" onClick={createNote} disabled={!newPath.trim()}>
-							Create
-						</Button>
-					</div>
-				)}
-
-				<div className="mt-4 flex flex-wrap items-center gap-2">
-					<div className="relative mr-1 w-full max-w-sm sm:w-72">
-						<SearchIcon className="-translate-y-1/2 absolute top-1/2 left-2.5 size-3.5 text-muted-foreground" />
-						<Input
-							value={search}
-							onChange={(event) => setSearch(event.target.value)}
-							placeholder="Search notes..."
-							className="h-8 pl-8 text-[12px]"
-						/>
-					</div>
-					<Select
-						value={category}
-						onValueChange={(value) => setCategory(value as Category)}
+				<div className="flex items-center gap-1.5">
+					<Button
+						variant="ghost"
+						size="sm"
+						className="h-7 px-2 text-[12px]"
+						onClick={() => scanMut.mutate({})}
+						disabled={scanMut.isPending}
 					>
-						<SelectTrigger className="h-8 w-[172px] text-[12px]">
-							<FolderTreeIcon className="mr-1.5 size-3.5 text-muted-foreground" />
-							<SelectValue />
-						</SelectTrigger>
-						<SelectContent>
-							<SelectItem value="all">All categories</SelectItem>
-							{CATEGORY_DEFS.map((def) => (
-								<SelectItem key={def.key} value={def.key}>
-									{def.title}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
-					<Select value={status} onValueChange={setStatus}>
-						<SelectTrigger className="h-8 w-[152px] text-[12px]">
-							<TagsIcon className="mr-1.5 size-3.5 text-muted-foreground" />
-							<SelectValue />
-						</SelectTrigger>
-						<SelectContent>
-							<SelectItem value="all">All statuses</SelectItem>
-							{statusOptions.map((option) => (
-								<SelectItem key={option} value={option}>
-									{option}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
-					<Select
-						value={updatedFilter}
-						onValueChange={(value) => setUpdatedFilter(value as UpdatedFilter)}
+						<RefreshCwIcon
+							className={cn("size-3.5", scanMut.isPending && "animate-spin")}
+						/>
+						<span className="hidden sm:inline">
+							{scanMut.isPending ? "Scanning…" : "Re-scan"}
+						</span>
+					</Button>
+					<Button variant="ghost" size="sm" className="h-7 px-2 text-[12px]" asChild>
+						<a href="zennotes://open" title="Open vault in ZenNotes">
+							<BookOpenIcon className="size-3.5" />
+							<span className="hidden md:inline">ZenNotes</span>
+						</a>
+					</Button>
+					<Button
+						variant="ghost"
+						size="sm"
+						className="h-7 px-2 text-[12px]"
+						onClick={createToday}
 					>
-						<SelectTrigger className="h-8 w-[138px] text-[12px]">
-							<CalendarIcon className="mr-1.5 size-3.5 text-muted-foreground" />
-							<SelectValue />
-						</SelectTrigger>
-						<SelectContent>
-							<SelectItem value="all">Any time</SelectItem>
-							<SelectItem value="week">This week</SelectItem>
-							<SelectItem value="month">This month</SelectItem>
-						</SelectContent>
-					</Select>
-					<div className="inline-flex h-8 rounded-md border border-border bg-muted/40 p-0.5">
-						{(["list", "cards"] as const).map((mode) => (
-							<button
-								key={mode}
-								type="button"
-								onClick={() => setViewMode(mode)}
-								className={cn(
-									"inline-flex h-7 items-center rounded-[5px] px-3 font-[510] text-[12px] capitalize transition-colors",
-									viewMode === mode
-										? "bg-background text-foreground shadow-sm"
-										: "text-muted-foreground hover:text-foreground",
-								)}
-							>
-								{mode}
-							</button>
-						))}
-					</div>
+						<CalendarIcon className="size-3.5" />
+						<span className="hidden sm:inline">Today</span>
+					</Button>
+					<Button
+						variant={inspectorOpen ? "secondary" : "ghost"}
+						size="sm"
+						className="h-7 px-2 text-[12px]"
+						onClick={() => setInspectorOpen((v) => !v)}
+						title={inspectorOpen ? "Hide inspector" : "Show inspector"}
+					>
+						{inspectorOpen ? (
+							<PanelRightCloseIcon className="size-3.5" />
+						) : (
+							<PanelRightIcon className="size-3.5" />
+						)}
+						<span className="hidden sm:inline">Inspector</span>
+					</Button>
+					<Button
+						size="sm"
+						className="h-7 px-2.5 text-[12px]"
+						onClick={() => setShowNew((v) => !v)}
+					>
+						<PlusIcon className="size-3.5" />
+						New
+					</Button>
 				</div>
 			</header>
 
+			{showNew ? (
+				<div className="flex items-center gap-2 border-border border-b px-3 py-2">
+					<Input
+						value={newPath}
+						onChange={(event) => setNewPath(event.target.value)}
+						onKeyDown={(event) => {
+							if (event.key === "Enter") createNote();
+							if (event.key === "Escape") setShowNew(false);
+						}}
+						placeholder="projects/{projectId}/new-note"
+						className="h-8 max-w-md font-mono text-[12px]"
+						// biome-ignore lint/a11y/noAutofocus: path entry
+						autoFocus
+					/>
+					<Button size="sm" className="h-8" onClick={createNote} disabled={!newPath.trim()}>
+						Create
+					</Button>
+					<span className="text-[11px] text-muted-foreground">
+						Prefer{" "}
+						<code className="text-[10px]">projects/&#123;projectId&#125;/</code>
+					</span>
+				</div>
+			) : null}
+
 			<div className="flex min-h-0 grow">
-				<section className="min-w-0 grow overflow-y-auto p-6">
-					{listQuery.isLoading ? (
-						<div className="text-[12px] text-muted-foreground">Loading...</div>
-					) : filteredNotes.length === 0 ? (
+				{/* Compact list rail */}
+				<aside
+					className="flex shrink-0 flex-col border-border border-r bg-background"
+					style={{ width: listWidth }}
+				>
+					<div className="space-y-2 border-border border-b p-2.5">
+						<div className="relative">
+							<SearchIcon className="-translate-y-1/2 absolute top-1/2 left-2 size-3.5 text-muted-foreground" />
+							<Input
+								value={search}
+								onChange={(event) => setSearch(event.target.value)}
+								placeholder="Search notes…"
+								className="h-8 pl-7 text-[12px]"
+							/>
+						</div>
+						<div className="flex flex-wrap gap-1.5">
+							<Select
+								value={category}
+								onValueChange={(value) => setCategory(value as Category)}
+							>
+								<SelectTrigger className="h-7 w-full text-[11px]">
+									<FolderTreeIcon className="mr-1 size-3 text-muted-foreground" />
+									<SelectValue />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="all">All categories</SelectItem>
+									{CATEGORY_DEFS.map((def) => (
+										<SelectItem key={def.key} value={def.key}>
+											{def.title}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+							<Select value={status} onValueChange={setStatus}>
+								<SelectTrigger className="h-7 min-w-0 flex-1 text-[11px]">
+									<SelectValue placeholder="Status" />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="all">All statuses</SelectItem>
+									{statusOptions.map((option) => (
+										<SelectItem key={option} value={option}>
+											{option}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+							<Select
+								value={updatedFilter}
+								onValueChange={(value) => setUpdatedFilter(value as UpdatedFilter)}
+							>
+								<SelectTrigger className="h-7 min-w-0 flex-1 text-[11px]">
+									<SelectValue />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="all">Any time</SelectItem>
+									<SelectItem value="week">This week</SelectItem>
+									<SelectItem value="month">This month</SelectItem>
+								</SelectContent>
+							</Select>
+						</div>
+					</div>
+					<div className="min-h-0 flex-1 overflow-y-auto p-1.5">
+						{listQuery.isLoading ? (
+							<div className="p-3 text-[12px] text-muted-foreground">Loading…</div>
+						) : filteredNotes.length === 0 ? (
+							<div className="p-3 text-center text-[12px] text-muted-foreground">
+								{notes.length === 0 ? "Vault empty — create a note." : "No matches."}
+							</div>
+						) : (
+							<div className="space-y-1">
+								{CATEGORY_DEFS.map((def) => {
+									const group = groupedNotes.get(def.key) ?? [];
+									if (group.length === 0) return null;
+									return (
+										<NoteSection
+											key={def.key}
+											def={def}
+											notes={group}
+											selectedId={selectedId}
+											viewMode={viewMode}
+											onSelect={(id) => {
+												setSelectedId(id);
+												setInspectorMode("preview");
+											}}
+										/>
+									);
+								})}
+							</div>
+						)}
+					</div>
+				</aside>
+
+				{/* Resize gutter */}
+				<div
+					role="separator"
+					aria-orientation="vertical"
+					aria-label="Resize note list"
+					tabIndex={0}
+					onPointerDown={onListResizeStart}
+					onPointerMove={onListResizeMove}
+					onPointerUp={onListResizeEnd}
+					onPointerCancel={onListResizeEnd}
+					className="group relative w-1.5 shrink-0 cursor-col-resize bg-transparent hover:bg-primary/30 active:bg-primary/50"
+				>
+					<span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border group-hover:bg-primary/60 group-active:bg-primary" />
+				</div>
+
+				{/* Primary editor surface */}
+				<section className="flex min-w-0 flex-1 flex-col bg-background">
+					{!selectedNote && filteredNotes.length === 0 && !listQuery.isLoading ? (
 						<EmptyState
 							hasNotes={notes.length > 0}
 							onNew={() => setShowNew(true)}
 							onToday={createToday}
 						/>
 					) : (
-						<div className="space-y-5">
-							{CATEGORY_DEFS.map((def) => {
-								const group = groupedNotes.get(def.key) ?? [];
-								if (group.length === 0) return null;
-								return (
-									<NoteSection
-										key={def.key}
-										def={def}
-										notes={group}
-										selectedId={selectedId}
-										viewMode={viewMode}
-										onSelect={(id) => {
-											setSelectedId(id);
-											setInspectorMode("preview");
-										}}
-									/>
-								);
-							})}
-						</div>
+						<NoteEditor
+							note={selectedNote}
+							noteDetail={noteQuery.data ?? null}
+							draft={draft}
+							mode={inspectorMode}
+							saveState={saveState}
+							wikiLinks={wikiLinks}
+							isSaving={updateMut.isPending}
+							onModeChange={setInspectorMode}
+							onDraftChange={onDraftChange}
+							onBlur={onEditorBlur}
+							onSave={saveNow}
+							onOpenLinkedNote={setSelectedId}
+						/>
 					)}
 				</section>
 
-				<aside className="hidden w-[420px] shrink-0 border-border/60 border-l p-4 xl:block">
-					<NoteInspector
-						note={selectedNote}
-						noteDetail={noteQuery.data ?? null}
-						draft={draft}
-						mode={inspectorMode}
-						saveState={saveState}
-						tags={tags}
-						status={selectedStatus}
-						wikiLinks={wikiLinks}
-						isSaving={updateMut.isPending}
-						isPromoting={promoteMut.isPending}
-						onModeChange={setInspectorMode}
-						onDraftChange={(value) => {
-							draftRef.current = value;
-							setDraft(value);
-							setSaveState((state) => (state === "saving" ? state : "dirty"));
-						}}
-						onBlur={() => {
-							if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
-							autoSaveTimer.current = setTimeout(autoSave, 500);
-						}}
-						onSave={saveNow}
-						onPromote={promoteSelected}
-						onDelete={() => {
-							if (!selectedId || !selectedNote) return;
-							if (
-								confirm(
-									`Delete "${displayTitle(selectedNote)}" from disk? This cannot be undone.`,
-								)
-							) {
-								deleteMut.mutate({ id: selectedId });
-							}
-						}}
-						onOpenLinkedNote={setSelectedId}
-					/>
-				</aside>
+				{/* Collapsible properties inspector */}
+				{inspectorOpen ? (
+					<aside className="hidden w-[260px] shrink-0 flex-col border-border border-l bg-card/25 md:flex">
+						<NoteInspectorRail
+							note={selectedNote}
+							noteDetail={noteQuery.data ?? null}
+							tags={tags}
+							status={selectedStatus}
+							isPromoting={promoteMut.isPending}
+							onPromote={promoteSelected}
+							onDelete={onDeleteSelected}
+							onClose={() => setInspectorOpen(false)}
+						/>
+					</aside>
+				) : null}
 			</div>
 		</div>
 	);
@@ -756,49 +865,35 @@ function NoteSection({
 	def,
 	notes,
 	selectedId,
-	viewMode,
 	onSelect,
 }: {
 	def: CategoryDef;
 	notes: NoteListItem[];
 	selectedId: string | null;
-	viewMode: ViewMode;
+	viewMode?: ViewMode;
 	onSelect: (id: string) => void;
 }) {
 	const Icon = def.icon;
 	return (
 		<section>
-			<div className="mb-2 flex items-center gap-2 px-1 text-[11px] text-muted-foreground uppercase tracking-[0.06em]">
-				<Icon className="size-3.5" />
+			<div className="mb-1 flex items-center gap-1.5 px-2 pt-2 text-[10px] text-muted-foreground uppercase tracking-[0.06em]">
+				<Icon className="size-3" />
 				<span className="font-[510]">{def.title}</span>
-				<Badge variant="outline" className="h-4 px-1.5 font-normal">
+				<span className="rounded-full border border-border/60 px-1.5 text-[9.5px] tabular-nums">
 					{notes.length}
-				</Badge>
+				</span>
 			</div>
-			{viewMode === "cards" ? (
-				<div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
-					{notes.map((note) => (
-						<NoteCard
-							key={note.id}
+			<ul className="space-y-0.5">
+				{notes.map((note) => (
+					<li key={note.id}>
+						<NoteRow
 							note={note}
 							selected={selectedId === note.id}
 							onSelect={onSelect}
 						/>
-					))}
-				</div>
-			) : (
-				<ul className="space-y-1">
-					{notes.map((note) => (
-						<li key={note.id}>
-							<NoteRow
-								note={note}
-								selected={selectedId === note.id}
-								onSelect={onSelect}
-							/>
-						</li>
-					))}
-				</ul>
-			)}
+					</li>
+				))}
+			</ul>
 		</section>
 	);
 }
@@ -819,37 +914,28 @@ function NoteRow({
 			type="button"
 			onClick={() => onSelect(note.id)}
 			className={cn(
-				"grid w-full grid-cols-[minmax(0,1.5fr)_minmax(120px,0.75fr)_auto] items-center gap-4 rounded-md border border-transparent px-3 py-2 text-left text-[13px] transition-colors hover:border-border/70 hover:bg-accent/35 focus-visible:border-violet-400/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/40",
-				selected && "border-violet-400/50 bg-violet-500/10",
+				"flex w-full flex-col gap-0.5 rounded-md border border-transparent px-2.5 py-2 text-left transition-colors hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/40",
+				selected && "border-primary/40 bg-primary/10",
 			)}
 		>
-			<span className="min-w-0">
-				<span className="block truncate font-[510] text-foreground tracking-[-0.005em]">
-					{title}
+			<span className="truncate font-[510] text-[12.5px] text-foreground tracking-[-0.005em]">
+				{title}
+			</span>
+			<span className="truncate font-mono text-[10px] text-muted-foreground/80">
+				{note.relativePath}
+			</span>
+			{(tags.length > 0 || statusLabel(note)) && (
+				<span className="mt-0.5 flex flex-wrap gap-1">
+					{tags.slice(0, 3).map((tag) => (
+						<span
+							key={tag}
+							className="max-w-[5.5rem] truncate rounded-full border border-border/60 px-1.5 py-px text-[9.5px] text-muted-foreground"
+						>
+							{tag}
+						</span>
+					))}
 				</span>
-				<span className="block truncate font-mono text-[10.5px] text-muted-foreground/80">
-					{note.relativePath}
-				</span>
-			</span>
-			<span className="hidden min-w-0 items-center gap-1.5 md:flex">
-				<Badge
-					variant="outline"
-					className="h-[18px] px-1.5 font-normal text-[10px]"
-				>
-					{statusLabel(note)}
-				</Badge>
-				{tags.slice(0, 2).map((tag) => (
-					<span
-						key={tag}
-						className="max-w-20 truncate rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
-					>
-						{tag}
-					</span>
-				))}
-			</span>
-			<span className="text-right text-[11px] text-muted-foreground">
-				{formatDate(note.updatedAt)}
-			</span>
+			)}
 		</button>
 	);
 }
@@ -863,121 +949,71 @@ function NoteCard({
 	selected: boolean;
 	onSelect: (id: string) => void;
 }) {
-	const title = displayTitle(note);
-	const tags = frontmatterArray(note.frontmatter, "tags");
+	// Kept for viewMode===cards compatibility (rail defaults to list).
 	return (
-		<button
-			type="button"
-			onClick={() => onSelect(note.id)}
-			className={cn(
-				"flex min-h-[136px] flex-col gap-3 rounded-md border border-border bg-card p-3 text-left transition-colors hover:border-border/80 hover:bg-accent/30 focus-visible:border-violet-400/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/40",
-				selected && "border-violet-400/60 ring-2 ring-violet-400/30",
-			)}
-		>
-			<div className="flex items-start gap-2">
-				<BrainIcon className="mt-0.5 size-3.5 shrink-0 text-violet-500" />
-				<div className="min-w-0">
-					<div className="truncate font-[510] text-[13px] text-foreground">
-						{title}
-					</div>
-					<div className="mt-1 line-clamp-2 font-mono text-[10.5px] text-muted-foreground">
-						{note.relativePath}
-					</div>
-				</div>
-			</div>
-			<div className="mt-auto flex flex-wrap items-center gap-1.5">
-				<Badge
-					variant="outline"
-					className="h-[18px] px-1.5 font-normal text-[10px]"
-				>
-					{statusLabel(note)}
-				</Badge>
-				{tags.slice(0, 3).map((tag) => (
-					<span
-						key={tag}
-						className="max-w-20 truncate rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
-					>
-						{tag}
-					</span>
-				))}
-			</div>
-		</button>
+		<NoteRow note={note} selected={selected} onSelect={onSelect} />
 	);
 }
 
-function NoteInspector({
+/**
+ * Primary writing surface (Option C center pane).
+ * Full-width preview/edit — meta lives in the inspector rail.
+ */
+function NoteEditor({
 	note,
 	noteDetail,
 	draft,
 	mode,
 	saveState,
-	tags,
-	status,
 	wikiLinks,
 	isSaving,
-	isPromoting,
 	onModeChange,
 	onDraftChange,
 	onBlur,
 	onSave,
-	onPromote,
-	onDelete,
 	onOpenLinkedNote,
 }: {
 	note: NoteListItem | null;
-	noteDetail: {
-		id?: string;
-		name?: string;
-		relativePath?: string;
-		vaultLabel?: string;
-		content?: string | null;
-		fileSha?: string;
-	} | null;
+	// biome-ignore lint/suspicious/noExplicitAny: tRPC detail shape varies
+	noteDetail: any;
 	draft: string;
 	mode: InspectorMode;
 	saveState: SaveState;
-	tags: string[];
-	status: string | null;
 	wikiLinks: Array<{ key: string; text: string; toNoteId: string | null }>;
 	isSaving: boolean;
-	isPromoting: boolean;
 	onModeChange: (mode: InspectorMode) => void;
 	onDraftChange: (value: string) => void;
 	onBlur: () => void;
 	onSave: () => void;
-	onPromote: () => void;
-	onDelete: () => void;
 	onOpenLinkedNote: (id: string) => void;
 }) {
 	if (!note) {
 		return (
-			<div className="flex h-full flex-col rounded-md border border-border/60 bg-card/30 p-4">
-				<div className="flex items-center gap-2 text-[12px] text-muted-foreground">
-					<BrainIcon className="size-3.5" />
-					<span>Select a note to preview or edit it here.</span>
-				</div>
+			<div className="flex h-full flex-col items-center justify-center gap-2 p-8 text-center">
+				<BrainIcon className="size-8 text-muted-foreground/50" />
+				<p className="text-[13px] text-muted-foreground">
+					Select a note from the list to read or edit.
+				</p>
 			</div>
 		);
 	}
 
 	const title = displayTitle(note);
 	const body = noteDetail?.content ?? "";
-	const preview = body.trim() ? body.trim().slice(0, 1000) : "No content yet.";
-	const truncated = body.trim().length > 1000;
 
 	return (
-		<div className="flex h-full flex-col overflow-hidden rounded-md border border-border/60 bg-card/40">
-			<div className="border-border/60 border-b p-4">
-				<div className="flex items-start justify-between gap-3">
-					<div className="min-w-0">
-						<h2 className="truncate font-[510] text-[14px] text-foreground tracking-[-0.01em]">
-							{title}
-						</h2>
-						<p className="mt-1 truncate font-mono text-[10.5px] text-muted-foreground">
-							{note.relativePath}
-						</p>
-					</div>
-					<div className="inline-flex h-7 shrink-0 rounded-md border border-border bg-muted/40 p-0.5">
+		<div className="flex h-full min-h-0 flex-col">
+			<div className="flex shrink-0 items-center justify-between gap-3 border-border border-b px-4 py-2.5">
+				<div className="min-w-0">
+					<h2 className="truncate font-[510] text-[18px] tracking-[-0.025em] text-[#f6f6f8]">
+						{title}
+					</h2>
+					<p className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">
+						{note.relativePath}
+					</p>
+				</div>
+				<div className="flex shrink-0 items-center gap-2">
+					<div className="inline-flex h-7 rounded-md border border-border bg-muted/40 p-0.5">
 						{(["preview", "edit"] as const).map((nextMode) => (
 							<button
 								key={nextMode}
@@ -994,106 +1030,190 @@ function NoteInspector({
 							</button>
 						))}
 					</div>
-				</div>
-
-				<div className="mt-3 grid grid-cols-2 gap-2 text-[11px]">
-					<div className="rounded-md border border-border/50 bg-background/40 p-2">
-						<div className="text-muted-foreground">Vault</div>
-						<div className="mt-0.5 truncate font-[510] text-foreground">
-							{noteDetail?.vaultLabel ?? "Personal Notes"}
-						</div>
-					</div>
-					<div className="rounded-md border border-border/50 bg-background/40 p-2">
-						<div className="text-muted-foreground">Updated</div>
-						<div className="mt-0.5 font-[510] text-foreground">
-							{formatDate(note.updatedAt)}
-						</div>
-					</div>
-				</div>
-
-				<div className="mt-3 flex flex-wrap gap-1.5">
-					{status && (
-						<Badge
-							variant="outline"
-							className="h-[18px] px-1.5 font-normal text-[10px]"
-						>
-							{status}
-						</Badge>
-					)}
-					{tags.map((tag) => (
-						<span
-							key={tag}
-							className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
-						>
-							{tag}
-						</span>
-					))}
+					<AutoSaveIndicator state={saveState} />
+					<Button size="sm" className="h-7" onClick={onSave} disabled={isSaving || !noteDetail}>
+						<SaveIcon className="size-3.5" />
+						{isSaving ? "Saving…" : "Save"}
+					</Button>
 				</div>
 			</div>
 
-			<div className="min-h-0 grow overflow-y-auto p-4">
-				{mode === "edit" ? (
-					<BlockEditor
-						key={`${note.id}:${noteDetail?.fileSha ?? "pending"}`}
-						value={draft}
-						onChange={onDraftChange}
-						onBlur={onBlur}
-						className="editor-xl [&_.tiptap]:min-h-[420px]"
-					/>
-				) : (
-					<div className="space-y-4">
-						<pre className="whitespace-pre-wrap break-words font-sans text-[12px] text-foreground/80 leading-[1.55]">
-							{preview}
-							{truncated && (
-								<span className="text-muted-foreground/70">...</span>
+			<div className="min-h-0 flex-1 overflow-y-auto">
+				<div className="mx-auto w-full max-w-[46rem] px-6 py-6">
+					{mode === "edit" ? (
+						<BlockEditor
+							key={`${note.id}:${noteDetail?.fileSha ?? "pending"}`}
+							value={draft}
+							onChange={onDraftChange}
+							onBlur={onBlur}
+							className="editor-xl [&_.tiptap]:min-h-[min(60vh,520px)]"
+						/>
+					) : (
+						<div className="space-y-5">
+							{body.trim() ? (
+								<pre className="whitespace-pre-wrap break-words font-sans text-[13.5px] leading-[1.65] text-foreground/90">
+									{body}
+								</pre>
+							) : (
+								<p className="text-[13px] text-muted-foreground">No content yet. Switch to Edit.</p>
 							)}
-						</pre>
-						{wikiLinks.length > 0 && (
-							<div>
-								<div className="mb-1.5 font-[510] text-[11px] text-muted-foreground uppercase tracking-wider">
-									Wiki links
+							{wikiLinks.length > 0 ? (
+								<div>
+									<div className="mb-1.5 font-[510] text-[11px] text-muted-foreground uppercase tracking-wider">
+										Wiki links
+									</div>
+									<div className="flex flex-wrap gap-x-3 gap-y-1 text-[13px]">
+										{wikiLinks.map((link) => (
+											<WikiLinkInline
+												key={link.key}
+												text={link.text}
+												toNoteId={link.toNoteId}
+												onClick={() =>
+													link.toNoteId && onOpenLinkedNote(link.toNoteId)
+												}
+											/>
+										))}
+									</div>
 								</div>
-								<div className="flex flex-wrap gap-x-3 gap-y-1 text-[13px]">
-									{wikiLinks.map((link) => (
-										<WikiLinkInline
-											key={link.key}
-											text={link.text}
-											toNoteId={link.toNoteId}
-											onClick={() =>
-												link.toNoteId && onOpenLinkedNote(link.toNoteId)
-											}
-										/>
-									))}
-								</div>
-							</div>
-						)}
-						<BacklinksPanel entityType="knowledge" entityId={note.id} />
+							) : null}
+						</div>
+					)}
+				</div>
+			</div>
+		</div>
+	);
+}
+
+/**
+ * Right drawer — properties, tags, backlinks, promote/delete.
+ * Collapsible via header Inspector toggle.
+ */
+function NoteInspectorRail({
+	note,
+	noteDetail,
+	tags,
+	status,
+	isPromoting,
+	onPromote,
+	onDelete,
+	onClose,
+}: {
+	note: NoteListItem | null;
+	// biome-ignore lint/suspicious/noExplicitAny: tRPC detail shape varies
+	noteDetail: any;
+	tags: string[];
+	status: string | null;
+	isPromoting: boolean;
+	onPromote: () => void;
+	onDelete: () => void;
+	onClose: () => void;
+}) {
+	if (!note) {
+		return (
+			<div className="flex h-full flex-col p-3">
+				<div className="mb-2 flex items-center justify-between">
+					<span className="font-[510] text-[11px] uppercase tracking-wider text-muted-foreground">
+						Inspector
+					</span>
+					<button
+						type="button"
+						onClick={onClose}
+						className="text-muted-foreground hover:text-foreground"
+						aria-label="Close inspector"
+					>
+						<PanelRightCloseIcon className="size-3.5" />
+					</button>
+				</div>
+				<p className="text-[12px] text-muted-foreground">Select a note.</p>
+			</div>
+		);
+	}
+
+	return (
+		<div className="flex h-full min-h-0 flex-col">
+			<div className="flex items-center justify-between border-border border-b px-3 py-2.5">
+				<span className="font-[510] text-[11px] uppercase tracking-wider text-muted-foreground">
+					Inspector
+				</span>
+				<button
+					type="button"
+					onClick={onClose}
+					className="text-muted-foreground hover:text-foreground"
+					aria-label="Close inspector"
+				>
+					<PanelRightCloseIcon className="size-3.5" />
+				</button>
+			</div>
+			<div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-3">
+				<div>
+					<div className="text-[10px] font-[510] uppercase tracking-wider text-muted-foreground">
+						Vault
+					</div>
+					<div className="mt-1 text-[12.5px] font-[510]">
+						{noteDetail?.vaultLabel ?? "Personal Notes"}
+					</div>
+				</div>
+				<div>
+					<div className="text-[10px] font-[510] uppercase tracking-wider text-muted-foreground">
+						Updated
+					</div>
+					<div className="mt-1 text-[12.5px]">{formatDate(note.updatedAt)}</div>
+				</div>
+				<div>
+					<div className="text-[10px] font-[510] uppercase tracking-wider text-muted-foreground">
+						Path
+					</div>
+					<div className="mt-1 break-all font-mono text-[10.5px] text-muted-foreground">
+						{note.relativePath}
+					</div>
+				</div>
+				{(status || tags.length > 0) && (
+					<div>
+						<div className="text-[10px] font-[510] uppercase tracking-wider text-muted-foreground">
+							Tags
+						</div>
+						<div className="mt-1.5 flex flex-wrap gap-1">
+							{status ? (
+								<Badge variant="outline" className="h-[18px] px-1.5 font-normal text-[10px]">
+									{status}
+								</Badge>
+							) : null}
+							{tags.map((tag) => (
+								<span
+									key={tag}
+									className="rounded-full border border-border/60 px-1.5 py-0.5 text-[10px] text-muted-foreground"
+								>
+									{tag}
+								</span>
+							))}
+						</div>
 					</div>
 				)}
+				<div>
+					<div className="mb-1.5 text-[10px] font-[510] uppercase tracking-wider text-muted-foreground">
+						Backlinks
+					</div>
+					<BacklinksPanel entityType="knowledge" entityId={note.id} />
+				</div>
 			</div>
-
-			<div className="flex items-center gap-2 border-border/60 border-t p-3">
-				<AutoSaveIndicator state={saveState} />
-				<Button size="sm" onClick={onSave} disabled={isSaving || !noteDetail}>
-					<SaveIcon className="size-3.5" />
-					{isSaving ? "Saving..." : "Save"}
-				</Button>
+			<div className="space-y-1.5 border-border border-t p-3">
 				<Button
 					size="sm"
-					variant="outline"
+					className="h-8 w-full"
 					onClick={onPromote}
 					disabled={isPromoting || !noteDetail}
 				>
 					<FileTextIcon className="size-3.5" />
-					Promote
+					{isPromoting ? "Promoting…" : "Promote to doc"}
 				</Button>
 				<Button
 					size="sm"
 					variant="ghost"
+					className="h-8 w-full text-muted-foreground hover:text-destructive"
 					onClick={onDelete}
-					className="ml-auto text-muted-foreground hover:text-destructive"
 				>
 					<Trash2Icon className="size-3.5" />
+					Delete
 				</Button>
 			</div>
 		</div>

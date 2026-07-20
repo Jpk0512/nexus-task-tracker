@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Notes redesign — 5 layout options</title>
+<style>
+  :root {
+    --bg: #09090b;
+    --fg: #e1e1e4;
+    --fg-bright: #fafafa;
+    --muted: #8b8f96;
+    --card: #0e0e11;
+    --elev: #151518;
+    --accent: #1a1a1f;
+    --border: rgba(255,255,255,0.07);
+    --border-strong: rgba(255,255,255,0.12);
+    --primary: #5e6ad2;
+    --primary-soft: rgba(94,106,210,0.16);
+    --primary-ring: rgba(94,106,210,0.35);
+    --green: #4cb782;
+    --sidebar: #09090b;
+    --radius: 10px;
+    --font: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; background: var(--bg); color: var(--fg);
+    font-family: var(--font); font-feature-settings: "cv01","ss03","cv11";
+    -webkit-font-smoothing: antialiased; }
+  button, input { font: inherit; color: inherit; }
+  ::selection { background: rgba(59,130,246,0.25); color: #fff; }
+
+  /* ── page chrome ── */
+  .page { min-height: 100%; display: flex; flex-direction: column; }
+  .topbar {
+    position: sticky; top: 0; z-index: 20;
+    border-bottom: 1px solid var(--border);
+    background: rgba(9,9,11,0.92); backdrop-filter: blur(12px);
+    padding: 14px 20px 12px;
+  }
+  .topbar h1 { margin: 0; font-size: 15px; font-weight: 590; color: var(--fg-bright); letter-spacing: -0.02em; }
+  .topbar p { margin: 4px 0 0; font-size: 12.5px; color: var(--muted); max-width: 820px; line-height: 1.45; }
+  .research {
+    margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px;
+  }
+  .chip {
+    font-size: 11px; color: var(--muted); border: 1px solid var(--border);
+    background: var(--card); border-radius: 999px; padding: 3px 9px;
+  }
+  .chip strong { color: var(--fg); font-weight: 510; }
+
+  .tabs {
+    display: flex; gap: 6px; padding: 10px 20px; border-bottom: 1px solid var(--border);
+    overflow-x: auto; background: var(--bg);
+  }
+  .tab {
+    flex: 0 0 auto; appearance: none; border: 1px solid var(--border);
+    background: var(--card); color: var(--muted); border-radius: 999px;
+    padding: 7px 12px; font-size: 12px; font-weight: 510; cursor: pointer;
+    transition: .15s ease; display: inline-flex; align-items: center; gap: 7px;
+  }
+  .tab:hover { color: var(--fg); border-color: var(--border-strong); }
+  .tab.active { color: var(--fg-bright); background: var(--primary-soft);
+    border-color: var(--primary-ring); }
+  .tab .n { font-size: 10px; opacity: .7; font-variant-numeric: tabular-nums; }
+
+  .stage { flex: 1; padding: 16px 20px 28px; }
+  .panel { display: none; }
+  .panel.active { display: block; animation: in .22s ease; }
+  @keyframes in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+  .meta {
+    display: grid; grid-template-columns: 1.2fr .8fr; gap: 14px; margin-bottom: 14px;
+  }
+  @media (max-width: 900px) { .meta { grid-template-columns: 1fr; } }
+  .card {
+    border: 1px solid var(--border); background: var(--card); border-radius: var(--radius);
+    padding: 12px 14px; box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
+  }
+  .card h3 { margin: 0 0 6px; font-size: 12.5px; font-weight: 590; color: var(--fg-bright); letter-spacing: -0.01em; }
+  .card p, .card li { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.5; }
+  .card ul { margin: 0; padding-left: 16px; }
+  .card li + li { margin-top: 3px; }
+  .pros { color: #9fd5b5; }
+  .cons { color: #e0a0a0; }
+  .verdict {
+    margin-top: 8px; font-size: 12px; color: var(--fg); background: rgba(255,255,255,.03);
+    border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px;
+  }
+  .verdict b { color: var(--primary); font-weight: 590; }
+
+  /* ── mock shell ── */
+  .mock {
+    border: 1px solid var(--border); border-radius: 14px; overflow: hidden;
+    background: var(--bg); height: min(620px, 72vh);
+    display: grid; grid-template-columns: 220px 1fr;
+    box-shadow: 0 20px 60px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.03);
+  }
+  .app-side {
+    border-right: 1px solid var(--border); background: var(--sidebar); padding: 12px 10px;
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .app-side .brand {
+    display: flex; align-items: center; gap: 8px; padding: 4px 8px 12px;
+    font-size: 12.5px; font-weight: 510; color: var(--fg-bright);
+  }
+  .dot { width: 18px; height: 18px; border-radius: 6px; background: linear-gradient(135deg,#5e6ad2,#9b8afb); }
+  .nav-label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
+    padding: 10px 8px 4px; font-weight: 510;
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 7px;
+    font-size: 12.5px; color: var(--muted); cursor: default;
+  }
+  .nav-item.active { background: var(--accent); color: var(--fg-bright); }
+  .nav-item svg { width: 14px; height: 14px; opacity: .8; flex-shrink: 0; }
+  .app-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  .app-header {
+    height: 44px; border-bottom: 1px solid var(--border); display: flex; align-items: center;
+    justify-content: space-between; padding: 0 14px; gap: 10px; flex-shrink: 0;
+  }
+  .app-header .title { font-size: 13.5px; font-weight: 590; color: var(--fg-bright); letter-spacing: -0.015em; }
+  .app-header .tools { display: flex; gap: 6px; align-items: center; }
+  .btn {
+    height: 26px; padding: 0 9px; border-radius: 7px; border: 1px solid var(--border);
+    background: transparent; font-size: 11.5px; color: var(--muted); display: inline-flex;
+    align-items: center; gap: 5px; cursor: default;
+  }
+  .btn.primary { background: var(--primary); border-color: transparent; color: #fff; font-weight: 510; }
+  .btn.ghost:hover { background: var(--accent); color: var(--fg); }
+
+  /* shared note bits */
+  .note-row {
+    display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 8px;
+    cursor: default; border: 1px solid transparent;
+  }
+  .note-row:hover { background: rgba(255,255,255,.03); }
+  .note-row.sel { background: var(--primary-soft); border-color: var(--primary-ring); }
+  .note-row .t { font-size: 12.5px; font-weight: 510; color: var(--fg-bright); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .note-row .s { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .note-row .meta-line { display: flex; gap: 6px; align-items: center; margin-top: 3px; }
+  .tag {
+    font-size: 10px; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--border);
+    color: var(--muted); background: rgba(255,255,255,.02);
+  }
+  .sec {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
+    font-weight: 510; padding: 10px 10px 4px; display: flex; align-items: center; gap: 6px;
+  }
+  .sec .count {
+    font-size: 10px; border: 1px solid var(--border); border-radius: 999px; padding: 0 5px;
+    color: var(--muted); font-variant-numeric: tabular-nums;
+  }
+  .search {
+    height: 28px; border-radius: 7px; border: 1px solid var(--border); background: rgba(255,255,255,.02);
+    display: flex; align-items: center; gap: 6px; padding: 0 8px; color: var(--muted); font-size: 12px;
+  }
+  .search input {
+    border: 0; outline: 0; background: transparent; width: 100%; font-size: 12px; color: var(--fg);
+  }
+  .editor {
+    flex: 1; min-width: 0; min-height: 0; overflow: auto; padding: 18px 22px 28px;
+  }
+  .editor h2 {
+    margin: 0 0 4px; font-size: 22px; font-weight: 590; color: var(--fg-bright);
+    letter-spacing: -0.03em;
+  }
+  .editor .path { font-size: 11px; color: var(--muted); font-family: var(--mono); margin-bottom: 16px; }
+  .editor .body { font-size: 13.5px; line-height: 1.65; color: var(--fg); }
+  .editor .body h3 { margin: 18px 0 6px; font-size: 14px; color: var(--fg-bright); font-weight: 560; letter-spacing: -0.01em; }
+  .editor .body ul { margin: 0; padding-left: 18px; }
+  .editor .body li + li { margin-top: 4px; }
+  .editor .body code {
+    font-family: var(--mono); font-size: 11.5px; background: rgba(255,255,255,.04);
+    border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px;
+  }
+  .split { display: flex; flex: 1; min-height: 0; }
+  .gutter {
+    width: 5px; cursor: col-resize; position: relative; flex-shrink: 0;
+    background: transparent;
+  }
+  .gutter::after {
+    content: ""; position: absolute; inset: 0 1px; background: var(--border);
+    transition: background .15s;
+  }
+  .gutter:hover::after, .gutter.drag::after { background: var(--primary); }
+  .list-pane {
+    display: flex; flex-direction: column; min-height: 0; border-right: 0;
+    background: var(--bg);
+  }
+  .list-pane .list-head {
+    padding: 10px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px;
+  }
+  .list-pane .list-body { flex: 1; overflow: auto; padding: 6px; }
+  .preview-pane {
+    display: flex; flex-direction: column; min-width: 0; min-height: 0; flex: 1;
+    background: var(--bg);
+  }
+  .preview-toolbar {
+    height: 40px; border-bottom: 1px solid var(--border); display: flex; align-items: center;
+    justify-content: space-between; padding: 0 12px; gap: 8px; flex-shrink: 0;
+  }
+  .seg {
+    display: inline-flex; border: 1px solid var(--border); border-radius: 7px; padding: 2px; background: rgba(255,255,255,.02);
+  }
+  .seg button {
+    height: 22px; padding: 0 8px; border: 0; background: transparent; border-radius: 5px;
+    font-size: 11px; color: var(--muted); cursor: default;
+  }
+  .seg button.on { background: var(--accent); color: var(--fg-bright); font-weight: 510; }
+  .tree-item {
+    display: flex; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 6px;
+    font-size: 12px; color: var(--muted); cursor: default;
+  }
+  .tree-item.folder { color: var(--fg); font-weight: 510; }
+  .tree-item.sel { background: var(--primary-soft); color: var(--fg-bright); }
+  .tree-item .indent { width: 12px; flex-shrink: 0; }
+  .badge-live {
+    font-size: 10px; color: var(--green); border: 1px solid rgba(76,183,130,.3);
+    background: rgba(76,183,130,.1); border-radius: 999px; padding: 2px 7px; font-weight: 510;
+  }
+  .foot {
+    margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    justify-content: space-between;
+  }
+  .pick {
+    appearance: none; border: 1px solid var(--primary-ring); background: var(--primary);
+    color: #fff; border-radius: 9px; padding: 9px 14px; font-size: 12.5px; font-weight: 590;
+    cursor: pointer; letter-spacing: -0.01em;
+  }
+  .pick:hover { filter: brightness(1.08); }
+  .pick-note { font-size: 12px; color: var(--muted); }
+  .pick-note code { font-family: var(--mono); font-size: 11px; color: var(--fg); }
+
+  /* option-specific widths set inline via style / JS */
+  .current-callout {
+    border: 1px dashed rgba(235,87,87,.35); background: rgba(235,87,87,.06);
+    border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; font-size: 12px; color: #e8b4b4;
+  }
+  .current-callout b { color: #f0c8c8; }
+
+  .icon-rail {
+    width: 44px; border-right: 1px solid var(--border); display: flex; flex-direction: column;
+    align-items: center; padding: 10px 0; gap: 6px; background: var(--card);
+  }
+  .icon-rail button {
+    width: 30px; height: 30px; border-radius: 8px; border: 0; background: transparent;
+    color: var(--muted); display: grid; place-items: center; cursor: default;
+  }
+  .icon-rail button.on { background: var(--primary-soft); color: var(--fg-bright); }
+
+  .inspector {
+    width: 240px; border-left: 1px solid var(--border); background: var(--card);
+    padding: 12px; display: flex; flex-direction: column; gap: 10px; flex-shrink: 0;
+  }
+  .inspector h4 { margin: 0; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 510; }
+  .inspector .kv { font-size: 12px; color: var(--fg); }
+  .inspector .kv span { color: var(--muted); display: block; font-size: 11px; margin-bottom: 2px; }
+
+  .empty-center {
+    flex: 1; display: grid; place-items: center; color: var(--muted); font-size: 13px;
+  }
+
+  .rec {
+    display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 590;
+    text-transform: uppercase; letter-spacing: .04em; color: #9fd5b5;
+    background: rgba(76,183,130,.12); border: 1px solid rgba(76,183,130,.28);
+    border-radius: 999px; padding: 2px 8px;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="topbar">
+    <h1>Notes screen redesign — pick a layout</h1>
+    <p>
+      Research synthesis from <strong>Apple Notes</strong>, <strong>Obsidian</strong>, <strong>Bear</strong>,
+      <strong>Notion</strong>, <strong>Craft</strong>, <strong>Logseq</strong>, and mail clients (Gmail/Superhuman).
+      Pattern that wins: <em>list is a constrained rail · editor/preview is the primary surface · panes are drag-resizable</em>.
+      Your current screen does the opposite — the list expands to fill leftover space while the preview is locked at 420px.
+    </p>
+    <div class="research">
+      <span class="chip"><strong>Apple Notes</strong> folders · list ~300px · editor fills</span>
+      <span class="chip"><strong>Obsidian</strong> tree · editor primary · drag dividers</span>
+      <span class="chip"><strong>Bear</strong> tags · compact list · big editor</span>
+      <span class="chip"><strong>Gmail</strong> list capped · reading pane grows</span>
+      <span class="chip"><strong>Notion</strong> single page (no dual pane)</span>
+    </div>
+  </div>
+
+  <div class="tabs" id="tabs">
+    <button class="tab active" data-id="0"><span class="n">A</span> Editor-primary + resizable list</button>
+    <button class="tab" data-id="1"><span class="n">B</span> 3-pane vault (tree · list · editor)</button>
+    <button class="tab" data-id="2"><span class="n">C</span> Focused editor + collapsible inspector</button>
+    <button class="tab" data-id="3"><span class="n">D</span> Master-detail (list first, then open)</button>
+    <button class="tab" data-id="4"><span class="n">E</span> Zen dual-mode (browse ↔ focus)</button>
+  </div>
+
+  <div class="stage">
+
+    <!-- ═══════════════ A ═══════════════ -->
+    <section class="panel active" id="p0">
+      <div class="current-callout">
+        <b>Current problem this fixes:</b> list grows infinitely wide (sparse rows, tags floating mid-void);
+        preview stuck at fixed 420px. Option A caps the list and makes the editor the hero with a drag handle.
+      </div>
+      <div class="meta">
+        <div class="card">
+          <h3>How it works</h3>
+          <p>
+            Two panes. Left = compact note list (default ~320px, drag 240–480px).
+            Right = preview/edit (fills remaining width). Slim header: search + New only —
+            long vault copy moves to Settings. Categories stay as section headers in the list.
+          </p>
+          <div class="verdict"><b>Best default for us.</b> Matches Apple Notes / Bear / Superhuman reading pane. Lowest learning curve; solves both of your complaints with one change.</div>
+        </div>
+        <div class="card">
+          <h3>Tradeoffs</h3>
+          <ul>
+            <li class="pros">Resizable preview — drag the gutter</li>
+            <li class="pros">List no longer wastes horizontal space</li>
+            <li class="pros">Keeps category grouping you already have</li>
+            <li class="cons">No folder tree (vault path still in subtitle)</li>
+            <li class="cons">Meta (backlinks) stays inside the editor footer</li>
+          </ul>
+        </div>
+      </div>
+      <div class="mock" data-opt="A">
+        <aside class="app-side">
+          <div class="brand"><span class="dot"></span> Nexus</div>
+          <div class="nav-label">Workspace</div>
+          <div class="nav-item">⌂ Home</div>
+          <div class="nav-item">☑ To-do</div>
+          <div class="nav-item">◎ Focus</div>
+          <div class="nav-label">Brain</div>
+          <div class="nav-item active">◉ Notes</div>
+          <div class="nav-item">▦ Skills</div>
+        </aside>
+        <div class="app-main">
+          <div class="app-header">
+            <div class="title">Notes</div>
+            <div class="tools">
+              <button class="btn ghost">Re-scan</button>
+              <button class="btn ghost">Today</button>
+              <button class="btn primary">+ New</button>
+            </div>
+          </div>
+          <div class="split">
+            <div class="list-pane" style="width:320px">
+              <div class="list-head">
+                <div class="search">⌕ <input placeholder="Search notes…" readonly /></div>
+              </div>
+              <div class="list-body">
+                <div class="sec">Daily <span class="count">2</span></div>
+                <div class="note-row"><div class="t">2026-06-23 Daily Log</div><div class="s">daily/2026-06-23.md</div></div>
+                <div class="note-row sel"><div class="t">2026-05-16</div><div class="s">daily/2026-05-16.md</div>
+                  <div class="meta-line"><span class="tag">daily</span></div>
+                </div>
+                <div class="sec">Permanent <span class="count">2</span></div>
+                <div class="note-row"><div class="t">OVERVIEW</div><div class="s">iter12/plans/…</div></div>
+                <div class="note-row"><div class="t">README</div><div class="s">README.md</div></div>
+                <div class="sec">Drafts <span class="count">1</span></div>
+                <div class="note-row"><div class="t">Project Memory Cleanup</div><div class="s">drafts/…</div>
+                  <div class="meta-line"><span class="tag">draft</span><span class="tag">memory</span></div>
+                </div>
+                <div class="sec">Projects <span class="count">1</span></div>
+                <div class="note-row"><div class="t">Knowledge Section Redesign</div><div class="s">projects/…/…</div></div>
+              </div>
+            </div>
+            <div class="gutter" title="Drag to resize"></div>
+            <div class="preview-pane">
+              <div class="preview-toolbar">
+                <div class="seg"><button class="on">Preview</button><button>Edit</button></div>
+                <div class="tools"><button class="btn ghost">Save</button><button class="btn ghost">Promote</button></div>
+              </div>
+              <div class="editor">
+                <h2>2026-05-16</h2>
+                <div class="path">daily/2026-05-16.md · Personal Knowledge · Jun 20</div>
+                <div class="body">
+                  <h3>Notes</h3>
+                  <ul>
+                    <li>Shipped Todos with checklist + drag + attachments</li>
+                    <li>Shipped Knowledge vault <em>(this very note proves it)</em></li>
+                    <li>Building Prompt Library next</li>
+                  </ul>
+                  <h3>Done today</h3>
+                  <ul>
+                    <li>Audit caught a docs leak; fixed</li>
+                    <li>Library Phase C/D/E live</li>
+                    <li>Todos table + UI</li>
+                  </ul>
+                  <h3>Tomorrow</h3>
+                  <ul><li>Prompt Library</li><li>MCP server</li></ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="foot">
+        <div class="pick-note">Recommended pick · code id: <code>editor-primary</code></div>
+        <button class="pick" data-choice="A">Select option A</button>
+      </div>
+    </section>
+
+    <!-- ═══════════════ B ═══════════════ -->
+    <section class="panel" id="p1">
+      <div class="meta">
+        <div class="card">
+          <h3>How it works</h3>
+          <p>
+            Three panes like Obsidian / classic Finder+preview: <strong>vault tree</strong> (folders under
+            <code>projects/{id}/</code>, daily, drafts…) · <strong>note list</strong> for the selected folder ·
+            <strong>editor</strong>. Every divider is draggable. Best if vault structure is a first-class mental model.
+          </p>
+          <div class="verdict"><b>Strong if you live in folders.</b> Heavier chrome; great for large vaults and the projectId path lock.</div>
+        </div>
+        <div class="card">
+          <h3>Tradeoffs</h3>
+          <ul>
+            <li class="pros">Makes <code>projects/{projectId}/</code> navigable</li>
+            <li class="pros">Scales to hundreds of notes</li>
+            <li class="pros">All panes resizable</li>
+            <li class="cons">Three panes is denser / more to learn</li>
+            <li class="cons">Category groups (Daily/Permanent) may dual with folders</li>
+          </ul>
+        </div>
+      </div>
+      <div class="mock" data-opt="B">
+        <aside class="app-side">
+          <div class="brand"><span class="dot"></span> Nexus</div>
+          <div class="nav-label">Brain</div>
+          <div class="nav-item active">◉ Notes</div>
+          <div class="nav-item">▦ Skills</div>
+          <div class="nav-item">◎ Meetings</div>
+        </aside>
+        <div class="app-main">
+          <div class="app-header">
+            <div class="title">Notes · vault</div>
+            <div class="tools"><button class="btn primary">+ New</button></div>
+          </div>
+          <div class="split">
+            <div class="list-pane" style="width:180px; border-right:1px solid var(--border)">
+              <div class="list-head"><div class="search">⌕ <input placeholder="Filter…" readonly /></div></div>
+              <div class="list-body">
+                <div class="tree-item folder">▾ daily</div>
+                <div class="tree-item sel"><span class="indent"></span>2026-05-16</div>
+                <div class="tree-item"><span class="indent"></span>2026-06-23</div>
+                <div class="tree-item folder">▸ drafts</div>
+                <div class="tree-item folder">▾ projects</div>
+                <div class="tree-item"><span class="indent"></span>▾ {projectId}</div>
+                <div class="tree-item"><span class="indent"></span><span class="indent"></span>redesign.md</div>
+                <div class="tree-item folder">▸ references</div>
+                <div class="tree-item folder">▸ ideas</div>
+              </div>
+            </div>
+            <div class="gutter"></div>
+            <div class="list-pane" style="width:240px">
+              <div class="list-head" style="padding-bottom:8px">
+                <div style="font-size:11px;color:var(--muted)">daily · 2 notes</div>
+              </div>
+              <div class="list-body">
+                <div class="note-row sel"><div class="t">2026-05-16</div><div class="s">Updated Jun 20</div></div>
+                <div class="note-row"><div class="t">2026-06-23 Daily Log</div><div class="s">Updated Jun 22</div></div>
+              </div>
+            </div>
+            <div class="gutter"></div>
+            <div class="preview-pane">
+              <div class="preview-toolbar">
+                <div class="seg"><button class="on">Edit</button><button>Preview</button></div>
+                <button class="btn ghost">Save</button>
+              </div>
+              <div class="editor">
+                <h2>2026-05-16</h2>
+                <div class="path">daily/2026-05-16.md</div>
+                <div class="body">
+                  <h3>Notes</h3>
+                  <ul><li>Shipped Todos + Knowledge vault</li><li>Prompt Library next</li></ul>
+                  <h3>Done today</h3>
+                  <ul><li>Docs leak fixed</li><li>Library C/D/E</li></ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="foot">
+        <div class="pick-note">code id: <code>three-pane-vault</code></div>
+        <button class="pick" data-choice="B">Select option B</button>
+      </div>
+    </section>
+
+    <!-- ═══════════════ C ═══════════════ -->
+    <section class="panel" id="p2">
+      <div class="meta">
+        <div class="card">
+          <h3>How it works</h3>
+          <p>
+            Compact list rail (~280px, resizable) + <strong>full-width editor as the product</strong>.
+            Metadata (vault, tags, backlinks, promote) moves into a <strong>right inspector drawer</strong>
+            you can hide. Closest to Craft / iA Writer + sidebar.
+          </p>
+          <div class="verdict"><b>Best for writing.</b> Preview/edit is huge; chrome gets out of the way.</div>
+        </div>
+        <div class="card">
+          <h3>Tradeoffs</h3>
+          <ul>
+            <li class="pros">Maximum reading/editing width</li>
+            <li class="pros">Inspector optional — less permanent clutter</li>
+            <li class="pros">Still resizable list</li>
+            <li class="cons">One extra click to see backlinks/meta</li>
+            <li class="cons">Feels less “dashboard”, more “doc app”</li>
+          </ul>
+        </div>
+      </div>
+      <div class="mock" data-opt="C">
+        <aside class="app-side">
+          <div class="brand"><span class="dot"></span> Nexus</div>
+          <div class="nav-item active">◉ Notes</div>
+          <div class="nav-item">☑ To-do</div>
+        </aside>
+        <div class="app-main">
+          <div class="app-header">
+            <div class="title">Notes</div>
+            <div class="tools">
+              <button class="btn ghost">Inspector</button>
+              <button class="btn primary">+ New</button>
+            </div>
+          </div>
+          <div class="split">
+            <div class="list-pane" style="width:280px">
+              <div class="list-head"><div class="search">⌕ <input placeholder="Search…" readonly /></div></div>
+              <div class="list-body">
+                <div class="sec">Today & recent</div>
+                <div class="note-row sel"><div class="t">2026-05-16</div><div class="s">daily · Jun 20</div></div>
+                <div class="note-row"><div class="t">Knowledge Section Redesign</div><div class="s">projects · Jun 22</div></div>
+                <div class="note-row"><div class="t">Project Memory Cleanup</div><div class="s">drafts</div></div>
+                <div class="note-row"><div class="t">OVERVIEW</div><div class="s">permanent</div></div>
+              </div>
+            </div>
+            <div class="gutter"></div>
+            <div class="preview-pane">
+              <div class="editor" style="max-width:720px;margin:0 auto;width:100%">
+                <h2>2026-05-16</h2>
+                <div class="path">daily/2026-05-16.md</div>
+                <div class="body">
+                  <p style="color:var(--muted);margin:0 0 14px">Comfortable measure (~65–75ch) for long-form reading. Editor is the product.</p>
+                  <h3>Notes</h3>
+                  <ul>
+                    <li>Shipped Todos with checklist + drag + attachments</li>
+                    <li>Shipped Knowledge vault</li>
+                    <li>Building Prompt Library next</li>
+                  </ul>
+                  <h3>Done today</h3>
+                  <ul><li>Audit fixed docs leak</li><li>Library Phase C/D/E</li></ul>
+                </div>
+              </div>
+            </div>
+            <div class="inspector">
+              <h4>Properties</h4>
+              <div class="kv"><span>Vault</span>Personal Knowledge</div>
+              <div class="kv"><span>Updated</span>Jun 20</div>
+              <div class="kv"><span>Tags</span><span class="tag">daily</span></div>
+              <h4>Backlinks</h4>
+              <div class="kv" style="color:var(--muted)">No references yet</div>
+              <div style="margin-top:auto;display:flex;flex-direction:column;gap:6px">
+                <button class="btn primary" style="justify-content:center">Promote</button>
+                <button class="btn ghost" style="justify-content:center">Delete</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="foot">
+        <div class="pick-note">code id: <code>editor-inspector</code></div>
+        <button class="pick" data-choice="C">Select option C</button>
+      </div>
+    </section>
+
+    <!-- ═══════════════ D ═══════════════ -->
+    <section class="panel" id="p3">
+      <div class="meta">
+        <div class="card">
+          <h3>How it works</h3>
+          <p>
+            <strong>Browse mode:</strong> full-width list (still max-width constrained ~720px centered, not edge-to-edge sprawl)
+            with richer rows. <strong>Open a note:</strong> transitions to split (list rail + large editor) or full editor with back.
+            Similar to Things / some Linear detail flows.
+          </p>
+          <div class="verdict"><b>Good if browsing is half the job.</b> Two modes to maintain; slightly more complex state.</div>
+        </div>
+        <div class="card">
+          <h3>Tradeoffs</h3>
+          <ul>
+            <li class="pros">Browse without a skinny preview fighting for space</li>
+            <li class="pros">Editor only appears when you need it — huge when open</li>
+            <li class="pros">List can show denser metadata in browse mode</li>
+            <li class="cons">Context switch between browse and read</li>
+            <li class="cons">Harder to skim-while-reading side by side by default</li>
+          </ul>
+        </div>
+      </div>
+      <div class="mock" data-opt="D">
+        <aside class="app-side">
+          <div class="brand"><span class="dot"></span> Nexus</div>
+          <div class="nav-item active">◉ Notes</div>
+        </aside>
+        <div class="app-main">
+          <div class="app-header">
+            <div class="title">Notes · browse</div>
+            <div class="tools">
+              <span class="badge-live">demo: click a row → split</span>
+              <button class="btn primary">+ New</button>
+            </div>
+          </div>
+          <div class="split" id="d-split">
+            <div class="list-pane" id="d-list" style="width:100%;max-width:100%">
+              <div class="list-head">
+                <div class="search">⌕ <input placeholder="Search notes…" readonly /></div>
+              </div>
+              <div class="list-body" style="max-width:760px;margin:0 auto;width:100%">
+                <div class="sec">Daily</div>
+                <div class="note-row" data-open-d>
+                  <div class="t">2026-05-16</div>
+                  <div class="s">Shipped Todos + Knowledge vault · daily/2026-05-16.md</div>
+                  <div class="meta-line"><span class="tag">daily</span><span class="tag">Jun 20</span></div>
+                </div>
+                <div class="note-row">
+                  <div class="t">2026-06-23 Daily Log</div>
+                  <div class="s">daily/2026-06-23.md</div>
+                </div>
+                <div class="sec">Projects</div>
+                <div class="note-row">
+                  <div class="t">Knowledge Section Redesign</div>
+                  <div class="s">projects/{id}/knowledge-section-redesign.md</div>
+                </div>
+              </div>
+            </div>
+            <div class="gutter" id="d-gutter" style="display:none"></div>
+            <div class="preview-pane" id="d-prev" style="display:none">
+              <div class="preview-toolbar">
+                <button class="btn ghost" id="d-back">← Back to list</button>
+                <div class="seg"><button class="on">Preview</button><button>Edit</button></div>
+              </div>
+              <div class="editor">
+                <h2>2026-05-16</h2>
+                <div class="path">daily/2026-05-16.md</div>
+                <div class="body">
+                  <h3>Notes</h3>
+                  <ul><li>Opened from browse mode into a wide editor</li><li>List collapses to a rail; gutter is draggable</li></ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="foot">
+        <div class="pick-note">code id: <code>master-detail</code> · interactive demo above</div>
+        <button class="pick" data-choice="D">Select option D</button>
+      </div>
+    </section>
+
+    <!-- ═══════════════ E ═══════════════ -->
+    <section class="panel" id="p4">
+      <div class="meta">
+        <div class="card">
+          <h3>How it works</h3>
+          <p>
+            Same base as <strong>A</strong> (list rail + resizable editor), plus a <strong>Focus</strong> toggle:
+            list collapses to an icon rail; editor goes near-fullscreen (ZenNotes-adjacent).
+            ⌘\ or a header button toggles. Aligns with your “Open ZenNotes” path and ADHD-friendly deep work.
+          </p>
+          <div class="verdict"><b>Best long-term.</b> Ship A first, add Focus mode as a thin layer — or pick E to get both from day one.</div>
+        </div>
+        <div class="card">
+          <h3>Tradeoffs</h3>
+          <ul>
+            <li class="pros">Browse + deep write without leaving Notes</li>
+            <li class="pros">Matches product story (vault + ZenNotes)</li>
+            <li class="pros">Still has drag-resize in browse mode</li>
+            <li class="cons">Slightly more UI state (mode flag + animation)</li>
+            <li class="cons">Icon rail needs good tooltips / j-k nav</li>
+          </ul>
+        </div>
+      </div>
+      <div class="mock" data-opt="E">
+        <aside class="app-side">
+          <div class="brand"><span class="dot"></span> Nexus</div>
+          <div class="nav-item active">◉ Notes</div>
+        </aside>
+        <div class="app-main">
+          <div class="app-header">
+            <div class="title">Notes</div>
+            <div class="tools">
+              <span class="badge-live">toggle Focus →</span>
+              <button class="btn ghost" id="e-toggle">Enter Focus</button>
+              <button class="btn primary">+ New</button>
+            </div>
+          </div>
+          <div class="split" id="e-split">
+            <div class="list-pane" id="e-list" style="width:300px">
+              <div class="list-head"><div class="search">⌕ <input placeholder="Search…" readonly /></div></div>
+              <div class="list-body">
+                <div class="note-row sel"><div class="t">2026-05-16</div><div class="s">daily</div></div>
+                <div class="note-row"><div class="t">OVERVIEW</div><div class="s">permanent</div></div>
+                <div class="note-row"><div class="t">Knowledge Section Redesign</div><div class="s">projects</div></div>
+              </div>
+            </div>
+            <div class="icon-rail" id="e-rail" style="display:none">
+              <button class="on" title="Notes">≡</button>
+              <button title="Daily">☀</button>
+              <button title="Projects">▣</button>
+              <button title="Search">⌕</button>
+            </div>
+            <div class="gutter" id="e-gutter"></div>
+            <div class="preview-pane">
+              <div class="editor" style="max-width:780px;margin:0 auto;width:100%">
+                <h2>2026-05-16</h2>
+                <div class="path">daily/2026-05-16.md</div>
+                <div class="body">
+                  <p style="margin:0 0 12px;color:var(--muted)">Browse mode = Option A. Focus mode collapses the list to icons and widens the page for writing.</p>
+                  <h3>Notes</h3>
+                  <ul><li>Todos shipped</li><li>Knowledge vault shipped</li><li>Prompt Library next</li></ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="foot">
+        <div class="pick-note">code id: <code>zen-dual-mode</code> · interactive Focus toggle above</div>
+        <button class="pick" data-choice="E">Select option E</button>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script>
+  // Tabs
+  const tabs = document.querySelectorAll('.tab');
+  const panels = document.querySelectorAll('.panel');
+  tabs.forEach(t => t.addEventListener('click', () => {
+    tabs.forEach(x => x.classList.remove('active'));
+    panels.forEach(p => p.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById('p' + t.dataset.id).classList.add('active');
+  }));
+
+  // Drag gutters (any .gutter next to a .list-pane with inline width)
+  function bindGutters(root = document) {
+    root.querySelectorAll('.gutter').forEach(g => {
+      if (g.dataset.bound) return;
+      g.dataset.bound = '1';
+      let startX = 0, startW = 0, pane = null;
+      const onMove = (e) => {
+        if (!pane) return;
+        const dx = e.clientX - startX;
+        const next = Math.min(520, Math.max(200, startW + dx));
+        pane.style.width = next + 'px';
+      };
+      const onUp = () => {
+        g.classList.remove('drag');
+        pane = null;
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+      };
+      g.addEventListener('pointerdown', (e) => {
+        pane = g.previousElementSibling;
+        if (!pane || !pane.classList.contains('list-pane')) return;
+        startX = e.clientX;
+        startW = pane.getBoundingClientRect().width;
+        g.classList.add('drag');
+        window.addEventListener('pointermove', onMove);
+        window.addEventListener('pointerup', onUp);
+      });
+    });
+  }
+  bindGutters();
+
+  // Option D interactive
+  const dList = document.getElementById('d-list');
+  const dPrev = document.getElementById('d-prev');
+  const dGutter = document.getElementById('d-gutter');
+  document.querySelectorAll('[data-open-d]').forEach(row => {
+    row.addEventListener('click', () => {
+      dList.style.width = '280px';
+      dList.style.maxWidth = '280px';
+      dPrev.style.display = 'flex';
+      dGutter.style.display = 'block';
+      bindGutters();
+    });
+  });
+  document.getElementById('d-back')?.addEventListener('click', () => {
+    dList.style.width = '100%';
+    dList.style.maxWidth = '100%';
+    dPrev.style.display = 'none';
+    dGutter.style.display = 'none';
+  });
+
+  // Option E focus toggle
+  let focusOn = false;
+  document.getElementById('e-toggle')?.addEventListener('click', () => {
+    focusOn = !focusOn;
+    document.getElementById('e-list').style.display = focusOn ? 'none' : 'flex';
+    document.getElementById('e-rail').style.display = focusOn ? 'flex' : 'none';
+    document.getElementById('e-gutter').style.display = focusOn ? 'none' : 'block';
+    document.getElementById('e-toggle').textContent = focusOn ? 'Exit Focus' : 'Enter Focus';
+  });
+
+  // Selection
+  document.querySelectorAll('.pick').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const c = btn.dataset.choice;
+      const map = {
+        A: 'editor-primary',
+        B: 'three-pane-vault',
+        C: 'editor-inspector',
+        D: 'master-detail',
+        E: 'zen-dual-mode',
+      };
+      const labels = {
+        A: 'Editor-primary + resizable list',
+        B: '3-pane vault',
+        C: 'Focused editor + inspector',
+        D: 'Master-detail',
+        E: 'Zen dual-mode',
+      };
+      document.querySelectorAll('.pick').forEach(b => {
+        b.textContent = b.dataset.choice === c ? '✓ Selected — tell Nexus “go with ' + c + '”' : 'Select option ' + b.dataset.choice;
+        b.style.opacity = b.dataset.choice === c ? '1' : '.55';
+      });
+      console.log('[notes-redesign] selected', c, map[c]);
+      try {
+        localStorage.setItem('nexus.notes.layoutChoice', JSON.stringify({
+          choice: c, id: map[c], label: labels[c], at: new Date().toISOString()
+        }));
+      } catch {}
+      alert('Selected ' + c + ' — ' + labels[c] + '\\n\\nReply in chat: “go with ' + c + '” (or ' + map[c] + ') and I’ll implement it.');
+    });
+  });
+</script>
+</body>
+</html>
