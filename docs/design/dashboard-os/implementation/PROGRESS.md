@@ -9,18 +9,19 @@
 
 | Time | Phase | Status | Notes |
 |---|---|---|---|
-| 2026-07-20 | Bootstrap | in progress | PLAN.md written; mockup fixes; docker bring-up |
+| 2026-07-20 | Bootstrap | done | PLAN + docker + seed |
+| 2026-07-20 | Phase A | done | SoftIcon, sidebar IA, routes, Create Project, Home tiles; shots in implementation/shots/ |
 
 ---
 
 ## Phase checklist
 
 ### Phase A — Foundation shell
-- [ ] SoftIcon component
-- [ ] Sidebar IA rewrite (plain icons, no scrollbar CSS, Create Project)
-- [ ] Route aliases / redirects
+- [x] SoftIcon component
+- [x] Sidebar IA rewrite (plain icons, no scrollbar CSS, Create Project)
+- [x] Route aliases / redirects (notes→knowledge, skills→library; new shells)
 - [ ] Settings grouped shell
-- [ ] Create Project page shell
+- [x] Create Project page shell
 - [ ] Docker up + visual verify
 - [ ] Commit + push
 
