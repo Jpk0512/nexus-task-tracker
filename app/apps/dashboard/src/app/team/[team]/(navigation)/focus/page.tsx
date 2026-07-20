@@ -1,10 +1,8 @@
-import { PersonalLens } from "@/components/lens/personal-lens";
+import { FocusShell } from "@/components/focus/focus-shell";
 
 /**
- * /focus — Dashboard OS Attention surface.
- * Reuses Lens segment math (Today / Upcoming / Anytime / Someday / Logbook).
- * Needs-you segment lands in a follow-up phase.
+ * /focus — Attention surface: Do now (Lens) + Needs you (Inbox).
  */
 export default function FocusPage() {
-	return <PersonalLens />;
+	return <FocusShell />;
 }
