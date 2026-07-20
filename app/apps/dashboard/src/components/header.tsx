@@ -1,27 +1,25 @@
 "use client";
 
-import { DumpModalProvider, DumpTrigger } from "./dump/dump-modal";
+import { DumpModalProvider } from "./dump/dump-modal";
 import { Breadcrumbs } from "./breadcrumbs";
+import { CaptureBar } from "./capture-bar";
 import { NavSearch } from "./nav-search";
 import { NavUser } from "./nav-user";
 
 export default function Header() {
 	return (
 		<DumpModalProvider>
-			<header className="sticky top-0 z-5 h-[48px] border-b bg-background px-4">
-				<div className="h-full px-4 sm:px-0">
-					<div className="flex h-full flex-col items-start justify-center">
-						<div className="flex w-full items-center justify-between">
-							<div className="flex items-center gap-4">
-								<Breadcrumbs />
-								<NavSearch />
-								<DumpTrigger />
-							</div>
-							<div className="flex items-center gap-4">
-								{/* <NavSuggestions /> */}
-								<NavUser />
-							</div>
+			<header className="sticky top-0 z-5 h-12 border-b bg-background px-4">
+				<div className="flex h-full items-center justify-between gap-3">
+					{/* Left: capture bar dominates */}
+					<CaptureBar className="min-w-0 flex-1 sm:max-w-xl" />
+					{/* Right: context + search + profile */}
+					<div className="flex shrink-0 items-center gap-2">
+						<div className="hidden max-w-[280px] items-center lg:flex">
+							<Breadcrumbs />
 						</div>
+						<NavSearch />
+						<NavUser />
 					</div>
 				</div>
 			</header>

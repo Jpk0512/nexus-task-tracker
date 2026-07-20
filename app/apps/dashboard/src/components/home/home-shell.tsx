@@ -22,7 +22,6 @@ import { CompanionStub } from "@/components/ai/companion-stub";
 import { DoNowCard } from "./do-now-card";
 import { HealthStrip } from "./health-strip";
 import { OsQuickTiles } from "./os-quick-tiles";
-import { QuickCapture } from "./quick-capture";
 import { TodosCard } from "./todos-card";
 import { StarterContinueCard } from "./starter-continue-card";
 import { StaleCommitmentDigest } from "./stale-commitment-digest";
@@ -120,34 +119,29 @@ export const HomeShell = () => {
 	}, [config]);
 
 	return (
-		<div className="flex animate-blur-in flex-col gap-4 p-6">
+		<div className="flex animate-blur-in flex-col gap-3 p-4 sm:p-6">
 			{/* Weekly rollover banner (codex delighter #3) — self-managed: only
 				 renders Monday-of-a-new-ISO-week before the user dismisses, no-ops
 				 the rest of the week. Mounted at the top so it's the first thing
 				 seen on home. */}
 			<WeeklyRollover />
-			{/* Quick-capture bar + configurator gear share the top row. The bar
-			 *  is always rendered (it's the primary CTA on Home and doesn't make
-			 *  sense to hide); the gear sits flush right.
-			 */}
-			<div className="flex items-start gap-2">
-				<div className="flex-1">
-					<QuickCapture />
-				</div>
+			{/* Slim health strip + home configurator share one row. Capture lives in
+			 * the global header now, so the top of Home stays tight. */}
+			<div className="flex items-center justify-between gap-3">
+				<HealthStrip />
 				<button
 					type="button"
 					onClick={() => setOpen(true)}
 					title="Customize home"
 					aria-label="Customize home"
 					className={cn(
-						"inline-flex size-9 shrink-0 items-center justify-center rounded-[12px] border border-border bg-card text-muted-foreground transition-colors",
+						"inline-flex size-7 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-colors",
 						"hover:bg-accent hover:text-foreground",
 					)}
 				>
 					<SettingsIcon className="size-3.5" />
 				</button>
 			</div>
-			<HealthStrip />
 			{layout === null ? (
 				// Initial paint before hydration — render defaults to avoid layout
 				// shift. The useEffect will replace this with the persisted layout
