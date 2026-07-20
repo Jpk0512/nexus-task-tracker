@@ -18,6 +18,7 @@ import {
 	resetHomeConfig,
 	saveHomeConfig,
 } from "./home-config";
+import { DoNowCard } from "./do-now-card";
 import { OsQuickTiles } from "./os-quick-tiles";
 import { QuickCapture } from "./quick-capture";
 import { StaleCommitmentDigest } from "./stale-commitment-digest";
@@ -46,6 +47,8 @@ function renderCard(id: HomeCardId): React.ReactNode {
 	switch (id) {
 		case "greeting":
 			return <GreetingCard />;
+		case "do-now":
+			return <DoNowCard />;
 		case "agenda":
 			return <AgendaCard />;
 		case "up-next":

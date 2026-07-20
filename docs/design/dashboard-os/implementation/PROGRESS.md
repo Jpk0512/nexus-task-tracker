@@ -11,6 +11,8 @@
 |---|---|---|---|
 | 2026-07-20 | Bootstrap | done | PLAN + docker + seed |
 | 2026-07-20 | Phase A | done | SoftIcon, sidebar IA, routes, Create Project, Home tiles; shots in implementation/shots/ |
+| 2026-07-20 | Phase B | done | DoNowCard on Home (Attention Graph rank) |
+| 2026-07-20 | Phase C | partial | Capture Dump|Todos|Outline; promote create-then-archive |
 
 ---
 
