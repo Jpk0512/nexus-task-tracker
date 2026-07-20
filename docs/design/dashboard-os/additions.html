@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Nexus — 20 meaningful additions (capstone)</title>
+<style>
+:root{
+  --bg:#08090a;--s1:#0f1011;--s2:#141516;--s3:#18191a;--s4:#1c1d1f;
+  --hair:#23252a;--hair2:#34343a;--ink:#f7f8f8;--muted:#8a8f98;--subtle:#62666d;
+  --pri:#5e6ad2;--pri-h:#828fff;--ok:#27a644;--warn:#d4a017;--danger:#eb5757;
+  --teal:#26b5ce;--green:#4cb782;--violet:#9b8afb;--orange:#f2a65a;--pink:#e879a9;
+  --font:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:ui-monospace,Menlo,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13.5px;line-height:1.5}
+a{color:var(--pri-h);text-decoration:none}
+.top{position:sticky;top:0;z-index:30;padding:10px 18px;border-bottom:1px solid var(--hair);background:rgba(8,9,10,.95);backdrop-filter:blur(10px);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.top h1{margin:0;font-size:14px;font-weight:600}
+.top .sub{font-size:11px;color:var(--muted);flex:1}
+.tabs{display:flex;gap:4px;flex-wrap:wrap;max-width:80vw}
+.tabs button{border:1px solid var(--hair);background:transparent;color:var(--muted);border-radius:999px;padding:3px 9px;font-size:10.5px;cursor:pointer}
+.tabs button.on{background:var(--pri);border-color:var(--pri);color:#fff}
+main{max-width:1180px;margin:0 auto;padding:22px 16px 90px}
+.panel{display:none}.panel.on{display:block}
+h2{font-size:22px;letter-spacing:-.4px;margin:0 0 6px;font-weight:600}
+h3{font-size:14px;margin:24px 0 8px;font-weight:600}
+.lead{color:var(--muted);margin:0 0 16px;font-size:13.5px;max-width:760px}
+.note{font-size:12px;color:var(--subtle);border-left:2px solid var(--hair2);padding:6px 10px;margin:10px 0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+@media(max-width:840px){.grid2,.grid3,.grid4{grid-template-columns:1fr}}
+.card{background:var(--s1);border:1px solid var(--hair);border-radius:12px;padding:14px}
+.card h4{margin:0 0 4px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px}
+.card p{margin:0;color:var(--muted);font-size:12px}
+.num{display:inline-flex;width:22px;height:22px;border-radius:50%;background:rgba(94,106,210,.2);color:var(--pri-h);align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+.tag{display:inline-block;font-size:9.5px;padding:2px 7px;border-radius:999px;border:1px solid var(--hair2);color:var(--muted);background:var(--s2)}
+.tag.add{color:var(--green);border-color:rgba(76,183,130,.4);background:rgba(76,183,130,.08)}
+.tag.cap{color:var(--violet);border-color:rgba(155,138,251,.4);background:rgba(155,138,251,.1)}
+.frame{border:1px solid var(--hair);border-radius:14px;overflow:hidden;background:var(--s1);box-shadow:0 24px 70px rgba(0,0,0,.45);margin:12px 0}
+.fh{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--hair);background:var(--s2);font-size:11px;color:var(--muted)}
+.dots{display:flex;gap:5px}.dots i{width:8px;height:8px;border-radius:50%;background:var(--hair2);display:block}
+.fbody{padding:14px}
+.si{display:inline-flex;border-radius:8px;align-items:center;justify-content:center;flex-shrink:0}
+.si svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
+.si-b{color:var(--pri);background:rgba(94,106,210,.16);box-shadow:inset 0 0 0 1px rgba(94,106,210,.28)}
+.si-g{color:var(--green);background:rgba(76,183,130,.14);box-shadow:inset 0 0 0 1px rgba(76,183,130,.22)}
+.si-v{color:var(--violet);background:rgba(155,138,251,.14);box-shadow:inset 0 0 0 1px rgba(155,138,251,.25)}
+.si-o{color:var(--orange);background:rgba(242,166,90,.14);box-shadow:inset 0 0 0 1px rgba(242,166,90,.25)}
+.si-t{color:var(--teal);background:rgba(38,181,206,.14);box-shadow:inset 0 0 0 1px rgba(38,181,206,.22)}
+.si-p{color:var(--pink);background:rgba(232,121,169,.14);box-shadow:inset 0 0 0 1px rgba(232,121,169,.22)}
+.si-r{color:var(--danger);background:rgba(235,87,87,.14);box-shadow:inset 0 0 0 1px rgba(235,87,87,.25)}
+.chip{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:999px;border:1px solid var(--hair2);font-size:11px;color:var(--muted);background:var(--s2);cursor:default}
+.kbd{font-family:var(--mono);font-size:10px;background:var(--s3);border:1px solid var(--hair2);border-radius:4px;padding:1px 5px;color:var(--muted)}
+/* command palette */
+.cmd{max-width:560px;margin:10px auto;background:var(--s2);border:1px solid var(--hair2);border-radius:14px;overflow:hidden;box-shadow:0 30px 90px rgba(0,0,0,.6)}
+.cmd input{width:100%;border:0;background:transparent;color:var(--ink);font:inherit;padding:14px 16px;font-size:14px}
+.cmd input:focus{outline:0}
+.cmd .group{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--subtle);padding:8px 16px 4px}
+.cmd .it{display:flex;align-items:center;gap:10px;padding:9px 16px;font-size:12.5px;border-top:1px solid var(--hair)}
+.cmd .it.on{background:rgba(94,106,210,.12)}
+.cmd .it .k{margin-left:auto;font-size:10px;color:var(--subtle);font-family:var(--mono)}
+/* meters */
+.meter{background:var(--s2);border:1px solid var(--hair);border-radius:10px;padding:12px}
+.meter .lbl{font-size:11px;color:var(--muted);display:flex;justify-content:space-between}
+.meter .big{font-size:22px;font-weight:600;margin:4px 0}
+.meter .bar{height:5px;border-radius:3px;background:var(--hair2);overflow:hidden;margin-top:6px}
+.meter .bar i{display:block;height:100%}
+.meter.warn .big{color:var(--warn)}.meter.danger .big{color:var(--danger)}.meter.ok .big{color:var(--ok)}
+/* timeline */
+.tl{position:relative;padding-left:20px}
+.tl::before{content:"";position:absolute;left:6px;top:0;bottom:0;width:1px;background:var(--hair2)}
+.tl .ev{position:relative;padding:0 0 16px 16px}
+.tl .ev::before{content:"";position:absolute;left:-17px;top:3px;width:9px;height:9px;border-radius:50%;background:var(--s3);border:1px solid var(--hair2)}
+.tl .ev b{font-size:12.5px}.tl .ev .when{font-size:11px;color:var(--subtle);margin-top:2px}
+.tl .ev p{margin:4px 0 0;color:var(--muted);font-size:12px}
+/* split */
+.split{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;background:var(--bg);border:1px solid var(--hair);border-radius:12px;overflow:hidden;min-height:300px}
+.split .col{background:var(--s1);padding:10px;font-size:11.5px;border-right:1px solid var(--hair)}
+.split .col:last-child{border:0}
+.split .col h5{margin:0 0 8px;font-size:11px;color:var(--subtle);text-transform:uppercase}
+.split .lrow{padding:6px 0;border-bottom:1px solid var(--hair);display:flex;gap:6px;align-items:center}
+/* ritual */
+.ritual{border:1px solid var(--hair);border-radius:12px;padding:14px;background:var(--s2)}
+.ritual .step{display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--hair)}
+.ritual .step:last-child{border:0}
+.ritual .step .c{width:18px;height:18px;border-radius:50%;border:1px solid var(--hair2);flex-shrink:0;display:grid;place-items:center;font-size:10px}
+.ritual .step.done .c{background:var(--ok);border-color:var(--ok);color:#020}
+/* needs you */
+.nfu{display:flex;flex-direction:column;gap:6px}
+.nfu .item{display:flex;gap:10px;align-items:flex-start;padding:10px;border:1px solid var(--hair);border-radius:10px;background:var(--s2)}
+.nfu .item .src{font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:var(--subtle);min-width:64px;padding-top:2px}
+/* smart link */
+.slink{background:var(--s2);border:1px dashed var(--pri);border-radius:10px;padding:10px;margin:8px 0;font-size:12px;display:flex;gap:8px;align-items:flex-start}
+.slink .why{color:var(--muted);font-size:11px;margin-top:2px}
+/* companion */
+.companion{position:absolute;right:14px;bottom:14px;width:290px;border:1px solid var(--pri);border-radius:14px;background:var(--s2);box-shadow:0 20px 60px rgba(0,0,0,.5);overflow:hidden}
+.companion .ch{padding:8px 12px;background:rgba(94,106,210,.15);font-size:11px;display:flex;align-items:center;gap:6px}
+.companion .cb{padding:12px;font-size:12px;color:var(--muted)}
+.companion .cb b{color:var(--ink)}
+/* heatmap */
+.heat{display:grid;grid-template-columns:repeat(12,1fr);gap:3px}
+.heat i{display:block;aspect-ratio:1;border-radius:3px;background:var(--s3)}
+.heat i.l1{background:rgba(94,106,210,.25)}.heat i.l2{background:rgba(94,106,210,.5)}.heat i.l3{background:rgba(94,106,210,.8)}.heat i.l4{background:var(--pri)}
+/* calendar */
+.cal{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
+.cal .day{background:var(--s2);border:1px solid var(--hair);border-radius:8px;min-height:120px;padding:6px;font-size:10px}
+.cal .day h6{margin:0 0 4px;color:var(--subtle);font-size:9px}
+.cal .ev{background:var(--s3);border-left:2px solid var(--pri);border-radius:4px;padding:3px 5px;margin-bottom:3px;font-size:10px}
+.cal .ev.task{border-color:var(--green)}.cal .ev.meet{border-color:var(--pink)}
+/* digest */
+.digest{border:1px solid var(--hair);border-radius:12px;background:var(--s2);padding:14px;font-size:12.5px}
+.digest h4{margin:0 0 8px}
+.digest ul{margin:0;padding-left:18px;color:var(--muted)}
+.digest li{margin-bottom:4px}
+/* theming swatches */
+.swatch{display:inline-flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;color:var(--muted)}
+.swatch i{width:34px;height:34px;border-radius:8px;display:block}
+/* workspace switcher */
+.ws{display:flex;gap:8px;flex-wrap:wrap}
+.ws .ctx{border:1px solid var(--hair2);border-radius:10px;padding:10px;background:var(--s2);min-width:140px}
+.ws .ctx.on{border-color:var(--pri);box-shadow:0 0 0 1px var(--pri)}
+.ws .ctx b{display:block;font-size:12px}.ws .ctx span{color:var(--muted);font-size:11px}
+/* capstone connection */
+.cmap{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:14px 0}
+@media(max-width:840px){.cmap{grid-template-columns:1fr}}
+.cmap .grp{border:1px solid var(--hair);border-radius:10px;padding:10px;background:var(--s1)}
+.cmap .grp h5{margin:0 0 6px;font-size:11px;color:var(--subtle);text-transform:uppercase;letter-spacing:.05em}
+.cmap .lnk{font-size:11px;color:var(--muted);padding:3px 0;border-top:1px solid var(--hair);display:flex;gap:5px}
+.cmap .lnk:first-of-type{border:0}
+.cmap .lnk::before{content:"→";color:var(--pri-h);flex-shrink:0}
+table{width:100%;border-collapse:collapse;font-size:12px;margin:10px 0}
+th,td{text-align:left;padding:7px 9px;border-bottom:1px solid var(--hair);vertical-align:top}
+th{color:var(--subtle);font-size:10px;text-transform:uppercase;letter-spacing:.05em}
+ul.clean{margin:6px 0;padding-left:18px;color:var(--muted);font-size:12px}
+ul.clean li{margin-bottom:3px}
+.drag{border:1px solid var(--hair);border-radius:8px;padding:7px;background:var(--s2);font-size:11px;cursor:grab;display:flex;align-items:center;gap:6px;margin-bottom:5px}
+.rail-item{display:flex;gap:8px;padding:7px;border:1px solid var(--hair);border-radius:8px;background:var(--s2);margin-bottom:5px;font-size:11.5px}
+.bulkbar{display:flex;gap:8px;align-items:center;background:var(--s3);border:1px solid var(--pri);border-radius:8px;padding:8px 12px;font-size:11px;margin-bottom:8px}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>20 meaningful additions — capstone</h1>
+  <span class="sub">All incorporated · builds on the original 16 feature-changes · connected</span>
+  <div class="tabs" id="tabs">
+    <button data-p="all" class="on">All 20</button>
+    <button data-p="cmd">1 Command</button>
+    <button data-p="health">2 Health</button>
+    <button data-p="activity">3 Activity</button>
+    <button data-p="companion">4 AI</button>
+    <button data-p="split">5 Split</button>
+    <button data-p="templates">6 Templates</button>
+    <button data-p="smart">7 Smart</button>
+    <button data-p="capture">8 Hotkey</button>
+    <button data-p="rituals">9 Rituals</button>
+    <button data-p="needsyou">10 Needs you</button>
+    <button data-p="onboard">11 Onboarding</button>
+    <button data-p="drag">12 Drag</button>
+    <button data-p="keys">13 Keys</button>
+    <button data-p="related">14 Related</button>
+    <button data-p="bulk">15 Bulk</button>
+    <button data-p="cal">16 Calendar</button>
+    <button data-p="energy">17 Energy</button>
+    <button data-p="theme">18 Theme</button>
+    <button data-p="ws">19 Spaces</button>
+    <button data-p="digest">20 Digest</button>
+    <button data-p="capstone">★ Capstone</button>
+  </div>
+</header>
+<main>
+
+<!-- ALL 20 -->
+<section class="panel on" id="all">
+  <h2>The 20 additions — grouped by job</h2>
+  <p class="lead">These sit <b>on top of</b> the 16 feature-changes (Attention Graph, Notes, Meeting pipeline, etc.). They build the <b>nervous system</b>: drive everything from one place, surface drift, keep context, cut friction, and make the app feel alive. Each has a mockup tab.</p>
+
+  <h3>Drive everything from one place</h3>
+  <div class="grid3">
+    <div class="card"><span class="num">1</span><span class="tag add" style="margin-left:6px">ADD</span><h4 style="margin-top:8px">Command Bar ⌘K</h4><p>Create / navigate / act / ask from one keystroke.</p></div>
+    <div class="card"><span class="num">8</span><span class="tag add" style="margin-left:6px">ADD</span><h4 style="margin-top:8px">Global hotkey capture</h4><p>Capture from anywhere on the machine, app closed.</p></div>
+    <div class="card"><span class="num">13</span><span class="tag add" style="margin-left:6px">ADD</span><h4 style="margin-top:8px">Keyboard-first nav</h4><p>Linear-style g-prefix; mouse optional.</p></div>
+  </div>
+
+  <h3>Self-awareness &amp; continuity</h3>
+  <div class="grid3">
+    <div class="card"><span class="num">2</span><span class="tag add" style="margin-left:6px">ADD</span><h4 style="margin-top:8px">Workspace Health</h4><p>Capture debt, stale, unfiled, overdue — one-click fixes.</p></div>
+    <div class="card"><span class="num">3</span><span class="tag add" style="margin-left:6px">ADD</span><h4 style="margin-top:8px">Activity “What changed”</h4><p>Cross-surface timeline; “since Tuesday” resume.</p></div>
+    <div class="card"><span class="num">20</span><span class="tag add" style="margin-left:6px">ADD</span><h4 style="margin-top:8px">Daily digest</h4><p>Quiet-hours-aware summary to email/menu-bar.</p></div>
+  </div>
+
+  <h3>Keep context, cut switching</h3>
+  <div class="grid3">
+    <div class="card"><span class="num">4</span><span class="tag add" style="margin-left:6px">ADD</span><h4 style="margin-top:8px">Contextual AI companion</h4><p>Floating, knows your entity; draft/summarize/relate.</p></div>
+    <div class="card"><span class="num">5</span><span class="tag add" style="margin-left:6px">ADD</span><h4 style="margin-top:8px">Split-view panes</h4><p>Board + task + note side by side.</p></div>
+    <div class="card"><span class="num">14</span><span class="tag add" style="margin-left:6px">ADD</span><h4 style="margin-top:8px">Related rail (auto)</h4><p>Context surfaces related notes/meetings automatically.</p></div>
+  </div>
+
+  <h3>Cut friction</h3>
+  <div class="grid3">
+    <div class="card"><span class="num">7</span><span class="tag add" style="margin-left:6px">ADD</span><h4 style="margin-top:8px">Smart links</h4><p>AI proposes project for capture, related note for task.</p></div>
+    <div class="card"><span class="num">12</span><span class="tag add" style="margin-left:6px">ADD</span><h4 style="margin-top:8px">Drag-to-connect</h4><p>Drag note→task, meeting→project, capture→column.</p></div>
+    <div class="card"><span class="num">15</span><span class="tag add" style="margin-left:6px">ADD</span><h4 style="margin-top:8px">Bulk ops everywhere</h4><p>Multi-select on notes, meetings, skills — not just tasks.</p></div>
+  </div>
+
+  <h3>Structure &amp; rituals</h3>
+  <div class="grid3">
+    <div class="card"><span class="num">6</span><span class="tag add" style="margin-left:6px">ADD</span><h4 style="margin-top:8px">Templates</h4><p>Project / note / meeting / retro / starter.</p></div>
+    <div class="card"><span class="num">9</span><span class="tag add" style="margin-left:6px">ADD</span><h4 style="margin-top:8px">Rituals</h4><p>Morning / weekly / EOD guided by real data.</p></div>
+    <div class="card"><span class="num">10</span><span class="tag add" style="margin-left:6px">ADD</span><h4 style="margin-top:8px">Unified Needs-you</h4><p>One stream of everything requiring you.</p></div>
+  </div>
+
+  <h3>Reach &amp; personalization</h3>
+  <div class="grid3">
+    <div class="card"><span class="num">11</span><span class="tag add" style="margin-left:6px">ADD</span><h4 style="margin-top:8px">Onboarding / empty states</h4><p>Guided first-run; never a dead blank page.</p></div>
+    <div class="card"><span class="num">16</span><span class="tag add" style="margin-left:6px">ADD</span><h4 style="margin-top:8px">Calendar integration</h4><p>Real calendar sync; due dates + meetings overlaid.</p></div>
+    <div class="card"><span class="num">17</span><span class="tag add" style="margin-left:6px">ADD</span><h4 style="margin-top:8px">Time/energy tracking</h4><p>Heatmap of when you complete most; protect peak hours.</p></div>
+    <div class="card"><span class="num">18</span><span class="tag add" style="margin-left:6px">ADD</span><h4 style="margin-top:8px">Theming &amp; density</h4><p>Accent, comfy/compact, ADHD-calm mode.</p></div>
+    <div class="card"><span class="num">19</span><span class="tag add" style="margin-left:6px">ADD</span><h4 style="margin-top:8px">Workspace spaces</h4><p>Personal vs work contexts; switch at sidebar top.</p></div>
+  </div>
+  <p class="note">20 total. Below: each one mocked. Last tab = how they all connect and build on the original 16.</p>
+</section>
+
+<!-- 1 -->
+<section class="panel" id="cmd">
+  <h2>1 · Command Bar — the true center</h2>
+  <p class="lead">Today ⌘K is 7 hard-coded actions. Make it the center: fuzzy search every entity, create any type, run any action, and an <b>Ask</b> mode. Highest-leverage addition.</p>
+  <div class="cmd">
+    <input value="vas transcript" />
+    <div class="group">Navigate · 3</div>
+    <div class="it on"><span class="si si-g"><svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></span> Voice Agent Studio · project<span class="k">↵</span></div>
+    <div class="it"><span class="si si-v"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/></svg></span> transcript → tasks path · note<span class="k">VAS / notes</span></div>
+    <div class="it"><span class="si si-p"><svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/></svg></span> VAS weekly Jul 18 · meeting<span class="k">2 open actions</span></div>
+    <div class="group">Create · typed</div>
+    <div class="it"><span class="si si-o"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span> New task in VAS<span class="k">⌘↵</span></div>
+    <div class="it"><span class="si si-v"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/></svg></span> New note in VAS notebook<span class="k">⌘N</span></div>
+    <div class="it"><span class="si si-b"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8"/></svg></span> Start from idea (Starter)</div>
+    <div class="group">Actions</div>
+    <div class="it"><span class="si si-t"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/></svg></span> Promote last capture → task</div>
+    <div class="it"><span class="si si-r"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/></svg></span> Import Infisical secrets</div>
+    <div class="group">Ask · workspace</div>
+    <div class="it"><span class="si si-v"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5"/></svg></span> “What did we decide about embeddings?”<span class="k">tab for ask</span></div>
+  </div>
+  <p class="note"><b>Builds on:</b> existing global-search + actions-catalogue + repeat-last. Adds fuzzy entity index, typed create, action verbs, Ask mode → companion.</p>
+</section>
+
+<!-- 2 -->
+<section class="panel" id="health">
+  <h2>2 · Workspace Health — self-awareness</h2>
+  <p class="lead">ADHD systems die quietly. This page says “here’s where you’re drifting” and gives one action per signal.</p>
+  <div class="frame"><div class="fh"><div class="dots"><i></i><i></i><i></i></div> Workspace Health · this week</div><div class="fbody">
+    <div class="grid4">
+      <div class="meter warn"><div class="lbl">Capture debt<span>↑ from 1</span></div><div class="big">4</div><div class="bar"><i style="width:40%;background:var(--warn)"></i></div></div>
+      <div class="meter danger"><div class="lbl">Unfiled meetings</div><div class="big">2</div><div class="bar"><i style="width:30%;background:var(--danger)"></i></div></div>
+      <div class="meter danger"><div class="lbl">Overdue</div><div class="big">1</div><div class="bar"><i style="width:12%;background:var(--danger)"></i></div></div>
+      <div class="meter ok"><div class="lbl">Needs you</div><div class="big">2</div><div class="bar"><i style="width:20%;background:var(--ok)"></i></div></div>
+      <div class="meter warn"><div class="lbl">Stale (7d+)</div><div class="big">1</div><div class="bar"><i style="width:25%;background:var(--warn)"></i></div></div>
+      <div class="meter ok"><div class="lbl">MCPs up</div><div class="big">6/6</div><div class="bar"><i style="width:100%;background:var(--ok)"></i></div></div>
+      <div class="meter warn"><div class="lbl">Wiki dead-links</div><div class="big">3</div><div class="bar"><i style="width:15%;background:var(--warn)"></i></div></div>
+      <div class="meter ok"><div class="lbl">Inbox trend</div><div class="big">↓</div><div class="bar"><i style="width:60%;background:var(--ok)"></i></div></div>
+    </div>
+    <h3>Suggested next actions</h3>
+    <div class="grid2">
+      <div class="card"><b>Process 4 captures</b><p>2 look like VAS, 1 todo, 1 unfiled.</p></div>
+      <div class="card"><b>File 2 meetings</b><p>Open actions waiting.</p></div>
+    </div>
+  </div></div>
+  <p class="note"><b>Rule:</b> no shame metrics. Every red = one-click fix. Weekly trend, not daily panic. Feeds Rituals (#9).</p>
+</section>
+
+<!-- 3 -->
+<section class="panel" id="activity">
+  <h2>3 · Activity — “What changed”</h2>
+  <p class="lead">Resume surface after absence. Cross-surface, filterable.</p>
+  <div class="frame"><div class="fh"><div class="dots"><i></i><i></i><i></i></div> Activity · since Tue Jul 15 · filter: all task note meeting project starter</div><div class="fbody">
+    <div class="tl">
+      <div class="ev"><b>VAS — on track</b><div class="when">2h ago · project update</div><p>“Shipped eval harness — next transcript → tasks.”</p></div>
+      <div class="ev"><b>New task VAS-13: Refresh MCP auth docs</b><div class="when">2h ago · from meeting</div></div>
+      <div class="ev"><b>Note edited: transcript → tasks path</b><div class="when">today · VAS notebook</div></div>
+      <div class="ev"><b>Meeting filed: Embedding sync</b><div class="when">yesterday · 3 actions</div></div>
+      <div class="ev"><b>Starter Acme → Architecture</b><div class="when">yesterday</div></div>
+      <div class="ev"><b>Skill pinned: wayfinder → VAS</b><div class="when">2d ago</div></div>
+      <div class="ev"><b>Secret rotated: OPENAI_API_KEY</b><div class="when">3d ago · Infisical</div></div>
+    </div>
+  </div></div>
+  <p class="note"><b>Builds on:</b> existing <code>activities</code> table + activity-timeline. Adds type/source filter + “since” resume + entity deep-links. Also a Home card.</p>
+</section>
+
+<!-- 4 -->
+<section class="panel" id="companion">
+  <h2>4 · Contextual AI companion</h2>
+  <p class="lead">AI as companion, not destination. Knows your entity; offers contextual actions.</p>
+  <div class="frame" style="position:relative;min-height:340px"><div class="fh"><div class="dots"><i></i><i></i><i></i></div> Focus · DEV-69</div><div class="fbody">
+    <p style="color:var(--muted)">Context-aware suggestions:</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><span class="chip">✦ Draft status update</span><span class="chip">✦ Summarize linked note</span><span class="chip">✦ What’s blocking?</span><span class="chip">✦ Find related</span></div>
+    <div class="companion"><div class="ch"><span class="si si-v" style="width:18px"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4"/></svg></span> Companion · DEV-69</div><div class="cb"><b>Draft update:</b><br>“Blocked on nexus-mcp auth refresh (~10m). Eval harness landed.”<br><br><span style="font-size:11px;color:var(--subtle)">Local · LM Studio → Gemini</span><div style="margin-top:8px;display:flex;gap:6px"><span class="chip" style="color:var(--ink)">Use</span><span class="chip">Edit</span></div></div></div>
+  </div></div>
+  <p class="note"><b>Rule:</b> contextual actions, not a chatbot. Cloud labeled. Never auto-posts.</p>
+</section>
+
+<!-- 5 -->
+<section class="panel" id="split">
+  <h2>5 · Split-view panes</h2>
+  <p class="lead">Work task + note + board at once. Drag any card to pin a pane.</p>
+  <div class="frame"><div class="fh"><div class="dots"><i></i><i></i><i></i></div> VAS board · split DEV-69 + note</div><div class="fbody">
+    <div class="split">
+      <div class="col"><h5>Board · in progress</h5><div class="lrow"><span class="si si-o" style="width:18px"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/></svg></span> Smoke test</div><div class="lrow"><span class="si si-g" style="width:18px"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/></svg></span> Transcript export</div></div>
+      <div class="col"><h5>Task · DEV-69</h5><b style="font-size:12px">End-to-end smoke test</b><p style="color:var(--muted);font-size:11px;margin:4px 0">blocked · mcp auth</p><div><span class="chip" style="color:var(--danger);border-color:rgba(235,87,87,.4)">overdue</span> <span class="chip" style="color:var(--green);border-color:rgba(76,183,130,.4)">VAS</span></div></div>
+      <div class="col"><h5>Note · smoke-test-plan</h5><p style="color:var(--muted);font-size:11px">1. Auth refresh<br>2. Embed probe<br>3. Export e2e</p><span class="chip" style="margin-top:6px">Open in ZenNotes ↗</span></div>
+    </div>
+  </div></div>
+  <p class="note">Pin-to-pane action on any entity; up to 3 panes; persists per project.</p>
+</section>
+
+<!-- 6 -->
+<section class="panel" id="templates">
+  <h2>6 · Templates system</h2>
+  <p class="lead">Generalize Starter: project briefs, meeting agendas, daily notes, retros, ADRs.</p>
+  <div class="frame"><div class="fh"><div class="dots"><i></i><i></i><i></i></div> Templates</div><div class="fbody">
+    <div class="grid3">
+      <div class="card"><span class="si si-b"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8"/></svg></span><h4 style="margin-top:6px">Project: Greenfield</h4><p>_index, goals, decisions, board seed. (Starter.)</p></div>
+      <div class="card"><span class="si si-p"><svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 00-3 3v8"/></svg></span><h4 style="margin-top:6px">Meeting: 1:1</h4><p>Last week · blockers · this week.</p></div>
+      <div class="card"><span class="si si-v"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/></svg></span><h4 style="margin-top:6px">Note: ADR</h4><p>Context · decision · consequences.</p></div>
+      <div class="card"><span class="si si-o"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/></svg></span><h4 style="margin-top:6px">Ritual: Weekly</h4><p>Shipped · learned · next.</p></div>
+      <div class="card"><span class="si si-g"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span><h4 style="margin-top:6px">Note: Daily</h4><p>3 priorities · dump · gratitude.</p></div>
+      <div class="card"><span class="si si-t"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/></svg></span><h4 style="margin-top:6px">Project: Retro</h4><p>Went well · didn’t · actions.</p></div>
+    </div>
+  </div></div>
+  <p class="note"><b>Builds on:</b> recurring/template-gallery. Templates = markdown + frontmatter in <code>_templates/</code> vault folder, editable like notes; trigger from ⌘K or New.</p>
+</section>
+
+<!-- 7 -->
+<section class="panel" id="smart">
+  <h2>7 · Smart links / suggestions</h2>
+  <p class="lead">Filing friction kills systems. AI proposes; one click accepts.</p>
+  <div class="frame"><div class="fh"><div class="dots"><i></i><i></i><i></i></div> Capture · smart suggestions on</div><div class="fbody">
+    <div class="card" style="margin-bottom:8px"><b>“remember VAS eval harness path: /lib/eval”</b><div class="slink"><span class="si si-b" style="width:20px"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8"/></svg></span><div>Suggested: <b>→ Note in VAS / decisions</b><div class="why">project slug + “path” intent · 92%</div></div><div style="margin-left:auto;display:flex;gap:6px"><span class="chip" style="color:var(--ink)">Accept</span><span class="chip">Other</span></div></div></div>
+    <div class="card" style="margin-bottom:8px"><b>DEV-69 smoke test</b><div class="slink"><span class="si si-v" style="width:20px"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/></svg></span><div>Link note <b>“smoke-test-plan”</b><div class="why">same project + title overlap · 88%</div></div><div style="margin-left:auto;display:flex;gap:6px"><span class="chip" style="color:var(--ink)">Link</span><span class="chip">Dismiss</span></div></div></div>
+    <div class="card"><b>VAS weekly Jul 18</b><div class="slink"><span class="si si-r" style="width:20px"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4"/></svg></span><div>Possible dup of <b>Embedding sync Jul 12</b><div class="why">merge or keep?</div></div></div></div>
+  </div></div>
+  <p class="note">Embeddings + heuristics; confidence shown; never auto-act; accept/dismiss calibrates.</p>
+</section>
+
+<!-- 8 -->
+<section class="panel" id="capture">
+  <h2>8 · Global hotkey capture</h2>
+  <p class="lead">Capture gravity only works when the app is closed. System-wide hotkey + menu-bar → Dump.</p>
+  <div class="frame"><div class="fh"><div class="dots"><i></i><i></i><i></i></div> ⌘⇧Space · global capture overlay</div><div class="fbody" style="text-align:center;padding:30px">
+    <div style="max-width:420px;margin:0 auto;background:var(--s2);border:1px solid var(--hair2);border-radius:12px;padding:16px;text-align:left">
+      <input value="call dentist friday — personal" style="width:100%;background:var(--s1);border:1px solid var(--hair2);color:var(--ink);border-radius:8px;padding:8px;font:inherit" />
+      <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap"><span class="chip">→ Dump</span><span class="chip">→ Todo</span><span class="chip">⌘↵ save</span><span class="chip" style="margin-left:auto;color:var(--subtle)">esc</span></div>
+    </div>
+  </div></div>
+  <p class="note">Tiny menu-bar companion (Tauri/Electron) hitting capture API; offline queue syncs on open.</p>
+</section>
+
+<!-- 9 -->
+<section class="panel" id="rituals">
+  <h2>9 · Rituals — structured ADHD support</h2>
+  <p class="lead">Guided checklists wired to real data — not blank todos.</p>
+  <div class="frame"><div class="fh"><div class="dots"><i></i><i></i><i></i></div> Ritual · Morning review</div><div class="fbody">
+    <div class="ritual">
+      <div class="step done"><div class="c">✓</div><div><b>Check Workspace Health</b><div style="color:var(--muted);font-size:11px">4 debt · 2 unfiled</div></div></div>
+      <div class="step done"><div class="c">✓</div><div><b>Process Needs you (2)</b></div></div>
+      <div class="step"><div class="c"></div><div><b>Pick top 3 for Do now</b></div></div>
+      <div class="step"><div class="c"></div><div><b>Sweep Capture (4)</b></div></div>
+      <div class="step"><div class="c"></div><div><b>Glance project pulse</b></div></div>
+    </div>
+  </div></div>
+  <p class="note">Also: Weekly review, EOD close. Builds on recurring + end-of-day-recap. Each step deep-links to the real surface.</p>
+</section>
+
+<!-- 10 -->
+<section class="panel" id="needsyou">
+  <h2>10 · Unified Needs-you engine</h2>
+  <p class="lead">One stream of everything requiring you — not 5 badges.</p>
+  <div class="frame"><div class="fh"><div class="dots"><i></i><i></i><i></i></div> Needs you · 5</div><div class="fbody">
+    <div class="nfu">
+      <div class="item"><span class="src">mention</span><div><b>@you in VAS update</b><div style="color:var(--muted);font-size:11px">“confirm embed provider?” · 1h</div></div></div>
+      <div class="item"><span class="src">blocked</span><div><b>DEV-69 unblocked, waiting on you</b></div></div>
+      <div class="item"><span class="src">meeting</span><div><b>2 actions assigned from VAS weekly</b></div></div>
+      <div class="item"><span class="src">starter</span><div><b>Acme Ops has a Concept question</b></div></div>
+      <div class="item"><span class="src">ops</span><div><b>zennotes MCP probe failed</b></div></div>
+    </div>
+  </div></div>
+  <p class="note">Unified query over mentions + task-unblocked + assigned meeting actions + starter HITL + MCP/secret failures + approvals. Feeds Focus + Home + digest.</p>
+</section>
+
+<!-- 11 -->
+<section class="panel" id="onboard">
+  <h2>11 · Onboarding &amp; empty-state system</h2>
+  <p class="lead">Every surface gets a guided first-run + meaningful empty state. Never a dead blank page.</p>
+  <div class="frame"><div class="fh"><div class="dots"><i></i><i></i><i></i></div> Notes · first run</div><div class="fbody" style="text-align:center;padding:40px">
+    <div style="max-width:440px;margin:0 auto">
+      <div class="si si-v" style="width:48px;height:48px;border-radius:12px;margin:0 auto 12px"><svg viewBox="0 0 24 24" style="width:22px"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg></div>
+      <h3 style="margin:0 0 6px">Your brain, organized by project</h3>
+      <p class="lead" style="margin:0 0 14px">Start with a project notebook or capture a thought. We’ll file it later.</p>
+      <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><span class="chip" style="color:var(--ink);background:var(--s3)">+ New project note</span><span class="chip">Capture a thought</span><span class="chip">Take the 60s tour</span></div>
+      <p class="note" style="margin-top:14px">Pattern reused: Home, Focus, Capture, Meetings, MCPs, Secrets, Starter.</p>
+    </div>
+  </div></div>
+</section>
+
+<!-- 12 -->
+<section class="panel" id="drag">
+  <h2>12 · Drag-to-connect universal</h2>
+  <p class="lead">Tactile linking: drag a note onto a task to link, meeting onto project to scope, capture onto a column to file.</p>
+  <div class="frame"><div class="fh"><div class="dots"><i></i><i></i><i></i></div> Drag note → task</div><div class="fbody">
+    <div class="grid2">
+      <div><h5 style="color:var(--subtle);font-size:11px;text-transform:uppercase;margin:0 0 6px">Notes (drag)</h5>
+        <div class="drag"><span class="si si-v" style="width:20px"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/></svg></span> smoke-test-plan</div>
+        <div class="drag"><span class="si si-v" style="width:20px"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/></svg></span> embed-decision</div>
+      </div>
+      <div><h5 style="color:var(--subtle);font-size:11px;text-transform:uppercase;margin:0 0 6px">Task (drop target)</h5>
+        <div style="border:1px dashed var(--pri);border-radius:10px;padding:14px;text-align:center;color:var(--pri-h);font-size:12px">DEV-69 — drop to link</div>
+        <p class="note" style="margin-top:8px">Works across surfaces: meeting→project, capture→Todo column, skill→project shelf.</p>
+      </div>
+    </div>
+  </div></div>
+</section>
+
+<!-- 13 -->
+<section class="panel" id="keys">
+  <h2>13 · Keyboard-first navigation</h2>
+  <p class="lead">Every surface reachable without mouse. Linear-style g-prefix; row j/k; inline edit.</p>
+  <div class="frame"><div class="fh"><div class="dots"><i></i><i></i><i></i></div> Keyboard map · <span class="kbd">?</span></div><div class="fbody">
+    <div class="grid3">
+      <div><b style="font-size:12px">Go</b><ul class="clean"><li><span class="kbd">g h</span> Home</li><li><span class="kbd">g f</span> Focus</li><li><span class="kbd">g c</span> Capture</li><li><span class="kbd">g p</span> Projects</li><li><span class="kbd">g n</span> Notes</li><li><span class="kbd">g m</span> Meetings</li><li><span class="kbd">g s</span> Skills</li></ul></div>
+      <div><b style="font-size:12px">Act</b><ul class="clean"><li><span class="kbd">⌘k</span> Command</li><li><span class="kbd">⌘⇧space</span> Capture</li><li><span class="kbd">⌘↵</span> Accept rec</li><li><span class="kbd">⌘.</span> Save &amp; leave</li><li><span class="kbd">⌘⇧a</span> Companion</li></ul></div>
+      <div><b style="font-size:12px">Rows</b><ul class="clean"><li><span class="kbd">j/k</span> up/down</li><li><span class="kbd">↵</span> open</li><li><span class="kbd">x</span> select</li><li><span class="kbd">e</span> edit inline</li><li><span class="kbd">l</span> link</li></ul></div>
+    </div>
+  </div></div>
+  <p class="note"><b>Builds on:</b> existing shortcuts registry + overlay. Adds g-prefix nav + row verbs.</p>
+</section>
+
+<!-- 14 -->
+<section class="panel" id="related">
+  <h2>14 · Related rail (auto-surfaced)</h2>
+  <p class="lead">On any entity, an auto rail surfaces related notes/meetings/siblings by shared project + embeddings — so context finds you.</p>
+  <div class="frame"><div class="fh"><div class="dots"><i></i><i></i><i></i></div> Task · DEV-69 + related</div><div class="fbody">
+    <div class="split" style="grid-template-columns:2fr 1fr">
+      <div class="col"><h5>Task</h5><b style="font-size:13px">End-to-end smoke test</b><p style="color:var(--muted);font-size:11px">blocked · mcp auth · VAS</p></div>
+      <div class="col"><h5>Related · auto</h5>
+        <div class="rail-item"><span class="si si-v" style="width:18px"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/></svg></span> smoke-test-plan <span style="color:var(--subtle);font-size:10px">92%</span></div>
+        <div class="rail-item"><span class="si si-p" style="width:18px"><svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 00-3 3v8"/></svg></span> VAS weekly <span style="color:var(--subtle);font-size:10px">same proj</span></div>
+        <div class="rail-item"><span class="si si-o" style="width:18px"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/></svg></span> DEV-12 auth refresh <span style="color:var(--subtle);font-size:10px">sibling</span></div>
+      </div>
+    </div>
+  </div></div>
+  <p class="note">Uses the same embeddings as Smart links (#7) + Ask vault — one index, many surfaces.</p>
+</section>
+
+<!-- 15 -->
+<section class="panel" id="bulk">
+  <h2>15 · Bulk ops everywhere</h2>
+  <p class="lead">Tasks already have it. Extend to notes (tag/move/file), meetings (file/bulk-task), skills (pin to project).</p>
+  <div class="frame"><div class="fh"><div class="dots"><i></i><i></i><i></i></div> Notes · 3 selected</div><div class="fbody">
+    <div class="bulkbar"><b>3 selected</b><span class="chip" style="color:var(--ink)">Tag → design</span><span class="chip" style="color:var(--ink)">Move to VAS</span><span class="chip" style="color:var(--ink)">Link to task…</span><span class="chip" style="color:var(--danger)">Delete</span><span class="chip" style="margin-left:auto">esc to clear</span></div>
+    <div class="rail-item"><span class="si si-v" style="width:18px"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/></svg></span> smoke-test-plan <span style="color:var(--subtle);font-size:10px">VAS</span></div>
+    <div class="rail-item"><span class="si si-v" style="width:18px"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/></svg></span> embed-decision <span style="color:var(--subtle);font-size:10px">VAS</span></div>
+    <div class="rail-item"><span class="si si-v" style="width:18px"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/></svg></span> transcript-plan <span style="color:var(--subtle);font-size:10px">VAS</span></div>
+  </div></div>
+  <p class="note"><b>Builds on:</b> tasks bulk-ops-bar — generalize the selection store to notes/meetings/skills.</p>
+</section>
+
+<!-- 16 -->
+<section class="panel" id="cal">
+  <h2>16 · Calendar integration</h2>
+  <p class="lead">Real Google/Apple calendar sync. Due dates + meetings overlaid; propose slots from your focus data.</p>
+  <div class="frame"><div class="fh"><div class="dots"><i></i><i></i><i></i></div> Calendar · this week · synced</div><div class="fbody">
+    <div class="cal">
+      <div class="day"><h6>MON</h6><div class="ev meet">VAS weekly</div><div class="ev task">DEV-69 due</div></div>
+      <div class="day"><h6>TUE</h6><div class="ev meet">1:1</div></div>
+      <div class="day"><h6>WED</h6><div class="ev task">Embedding sync file</div></div>
+      <div class="day"><h6>THU</h6><div class="ev meet">Starter grill</div></div>
+      <div class="day"><h6>FRI</h6><div class="ev task">VAS-13 due</div></div>
+    </div>
+    <p class="note">Meetings auto-create from calendar; due tasks tinted; protected focus blocks suggested from Energy (#17).</p>
+  </div></div>
+</section>
+
+<!-- 17 -->
+<section class="panel" id="energy">
+  <h2>17 · Time / energy tracking</h2>
+  <p class="lead">Passive (focus-session based) heatmap of when you complete most — protect peak hours, schedule shallow work off-peak.</p>
+  <div class="frame"><div class="fh"><div class="dots"><i></i><i></i><i></i></div> Your energy · last 4 weeks</div><div class="fbody">
+    <div class="heat">
+      <i></i><i class="l1"></i><i class="l2"></i><i class="l4"></i><i class="l4"></i><i class="l3"></i><i class="l1"></i><i></i><i></i><i class="l1"></i><i class="l2"></i><i></i>
+      <i></i><i class="l1"></i><i class="l2"></i><i class="l4"></i><i class="l3"></i><i class="l2"></i><i></i><i></i><i class="l1"></i><i class="l2"></i><i class="l1"></i><i></i>
+      <i></i><i></i><i class="l1"></i><i class="l3"></i><i class="l2"></i><i class="l1"></i><i></i><i></i><i class="l1"></i><i class="l3"></i><i class="l2"></i><i class="l4"></i>
+      <i class="l1"></i><i></i><i></i><i class="l2"></i><i class="l1"></i><i></i><i></i><i class="l1"></i><i class="l2"></i><i class="l3"></i><i class="l4"></i><i class="l3"></i>
+    </div>
+    <p class="note"><b>Insight:</b> you complete most tasks 9–11a &amp; 3–4p. Focus blocks auto-suggested at peaks; Capture sweeps nudged off-peak. <b>Builds on:</b> existing focus-session.tsx.</p>
+  </div></div>
+</section>
+
+<!-- 18 -->
+<section class="panel" id="theme">
+  <h2>18 · Theming &amp; density</h2>
+  <p class="lead">Accent color, comfy/compact density, light/dark, and an <b>ADHD-calm mode</b> (fewer Home modules, larger targets, gentler motion).</p>
+  <div class="frame"><div class="fh"><div class="dots"><i></i><i></i><i></i></div> Appearance</div><div class="fbody">
+    <div class="grid3">
+      <div><b style="font-size:12px">Accent</b><div style="display:flex;gap:10px;margin-top:8px"><span class="swatch"><i style="background:#5e6ad2"></i>lavender</span><span class="swatch"><i style="background:#4cb782"></i>green</span><span class="swatch"><i style="background:#f2a65a"></i>amber</span><span class="swatch"><i style="background:#e879a9"></i>pink</span></div></div>
+      <div><b style="font-size:12px">Density</b><div style="margin-top:8px"><span class="chip" style="color:var(--ink)">Comfy</span> <span class="chip">Compact</span></div></div>
+      <div><b style="font-size:12px">ADHD-calm</b><div style="margin-top:8px"><span class="chip" style="color:var(--ink)">On</span> <span class="chip">Off</span><p class="note" style="margin-top:6px">2 Home modules max · larger rows · reduced motion</p></div></div>
+    </div>
+  </div></div>
+</section>
+
+<!-- 19 -->
+<section class="panel" id="ws">
+  <h2>19 · Workspace spaces</h2>
+  <p class="lead">Separate personal vs work contexts (vaults, projects, secrets). Switch at the sidebar top — keeps the brain from bleeding across lives.</p>
+  <div class="frame"><div class="fh"><div class="dots"><i></i><i></i><i></i></div> Spaces</div><div class="fbody">
+    <div class="ws">
+      <div class="ctx on"><b>● Work</b><span>Voice Agent · AI Dash · 14 projects</span></div>
+      <div class="ctx"><b>● Personal</b><span>ADHD systems · career · 6 projects</span></div>
+      <div class="ctx"><b>● Side: Nexus</b><span>this app · 3 projects</span></div>
+    </div>
+    <p class="note">Each space: its own vault root, default secret scope, default project filter. Cmd-K scoped to active space. Cross-space search opt-in.</p>
+  </div></div>
+</section>
+
+<!-- 20 -->
+<section class="panel" id="digest">
+  <h2>20 · Daily digest</h2>
+  <p class="lead">Quiet-hours-aware summary to email/menu-bar — so you can close the app and still know what needs you tomorrow morning.</p>
+  <div class="frame"><div class="fh"><div class="dots"><i></i><i></i><i></i></div> Digest · tomorrow 7:00am · quiet hours 9pm–7am</div><div class="fbody">
+    <div class="digest">
+      <h4>🌅 Good morning — here’s your day</h4>
+      <ul>
+        <li><b>2</b> items need you (1 mention, 1 unblocked task)</li>
+        <li><b>1</b> overdue: DEV-69 smoke test</li>
+        <li><b>4</b> capture debt to file</li>
+        <li><b>2</b> unfiled meetings with open actions</li>
+        <li><b>1</b> MCP down: zennotes (will retry)</li>
+        <li>Starter <b>Acme Ops</b> has a Concept question</li>
+      </ul>
+      <p style="margin-top:8px;font-size:11px;color:var(--subtle)">Channels: menu-bar · email · (push). Energy peak 9–11a protected.</p>
+    </div>
+  </div></div>
+  <p class="note"><b>Builds on:</b> Needs-you (#10) + Health (#2). One query, many channels.</p>
+</section>
+
+<!-- CAPSTONE -->
+<section class="panel" id="capstone">
+  <h2>★ Capstone — how the 20 build on the 16 &amp; connect</h2>
+  <p class="lead">The 16 feature-changes built the <b>rooms</b> (Focus, Notes, Meetings, Project Place…). The 20 additions build the <b>nervous system</b>. Together = one living app.</p>
+
+  <h3>One shared index powers many additions</h3>
+  <div class="card"><p>Embeddings + activities + needs-you are each used by multiple additions — build the index once, surface it everywhere:</p>
+    <div class="cmap">
+      <div class="grp"><h5>Embeddings</h5><div class="lnk">Smart links #7</div><div class="lnk">Related rail #14</div><div class="lnk">Ask vault</div><div class="lnk">Companion “find related” #4</div></div>
+      <div class="grp"><h5>Needs-you query</h5><div class="lnk">Focus Needs you</div><div class="lnk">Home Do now</div><div class="lnk">Digest #20</div><div class="lnk">Ritual morning #9</div></div>
+      <div class="grp"><h5>Activities</h5><div class="lnk">Activity timeline #3</div><div class="lnk">Project pulse</div><div class="lnk">Health trends #2</div></div>
+      <div class="grp"><h5>Command index</h5><div class="lnk">⌘K #1</div><div class="lnk">g-prefix nav #13</div><div class="lnk">Hotkey capture target #8</div></div>
+      <div class="grp"><h5>Promote menu</h5><div class="lnk">Capture</div><div class="lnk">Todos</div><div class="lnk">Meeting actions</div><div class="lnk">Smart-link accept #7</div></div>
+      <div class="grp"><h5>Selection store</h5><div class="lnk">Tasks bulk</div><div class="lnk">Notes bulk #15</div><div class="lnk">Meetings bulk #15</div><div class="lnk">Drag multi #12</div></div>
+    </div>
+  </div>
+
+  <h3>A day with all 20 active</h3>
+  <div class="card">
+    <ol class="clean">
+      <li><b>7:00a</b> — <b>Digest #20</b> lands in menu-bar: 2 need you, 1 overdue, starter question.</li>
+      <li><b>Open app</b> — <b>Command Bar #1</b> (⌘K) is the entry; or Home.</li>
+      <li><b>Morning ritual #9</b> — guided: Health #2 → Needs you #10 → pick top 3 → sweep Capture.</li>
+      <li><b>Do now</b> from Attention Graph; click → Focus with item; <b>split view #5</b> shows the note beside it.</li>
+      <li>Hit a blocker → <b>companion #4</b> drafts an update; <b>related rail #14</b> shows the auth note.</li>
+      <li>Thought hits → <b>hotkey #8</b> (or ⌘K) → Dump; <b>smart link #7</b> suggests VAS.</li>
+      <li>Meeting ends → paste → <b>Meeting pipeline</b>; bulk-create tasks; <b>drag #12</b> one onto a project.</li>
+      <li>After 2 days away → <b>Activity #3</b> “since Tuesday” resume; <b>digest #20</b> primed you.</li>
+      <li>Weekly → <b>ritual #9</b>; <b>energy #17</b> says protect 9–11a; <b>calendar #16</b> blocks it.</li>
+      <li>Switch to personal life → <b>spaces #19</b>; <b>ADHD-calm #18</b> for evenings.</li>
+    </ol>
+  </div>
+
+  <h3>Priority vs effort</h3>
+  <table>
+    <thead><tr><th>#</th><th>Addition</th><th>Impact</th><th>Effort</th><th>Builds on (reuse)</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>Command Bar</td><td><b style="color:var(--danger)">Extreme</b></td><td>M</td><td>global-search + actions-catalogue</td></tr>
+      <tr><td>10</td><td>Needs-you engine</td><td><b style="color:var(--danger)">Extreme</b></td><td>M</td><td>inbox + task deps + activities</td></tr>
+      <tr><td>2</td><td>Workspace Health</td><td><b style="color:var(--danger)">Extreme</b></td><td>S</td><td>existing counts (capture/inbox/meetings)</td></tr>
+      <tr><td>3</td><td>Activity timeline</td><td>High</td><td>S</td><td>activities table</td></tr>
+      <tr><td>9</td><td>Rituals</td><td>High</td><td>S</td><td>recurring + eod recap</td></tr>
+      <tr><td>7</td><td>Smart links</td><td>High</td><td>M</td><td>embeddings index</td></tr>
+      <tr><td>14</td><td>Related rail</td><td>High</td><td>S</td><td>same embeddings</td></tr>
+      <tr><td>4</td><td>AI companion</td><td>High</td><td>M</td><td>chat agents + context</td></tr>
+      <tr><td>5</td><td>Split view</td><td>High</td><td>M</td><td>existing surfaces</td></tr>
+      <tr><td>6</td><td>Templates</td><td>Med-High</td><td>S</td><td>recurring template-gallery</td></tr>
+      <tr><td>12</td><td>Drag-to-connect</td><td>Med</td><td>S</td><td>dnd-kit already used</td></tr>
+      <tr><td>15</td><td>Bulk everywhere</td><td>Med</td><td>S</td><td>tasks bulk-ops-bar</td></tr>
+      <tr><td>11</td><td>Onboarding/empty</td><td>Med</td><td>S</td><td>empty-state component</td></tr>
+      <tr><td>13</td><td>Keyboard nav</td><td>Med</td><td>S</td><td>shortcuts registry</td></tr>
+      <tr><td>20</td><td>Daily digest</td><td>Med</td><td>M</td><td>needs-you + jobs</td></tr>
+      <tr><td>8</td><td>Global hotkey</td><td>Med</td><td>L</td><td>separate menu-bar app</td></tr>
+      <tr><td>16</td><td>Calendar sync</td><td>Med</td><td>L</td><td>calendar view + oauth</td></tr>
+      <tr><td>17</td><td>Energy tracking</td><td>Low-Med</td><td>M</td><td>focus-session</td></tr>
+      <tr><td>18</td><td>Theming/density</td><td>Low</td><td>S</td><td>tokens + config</td></tr>
+      <tr><td>19</td><td>Spaces</td><td>Low</td><td>M</td><td>team/scope filter</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Experience principles the 20 enforce</h3>
+  <ul class="clean">
+    <li><b>One door per job</b> — Command Bar drives; hotkey captures; Needs-you aggregates.</li>
+    <li><b>The app notices drift</b> — Health, Activity, Digest, Rituals.</li>
+    <li><b>Context follows you</b> — Companion, Related rail, Split view.</li>
+    <li><b>Friction dies</b> — Smart links, Drag, Bulk, Templates.</li>
+    <li><b>Structure is optional until useful</b> — Capture dump, safe promote.</li>
+    <li><b>Local first, cloud labeled</b> — LM Studio → Gemini.</li>
+  </ul>
+
+  <p class="note" style="margin-top:18px"><b>Related files:</b> shell <a href="./final.html">final.html</a> · original 16 features <a href="./features-ux.html">features-ux.html</a> · prose <a href="./UX-FEATURE-DESIGN.md">UX-FEATURE-DESIGN.md</a> · inventory <a href="./FEATURE-UX-AUDIT.md">FEATURE-UX-AUDIT.md</a></p>
+</section>
+
+</main>
+<script>
+const tabs=document.getElementById('tabs');
+const panels=[...document.querySelectorAll('.panel')];
+tabs.addEventListener('click',e=>{
+  const b=e.target.closest('button[data-p]'); if(!b) return;
+  tabs.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
+  panels.forEach(p=>p.classList.toggle('on',p.id===b.dataset.p));
+  window.scrollTo({top:0,behavior:'smooth'});
+});
+</script>
+</body>
+</html>
