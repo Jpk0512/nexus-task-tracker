@@ -1,11 +1,21 @@
+import { McpServerList } from "../settings/(navigation)/mcp-servers/mcp-server-list";
+
+/**
+ * Ops → MCPs — living catalog (reuses settings MCP list surface).
+ */
 export default function MCPsPage() {
 	return (
-		<div className="mx-auto flex max-w-2xl flex-col gap-3 px-6 py-12">
-			<h1 className="font-[510] text-[22px] tracking-[-0.02em]">MCPs</h1>
-			<p className="text-[13px] text-muted-foreground">Living catalog of MCP servers: status, tools, used-by, secrets inject.</p>
-			<p className="text-[12px] text-muted-foreground/80">
-				Shell live — full behavior ships in the next implementation phases.
-			</p>
+		<div className="flex h-full min-h-0 flex-col">
+			<div className="border-border/60 border-b px-4 py-3">
+				<h1 className="font-[510] text-[18px] tracking-[-0.01em]">MCPs</h1>
+				<p className="text-[13px] text-muted-foreground">
+					Servers, tools, status. Secrets inject from Ops → Secrets — never paste
+					into chat.
+				</p>
+			</div>
+			<div className="min-h-0 flex-1 overflow-auto p-4">
+				<McpServerList />
+			</div>
 		</div>
 	);
 }

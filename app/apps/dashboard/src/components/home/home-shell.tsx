@@ -21,6 +21,7 @@ import {
 import { DoNowCard } from "./do-now-card";
 import { OsQuickTiles } from "./os-quick-tiles";
 import { QuickCapture } from "./quick-capture";
+import { StarterContinueCard } from "./starter-continue-card";
 import { StaleCommitmentDigest } from "./stale-commitment-digest";
 import { UpNextCard } from "./up-next-card";
 
@@ -174,6 +175,7 @@ export const HomeShell = () => {
 					);
 				})
 			)}
+			<StarterContinueCard />
 			{/* Dashboard OS quick tiles — Notes / Skills / Meetings / Starter */}
 			<OsQuickTiles />
 			{config ? (
@@ -200,10 +202,13 @@ function DefaultHomeFallback() {
 		<>
 			<GreetingCard />
 			<div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+				<DoNowCard />
 				<AgendaCard />
 				<UpNextCard />
 			</div>
 			<ActiveProjectsRail />
+			<StarterContinueCard />
+			<OsQuickTiles />
 		</>
 	);
 }
