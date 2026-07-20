@@ -15,10 +15,10 @@ export const ProjectCreateSheet = () => {
 
 	return (
 		<Dialog open={isOpen} onOpenChange={() => setParams(null)}>
-			<DialogHeader>
-				<DialogTitle />
-			</DialogHeader>
 			<DialogContent className="sm:min-w-[1000px]">
+				<DialogHeader className="sr-only">
+					<DialogTitle>Create project</DialogTitle>
+				</DialogHeader>
 				<ProjectForm propertiesLayout="compact" />
 			</DialogContent>
 		</Dialog>

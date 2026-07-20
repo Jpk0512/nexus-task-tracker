@@ -34,13 +34,13 @@ export const ProjectUpdateSheet = () => {
 
 	return (
 		<Dialog open={isOpen} onOpenChange={() => setParams({ projectId: null })}>
-			<DialogHeader>
-				<DialogTitle />
-			</DialogHeader>
 			<DialogContent
 				showCloseButton={false}
 				className="max-h-[85vh] overflow-y-auto pt-0 sm:min-w-[60vw]"
 			>
+				<DialogHeader className="sr-only">
+					<DialogTitle>Edit project</DialogTitle>
+				</DialogHeader>
 				{project ? (
 					<div className="pt-4">
 						<ProjectForm
