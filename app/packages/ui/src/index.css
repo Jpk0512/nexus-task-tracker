@@ -12,6 +12,29 @@
 	scrollbar-width: none;
 }
 
+/* Refined app scrollbar — thin, near-invisible until hover. A subtle but
+   real "pro vs cheap" detail. */
+* {
+	scrollbar-width: thin;
+	scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
+*::-webkit-scrollbar {
+	width: 10px;
+	height: 10px;
+}
+*::-webkit-scrollbar-track {
+	background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+	background-color: rgba(255, 255, 255, 0.1);
+	border-radius: 9999px;
+	border: 3px solid transparent;
+	background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+	background-color: rgba(255, 255, 255, 0.18);
+}
+
 @theme {
 	--font-sans:
 		"Inter", "Inter Variable", ui-sans-serif, system-ui, -apple-system,
@@ -38,11 +61,13 @@ body {
 	color-scheme: dark;
 	/* Linear's typeface identity. cv01 = single-story 'a', ss03 = tighter
 	   numeric/letter alternates. Without these, Inter looks generic. */
-	font-feature-settings: "cv01", "ss03";
+	font-feature-settings: "cv01", "ss03", "cv11";
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
+	text-rendering: optimizeLegibility;
 
-	@apply selection:bg-primary/30 selection:text-foreground;
+	/* Finder-style blue text selection. */
+	@apply selection:bg-blue-500/25 selection:text-white;
 }
 
 :root {
@@ -92,19 +117,23 @@ body {
 }
 
 .dark {
-	/* Linear's canonical tokens, sourced from DESIGN.md. */
+	/* Professional dark — matte, deep, layered with restraint.
+	   References: Claude / Finder / Linear. Body text is a soft off-white;
+	   pure white is reserved for emphasis & active states. Borders are
+	   translucent hairlines, not solid gray boxes. */
 
-	/* Canvas — pitch-black with imperceptible blue tint. NOT #000000. */
-	--background: #08090a;
-	--foreground: #f7f8f8;
+	/* Canvas — matte near-black (NOT pure #000, NOT shiny). */
+	--background: #09090b;
+	/* Body text — dull off-white. Pure white is reserved for emphasis. */
+	--foreground: #e1e1e4;
 
-	/* surface-1 — feature cards, pricing cards, panel default. */
-	--card: #0f1011;
-	--card-foreground: #f7f8f8;
+	/* surface-1 — feature cards, panels (subtle lift off canvas). */
+	--card: #0e0e11;
+	--card-foreground: #e1e1e4;
 
 	/* surface-2 — dropdowns, popovers, modal content. */
-	--popover: #141516;
-	--popover-foreground: #f7f8f8;
+	--popover: #151518;
+	--popover-foreground: #ebebee;
 
 	/* Lavender accent — the only chromatic color in the system. */
 	--primary: #5e6ad2;
@@ -115,22 +144,24 @@ body {
 	--brand-foreground: #ffffff;
 
 	/* surface-1 for buttons that aren't primary. */
-	--secondary: #0f1011;
-	--secondary-foreground: #f7f8f8;
+	--secondary: #0e0e11;
+	--secondary-foreground: #e1e1e4;
 
 	/* surface-2 for muted backgrounds; ink-subtle for muted text. */
-	--muted: #141516;
-	--muted-foreground: #8a8f98;
+	--muted: #131316;
+	--muted-foreground: #8b8f96;
 
-	/* Hover/selected surface lift to surface-3. */
-	--accent: #18191a;
-	--accent-foreground: #f7f8f8;
+	/* Hover/selected surface lift (translucent feel). */
+	--accent: #1a1a1f;
+	/* Bright white when highlighted/active — the "dull → bright" swap. */
+	--accent-foreground: #fafafa;
 
 	--destructive: #eb5757;
 
-	/* hairline — 1px hairline borders. */
-	--border: #23252a;
-	--input: #23252a;
+	/* Hairline borders — translucent white, not solid gray. Reads as a
+	   faint edge, not a box outline (the key pro-vs-cheap difference). */
+	--border: rgba(255, 255, 255, 0.07);
+	--input: rgba(255, 255, 255, 0.1);
 
 	/* Focus ring — slightly tinted lavender at half opacity (applied via /50 in components). */
 	--ring: #5e69d1;
@@ -141,15 +172,15 @@ body {
 	--chart-4: #f4a261;
 	--chart-5: #e76f51;
 
-	/* Sidebar sits on canvas — same #08090a — so it visually fuses with the
+	/* Sidebar sits on canvas — same #09090b — so it visually fuses with the
 	   page edge, exactly like Linear. */
-	--sidebar: #08090a;
-	--sidebar-foreground: #8a8f98;
+	--sidebar: #09090b;
+	--sidebar-foreground: #8b8f96;
 	--sidebar-primary: #5e6ad2;
 	--sidebar-primary-foreground: #ffffff;
-	--sidebar-accent: #18191a;
-	--sidebar-accent-foreground: #f7f8f8;
-	--sidebar-border: #18191a;
+	--sidebar-accent: #1a1a1f;
+	--sidebar-accent-foreground: #fafafa;
+	--sidebar-border: rgba(255, 255, 255, 0.05);
 	--sidebar-ring: #5e69d1;
 }
 
@@ -211,15 +242,32 @@ body {
 		font-family: var(--font-sans);
 	}
 
-	/* Aggressive negative tracking on display sizes (Linear spec). */
+	/* Heading hierarchy: headings read brighter/purer than body text so the
+	   "dull body → bright emphasis" contrast the design calls for emerges
+	   naturally. */
 	h1 {
-		letter-spacing: -0.032em;
+		color: #f6f6f8;
+		letter-spacing: -0.03em;
+		font-weight: 590;
 	}
 	h2 {
+		color: #f2f2f4;
 		letter-spacing: -0.022em;
+		font-weight: 560;
 	}
 	h3 {
+		color: #ececee;
 		letter-spacing: -0.012em;
+		font-weight: 540;
+	}
+
+	/* Subtle premium depth: an imperceptible top-edge highlight on elevated
+	   surfaces (cards, popovers, dialogs) so they lift gently off the
+	   matte canvas instead of sitting in a hard gray box. */
+	[data-slot="card"],
+	[data-slot="popover-content"],
+	[data-slot="dialog-content"] {
+		box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.04);
 	}
 }
 
