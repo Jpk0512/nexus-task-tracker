@@ -34,12 +34,12 @@ These are not wireframes. They are **behavioral traces** — what happens in you
 
 **What “working” feels like**
 1. One global capture (always the same muscle).  
-2. Default = **uncommitted Capture item** (no project, no type).  
+2. Default = **uncommitted Capture dump** (no project, no type) — **not** Inbox.  
 3. Later (or immediately via chips): file as Todo / Task / Note / Project update.  
 4. Promote is **non-destructive until confirm**; cancel restores.  
 5. You never pick a folder to *have* the thought.
 
-**Feature:** **Universal Capture** (see §5.1) — expands Home quick-capture from “task factory” to “thought inbox with typed promote.”
+**Feature:** **Universal Capture** (see §5.1) — expands Home quick-capture from “task factory” to “thought dump with typed promote.” **Inbox stays attention-only** (§14.2).
 
 ---
 
@@ -187,13 +187,13 @@ Each feature: **problem → behavior → rules → connections → empty/error �
 
 **Behavior**
 - Global shortcut opens Capture drawer/page with one input.  
-- Modes (segmented): **Inbox** (default) | Todo | Task | Note | Update.  
-- Inbox mode stores a `capture_items` row (or inbox source=`capture`) with raw text + parse tokens (@project still soft-links).  
+- Modes (segmented): **Dump** (default) | Todo | Task | Note | Update.  
+- Dump mode stores an uncommitted **capture** item (not Inbox). Raw text + soft @project tokens.  
 - Process view: each row shows promote chips.  
 - Parser keeps today’s @ # ! : for Task mode; other modes ignore unknown tokens gracefully.
 
 **Rules**
-- Default mode = Inbox (lowest commitment).  
+- Default mode = Dump (lowest commitment). **Inbox is not a dump** — see Attention Inbox (§5.1b).  
 - Promote Todo→Task: create task first, **then** archive/delete todo; if dialog cancelled, todo remains.  
 - Promote → Note: requires project if text has @project or prompts “which notebook?”.  
 - Never auto-file into `daily/` without user intent.
@@ -216,8 +216,9 @@ Each feature: **problem → behavior → rules → connections → empty/error �
 
 **Rules**
 - Max 5 on Home (overflow “+N in Focus”).  
-- Starter HITL only if starter in-flight and phase is HITL.  
+- Starter HITL and other **Inbox attention** items can appear in Do now / Focus “Needs you”.  
 - Blocked tasks appear only if **you** are the unblocker (assignee or explicit).  
+- Raw capture dumps do **not** each appear in Do now — only a single capture-debt line if count &gt; 0.  
 - Completing item removes within 300ms (optimistic) — closure.
 
 **Connections:** Project pulse does **not** compete with Do now; pulse is social/status, Do now is personal attention.
@@ -510,11 +511,82 @@ The audit (`FEATURE-UX-AUDIT.md`) remains useful as **inventory**. This doc is t
 
 ## 13. Suggested decision checkpoints (no code yet)
 
-1. Capture default = **Inbox** (not Task)?  
-2. Focus absorbs Lens + My Tasks + Triage (+ Zen as mode)?  
-3. Project folder key = **project id** (stable) vs slug (readable)?  
-4. Meeting summary default model = LM Studio with cloud fallback?  
-5. Promote palette MVP surfaces: Capture + Meetings + Todo only?  
-6. Starter after Attention+Capture+Project Place, or parallel track?
+*(Superseded by §14 Decision lock.)*
 
-Once those are answered, implementation has a behavioral spec — not just a prettier shell.
+
+---
+
+## 14. Decision lock (user + Nexus defaults)
+
+Recorded 2026-07-20. Complexity allowed when useful; avoid ceremony.
+
+### 14.1 Your calls
+
+| # | Topic | Decision |
+|---|---|---|
+| 1 | **Inbox** | **Attention only** — things that need you (not a brain dump). |
+| 2 | **Focus merge** | **Yes** — Lens + My Tasks + Triage (+ Zen as a mode of Focus). Nexus recommendation accepted. |
+| 3 | **Project vault folders** | **`projects/{projectId}/`** (stable id). Display name from project / frontmatter. |
+| 4 | **Meeting / Ask cloud fallback** | **Yes** — prefer local LM Studio; fallback **Gemini API** (you have a key). Explicit indicator: Local vs Gemini. |
+| 5 | **Promote palette scope** | *You deferred → Nexus default below.* |
+| 6 | **Starter timing** | *You deferred → Nexus default below.* |
+
+### 14.2 Inbox ≠ Capture (critical split)
+
+| Surface | Job | Contains | Does not contain |
+|---|---|---|---|
+| **Inbox** | **Needs my attention** | Mentions, assignments to you, blocker cleared waiting on you, starter HITL questions, meeting actions assigned to you, failed agent/MCP needing you, shared update @you | Random brain dumps, filed notes, completed noise |
+| **Capture (Dump)** | **Get it out of my head** | Uncommitted thoughts, quick todos not yet promoted, outline scratch | “Official” attention queue |
+
+**Home Do now** pulls primarily from **Attention Graph** (tasks + inbox attention items + starter HITL). Capture debt can appear as a single line (“4 unfiled captures”) — not each dump item competing with real work.
+
+**Nav implication (simple):**
+- **Focus** = work attention (includes a badge that can surface inbox-count).  
+- **Capture** = dump + todos + outline.  
+- **Inbox** can be: (A) a Focus segment “Needs you”, or (B) a tab inside Capture’s sibling under Focus rail.  
+
+**Nexus pick (simplest useful):** Inbox lives as **Focus → Needs you** segment (first-class attention), *and* Home shows the count. No third top-level “Inbox” peer if we can avoid it — today’s Inbox badge moves onto Focus. Capture stays separate so dumps don’t pollute attention.
+
+If you later want Inbox as its own top-level, that’s fine — but the **semantic** lock stays: attention vs dump.
+
+### 14.3 Nexus defaults on 5 & 6 (keep useful, not fancy)
+
+**#5 Promote palette — MVP = three surfaces only**
+1. **Capture dump rows** → Todo | Task | Note  
+2. **Todos** → Task | Note (fix: create target first, then archive todo)  
+3. **Meeting actions** → Task | Todo  
+
+Not yet: arbitrary note selection → task, chat message → task (add when the three above feel solid).  
+One shared `PromoteMenu` component so it doesn’t fork.
+
+**#6 Starter timing — thin parallel track, thick finish after core**
+- **Now (with I1–I2):** entry points only — Projects “Start from idea” + Home “Continue starter” shell that can deep-link later; no full workshop required day one.  
+- **Full workshop (FEAT-003 phases):** after Attention + Capture + Project Place exist so seal lands in a real graph.  
+
+That avoids blocking daily UX on the factory, without forgetting Starter.
+
+### 14.4 Gemini role (simple)
+
+| Job | Primary | Fallback |
+|---|---|---|
+| Meeting summary / action extract | LM Studio if up | **Gemini** |
+| Ask vault answer | LM Studio if up | **Gemini** (citations still required) |
+| Note embeddings | LM Studio embed model if up | Gemini embed if available / or defer embed until local up |
+| Chat in dashboard | existing cloud path; optional Gemini | user-visible model picker later |
+
+Always show **Local** vs **Gemini** so you’re never surprised by cloud use.
+
+### 14.5 Complexity budget
+
+Allowed when it **removes** daily pain (Attention Graph ranking, safe promote, meeting pipeline).  
+Rejected when it’s a second way to do the same job (fourth focus list, dump-into-Inbox, parallel task systems for Starter).
+
+### 14.6 Updated success checks
+
+- Inbox zero = **nothing needs you**, not “I filed my grocery thought.”  
+- Capture can be messy; Inbox stays sacred.  
+- Focus is the only work list family.  
+- Vault paths never break on project rename (id folders).  
+- Gemini only when local can’t; UI says so.
+
+---

@@ -46,9 +46,14 @@
 | **Project updates** | **Initiative composer** | Linear-style drop-in updates. |
 | **Meetings** | **Rework required** | See §3.7 REV 2 — not the thin list+detail only. |
 | **Filters** | **Required on every major screen** | Sticky filter chip row + saved views where lists/boards exist. |
-| **Project Starter** | **Included** | Projects CTA + Home “Continue starter” + Capture promote path. FEAT-003. |
+| **Project Starter** | **Included** | Thin entry now; full workshop after core graph. FEAT-003. |
+| **Inbox** | **Attention only** | Not a brain dump. Dumps go to Capture. Inbox → Focus “Needs you” (preferred) or badge on Focus. |
+| **Capture default** | **Dump** | Not Task, not Inbox. |
+| **Vault folders** | **`projects/{projectId}/`** | Stable id. |
+| **Cloud AI fallback** | **Gemini** | When LM Studio down; always labeled. |
+| **Promote MVP** | Capture + Todos + Meeting actions | Shared menu; safe promote. |
 
-**Explicit reject:** soft icon squares in the sidebar.
+**Explicit reject:** soft icon squares in the sidebar; using Inbox as a scratch pad.
 
 ---
 
