@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Nexus — Features, connections & UX changes</title>
+<style>
+:root{
+  --bg:#08090a;--s1:#0f1011;--s2:#141516;--s3:#18191a;
+  --hair:#23252a;--hair2:#34343a;--ink:#f7f8f8;--muted:#8a8f98;--subtle:#62666d;
+  --pri:#5e6ad2;--pri-h:#828fff;--ok:#27a644;--warn:#d4a017;--danger:#eb5757;
+  --teal:#26b5ce;--green:#4cb782;--violet:#9b8afb;--orange:#f2a65a;--pink:#e879a9;
+  --font:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:ui-monospace,Menlo,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:14px;line-height:1.5}
+a{color:var(--pri-h)}
+.top{position:sticky;top:0;z-index:20;padding:12px 20px;border-bottom:1px solid var(--hair);background:rgba(8,9,10,.95);backdrop-filter:blur(10px);display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.top h1{margin:0;font-size:14px;font-weight:600}
+.top .sub{font-size:12px;color:var(--muted);flex:1}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tabs button{border:1px solid var(--hair);background:transparent;color:var(--muted);border-radius:999px;padding:5px 11px;font-size:11px;cursor:pointer}
+.tabs button.on{background:var(--pri);border-color:var(--pri);color:#fff}
+main{max-width:1100px;margin:0 auto;padding:24px 18px 100px}
+.panel{display:none}.panel.on{display:block}
+h2{font-size:22px;letter-spacing:-.4px;margin:0 0 8px;font-weight:600}
+h3{font-size:15px;margin:28px 0 10px;font-weight:600}
+.lead{color:var(--muted);margin:0 0 20px;font-size:14px;max-width:720px}
+.note{font-size:12px;color:var(--subtle);border-left:2px solid var(--hair2);padding:6px 10px;margin:12px 0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+@media(max-width:800px){.grid2,.grid3{grid-template-columns:1fr}}
+.card{background:var(--s1);border:1px solid var(--hair);border-radius:12px;padding:14px 16px}
+.card h4{margin:0 0 6px;font-size:13px;font-weight:600}
+.card p{margin:0;color:var(--muted);font-size:12.5px}
+.card .tag{display:inline-block;font-size:10px;padding:2px 7px;border-radius:999px;border:1px solid var(--hair2);color:var(--muted);margin-bottom:8px}
+.card .tag.new{color:var(--green);border-color:rgba(76,183,130,.4);background:rgba(76,183,130,.08)}
+.card .tag.chg{color:var(--orange);border-color:rgba(242,166,90,.4);background:rgba(242,166,90,.08)}
+.card .tag.conn{color:var(--violet);border-color:rgba(155,138,251,.4);background:rgba(155,138,251,.08)}
+.card .tag.keep{color:var(--teal);border-color:rgba(38,181,206,.35)}
+.si{display:inline-flex;width:36px;height:36px;border-radius:10px;align-items:center;justify-content:center;margin-bottom:8px}
+.si svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
+.si-b{color:var(--pri);background:rgba(94,106,210,.16);box-shadow:inset 0 0 0 1px rgba(94,106,210,.28)}
+.si-g{color:var(--green);background:rgba(76,183,130,.14);box-shadow:inset 0 0 0 1px rgba(76,183,130,.22)}
+.si-v{color:var(--violet);background:rgba(155,138,251,.14);box-shadow:inset 0 0 0 1px rgba(155,138,251,.25)}
+.si-o{color:var(--orange);background:rgba(242,166,90,.14);box-shadow:inset 0 0 0 1px rgba(242,166,90,.25)}
+.si-t{color:var(--teal);background:rgba(38,181,206,.14);box-shadow:inset 0 0 0 1px rgba(38,181,206,.22)}
+.si-p{color:var(--pink);background:rgba(232,121,169,.14);box-shadow:inset 0 0 0 1px rgba(232,121,169,.22)}
+.si-r{color:var(--danger);background:rgba(235,87,87,.14);box-shadow:inset 0 0 0 1px rgba(235,87,87,.25)}
+
+/* before after */
+.ba{display:grid;grid-template-columns:1fr 40px 1fr;gap:8px;align-items:stretch;margin:12px 0}
+.ba .box{border-radius:12px;padding:14px;border:1px solid var(--hair);background:var(--s1)}
+.ba .box.before{border-color:rgba(235,87,87,.25)}
+.ba .box.after{border-color:rgba(76,183,130,.3);background:rgba(76,183,130,.04)}
+.ba .lab{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--subtle);margin-bottom:8px}
+.ba .arrow{display:grid;place-items:center;color:var(--pri-h);font-size:20px}
+.ba ul{margin:0;padding-left:16px;color:var(--muted);font-size:12.5px}
+.ba li{margin-bottom:4px}
+.ba .after ul{color:var(--ink)}
+
+/* flow */
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:14px 0}
+.flow .n{background:var(--s2);border:1px solid var(--hair2);border-radius:10px;padding:10px 12px;font-size:12px;min-width:100px}
+.flow .n b{display:block;font-size:11px;color:var(--pri-h);margin-bottom:2px}
+.flow .e{color:var(--subtle);font-size:16px}
+
+/* connection map */
+.cmap{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:16px 0}
+@media(max-width:800px){.cmap{grid-template-columns:1fr}}
+.cmap .node{border:1px solid var(--hair);border-radius:12px;padding:12px;background:var(--s1)}
+.cmap .node h4{margin:0 0 8px;font-size:13px}
+.cmap .link{font-size:11.5px;color:var(--muted);padding:4px 0;border-top:1px solid var(--hair);display:flex;gap:6px;align-items:flex-start}
+.cmap .link::before{content:"→";color:var(--pri-h);flex-shrink:0}
+
+/* how it works steps */
+.steps{counter-reset:s;margin:0;padding:0;list-style:none}
+.steps li{position:relative;padding:12px 12px 12px 48px;border:1px solid var(--hair);border-radius:10px;background:var(--s1);margin-bottom:8px}
+.steps li::before{counter-increment:s;content:counter(s);position:absolute;left:12px;top:12px;width:24px;height:24px;border-radius:50%;background:rgba(94,106,210,.2);color:var(--pri-h);display:grid;place-items:center;font-size:11px;font-weight:600}
+.steps b{display:block;margin-bottom:2px}
+.steps span{color:var(--muted);font-size:12.5px}
+
+table{width:100%;border-collapse:collapse;font-size:12.5px;margin:12px 0}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--hair);vertical-align:top}
+th{color:var(--subtle);font-size:10px;text-transform:uppercase;letter-spacing:.05em;font-weight:500}
+.pill{display:inline-block;font-size:10px;padding:1px 6px;border-radius:4px;background:var(--s3);color:var(--muted)}
+.pill.p0{background:rgba(235,87,87,.15);color:#f5a8a8}
+.pill.p1{background:rgba(242,166,90,.15);color:#f2c48a}
+.pill.p2{background:rgba(94,106,210,.15);color:var(--pri-h)}
+
+.hero{border:1px solid rgba(94,106,210,.35);border-radius:14px;padding:20px;background:linear-gradient(160deg,rgba(94,106,210,.12),var(--s1));margin-bottom:24px}
+.hero p{margin:8px 0 0;color:var(--muted);max-width:640px}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>Features · connections · UX changes</h1>
+  <span class="sub">Not the shell layout — the product behavior after experience mapping</span>
+  <div class="tabs" id="tabs">
+    <button data-p="overview" class="on">Overview</button>
+    <button data-p="new">New features</button>
+    <button data-p="change">What changes</button>
+    <button data-p="connect">Connections</button>
+    <button data-p="journeys">Journeys</button>
+    <button data-p="howto">How each works</button>
+    <button data-p="impact">Impact order</button>
+  </div>
+</header>
+<main>
+
+<!-- OVERVIEW -->
+<section class="panel on" id="overview">
+  <div class="hero">
+    <h2 style="margin:0">The experience layer (not the chrome)</h2>
+    <p>The locked sidebar/home mockup is the <b>frame</b>. This page is the <b>product</b>: new capabilities, friendlier connections between surfaces, and concrete UX changes. Full prose: <code>UX-FEATURE-DESIGN.md</code> + decisions in §14.</p>
+  </div>
+
+  <p class="lead">Job of the app: get a thought from brain → trusted system → done or filed — and find it again without archaeology. Every feature below either cuts ceremony, cuts search cost, or connects two places.</p>
+
+  <div class="grid3">
+    <div class="card">
+      <span class="tag new">NEW</span>
+      <h4>Capabilities that don’t exist today</h4>
+      <p>Attention Graph, Capture Dump, Meeting Pipeline, Ask Vault, Needs you, Safe promote menu, Project Place resource strip, Starter in-loop, Infisical Secrets, MCP catalog health…</p>
+    </div>
+    <div class="card">
+      <span class="tag chg">CHANGE</span>
+      <h4>Existing features, different experience</h4>
+      <p>Home bar isn’t task-only. Lens becomes Focus. Inbox isn’t a scratch pad. Knowledge becomes human notebooks + ZenNotes. Updates become initiative stream. Library → Skills shelf.</p>
+    </div>
+    <div class="card">
+      <span class="tag conn">CONNECT</span>
+      <h4>User-friendly links</h4>
+      <p>Task ↔ note chips, meeting → tasks → notebook, Home Do now → Focus, Capture → promote, project hub wires board/notes/skills/MCP/secrets, Starter emits into the same graph.</p>
+    </div>
+  </div>
+
+  <h3>Hard split you locked</h3>
+  <div class="ba">
+    <div class="box before">
+      <div class="lab">Easy to confuse</div>
+      <ul>
+        <li>Inbox used as dump</li>
+        <li>Home capture always creates a Task</li>
+        <li>Todos / Lens / Triage / Zen = four “what now?” apps</li>
+      </ul>
+    </div>
+    <div class="arrow">→</div>
+    <div class="box after">
+      <div class="lab">Locked model</div>
+      <ul>
+        <li><b>Needs you / Inbox</b> = attention only</li>
+        <li><b>Capture Dump</b> = empty your head</li>
+        <li><b>Focus</b> = one work list family (Lens math inside)</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- NEW FEATURES -->
+<section class="panel" id="new">
+  <h2>New features</h2>
+  <p class="lead">These are net-new product behaviors (or net-new compositions that feel like new features). Not “another settings page.”</p>
+
+  <div class="grid2">
+    <div class="card">
+      <div class="si si-o"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2"/></svg></div>
+      <span class="tag new">NEW</span>
+      <h4>1. Attention Graph + Do now</h4>
+      <p>One ranking function: overdue → due today → in progress → blocked-needs-you → starter HITL → (single) capture-debt line. Home shows top 5 with <b>reason chips</b>. Click jumps to Focus with that item selected.</p>
+      <p style="margin-top:8px;font-size:12px;color:var(--subtle)">Why: stops shopping between My Tasks / Lens / Triage / Home cards.</p>
+    </div>
+    <div class="card">
+      <div class="si si-g"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></div>
+      <span class="tag new">NEW</span>
+      <h4>2. Universal Capture (Dump)</h4>
+      <p>Global capture defaults to <b>Dump</b> (uncommitted thought)—not Task, not Inbox. Modes: Dump | Todo | Task | Note | Update. Process later with promote chips.</p>
+      <p style="margin-top:8px;font-size:12px;color:var(--subtle)">Why: ADHD needs one door; Home bar today over-commits to tasks.</p>
+    </div>
+    <div class="card">
+      <div class="si si-r"><svg viewBox="0 0 24 24"><path d="M12 22c5.5 0 10-4.5 10-10S17.5 2 12 2 2 6.5 2 12s4.5 10 10 10z"/></svg></div>
+      <span class="tag new">NEW · semantic</span>
+      <h4>3. Needs you (sacred Inbox)</h4>
+      <p>Attention queue only: mentions, waiting-on-you, starter questions, meeting actions assigned to you, MCP/agent failures needing you. Lives as <b>Focus → Needs you</b>. Never holds grocery lists.</p>
+      <p style="margin-top:8px;font-size:12px;color:var(--subtle)">Why: you said inbox = things that need your attention.</p>
+    </div>
+    <div class="card">
+      <div class="si si-b"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/></svg></div>
+      <span class="tag new">NEW · fix</span>
+      <h4>4. Safe Promote menu</h4>
+      <p>Shared menu on Capture, Todos, Meeting actions: → Todo | Task | Note. <b>Creates target first</b>, then archives source. Cancel never deletes the original (today’s todo promote deletes first).</p>
+      <p style="margin-top:8px;font-size:12px;color:var(--subtle)">MVP surfaces only — not everywhere yet.</p>
+    </div>
+    <div class="card">
+      <div class="si si-p"><svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/></svg></div>
+      <span class="tag new">NEW</span>
+      <h4>5. Meeting Pipeline</h4>
+      <p>Ingest → Summary + open actions (default) → bulk create tasks → file to project notebook → optional project update. Transcript is a secondary tab. Filters: needs filing / open actions.</p>
+      <p style="margin-top:8px;font-size:12px;color:var(--subtle)">Uses existing transcription API as step 1; summary via LM Studio → Gemini.</p>
+    </div>
+    <div class="card">
+      <div class="si si-v"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg></div>
+      <span class="tag new">NEW · shape</span>
+      <h4>6. Human Notebook Tree</h4>
+      <p>Vault roots: Inbox · Projects · Areas · Resources. Each project = <code>projects/{projectId}/</code> with _index, notes, decisions, meetings. <b>Open in ZenNotes</b> on any note.</p>
+      <p style="margin-top:8px;font-size:12px;color:var(--subtle)">Replaces agent folders (iter12/drafts) as the default UX.</p>
+    </div>
+    <div class="card">
+      <div class="si si-t"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>
+      <span class="tag new">NEW</span>
+      <h4>7. Ask Vault</h4>
+      <p>Chat over your notes with <b>citation chips</b> (must link real notes). Scope: whole vault or current project notebook. Same capability exposed to Claude via MCP later.</p>
+      <p style="margin-top:8px;font-size:12px;color:var(--subtle)">LM Studio first, Gemini fallback, always labeled.</p>
+    </div>
+    <div class="card">
+      <div class="si si-g"><svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></div>
+      <span class="tag new">NEW · composition</span>
+      <h4>8. Project Place</h4>
+      <p>Overview becomes a <b>place</b>: last initiative update, do-now-for-this-project, resource chips (Notes · Skills · MCPs · Secrets · Meetings), board peek. Not nine equal tabs.</p>
+    </div>
+    <div class="card">
+      <div class="si si-o"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>
+      <span class="tag chg">UPGRADE</span>
+      <h4>9. Initiative stream</h4>
+      <p>Sticky “Drop an update…” composer + timeline (Linear-style). Health is a chip on the post. Feeds Home <b>Project pulse</b>.</p>
+      <p style="margin-top:8px;font-size:12px;color:var(--subtle)">Builds on existing health-updates API — new experience, not new DB invent.</p>
+    </div>
+    <div class="card">
+      <div class="si si-t"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/></svg></div>
+      <span class="tag new">NEW · shelf</span>
+      <h4>10. Skills shelf (square tiles)</h4>
+      <p>Small square cards, pin to project, shows on Project Place. Library scan stays underneath.</p>
+    </div>
+    <div class="card">
+      <div class="si si-b"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/></svg></div>
+      <span class="tag new">NEW · ops</span>
+      <h4>11. MCP catalog</h4>
+      <p>Top-level ops: status probe, tool count, used-by, link env from Secrets. Not buried in Settings.</p>
+    </div>
+    <div class="card">
+      <div class="si si-r"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/></svg></div>
+      <span class="tag new">NEW · ops</span>
+      <h4>12. Secrets (Infisical)</h4>
+      <p>Masked browse, import, inject into MCP/project. Never paste secrets into chat. API-keys become one source type under Secrets.</p>
+    </div>
+    <div class="card">
+      <div class="si si-b"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></div>
+      <span class="tag new">NEW · factory</span>
+      <h4>13. Project Starter (in the loop)</h4>
+      <p>Start from idea → workshop → seal emits <b>same</b> Project Place + notebook + board. Home “Continue starter” while in-flight. Thin entry now; full workshop after core graph.</p>
+    </div>
+    <div class="card">
+      <div class="si si-v"><svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg></div>
+      <span class="tag new">NEW · tissue</span>
+      <h4>14. Connection chips</h4>
+      <p>Task row: project · note · meeting · blocked-by. Note rail: tasks · project · ZenNotes · Ask. One click instead of re-searching.</p>
+    </div>
+    <div class="card">
+      <div class="si si-g"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h14"/></svg></div>
+      <span class="tag new">NEW · literacy</span>
+      <h4>15. Filter language everywhere</h4>
+      <p>Same filter grammar as Tasks on Focus, Notes, Capture, Meetings, Skills, MCPs, Secrets. Saved views where lists are long.</p>
+    </div>
+    <div class="card">
+      <div class="si si-o"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></div>
+      <span class="tag new">NEW · later</span>
+      <h4>16. Capture Outline (WorkFlowy-lite)</h4>
+      <p>Nested bullets, collapse, zoom, convert node → note/task. Sits as third Capture tab after Dump + Todos feel solid.</p>
+    </div>
+  </div>
+</section>
+
+<!-- WHAT CHANGES -->
+<section class="panel" id="change">
+  <h2>What changes in features you already have</h2>
+  <p class="lead">Impact without inventing a second app — rewire the experience.</p>
+
+  <div class="ba">
+    <div class="box before">
+      <div class="lab">Home today</div>
+      <ul>
+        <li>Greeting + sparse cards</li>
+        <li>Capture → always Task</li>
+        <li>Agenda / Up next / % bars</li>
+        <li>No single “do this now”</li>
+      </ul>
+    </div>
+    <div class="arrow">→</div>
+    <div class="box after">
+      <div class="lab">Home after</div>
+      <ul>
+        <li><b>Do now</b> (Attention Graph top 5 + reasons)</li>
+        <li>Capture modes; default Dump</li>
+        <li><b>Project pulse</b> = last initiative text</li>
+        <li>Needs you count + capture debt line + Continue starter</li>
+        <li>Soft-icon tiles to Notes / Skills / Meetings / Starter</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="ba">
+    <div class="box before">
+      <div class="lab">Work lists today</div>
+      <ul>
+        <li>My Tasks</li>
+        <li>Lens (separate)</li>
+        <li>Now/Next/Later (separate)</li>
+        <li>Zen (separate)</li>
+      </ul>
+    </div>
+    <div class="arrow">→</div>
+    <div class="box after">
+      <div class="lab">Focus after</div>
+      <ul>
+        <li><b>One Focus</b> app</li>
+        <li>Segments: Needs you · Today · Upcoming · Anytime · Someday · Logbook</li>
+        <li>N/N/L optional layout, not a destination</li>
+        <li>Zen = theater mode of Focus</li>
+        <li>Same TasksView filters underneath</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="ba">
+    <div class="box before">
+      <div class="lab">Knowledge today</div>
+      <ul>
+        <li>Named Knowledge; Obsidian copy</li>
+        <li>daily / ideas / iter12 / drafts…</li>
+        <li>Documents + Library + Prompts also “knowledge”</li>
+        <li>Project knowledge = soft path guess</li>
+      </ul>
+    </div>
+    <div class="arrow">→</div>
+    <div class="box after">
+      <div class="lab">Notes after</div>
+      <ul>
+        <li>Named <b>Notes</b>; Open in <b>ZenNotes</b></li>
+        <li>Projects / Areas / Resources (human)</li>
+        <li>Disk path <code>projects/{id}/</code></li>
+        <li>Library elevates to <b>Skills</b> squares</li>
+        <li>Documents narrowed to long-form only</li>
+        <li>Ask vault with citations</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="ba">
+    <div class="box before">
+      <div class="lab">Todos promote today</div>
+      <ul>
+        <li>Opens create-task dialog</li>
+        <li><b>Deletes todo immediately</b></li>
+        <li>Cancel = thought can be gone</li>
+      </ul>
+    </div>
+    <div class="arrow">→</div>
+    <div class="box after">
+      <div class="lab">Safe promote</div>
+      <ul>
+        <li>Create task/note first</li>
+        <li>Archive todo only on success</li>
+        <li>Same menu on Capture + Meetings</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="ba">
+    <div class="box before">
+      <div class="lab">Project updates today</div>
+      <ul>
+        <li>Form / modal energy</li>
+        <li>Easy to skip</li>
+        <li>Home doesn’t show the words</li>
+      </ul>
+    </div>
+    <div class="arrow">→</div>
+    <div class="box after">
+      <div class="lab">Initiative stream</div>
+      <ul>
+        <li>Always-on composer</li>
+        <li>Timeline of posts + health chip</li>
+        <li>Snippet on Home Project pulse</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>Keep as-is (under the new shell)</h3>
+  <div class="grid3">
+    <div class="card"><span class="tag keep">KEEP</span><h4>Tasks board / filters / saved views</h4><p>Best existing surface — becomes Focus engine.</p></div>
+    <div class="card"><span class="tag keep">KEEP</span><h4>Knowledge editor + wiki + FTS</h4><p>Engine stays; product shape changes.</p></div>
+    <div class="card"><span class="tag keep">KEEP</span><h4>Library scan + kind colors</h4><p>Becomes Skills shelf data layer.</p></div>
+    <div class="card"><span class="tag keep">KEEP</span><h4>Health updates API</h4><p>Feeds initiative stream + pulse.</p></div>
+    <div class="card"><span class="tag keep">KEEP</span><h4>nexus-mcp note/task tools</h4><p>Extend; don’t replace.</p></div>
+    <div class="card"><span class="tag keep">KEEP</span><h4>Transcription endpoint</h4><p>Meetings ingest step 1.</p></div>
+  </div>
+</section>
+
+<!-- CONNECTIONS -->
+<section class="panel" id="connect">
+  <h2>User-friendly connections</h2>
+  <p class="lead">This is the part that makes it one product. Surfaces hand work off instead of stranding it.</p>
+
+  <div class="cmap">
+    <div class="node">
+      <h4>🏠 Home</h4>
+      <div class="link">Do now item → Focus (segment + select)</div>
+      <div class="link">Needs you count → Focus · Needs you</div>
+      <div class="link">Capture debt → Capture · Dump</div>
+      <div class="link">Project pulse snippet → Project · Updates</div>
+      <div class="link">Continue starter → Starter workshop</div>
+      <div class="link">Tiles → Notes / Skills / Meetings / Starter</div>
+    </div>
+    <div class="node">
+      <h4>☉ Focus</h4>
+      <div class="link">Task chip “note” → Notes editor</div>
+      <div class="link">Task chip “meeting” → Meeting session</div>
+      <div class="link">Blocked-by → dependency task</div>
+      <div class="link">Project chip → Project Place</div>
+      <div class="link">Needs you item → resolve / open source</div>
+    </div>
+    <div class="node">
+      <h4>＋ Capture</h4>
+      <div class="link">Dump → promote Todo / Task / Note</div>
+      <div class="link">Todo → safe promote Task / Note</div>
+      <div class="link">@project token → soft-link project</div>
+      <div class="link">Update mode → Project initiative post</div>
+    </div>
+    <div class="node">
+      <h4>▤ Project Place</h4>
+      <div class="link">Notes chip → notebook tree for that id</div>
+      <div class="link">Board peek → full board</div>
+      <div class="link">Skills chip → pinned skills</div>
+      <div class="link">MCPs / Secrets chips → ops filtered</div>
+      <div class="link">Meetings chip → sessions for project</div>
+      <div class="link">Update post → Home pulse</div>
+    </div>
+    <div class="node">
+      <h4>◆ Notes</h4>
+      <div class="link">Open in ZenNotes → external editor</div>
+      <div class="link">Ask → answer + citation → note</div>
+      <div class="link">Linked task → Focus</div>
+      <div class="link">Backlink meeting → Meetings</div>
+    </div>
+    <div class="node">
+      <h4>🎙 Meetings</h4>
+      <div class="link">Action → Task on project board</div>
+      <div class="link">Action → Todo (personal)</div>
+      <div class="link">File → notes/projects/{id}/meetings/…</div>
+      <div class="link">Post update → initiative stream</div>
+      <div class="link">Open actions remain in Needs you until done</div>
+    </div>
+    <div class="node">
+      <h4>⚡ Skills</h4>
+      <div class="link">Pin → Project Place resource</div>
+      <div class="link">Used by Starter / agents</div>
+    </div>
+    <div class="node">
+      <h4>⬡ MCPs · ⚿ Secrets</h4>
+      <div class="link">Secret inject → MCP env</div>
+      <div class="link">MCP down → Needs you / Home ops</div>
+      <div class="link">Project-scoped secret → Project chip</div>
+    </div>
+    <div class="node">
+      <h4>⚡ Starter</h4>
+      <div class="link">HITL question → Needs you + Home</div>
+      <div class="link">Seal → Project + notebook scaffold + board</div>
+      <div class="link">In-flight → Home Continue card</div>
+      <div class="link">No parallel task system — emits into main graph</div>
+    </div>
+  </div>
+
+  <h3>Promote palette (one control, three homes)</h3>
+  <div class="flow">
+    <div class="n"><b>From</b>Capture dump row</div>
+    <span class="e">→</span>
+    <div class="n"><b>Menu</b>Todo · Task · Note · (Update)</div>
+    <span class="e">→</span>
+    <div class="n"><b>Also on</b>Todos · Meeting actions</div>
+  </div>
+  <p class="note">Rule: create destination first; only then archive source. Cancel is always safe.</p>
+</section>
+
+<!-- JOURNEYS -->
+<section class="panel" id="journeys">
+  <h2>Journeys (how a day feels)</h2>
+
+  <h3>A · Thought hits (ADHD)</h3>
+  <div class="flow">
+    <div class="n"><b>1</b>Thought</div><span class="e">→</span>
+    <div class="n"><b>2</b>⌘ capture → Dump</div><span class="e">→</span>
+    <div class="n"><b>3</b>Later: Process</div><span class="e">→</span>
+    <div class="n"><b>4</b>Promote Todo/Task/Note</div><span class="e">→</span>
+    <div class="n"><b>5</b>Dump empties</div>
+  </div>
+  <p class="note">Never lands in Needs you unless you promote to something that requires attention.</p>
+
+  <h3>B · What should I do now?</h3>
+  <div class="flow">
+    <div class="n"><b>1</b>Open Home</div><span class="e">→</span>
+    <div class="n"><b>2</b>Do now (≤5)</div><span class="e">→</span>
+    <div class="n"><b>3</b>Click item</div><span class="e">→</span>
+    <div class="n"><b>4</b>Focus + selected</div><span class="e">→</span>
+    <div class="n"><b>5</b>Done → Do now shrinks</div>
+  </div>
+
+  <h3>C · Project afternoon</h3>
+  <div class="flow">
+    <div class="n"><b>1</b>Project Place</div><span class="e">→</span>
+    <div class="n"><b>2</b>Board / note / update</div><span class="e">→</span>
+    <div class="n"><b>3</b>Drop update</div><span class="e">→</span>
+    <div class="n"><b>4</b>Home pulse shows it</div>
+  </div>
+
+  <h3>D · After a meeting</h3>
+  <div class="flow">
+    <div class="n"><b>1</b>Upload/paste</div><span class="e">→</span>
+    <div class="n"><b>2</b>Summary + actions</div><span class="e">→</span>
+    <div class="n"><b>3</b>Create tasks</div><span class="e">→</span>
+    <div class="n"><b>4</b>File notebook</div><span class="e">→</span>
+    <div class="n"><b>5</b>Focus gains work</div>
+  </div>
+
+  <h3>E · Ask your brain</h3>
+  <div class="flow">
+    <div class="n"><b>1</b>Notes · Ask</div><span class="e">→</span>
+    <div class="n"><b>2</b>LM Studio / Gemini</div><span class="e">→</span>
+    <div class="n"><b>3</b>Answer + citations</div><span class="e">→</span>
+    <div class="n"><b>4</b>Open note / task chip</div>
+  </div>
+
+  <h3>F · Idea → build</h3>
+  <div class="flow">
+    <div class="n"><b>1</b>Start from idea</div><span class="e">→</span>
+    <div class="n"><b>2</b>Workshop phases</div><span class="e">→</span>
+    <div class="n"><b>3</b>Home Continue</div><span class="e">→</span>
+    <div class="n"><b>4</b>Seal → Project+Notes+Board</div><span class="e">→</span>
+    <div class="n"><b>5</b>Focus executes</div>
+  </div>
+</section>
+
+<!-- HOW TO -->
+<section class="panel" id="howto">
+  <h2>How the big ones work</h2>
+  <p class="lead">Mechanics in plain language — enough to implement without guessing.</p>
+
+  <h3>Attention Graph</h3>
+  <ol class="steps">
+    <li><b>Collect candidates</b><span>Your open tasks, Needs you items, in-flight starter HITL, optional single capture-debt summary.</span></li>
+    <li><b>Score</b><span>Overdue &gt; due today &gt; in progress &gt; blocked-needs-you &gt; starter HITL &gt; capture debt line.</span></li>
+    <li><b>Home</b><span>Show top 5 with reason chips (“overdue · 3d”).</span></li>
+    <li><b>Click</b><span>Route Focus?segment=&amp;id= — item selected, not a dead list.</span></li>
+    <li><b>Complete</b><span>Optimistic remove from Do now (closure).</span></li>
+  </ol>
+
+  <h3>Safe promote</h3>
+  <ol class="steps">
+    <li><b>User chooses target type</b><span>Todo / Task / Note (and project if required).</span></li>
+    <li><b>Create destination</b><span>API create succeeds first.</span></li>
+    <li><b>Link</b><span>Write task↔note or meeting↔task ids when relevant.</span></li>
+    <li><b>Archive source</b><span>Only after success. Cancel = nothing lost.</span></li>
+  </ol>
+
+  <h3>Meeting pipeline</h3>
+  <ol class="steps">
+    <li><b>Ingest</b><span>Paste, file, or audio→transcription API.</span></li>
+    <li><b>Understand</b><span>Summary + decisions + actions (LM Studio → Gemini). User can edit.</span></li>
+    <li><b>Act</b><span>Check actions → bulk tasks on project or todos.</span></li>
+    <li><b>File</b><span>Write note under projects/{id}/meetings/; mark filed.</span></li>
+    <li><b>Optional</b><span>Post initiative update; open actions stay in Needs you until done.</span></li>
+  </ol>
+
+  <h3>Notebook + ZenNotes</h3>
+  <ol class="steps">
+    <li><b>On project create / starter seal</b><span>Scaffold projects/{projectId}/ with _index.md.</span></li>
+    <li><b>Browse in Nexus</b><span>Tree by project name; id on disk.</span></li>
+    <li><b>Deep edit</b><span>Open in ZenNotes via URL/CLI on same vault root.</span></li>
+    <li><b>Ask</b><span>Embed chunks; answer with citations only to real paths.</span></li>
+  </ol>
+</section>
+
+<!-- IMPACT -->
+<section class="panel" id="impact">
+  <h2>Impact order (useful complexity only)</h2>
+  <p class="lead">What to build when — ordered by daily pain removed, not by pretty screens.</p>
+  <table>
+    <thead><tr><th>Priority</th><th>Feature</th><th>Pain removed</th><th>Depends on</th></tr></thead>
+    <tbody>
+      <tr><td><span class="pill p0">P0</span></td><td>Attention Graph + Focus merge + Needs you</td><td>List shopping every morning</td><td>Existing tasks + inbox + Lens math</td></tr>
+      <tr><td><span class="pill p0">P0</span></td><td>Universal Capture Dump + safe promote</td><td>Fragment leakage; destructive promote</td><td>Todos + tasks APIs</td></tr>
+      <tr><td><span class="pill p0">P0</span></td><td>Nav IA (Brain/Ops, plain sidebar icons)</td><td>Decision fatigue</td><td>Routes/redirects</td></tr>
+      <tr><td><span class="pill p1">P1</span></td><td>Project Place + initiative stream</td><td>Tab farm; silent projects</td><td>Health updates API</td></tr>
+      <tr><td><span class="pill p1">P1</span></td><td>Human notebooks + Open ZenNotes</td><td>Alien vault; Obsidian mismatch</td><td>Knowledge engine</td></tr>
+      <tr><td><span class="pill p1">P1</span></td><td>Connection chips task↔note</td><td>Re-searching context</td><td>Existing link tables</td></tr>
+      <tr><td><span class="pill p1">P1</span></td><td>Filter bar on Notes/Capture/Meetings…</td><td>Only Tasks feels smart</td><td>Extract from TasksView</td></tr>
+      <tr><td><span class="pill p1">P1</span></td><td>Skills square shelf + pin</td><td>Library warehouse</td><td>Library scan</td></tr>
+      <tr><td><span class="pill p2">P2</span></td><td>Meeting pipeline</td><td>Lost meeting value</td><td>Transcription + promote</td></tr>
+      <tr><td><span class="pill p2">P2</span></td><td>MCP catalog + Secrets/Infisical</td><td>Invisible ops</td><td>mcp-servers CRUD</td></tr>
+      <tr><td><span class="pill p2">P2</span></td><td>Ask vault (LM Studio / Gemini)</td><td>Search ≠ understanding</td><td>Notebooks trusted first</td></tr>
+      <tr><td><span class="pill p2">P2</span></td><td>Project Starter full workshop</td><td>Greenfield outside app</td><td>Project Place + Notes scaffold</td></tr>
+      <tr><td><span class="pill p2">P2</span></td><td>Capture Outline</td><td>WorkFlowy itch</td><td>Capture solid</td></tr>
+    </tbody>
+  </table>
+
+  <div class="note">Shell mockup (layout only): <a href="./final.html">final.html</a> · Options explorer: <a href="./mockups.html">mockups.html</a> · Prose: <a href="./UX-FEATURE-DESIGN.md">UX-FEATURE-DESIGN.md</a></div>
+</section>
+
+</main>
+<script>
+const tabs=document.getElementById('tabs');
+const panels=[...document.querySelectorAll('.panel')];
+tabs.addEventListener('click',e=>{
+  const b=e.target.closest('button[data-p]'); if(!b) return;
+  tabs.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
+  panels.forEach(p=>p.classList.toggle('on',p.id===b.dataset.p));
+  window.scrollTo({top:0,behavior:'smooth'});
+});
+</script>
+</body>
+</html>
