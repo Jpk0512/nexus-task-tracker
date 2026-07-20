@@ -3,534 +3,689 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Nexus Dashboard OS — Final (locked)</title>
+<title>Nexus — Mac app (master vision)</title>
 <style>
 :root{
   --bg:#08090a;--s1:#0f1011;--s2:#141516;--s3:#18191a;--s4:#1c1d1f;
   --hair:#23252a;--hair2:#34343a;--ink:#f7f8f8;--muted:#8a8f98;--subtle:#62666d;
   --pri:#5e6ad2;--pri-h:#828fff;--ok:#27a644;--warn:#d4a017;--danger:#eb5757;
   --teal:#26b5ce;--green:#4cb782;--violet:#9b8afb;--orange:#f2a65a;--pink:#e879a9;
-  --font:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Inter,sans-serif;
+  --vib:rgba(18,19,22,.72);
+  --font:-apple-system,ui-sans-serif,system-ui,"Segoe UI",Roboto,sans-serif;
   --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
 }
 *{box-sizing:border-box}
-body{margin:0;background:#050506;color:var(--ink);font-family:var(--font);font-size:13px;line-height:1.45}
-.banner{padding:8px 16px;background:rgba(94,106,210,.12);border-bottom:1px solid rgba(94,106,210,.3);font-size:11.5px;color:var(--muted);display:flex;gap:12px;flex-wrap:wrap;align-items:center}
-.banner b{color:var(--ink)}.banner code{color:var(--pri-h)}
-/* shell */
-.shell{display:grid;grid-template-columns:232px 1fr;height:calc(100vh - 34px);max-height:900px;margin:0 auto;max-width:1440px;border:1px solid var(--hair);border-top:0;background:var(--bg)}
-/* SIDEBAR — plain icons, no soft tiles */
-.sb{background:#0b0c0d;border-right:1px solid var(--hair);display:flex;flex-direction:column;padding:10px 8px;overflow:auto}
-.sb .brand{display:flex;align-items:center;gap:8px;padding:6px 8px 12px;font-weight:600;font-size:13px}
-.sb .brand i{width:18px;height:18px;border-radius:5px;background:linear-gradient(135deg,var(--pri),#8b5cf6);display:block}
-.sb .sec{font-size:10px;color:var(--subtle);text-transform:uppercase;letter-spacing:.06em;padding:12px 8px 4px}
-.sb button.nav, .sb a.nav{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:7px 8px;border-radius:8px;border:1px solid transparent;background:transparent;color:var(--muted);font:inherit;cursor:pointer;text-decoration:none}
-.sb button.nav:hover,.sb a.nav:hover{background:var(--s2);color:var(--ink)}
-.sb button.nav.on,.sb a.nav.on{background:rgba(94,106,210,.12);border-color:rgba(94,106,210,.28);color:var(--ink)}
-.sb svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
-.sb .lbl{flex:1}.sb .badge{font-size:10px;background:var(--s3);padding:1px 6px;border-radius:999px;color:var(--muted)}
-.sb .cta{margin-top:auto;border:0;border-radius:10px;padding:10px 12px;font-weight:600;font-size:13px;color:#fff;cursor:pointer;background:linear-gradient(90deg,#f5a623,#e85d4c);width:100%}
-.sb .acct{display:flex;gap:8px;align-items:center;padding:10px 8px;border-top:1px solid var(--hair);margin-top:8px;font-size:11.5px;color:var(--muted)}
-.sb .av{width:24px;height:24px;border-radius:50%;background:var(--s3);display:grid;place-items:center;color:var(--ink);font-size:11px}
-/* main */
+html,body{height:100%}
+body{margin:0;background:radial-gradient(1200px 600px at 70% -10%,rgba(94,106,210,.10),transparent),#050506;color:var(--ink);font-family:var(--font);font-size:13px;line-height:1.45;overflow:hidden}
+
+/* ====== desktop stage ====== */
+.stage{height:100vh;display:grid;place-items:center;padding:24px;background:transparent}
+.win{width:min(1280px,96vw);height:min(820px,94vh);background:var(--bg);border:1px solid #2a2c30;border-radius:14px;box-shadow:0 40px 120px rgba(0,0,0,.6),0 0 0 .5px #000;display:flex;flex-direction:column;overflow:hidden;position:relative}
+
+/* ====== mac titlebar ====== */
+.tbar{height:38px;display:flex;align-items:center;gap:10px;padding:0 12px;border-bottom:1px solid var(--hair);background:linear-gradient(180deg,#101113,#0c0d0e);flex-shrink:0;user-select:none}
+.traffic{display:flex;gap:8px}
+.traffic i{width:12px;height:12px;border-radius:50%;display:block}
+.tl-r{background:#ff5f57}.tl-y{background:#febc2e}.tl-g{background:#28c840}
+.wsswitch{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--ink)}
+.wsswitch .dotc{width:8px;height:8px;border-radius:50%;background:var(--pri)}
+.wsswitch .chev{color:var(--subtle);font-size:9px}
+.tbcenter{flex:1;display:flex;justify-content:center}
+.tbcmd{display:flex;align-items:center;gap:7px;background:var(--s2);border:1px solid var(--hair);border-radius:8px;padding:5px 10px 5px 9px;color:var(--muted);font-size:11.5px;cursor:pointer;min-width:300px;justify-content:center}
+.tbcmd:hover{border-color:var(--hair2);color:var(--ink)}
+.tbcmd b{color:var(--subtle);font-weight:400}
+.tbright{display:flex;align-items:center;gap:8px}
+.iconbtn{width:28px;height:28px;border-radius:7px;display:grid;place-items:center;color:var(--muted);cursor:pointer;border:1px solid transparent;position:relative}
+.iconbtn:hover{background:var(--s2);color:var(--ink)}
+.iconbtn svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
+.iconbtn .bdg{position:absolute;top:3px;right:3px;min-width:14px;height:14px;border-radius:7px;background:var(--danger);color:#fff;font-size:9px;display:grid;place-items:center;padding:0 3px;font-weight:600}
+.healthdot{width:8px;height:8px;border-radius:50%;background:var(--warn);box-shadow:0 0 0 2px rgba(212,160,23,.2)}
+
+/* ====== body 3-col ====== */
+.body{flex:1;display:grid;grid-template-columns:230px 1fr;min-height:0}
+.railon .body{grid-template-columns:230px 1fr 260px}
+
+/* ====== vibrancy sidebar ====== */
+.sb{background:var(--vib);backdrop-filter:blur(20px) saturate(140%);border-right:1px solid var(--hair);display:flex;flex-direction:column;padding:8px 8px;overflow:auto}
+.spacep{display:flex;gap:5px;padding:4px 4px 8px;border-bottom:1px solid var(--hair);margin-bottom:6px}
+.spacep .sp{flex:1;height:26px;border-radius:7px;display:grid;place-items:center;font-size:10px;color:var(--muted);cursor:pointer;border:1px solid transparent}
+.spacep .sp.on{background:var(--s3);color:var(--ink);border-color:var(--hair2)}
+.sb .sec{font-size:10px;color:var(--subtle);text-transform:uppercase;letter-spacing:.06em;padding:10px 8px 4px}
+.sb button.nav{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:6px 8px;border-radius:7px;border:1px solid transparent;background:transparent;color:var(--muted);font:inherit;cursor:pointer;text-decoration:none;margin-bottom:1px}
+.sb button.nav:hover{background:rgba(255,255,255,.04);color:var(--ink)}
+.sb button.nav.on{background:rgba(94,106,210,.16);border-color:rgba(94,106,210,.3);color:var(--ink)}
+.sb svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.sb .lbl{flex:1;font-size:12.5px}.sb .bdg{font-size:9.5px;background:var(--s3);padding:1px 6px;border-radius:999px;color:var(--muted)}
+.sb .bdg.red{background:rgba(235,87,87,.2);color:#f5a8a8}
+.fav{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:7px;color:var(--muted);font-size:12px;cursor:pointer}
+.fav:hover{background:rgba(255,255,255,.04);color:var(--ink)}
+.fav .cdot{width:7px;height:7px;border-radius:50%}
+.sb .cta{margin:8px 4px 4px;border:0;border-radius:9px;padding:9px;font-weight:600;font-size:12.5px;color:#fff;cursor:pointer;background:linear-gradient(90deg,#f5a623,#e85d4c);text-align:left;display:flex;align-items:center;gap:6px;justify-content:center}
+.sb .acct{display:flex;align-items:center;gap:8px;padding:8px;border-top:1px solid var(--hair);margin-top:6px}
+.sb .av{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--pri),#8b5cf6);display:grid;place-items:center;font-size:11px;color:#fff}
+.sb .acct b{font-size:11.5px;display:block}.sb .acct span{font-size:10px;color:var(--subtle)}
+
+/* ====== main ====== */
 .main{display:flex;flex-direction:column;min-width:0;overflow:hidden;background:var(--bg)}
 .view{display:none;flex-direction:column;min-height:0;flex:1;overflow:hidden}.view.on{display:flex}
-.top{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--hair);flex-wrap:wrap}
-.top h1{margin:0;font-size:18px;font-weight:600;letter-spacing:-.3px}
-.top .sub{color:var(--muted);font-size:12px}
-.top .sp{flex:1}
-/* filters — every screen */
-.filters{display:flex;gap:6px;align-items:center;padding:8px 16px;border-bottom:1px solid var(--hair);background:#0c0d0e;flex-wrap:wrap}
-.filters input[type=search]{background:var(--s2);border:1px solid var(--hair);border-radius:8px;padding:6px 10px;color:var(--ink);font:inherit;min-width:160px}
+.vhead{display:flex;align-items:center;gap:10px;padding:14px 18px 10px;flex-wrap:wrap}
+.vhead h1{margin:0;font-size:18px;font-weight:600;letter-spacing:-.3px}
+.vhead .sub{color:var(--muted);font-size:12px}
+.vhead .sp{flex:1}
+.filters{display:flex;gap:6px;align-items:center;padding:2px 18px 10px;flex-wrap:wrap}
+.filters input[type=search]{background:var(--s2);border:1px solid var(--hair);border-radius:8px;padding:6px 10px;color:var(--ink);font:inherit;min-width:150px}
 .filters input:focus{outline:1px solid var(--pri);border-color:var(--pri)}
 .chip{display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border-radius:999px;border:1px solid var(--hair2);font-size:11px;color:var(--muted);background:var(--s2);cursor:pointer}
 .chip:hover,.chip.on{border-color:rgba(94,106,210,.45);color:var(--ink);background:rgba(94,106,210,.12)}
-.chip .x{opacity:.5}
 .seg{display:inline-flex;background:var(--s2);border:1px solid var(--hair);border-radius:8px;padding:2px}
 .seg button{border:0;background:transparent;color:var(--muted);padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer}
 .seg button.on{background:var(--s3);color:var(--ink)}
-.btn{border:1px solid var(--hair2);background:var(--s3);color:var(--ink);border-radius:8px;padding:6px 11px;font-size:12px;cursor:pointer}
+.btn{border:1px solid var(--hair2);background:var(--s3);color:var(--ink);border-radius:8px;padding:6px 11px;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
 .btn.pri{background:#fff;color:#111;border-color:#fff;font-weight:500}
 .btn.ghost{background:transparent;color:var(--muted)}
 .btn.sm{padding:4px 8px;font-size:11px}
-.body{padding:14px 16px;overflow:auto;flex:1}
-/* soft icons CONTENT only */
-.si{display:inline-flex;align-items:center;justify-content:center;border-radius:10px;flex-shrink:0}
-.si svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
-.si-sm{width:28px;height:28px;border-radius:8px}.si-sm svg{width:14px;height:14px}
-.si-md{width:36px;height:36px}.si-lg{width:44px;height:44px;border-radius:12px}.si-lg svg{width:20px;height:20px}
-.si-teal{color:var(--teal);background:rgba(38,181,206,.14);box-shadow:inset 0 0 0 1px rgba(38,181,206,.22)}
-.si-green{color:var(--green);background:rgba(76,183,130,.14);box-shadow:inset 0 0 0 1px rgba(76,183,130,.22)}
-.si-violet{color:var(--violet);background:rgba(155,138,251,.14);box-shadow:inset 0 0 0 1px rgba(155,138,251,.25)}
-.si-orange{color:var(--orange);background:rgba(242,166,90,.14);box-shadow:inset 0 0 0 1px rgba(242,166,90,.25)}
-.si-blue{color:var(--pri);background:rgba(94,106,210,.16);box-shadow:inset 0 0 0 1px rgba(94,106,210,.28)}
-.si-pink{color:var(--pink);background:rgba(232,121,169,.14);box-shadow:inset 0 0 0 1px rgba(232,121,169,.22)}
-.si-red{color:var(--danger);background:rgba(235,87,87,.14);box-shadow:inset 0 0 0 1px rgba(235,87,87,.25)}
-.si-yellow{color:#e6c35c;background:rgba(230,195,92,.14);box-shadow:inset 0 0 0 1px rgba(230,195,92,.25)}
+.vbody{padding:4px 18px 18px;overflow:auto;flex:1}
+
+/* ====== soft icons (content) ====== */
+.si{display:inline-flex;border-radius:10px;align-items:center;justify-content:center;flex-shrink:0}
+.si svg{stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
+.si-sm{width:26px;height:26px;border-radius:7px}.si-sm svg{width:13px;height:13px}
+.si-md{width:34px;height:34px}.si-md svg{width:16px;height:16px}
+.si-lg{width:42px;height:42px;border-radius:11px}.si-lg svg{width:19px;height:19px}
+.si-b{color:var(--pri);background:rgba(94,106,210,.16);box-shadow:inset 0 0 0 1px rgba(94,106,210,.28)}
+.si-g{color:var(--green);background:rgba(76,183,130,.14);box-shadow:inset 0 0 0 1px rgba(76,183,130,.22)}
+.si-v{color:var(--violet);background:rgba(155,138,251,.14);box-shadow:inset 0 0 0 1px rgba(155,138,251,.25)}
+.si-o{color:var(--orange);background:rgba(242,166,90,.14);box-shadow:inset 0 0 0 1px rgba(242,166,90,.25)}
+.si-t{color:var(--teal);background:rgba(38,181,206,.14);box-shadow:inset 0 0 0 1px rgba(38,181,206,.22)}
+.si-p{color:var(--pink);background:rgba(232,121,169,.14);box-shadow:inset 0 0 0 1px rgba(232,121,169,.22)}
+.si-r{color:var(--danger);background:rgba(235,87,87,.14);box-shadow:inset 0 0 0 1px rgba(235,87,87,.25)}
+.si-y{color:#e6c35c;background:rgba(230,195,92,.14);box-shadow:inset 0 0 0 1px rgba(230,195,92,.25)}
 .si-gray{color:var(--muted);background:rgba(138,143,152,.12);box-shadow:inset 0 0 0 1px rgba(138,143,152,.2)}
-/* cards */
+
+/* ====== shared components ====== */
 .card{background:var(--s1);border:1px solid var(--hair);border-radius:12px;padding:14px}
-.grid41{display:grid;grid-template-columns:1.45fr 300px;gap:12px}
+.card h4{margin:0 0 4px;font-size:13px;font-weight:600}
+.card p{margin:0;color:var(--muted);font-size:12px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
 .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
-.muted{color:var(--muted)}.subtle{color:var(--subtle)}
-.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.lrow{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px}
+.grid41{display:grid;grid-template-columns:1.5fr 1fr;gap:12px}
+@media(max-width:1100px){.grid41{grid-template-columns:1fr}}
+.lrow{display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:8px}
 .lrow:hover{background:var(--s2)}
-.lrow .id{font-family:var(--mono);font-size:11px;color:var(--subtle);min-width:52px}
-.lrow .title{flex:1;font-size:13px}
-.tag{font-size:10.5px;padding:2px 7px;border-radius:999px;border:1px solid var(--hair2);color:var(--muted)}
+.lrow .id{font-family:var(--mono);font-size:10.5px;color:var(--subtle);min-width:48px}
+.lrow .ttl{flex:1;font-size:12.5px}
+.tag{font-size:10px;padding:2px 7px;border-radius:999px;border:1px solid var(--hair2);color:var(--muted);background:var(--s2)}
 .tag.g{color:var(--green);border-color:rgba(76,183,130,.35)}.tag.r{color:var(--danger);border-color:rgba(235,87,87,.4)}
 .tag.o{color:var(--orange);border-color:rgba(242,166,90,.4)}.tag.v{color:var(--violet);border-color:rgba(155,138,251,.4)}
 .tag.t{color:var(--teal);border-color:rgba(38,181,206,.35)}
-.dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
-.tile{display:flex;gap:10px;align-items:center;padding:12px;border:1px solid var(--hair);border-radius:12px;background:var(--s1)}
-.tile b{display:block;font-size:12.5px}.tile span{font-size:11px;color:var(--muted)}
-.pulse{border:1px solid var(--hair);border-radius:10px;padding:10px 12px;background:var(--s1);margin-bottom:8px}
-.pulse .h{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
-.stat{display:flex;justify-content:space-between;padding:6px 0;font-size:12px;color:var(--muted);border-bottom:1px solid var(--hair)}
-.stat:last-child{border:0}.stat b{color:var(--ink);font-weight:500}
-.capbar{display:flex;gap:8px;align-items:center;background:var(--s2);border:1px solid var(--hair);border-radius:12px;padding:8px 12px;margin-bottom:14px}
-.capbar input{flex:1;border:0;background:transparent;color:var(--ink);font:inherit}
+.meter{background:var(--s2);border:1px solid var(--hair);border-radius:10px;padding:10px 12px}
+.meter .lbl{font-size:10.5px;color:var(--muted);display:flex;justify-content:space-between}
+.meter .big{font-size:20px;font-weight:600;margin:2px 0}
+.meter .bar{height:4px;border-radius:2px;background:var(--hair2);overflow:hidden;margin-top:5px}
+.meter .bar i{display:block;height:100%}
+.meter.warn .big{color:var(--warn)}.meter.danger .big{color:var(--danger)}.meter.ok .big{color:var(--ok)}
+.capbar{display:flex;gap:8px;align-items:center;background:var(--s2);border:1px solid var(--hair);border-radius:10px;padding:7px 10px;margin-bottom:12px}
+.capbar input{flex:1;border:0;background:transparent;color:var(--ink);font:inherit;font-size:13px}
 .capbar input:focus{outline:0}
-/* notes */
-.notes{display:grid;grid-template-columns:220px 1fr 240px;flex:1;min-height:0}
-.tree{border-right:1px solid var(--hair);padding:10px;overflow:auto;background:#0c0d0e;font-size:12px}
+.tl{position:relative;padding-left:18px}
+.tl::before{content:"";position:absolute;left:5px;top:2px;bottom:2px;width:1px;background:var(--hair2)}
+.tl .ev{position:relative;padding:0 0 13px 14px}
+.tl .ev::before{content:"";position:absolute;left:-16px;top:3px;width:8px;height:8px;border-radius:50%;background:var(--s3);border:1px solid var(--hair2)}
+.tl .ev b{font-size:12px}.tl .ev .when{font-size:10.5px;color:var(--subtle);margin-top:1px}
+.tl .ev p{margin:3px 0 0;color:var(--muted);font-size:11.5px}
+.composer{border:1px solid var(--hair2);border-radius:11px;background:var(--s2);padding:11px;margin-bottom:10px}
+.composer textarea{width:100%;border:0;background:transparent;color:var(--ink);font:inherit;min-height:44px;resize:vertical}
+.composer textarea:focus{outline:0}
+.kbd{font-family:var(--mono);font-size:9.5px;background:var(--s3);border:1px solid var(--hair2);border-radius:4px;padding:1px 5px;color:var(--muted)}
+/* split */
+.split{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;background:var(--bg);border:1px solid var(--hair);border-radius:11px;overflow:hidden;min-height:240px}
+.split .col{background:var(--s1);padding:10px;font-size:11.5px;border-right:1px solid var(--hair)}
+.split .col:last-child{border:0}
+.split .col h5{margin:0 0 7px;font-size:10px;color:var(--subtle);text-transform:uppercase;letter-spacing:.05em}
+/* notes tree */
+.notes3{display:grid;grid-template-columns:200px 1fr;flex:1;min-height:0}
+.tree{border-right:1px solid var(--hair);padding:10px;overflow:auto;font-size:12px}
 .tree .n{padding:5px 8px;border-radius:6px;color:var(--muted);cursor:pointer;display:flex;gap:6px;align-items:center}
 .tree .n:hover{background:var(--s2)}.tree .n.on{background:var(--s3);color:var(--ink)}
 .tree .pad{padding-left:20px}.tree .pad2{padding-left:32px}
 .ed{padding:16px 20px;overflow:auto}
-.ed h2{margin:0 0 6px;font-size:22px;letter-spacing:-.4px;font-weight:600}
-.ed .bc{font-size:11px;color:var(--muted);margin-bottom:12px}
-.ctx{border-left:1px solid var(--hair);padding:12px;overflow:auto;background:var(--s1)}
-.ctx h4{margin:0 0 8px;font-size:10px;color:var(--subtle);text-transform:uppercase;letter-spacing:.05em}
-/* meetings rework */
-.meet{display:grid;grid-template-columns:240px 1fr 260px;flex:1;min-height:0}
-.mlist{border-right:1px solid var(--hair);overflow:auto;background:#0c0d0e}
-.mlist .item{padding:10px 12px;border-bottom:1px solid var(--hair);cursor:pointer}
-.mlist .item.on{background:rgba(94,106,210,.1)}
-.mlist .item b{display:block;font-size:12.5px}.mlist .item span{font-size:11px;color:var(--muted)}
-.mwork{display:flex;flex-direction:column;min-width:0}
-.mtabs{display:flex;gap:4px;padding:8px 12px;border-bottom:1px solid var(--hair)}
-.mtabs button{border:0;background:transparent;color:var(--muted);padding:6px 10px;border-radius:6px;cursor:pointer;font:inherit;font-size:12px}
-.mtabs button.on{background:var(--s3);color:var(--ink)}
-.mbody{padding:14px 16px;overflow:auto;flex:1}
-.mactions{border-left:1px solid var(--hair);padding:12px;overflow:auto;background:var(--s1)}
-/* kanban mini */
-.kb{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
-.kc h4{font-size:11px;color:var(--muted);margin:0 4px 8px;font-weight:500}
-.kcard{background:var(--s2);border:1px solid var(--hair);border-radius:10px;padding:10px;margin-bottom:8px;font-size:12.5px}
-.kcard .m{display:flex;gap:4px;flex-wrap:wrap;margin-top:8px}
-/* initiative */
-.composer{border:1px solid var(--hair2);border-radius:12px;background:var(--s2);padding:12px;margin-bottom:12px}
-.composer textarea{width:100%;border:0;background:transparent;color:var(--ink);font:inherit;min-height:52px;resize:vertical}
-.composer textarea:focus{outline:0}
-.flow-hint{font-size:11px;color:var(--subtle);padding:6px 16px;border-bottom:1px solid var(--hair);background:rgba(94,106,210,.06)}
-.flow-hint b{color:var(--pri-h);font-weight:500}
-/* starter */
-.starter-card{border:1px solid rgba(94,106,210,.4);border-radius:12px;padding:12px;background:linear-gradient(160deg,rgba(94,106,210,.12),var(--s1))}
-.prog{height:4px;border-radius:2px;background:var(--hair2);overflow:hidden;margin:8px 0}
-.prog i{display:block;height:100%;background:var(--pri)}
-.ol .item{display:flex;gap:8px;padding:3px 0}.ol .b{width:6px;height:6px;border-radius:50%;background:var(--muted);margin-top:7px}.ol .nest{padding-left:16px}
+.ed h2{margin:0 0 4px;font-size:20px;letter-spacing:-.3px}.ed .bc{font-size:11px;color:var(--muted);margin-bottom:12px}
+/* companion */
+.companion{position:absolute;right:16px;bottom:16px;width:280px;border:1px solid var(--pri);border-radius:13px;background:var(--s2);box-shadow:0 24px 60px rgba(0,0,0,.55);overflow:hidden;z-index:5}
+.companion .ch{padding:8px 11px;background:rgba(94,106,210,.15);font-size:11px;display:flex;align-items:center;gap:6px}
+.companion .cb{padding:11px;font-size:12px;color:var(--muted)}
+.companion .cb b{color:var(--ink)}
+
+/* ====== overlays (mac native) ====== */
+.overlay{position:fixed;z-index:60;display:none}
+.overlay.on{display:block}
+/* command bar */
+.cmdbar{top:90px;left:50%;transform:translateX(-50%);width:min(560px,90vw);background:rgba(20,21,22,.92);backdrop-filter:blur(24px);border:1px solid var(--hair2);border-radius:14px;overflow:hidden;box-shadow:0 40px 100px rgba(0,0,0,.7)}
+.cmdbar input{width:100%;border:0;background:transparent;color:var(--ink);font:inherit;padding:15px 18px;font-size:14px}
+.cmdbar input:focus{outline:0}
+.cmdbar .grp{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--subtle);padding:8px 18px 3px}
+.cmdbar .it{display:flex;align-items:center;gap:10px;padding:9px 18px;font-size:12.5px;border-top:1px solid var(--hair);color:var(--ink)}
+.cmdbar .it.on{background:rgba(94,106,210,.18)}
+.cmdbar .it .k{margin-left:auto;font-size:10px;color:var(--subtle);font-family:var(--mono)}
+/* menubar dropdown */
+.menubar{top:38px;right:14px;width:280px;background:rgba(20,21,22,.92);backdrop-filter:blur(24px);border:1px solid var(--hair2);border-radius:12px;box-shadow:0 30px 80px rgba(0,0,0,.6);overflow:hidden}
+.menubar .mh{padding:10px 12px;border-bottom:1px solid var(--hair);font-size:11px;color:var(--muted);display:flex;justify-content:space-between}
+.menubar .mi{padding:9px 12px;font-size:12px;display:flex;gap:9px;align-items:center;border-bottom:1px solid var(--hair)}
+.menubar .mi:last-child{border:0}
+.menubar .mi b{flex:1;font-weight:500}.menubar .mi span{font-size:10px;color:var(--subtle)}
+/* global capture */
+.gcap{top:60px;left:50%;transform:translateX(-50%);width:min(440px,92vw);background:rgba(20,21,22,.94);backdrop-filter:blur(24px);border:1px solid var(--hair2);border-radius:13px;box-shadow:0 40px 100px rgba(0,0,0,.7);padding:14px}
+.gcap .lab{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--subtle);margin-bottom:8px;display:flex;justify-content:space-between}
+.gcap input{width:100%;background:var(--s1);border:1px solid var(--hair2);color:var(--ink);border-radius:8px;padding:10px;font:inherit}
+.gcap input:focus{outline:1px solid var(--pri)}
+/* floating notes */
+.floatnotes{top:90px;right:14px;width:200px;display:flex;flex-direction:column;gap:10px}
+.floatnotes .fn{background:linear-gradient(180deg,#fdf6b8,#fbe28c);color:#5a4a00;border-radius:9px;padding:11px;font-size:11.5px;box-shadow:0 16px 40px rgba(0,0,0,.5);transform:rotate(-1.2deg)}
+.floatnotes .fn.b{background:linear-gradient(180deg,#cdeed3,#a7e0b6);color:#1a4a2a;transform:rotate(1deg)}
+.floatnotes .fn h6{margin:0 0 4px;font-size:11px}
+.floatnotes .fn p{margin:0;font-size:10.5px}
+/* dock */
+.dock{position:fixed;bottom:10px;left:50%;transform:translateX(-50%);display:flex;gap:6px;background:rgba(20,21,22,.7);backdrop-filter:blur(20px);border:1px solid var(--hair2);border-radius:14px;padding:6px;z-index:55}
+.dock .di{width:38px;height:38px;border-radius:9px;display:grid;place-items:center;cursor:pointer}
+.dock .di svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.7}
+.dock .di .bdg{position:relative}
+.dock .lab{position:absolute;bottom:46px;left:50%;transform:translateX(-50%);background:#000;color:#fff;font-size:10px;padding:3px 7px;border-radius:5px;white-space:nowrap;opacity:0;transition:.15s}
+.dock .di:hover .lab{opacity:1}
+
+.muted{color:var(--muted)}.subtle{color:var(--subtle)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+hr.sep{border:0;border-top:1px solid var(--hair);margin:12px 0}
+.featuredot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);margin-right:5px}
 </style>
 </head>
 <body>
-<div class="banner">
-  <b>Final locked system</b>
-  <span>Sidebar: plain icons · Content: soft tiles · Home B · Notes project notebooks · Meetings pipeline · Filters everywhere · Project Starter included</span>
-  <span class="subtle">Click sidebar to navigate · filters are interactive chrome</span>
-</div>
-<div class="shell">
-  <!-- SIDEBAR plain icons -->
-  <aside class="sb">
-    <div class="brand"><i></i> Local Dev</div>
-    <div class="sec">Workspace</div>
-    <button class="nav on" data-v="home"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg><span class="lbl">Home</span></button>
-    <button class="nav" data-v="focus"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg><span class="lbl">Focus</span></button>
-    <button class="nav" data-v="capture"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span class="lbl">Capture</span><span class="badge">4</span></button>
-    <button class="nav" data-v="projects"><svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg><span class="lbl">Projects</span></button>
-    <div class="sec">Favorites</div>
-    <button class="nav" data-v="project"><svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg><span class="lbl">Voice Agent Studio</span></button>
-    <div class="sec">Brain</div>
-    <button class="nav" data-v="notes"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg><span class="lbl">Notes</span></button>
-    <button class="nav" data-v="skills"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg><span class="lbl">Skills</span></button>
-    <button class="nav" data-v="meetings"><svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/></svg><span class="lbl">Meetings</span></button>
-    <button class="nav" data-v="prompts"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg><span class="lbl">Prompts</span></button>
-    <div class="sec">Ops</div>
-    <button class="nav" data-v="mcps"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2"/></svg><span class="lbl">MCPs</span></button>
-    <button class="nav" data-v="secrets"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg><span class="lbl">Secrets</span></button>
-    <button class="nav" data-v="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg><span class="lbl">Settings</span></button>
-    <button class="cta" id="ctaNew">+ New</button>
-    <div class="acct"><div class="av">J</div> John Keeney</div>
-  </aside>
+<div class="stage">
+<div class="win" id="win">
 
-  <div class="main">
-    <!-- HOME -->
-    <section class="view on" id="home">
-      <div class="flow-hint">Loop: <b>Do now</b> → Focus · Needs you = attention · Capture = dump only · Starter on Home</div>
-      <div class="body">
-        <div class="capbar">
-          <span style="color:var(--pri-h)">✦</span>
-          <input placeholder="What's on your mind?  @project #label !urgent :tomorrow" />
-          <div class="seg"><button class="on">Task</button><button>Todo</button><button>Note</button><button>Update</button></div>
-          <button class="btn pri sm">Add</button>
-        </div>
-        <h1 style="font-size:20px;margin:0 0 2px;font-weight:600;letter-spacing:-.3px">Good evening, Sun Jul 19</h1>
-        <p class="muted" style="margin:0 0 14px">Welcome back. 1 overdue · 4 in inbox · 2 projects active</p>
-        <div class="grid41">
-          <div>
-            <div class="card" style="margin-bottom:12px">
-              <div class="row" style="justify-content:space-between;margin-bottom:6px"><b>Do now</b><span class="subtle">max 5 · from Focus</span></div>
-              <div class="lrow"><span class="dot" style="background:var(--danger)"></span><span class="id">DEV-69</span><span class="title">End-to-end smoke test</span><span class="tag r">overdue</span></div>
-              <div class="lrow"><span class="dot" style="background:var(--orange)"></span><span class="id">VAS-12</span><span class="title">Wire transcript export</span><span class="tag o">today</span><span class="tag v">note</span></div>
-              <div class="lrow"><span class="dot" style="background:var(--pri)"></span><span class="id">att</span><span class="title">2 items need you · 4 unfiled dumps</span><span class="tag">attention</span></div>
-            </div>
-            <div class="card">
-              <div class="row" style="justify-content:space-between;margin-bottom:8px"><b>Project pulse</b><button class="btn ghost sm" data-go="project">Open project</button></div>
-              <div class="pulse">
-                <div class="h"><span class="row"><span class="si si-sm si-green"><svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></span><b>Voice Agent Studio</b></span><span class="tag g">on track</span></div>
-                <p class="muted" style="font-size:12px;margin:0">“Shipped eval harness — next transcript → tasks.” · 2d · initiative update</p>
-              </div>
-              <div class="pulse">
-                <div class="h"><span class="row"><span class="si si-sm si-violet"><svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></span><b>AI Interaction Dashboard</b></span><span class="tag o">at risk</span></div>
-                <p class="muted" style="font-size:12px;margin:0">“Waiting on LM Studio vs cloud embeddings.” · 5d</p>
-              </div>
-            </div>
-          </div>
-          <div>
-            <div class="card" style="margin-bottom:10px"><b>Needs you</b><div class="stat"><span>Attention</span><b>2</b></div><div class="stat"><span>Capture debt</span><b>4</b></div><button class="btn sm" style="width:100%;margin-top:8px" data-go="focus">Open Focus</button><button class="btn ghost sm" style="width:100%;margin-top:6px" data-go="capture">Process dumps</button></div>
-            <div class="starter-card" style="margin-bottom:10px">
-              <div class="row"><span class="si si-sm si-blue"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></span><div><b>Continue starter</b><div class="muted" style="font-size:11px">Acme Ops Desk · Concept</div></div></div>
-              <div class="prog"><i style="width:34%"></i></div>
-              <button class="btn pri sm" style="width:100%" data-go="starter">Resume workshop</button>
-            </div>
-            <div class="card"><b>Ops</b>
-              <div class="stat"><span>MCPs</span><b>6/6 up</b></div>
-              <div class="stat"><span>Infisical</span><b>connected</b></div>
-              <div class="stat"><span>LM Studio</span><b class="subtle">offline</b></div>
-            </div>
-          </div>
-        </div>
-        <div class="grid4" style="margin-top:12px">
-          <div class="tile" data-go="notes" style="cursor:pointer"><span class="si si-md si-violet"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg></span><div><b>Notes</b><span>Vault + ZenNotes</span></div></div>
-          <div class="tile" data-go="skills" style="cursor:pointer"><span class="si si-md si-teal"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/></svg></span><div><b>Skills</b><span>Catalog</span></div></div>
-          <div class="tile" data-go="meetings" style="cursor:pointer"><span class="si si-md si-pink"><svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/></svg></span><div><b>Meetings</b><span>Actions open</span></div></div>
-          <div class="tile" data-go="starter" style="cursor:pointer"><span class="si si-md si-blue"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></span><div><b>Start from idea</b><span>Project Starter</span></div></div>
-        </div>
+  <!-- ========== TITLEBAR ========== -->
+  <div class="tbar">
+    <div class="traffic"><i class="tl-r"></i><i class="tl-y"></i><i class="tl-g"></i></div>
+    <div class="wsswitch"><span class="dotc"></span> Work <span class="chev">▾</span></div>
+    <div class="tbcenter">
+      <div class="tbcmd" id="openCmd">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+        <span>Search or command…</span> <b>⌘K</b>
       </div>
-    </section>
-
-    <!-- FOCUS -->
-    <section class="view" id="focus">
-      <div class="flow-hint">Connected: row chips open <b>Notes</b> / <b>Project</b> · filters sticky · segments = Lens</div>
-      <div class="top"><h1>Focus</h1><span class="sub">Today</span><div class="sp"></div><div class="seg"><button class="on">List</button><button>Board</button></div></div>
-      <div class="filters">
-        <input type="search" placeholder="Filter tasks…" />
-        <span class="chip">Needs you 2</span><span class="chip on">Today</span><span class="chip">Upcoming</span><span class="chip">Anytime</span><span class="chip">Someday</span><span class="chip">Logbook</span>
-        <span class="chip">Project ▾</span><span class="chip">Priority ▾</span><span class="chip">Has note</span><span class="chip">Saved views ▾</span>
-      </div>
-      <div class="body">
-        <div class="lrow"><span class="dot" style="background:var(--danger)"></span><span class="id">DEV-69</span><span class="title">End-to-end smoke test</span><span class="tag r">overdue</span><span class="tag g">VAS</span></div>
-        <div class="lrow"><span class="dot" style="background:var(--orange)"></span><span class="id">VAS-12</span><span class="title">Wire transcript export</span><span class="tag o">today</span><span class="tag v">has note</span><button class="btn ghost sm" data-go="notes">Open note</button></div>
-        <div class="lrow"><span class="dot" style="background:var(--pri)"></span><span class="id">AID-4</span><span class="title">Embedding provider decision</span><span class="tag">waiting</span></div>
-      </div>
-    </section>
-
-    <!-- CAPTURE -->
-    <section class="view" id="capture">
-      <div class="flow-hint">Dump ≠ Inbox · Dump = get it out of your head · Inbox/Needs you = attention only</div>
-      <div class="top"><h1>Capture</h1><div class="seg" style="margin-left:8px"><button class="on">Dump 4</button><button>Todos</button><button>Outline</button></div><div class="sp"></div><button class="btn sm">Process all</button></div>
-      <div class="filters">
-        <input type="search" placeholder="Search capture…" />
-        <span class="chip on">All</span><span class="chip">Unfiled</span><span class="chip">Has @project</span><span class="chip">Today</span>
-      </div>
-      <div class="body">
-        <div class="lrow"><span class="title">idea: vault ask with lm studio</span><div class="sp"></div><button class="btn sm">→ Todo</button><button class="btn sm">→ Task</button><button class="btn sm">→ Note</button></div>
-        <div class="lrow"><span class="title">call dentist</span><div class="sp"></div><button class="btn sm">→ Todo</button></div>
-        <div class="lrow"><span class="title">VAS: remember eval harness path</span><div class="sp"></div><button class="btn sm" data-go="notes">→ Note in VAS</button></div>
-        <div class="card" style="margin-top:16px">
-          <b>Outline mode preview</b>
-          <div class="ol" style="margin-top:8px">
-            <div class="item"><div class="b"></div><div>Work<div class="nest"><div class="item"><div class="b"></div><div>Voice Agent — transcript export <span class="tag g">→ task</span></div></div></div></div></div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- PROJECTS LIST + STARTER CTA -->
-    <section class="view" id="projects">
-      <div class="flow-hint">Entry: blank project · <b>Start from idea</b> (FEAT-003) · open project hub</div>
-      <div class="top"><h1>Projects</h1><div class="sp"></div><button class="btn sm">Blank project</button><button class="btn pri sm" data-go="starter">Start from idea</button></div>
-      <div class="filters">
-        <input type="search" placeholder="Search projects…" />
-        <span class="chip on">Active</span><span class="chip">All</span><span class="chip">Archived</span>
-        <span class="chip">Status ▾</span><span class="chip">Has starter</span>
-        <div class="seg" style="margin-left:auto"><button class="on">Grid</button><button>List</button></div>
-      </div>
-      <div class="body grid3">
-        <div class="tile" style="flex-direction:column;align-items:stretch;cursor:pointer" data-go="project">
-          <div class="row"><span class="si si-md si-green"><svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></span><div><b>Voice Agent Studio</b><span>70 open · on track</span></div></div>
-          <div class="prog"><i style="width:12%"></i></div>
-          <span class="muted" style="font-size:11px">Last update 2d ago</span>
-        </div>
-        <div class="tile" style="flex-direction:column;align-items:stretch">
-          <div class="row"><span class="si si-md si-violet"><svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></span><div><b>AI Interaction Dashboard</b><span>12 open · at risk</span></div></div>
-          <div class="prog"><i style="width:89%;background:var(--violet)"></i></div>
-        </div>
-        <div class="starter-card" style="cursor:pointer" data-go="starter">
-          <div class="row"><span class="si si-md si-blue"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></span><div><b>Start from an idea</b><span>Grill · wayfind · handoff · board</span></div></div>
-          <button class="btn pri sm" style="width:100%;margin-top:10px">Open Project Starter</button>
-        </div>
-      </div>
-    </section>
-
-    <!-- PROJECT HUB -->
-    <section class="view" id="project">
-      <div class="flow-hint">Hub links: Board · Notes notebook · Updates · Skills · MCPs · Secrets</div>
-      <div class="top">
-        <span class="si si-md si-green"><svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></span>
-        <h1>Voice Agent Studio</h1><span class="tag g">on track</span>
-        <div class="sp"></div>
-        <div class="seg"><button class="on" id="ptab-overview">Overview</button><button id="ptab-board">Board</button><button id="ptab-notes" data-go="notes">Notes</button><button id="ptab-updates">Updates</button></div>
-      </div>
-      <div class="filters">
-        <span class="chip on">Overview</span><span class="chip">Resources</span>
-        <span class="subtle" style="margin-left:auto">Filters apply on Board / Notes tabs</span>
-      </div>
-      <div class="body">
-        <div class="grid4" style="margin-bottom:14px">
-          <div class="tile" data-go="notes" style="cursor:pointer"><span class="si si-md si-violet"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/></svg></span><div><b>12 notes</b><span>Project notebook</span></div></div>
-          <div class="tile"><span class="si si-md si-teal"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/></svg></span><div><b>4 skills</b><span>Pinned</span></div></div>
-          <div class="tile" data-go="mcps" style="cursor:pointer"><span class="si si-md si-blue"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/></svg></span><div><b>2 MCPs</b><span>Healthy</span></div></div>
-          <div class="tile" data-go="secrets" style="cursor:pointer"><span class="si si-md si-red"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/></svg></span><div><b>3 secrets</b><span>Infisical</span></div></div>
-        </div>
-        <div class="grid2">
-          <div>
-            <b style="display:block;margin-bottom:8px">Initiative updates</b>
-            <div class="composer">
-              <textarea placeholder="Drop an update… what moved, what's stuck"></textarea>
-              <div class="row" style="justify-content:space-between">
-                <div class="row"><span class="tag g">on track</span><span class="tag o">at risk</span><span class="tag r">off track</span></div>
-                <button class="btn pri sm">Post</button>
-              </div>
-            </div>
-            <div class="pulse"><div class="h"><b>John</b><span class="tag g">on track</span></div><p class="muted" style="margin:0;font-size:12px">Shipped eval harness. Next transcript → tasks.</p><div class="subtle" style="font-size:11px;margin-top:4px">2d ago</div></div>
-          </div>
-          <div>
-            <b style="display:block;margin-bottom:8px">Board preview</b>
-            <div class="kb">
-              <div class="kc"><h4>Todo</h4><div class="kcard">Smoke test<div class="m"><span class="tag r">!</span></div></div></div>
-              <div class="kc"><h4>In progress</h4><div class="kcard">Transcript export<div class="m"><span class="tag g">VAS-12</span></div></div></div>
-              <div class="kc"><h4>Review</h4></div>
-              <div class="kc"><h4>Done</h4></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- NOTES -->
-    <section class="view" id="notes">
-      <div class="flow-hint">Project notebooks · <b>Open in ZenNotes</b> · Ask vault (LM Studio) · filters on tree</div>
-      <div class="top"><h1>Notes</h1><span class="sub">vault</span><div class="sp"></div>
-        <button class="btn sm">Ask vault</button>
-        <button class="btn pri sm">Open in ZenNotes ↗</button>
-        <button class="btn sm">+ New</button>
-      </div>
-      <div class="filters">
-        <input type="search" placeholder="Search notes…" />
-        <span class="chip on">All</span><span class="chip">Projects</span><span class="chip">Areas</span><span class="chip">Inbox</span>
-        <span class="chip">Project ▾</span><span class="chip">Updated ▾</span><span class="chip">Unfiled</span><span class="chip">Saved views ▾</span>
-      </div>
-      <div class="notes">
-        <div class="tree">
-          <div class="n">Inbox <span class="badge" style="margin-left:auto">3</span></div>
-          <div class="n subtle" style="margin-top:8px;font-size:10px;text-transform:uppercase">Projects</div>
-          <div class="n on"><span style="color:var(--green)">●</span> Voice Agent Studio</div>
-          <div class="n pad">_index</div>
-          <div class="n pad2">decisions/</div>
-          <div class="n pad2">meetings/</div>
-          <div class="n pad2">notes/</div>
-          <div class="n"><span style="color:var(--violet)">●</span> AI Interaction Dash</div>
-          <div class="n subtle" style="margin-top:8px;font-size:10px;text-transform:uppercase">Areas</div>
-          <div class="n pad">ADHD systems</div>
-          <div class="n">Resources</div>
-        </div>
-        <div class="ed">
-          <div class="bc">Projects / Voice Agent Studio / notes / transcript-export</div>
-          <h2>Transcript → tasks path</h2>
-          <p class="muted">Linked from Focus VAS-12. Decisions and meeting actions file here so the board and the brain stay one system.</p>
-          <p class="muted" style="margin-top:12px">## Next<br>- MCP auth refresh<br>- Wire export button</p>
-        </div>
-        <div class="ctx">
-          <h4>Linked tasks</h4>
-          <div class="tag g" style="margin-bottom:6px">VAS-12</div>
-          <h4 style="margin-top:14px">Backlinks</h4>
-          <div class="tag">Meeting Jul 18</div>
-          <button class="btn sm" style="width:100%;margin-top:16px">Open in ZenNotes</button>
-          <button class="btn sm" style="width:100%;margin-top:6px">Ask this notebook</button>
-          <button class="btn ghost sm" style="width:100%;margin-top:6px" data-go="focus">Open in Focus</button>
-        </div>
-      </div>
-    </section>
-
-    <!-- SKILLS -->
-    <section class="view" id="skills">
-      <div class="top"><h1>Skills</h1><div class="sp"></div><button class="btn sm">Re-scan</button></div>
-      <div class="filters">
-        <input type="search" placeholder="Search skills…" />
-        <span class="chip on">All</span><span class="chip">Skills</span><span class="chip">Agents</span><span class="chip">Orch</span>
-        <span class="chip">Source ▾</span><span class="chip">Pinned to project</span><span class="chip">Saved views ▾</span>
-      </div>
-      <div class="body" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;max-width:720px">
-        <div class="tile" style="flex-direction:column;align-items:center;text-align:center;gap:8px;aspect-ratio:1;justify-content:center;padding:14px 10px"><span class="si si-md si-teal"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/></svg></span><b style="font-size:12px">grill-with-docs</b><span class="muted" style="font-size:10px">skill · global</span></div>
-        <div class="tile" style="flex-direction:column;align-items:center;text-align:center;gap:8px;aspect-ratio:1;justify-content:center;padding:14px 10px"><span class="si si-md si-violet"><svg viewBox="0 0 24 24"><path d="M12 2a7 7 0 017 7c0 5-7 13-7 13S5 14 5 9a7 7 0 017-7z"/></svg></span><b style="font-size:12px">wayfinder</b><span class="muted" style="font-size:10px">pinned VAS</span></div>
-        <div class="tile" style="flex-direction:column;align-items:center;text-align:center;gap:8px;aspect-ratio:1;justify-content:center;padding:14px 10px"><span class="si si-md si-green"><svg viewBox="0 0 24 24"><path d="M12 2a5 5 0 015 5v3H7V7a5 5 0 015-5z"/></svg></span><b style="font-size:12px">forge-ui</b><span class="muted" style="font-size:10px">agent</span></div>
-        <div class="tile" style="flex-direction:column;align-items:center;text-align:center;gap:8px;aspect-ratio:1;justify-content:center;padding:14px 10px"><span class="si si-md si-blue"><svg viewBox="0 0 24 24"><path d="M12 2a5 5 0 015 5v3H7V7a5 5 0 015-5z"/></svg></span><b style="font-size:12px">implement</b><span class="muted" style="font-size:10px">skill</span></div>
-        <div class="tile" style="flex-direction:column;align-items:center;text-align:center;gap:8px;aspect-ratio:1;justify-content:center;padding:14px 10px"><span class="si si-md si-orange"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/></svg></span><b style="font-size:12px">to-spec</b><span class="muted" style="font-size:10px">skill</span></div>
-        <div class="tile" style="flex-direction:column;align-items:center;text-align:center;gap:8px;aspect-ratio:1;justify-content:center;padding:14px 10px"><span class="si si-md si-pink"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/></svg></span><b style="font-size:12px">lens</b><span class="muted" style="font-size:10px">agent</span></div>
-      </div>
-    </section>
-
-    <!-- MEETINGS REWORK -->
-    <section class="view" id="meetings">
-      <div class="flow-hint">Pipeline: import → <b>Summary + actions</b> → tasks → file to project notebook</div>
-      <div class="top"><h1>Meetings</h1><div class="sp"></div><button class="btn sm">Paste</button><button class="btn pri sm">Upload</button></div>
-      <div class="filters">
-        <input type="search" placeholder="Search meetings…" />
-        <span class="chip on">All</span><span class="chip">Needs filing</span><span class="chip">Open actions</span>
-        <span class="chip">Project ▾</span><span class="chip">Source ▾</span><span class="chip">Date ▾</span><span class="chip">Saved: Needs filing</span>
-      </div>
-      <div class="meet">
-        <div class="mlist">
-          <div class="item on"><b>VAS weekly</b><span>Jul 18 · 42m · 2 open actions</span><div class="row" style="margin-top:4px"><span class="tag o">actions</span><span class="tag">VAS</span></div></div>
-          <div class="item"><b>Embedding design sync</b><span>Jul 12 · filed</span><div class="row" style="margin-top:4px"><span class="tag g">filed</span></div></div>
-          <div class="item"><b>Drop zone</b><span class="subtle">Paste or upload new…</span></div>
-        </div>
-        <div class="mwork">
-          <div class="mtabs"><button class="on">Summary</button><button>Transcript</button><button>Notes</button><button>People</button></div>
-          <div class="mbody">
-            <h2 style="margin:0 0 8px;font-size:16px">VAS weekly · Jul 18</h2>
-            <p class="muted">LM Studio summary: Agreed to ship transcript→tasks path. John owns MCP auth refresh. Overlay capture split into two tickets.</p>
-            <p class="muted" style="margin-top:12px"><b style="color:var(--ink)">Decisions</b><br>· Transcript export is P0 this week<br>· No cloud embeddings until LM Studio probe fails</p>
-            <button class="btn sm" style="margin-top:12px">Re-summarize locally</button>
-          </div>
-        </div>
-        <div class="mactions">
-          <h4 style="margin:0 0 10px;font-size:11px;color:var(--subtle);text-transform:uppercase">Open actions</h4>
-          <div class="lrow" style="padding:8px 0;flex-wrap:wrap"><span class="title" style="flex:1 1 100%">Wire transcript export</span><button class="btn sm">→ Task</button><button class="btn sm">→ Todo</button></div>
-          <div class="lrow" style="padding:8px 0;flex-wrap:wrap"><span class="title" style="flex:1 1 100%">Refresh MCP auth docs</span><button class="btn sm">→ Task</button></div>
-          <hr style="border:0;border-top:1px solid var(--hair);margin:12px 0">
-          <button class="btn pri sm" style="width:100%">Create all as tasks in VAS</button>
-          <button class="btn sm" style="width:100%;margin-top:6px" data-go="notes">File to project notebook</button>
-          <button class="btn ghost sm" style="width:100%;margin-top:6px">Post project update</button>
-        </div>
-      </div>
-    </section>
-
-    <!-- PROMPTS stub -->
-    <section class="view" id="prompts">
-      <div class="top"><h1>Prompts</h1></div>
-      <div class="filters"><input type="search" placeholder="Search prompts…" /><span class="chip on">All products</span><span class="chip">kbuddy</span></div>
-      <div class="body muted">Existing prompt library — cross-linked from Skills &amp; Chat. Unchanged product, gains filter chrome + soft product icons on cards.</div>
-    </section>
-
-    <!-- MCPS -->
-    <section class="view" id="mcps">
-      <div class="flow-hint">Secrets inject env → MCP · used by Claude/Codex/Chat</div>
-      <div class="top"><h1>MCPs</h1><span class="sub">6 servers</span><div class="sp"></div><button class="btn pri sm">+ Add</button></div>
-      <div class="filters">
-        <input type="search" placeholder="Search MCPs…" />
-        <span class="chip on">All</span><span class="chip">Up</span><span class="chip">Down</span>
-        <span class="chip">Used by Claude</span><span class="chip">Project-scoped</span>
-      </div>
-      <div class="body grid3">
-        <div class="card"><div class="row" style="margin-bottom:8px"><span class="si si-md si-blue"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/></svg></span><div><b>nexus</b><div class="muted">tasks · notes · todos</div></div><span class="tag g">up</span></div><p class="muted" style="font-size:11px;margin:0">Claude · Codex · Chat · 11 tools</p></div>
-        <div class="card"><div class="row" style="margin-bottom:8px"><span class="si si-md si-violet"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/></svg></span><div><b>zennotes</b><div class="muted">vault R/W</div></div><span class="tag g">up</span></div></div>
-        <div class="card"><div class="row" style="margin-bottom:8px"><span class="si si-md si-orange"><svg viewBox="0 0 24 24"><path d="M2 12h20M12 2v20"/></svg></span><div><b>browser</b></div><span class="tag o">idle</span></div></div>
-      </div>
-    </section>
-
-    <!-- SECRETS -->
-    <section class="view" id="secrets">
-      <div class="top"><h1>Secrets</h1><span class="tag g">Infisical connected</span><div class="sp"></div><button class="btn sm">Import selected</button></div>
-      <div class="filters">
-        <input type="search" placeholder="Search secrets…" />
-        <span class="chip on">All</span><span class="chip">Global</span><span class="chip">Project ▾</span>
-        <span class="chip">Injected to MCP</span>
-      </div>
-      <div class="body">
-        <div class="lrow"><span class="si si-sm si-red"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/></svg></span><span class="title">OPENAI_API_KEY</span><span class="tag">••••4f2a</span><span class="tag v">VAS</span><button class="btn sm">Copy</button></div>
-        <div class="lrow"><span class="si si-sm si-red"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/></svg></span><span class="title">DATABASE_URL</span><span class="tag">••••</span><span class="tag t">→ nexus-mcp</span></div>
-      </div>
-    </section>
-
-    <!-- SETTINGS -->
-    <section class="view" id="settings">
-      <div class="top"><h1>Settings</h1></div>
-      <div class="body grid2">
-        <div class="card"><b>Notes vault</b><p class="muted" style="margin:6px 0">Root path · Open in ZenNotes command · LM Studio embeddings</p></div>
-        <div class="card"><b>Models</b><p class="muted" style="margin:6px 0">Cloud · LM Studio URL · default chat/embed</p></div>
-        <div class="card"><b>Infisical</b><p class="muted" style="margin:6px 0">Local Docker URL · identity</p></div>
-        <div class="card"><b>Sidebar / ADHD mode</b><p class="muted" style="margin:6px 0">Fewer Home modules · larger targets</p></div>
-      </div>
-    </section>
-
-    <!-- PROJECT STARTER -->
-    <section class="view" id="starter">
-      <div class="flow-hint">FEAT-003 · idea → grill → wayfind → UX → handoff → board · resumes on Home</div>
-      <div class="top"><h1>Project Starter</h1><span class="sub">Acme Ops Desk</span><div class="sp"></div><button class="btn ghost sm" data-go="home">Save &amp; leave</button></div>
-      <div class="filters" style="justify-content:flex-start">
-        <span class="chip">✓ Seed</span><span class="chip on">1 Concept</span><span class="chip">2 Arch</span><span class="chip">3 UX</span><span class="chip">4 Plan</span><span class="chip">5 Handoff</span><span class="chip">→ Board</span>
-        <span class="subtle" style="margin-left:auto">momentum 34% · Claude oauth</span>
-      </div>
-      <div class="body grid41">
-        <div class="card">
-          <div class="subtle" style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--pri-h);margin-bottom:6px">grill-with-docs · Q 4</div>
-          <b style="font-size:15px">When you say “project,” Nexus record or git repo?</b>
-          <p class="muted" style="margin:8px 0">Recommended: Workspace = disk · Project = Nexus.</p>
-          <textarea style="width:100%;min-height:60px;background:var(--s2);border:1px solid var(--hair2);border-radius:8px;color:var(--ink);padding:8px;font:inherit">Agree — 1:1 for v1.</textarea>
-          <div class="row" style="margin-top:10px"><button class="btn pri sm">Send</button><button class="btn sm">Accept rec</button></div>
-        </div>
-        <div>
-          <div class="card" style="margin-bottom:10px"><b>CONTEXT.md</b><pre style="margin:8px 0 0;font-size:11px;color:var(--muted);font-family:var(--mono)">Workspace — disk
-Project — Nexus
-+ Starter run</pre></div>
-          <div class="starter-card"><b>After seal</b><p class="muted" style="font-size:12px;margin:6px 0">Board materializes on Projects · notebook scaffolded under Notes · Home pulse starts</p><button class="btn sm" data-go="projects">See projects list</button></div>
-        </div>
-      </div>
-    </section>
+    </div>
+    <div class="tbright">
+      <div class="healthdot" title="Workspace health: 2 warnings"></div>
+      <div class="iconbtn" id="openCap" title="Quick capture (⌘⇧Space)"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></div>
+      <div class="iconbtn" id="openBell" title="Needs you"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg><span class="bdg">5</span></div>
+      <div class="iconbtn" id="toggleRail" title="Context rail"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M15 3v18"/></svg></div>
+      <div class="iconbtn" id="openCompanion" title="AI companion (⌘⇧A)"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 00-3 3v.5A5 5 0 005 10v2a5 5 0 003 4.6V18a3 3 0 003 3h2a3 3 0 003-3v-1.4A5 5 0 0019 12v-2a5 5 0 00-4-4.5V5a3 3 0 00-3-3z"/></svg></div>
+    </div>
   </div>
+
+  <!-- ========== BODY ========== -->
+  <div class="body" id="body">
+
+    <!-- ===== SIDEBAR ===== -->
+    <aside class="sb">
+      <div class="spacep">
+        <div class="sp on" title="Work">●</div>
+        <div class="sp" title="Personal">●</div>
+        <div class="sp" title="Nexus">●</div>
+      </div>
+      <div class="sec">Workspace</div>
+      <button class="nav on" data-v="home"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg><span class="lbl">Home</span></button>
+      <button class="nav" data-v="focus"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2"/></svg><span class="lbl">Focus</span><span class="bdg red">2</span></button>
+      <button class="nav" data-v="capture"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span class="lbl">Capture</span><span class="bdg">4</span></button>
+      <button class="nav" data-v="projects"><svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg><span class="lbl">Projects</span></button>
+
+      <div class="sec">Favorites</div>
+      <div class="fav"><span class="cdot" style="background:var(--green)"></span> Voice Agent Studio</div>
+      <div class="fav"><span class="cdot" style="background:var(--violet)"></span> AI Interaction Dash</div>
+
+      <div class="sec">Brain</div>
+      <button class="nav" data-v="notes"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg><span class="lbl">Notes</span></button>
+      <button class="nav" data-v="skills"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg><span class="lbl">Skills</span></button>
+      <button class="nav" data-v="meetings"><svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/></svg><span class="lbl">Meetings</span></button>
+      <button class="nav" data-v="prompts"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg><span class="lbl">Prompts</span></button>
+
+      <div class="sec">Insight</div>
+      <button class="nav" data-v="health"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg><span class="lbl">Health</span></button>
+      <button class="nav" data-v="activity"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg><span class="lbl">Activity</span></button>
+      <button class="nav" data-v="rituals"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg><span class="lbl">Rituals</span></button>
+
+      <div class="sec">Ops</div>
+      <button class="nav" data-v="mcps"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2"/></svg><span class="lbl">MCPs</span></button>
+      <button class="nav" data-v="secrets"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg><span class="lbl">Secrets</span></button>
+      <button class="nav" data-v="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2"/></svg><span class="lbl">Settings</span></button>
+
+      <button class="cta" id="ctaNew"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg> New</button>
+      <div class="acct"><div class="av">J</div><div><b>John Keeney</b><span>Pro · Local+Gemini</span></div></div>
+    </aside>
+
+    <!-- ===== MAIN ===== -->
+    <div class="main">
+
+      <!-- HOME -->
+      <section class="view on" id="home">
+        <div class="vhead">
+          <h1>Good evening, John</h1><span class="sub">Sun Jul 19 · 1 overdue · 5 need you · 4 capture debt</span>
+          <div class="sp"></div>
+          <button class="btn sm" id="ritualBtn">☀ Morning ritual</button>
+        </div>
+        <div class="vbody">
+          <div class="capbar">
+            <span class="si si-sm si-g"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>
+            <input placeholder="Capture a thought…  @project #tag !priority :tomorrow" id="capInput" />
+            <div class="seg"><button class="on">Dump</button><button>Todo</button><button>Task</button><button>Note</button></div>
+            <button class="btn pri sm">Add</button>
+          </div>
+
+          <div class="grid41">
+            <div>
+              <!-- DO NOW -->
+              <div class="card" style="margin-bottom:11px">
+                <div class="row" style="justify-content:space-between;margin-bottom:6px"><h4>Do now</h4><span class="subtle" style="font-size:11px">Attention Graph · max 5</span></div>
+                <div class="lrow"><span class="si si-sm si-r"><svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg></span><span class="id">DEV-69</span><span class="ttl">End-to-end smoke test</span><span class="tag r">overdue 3d</span><span class="tag g">VAS</span></div>
+                <div class="lrow"><span class="si si-sm si-o"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg></span><span class="id">VAS-12</span><span class="ttl">Wire transcript export</span><span class="tag o">today</span><span class="tag v">has note</span></div>
+                <div class="lrow"><span class="si si-sm si-b"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/></svg></span><span class="id">att</span><span class="ttl">@you in VAS — confirm embed provider</span><span class="tag">needs you</span></div>
+              </div>
+
+              <!-- HEALTH STRIP -->
+              <div class="card" style="margin-bottom:11px">
+                <div class="row" style="justify-content:space-between;margin-bottom:8px"><h4>Workspace health</h4><button class="btn ghost sm" data-v="health">Open</button></div>
+                <div class="grid4" style="grid-template-columns:repeat(4,1fr)">
+                  <div class="meter danger"><div class="lbl">Overdue</div><div class="big">1</div><div class="bar"><i style="width:12%;background:var(--danger)"></i></div></div>
+                  <div class="meter warn"><div class="lbl">Capture debt</div><div class="big">4</div><div class="bar"><i style="width:40%;background:var(--warn)"></i></div></div>
+                  <div class="meter warn"><div class="lbl">Unfiled meets</div><div class="big">2</div><div class="bar"><i style="width:30%;background:var(--warn)"></i></div></div>
+                  <div class="meter ok"><div class="lbl">MCPs</div><div class="big">6/6</div><div class="bar"><i style="width:100%;background:var(--ok)"></i></div></div>
+                </div>
+              </div>
+
+              <!-- PROJECT PULSE -->
+              <div class="card">
+                <div class="row" style="justify-content:space-between;margin-bottom:8px"><h4>Project pulse</h4><span class="subtle" style="font-size:11px">initiative updates</span></div>
+                <div style="border:1px solid var(--hair);border-radius:10px;padding:10px;margin-bottom:7px">
+                  <div class="row" style="justify-content:space-between;margin-bottom:3px"><span class="row"><span class="si si-sm si-g"><svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></span><b style="font-size:12.5px">Voice Agent Studio</b></span><span class="tag g">on track</span></div>
+                  <p class="muted" style="font-size:12px;margin:0">“Shipped eval harness — next transcript → tasks.” · 2d</p>
+                </div>
+                <div style="border:1px solid var(--hair);border-radius:10px;padding:10px">
+                  <div class="row" style="justify-content:space-between;margin-bottom:3px"><span class="row"><span class="si si-sm si-v"><svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></span><b style="font-size:12.5px">AI Interaction Dashboard</b></span><span class="tag o">at risk</span></div>
+                  <p class="muted" style="font-size:12px;margin:0">“Waiting on embedding provider decision.” · 5d</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- RIGHT RAIL -->
+            <div>
+              <div class="card" style="margin-bottom:10px">
+                <div class="row" style="justify-content:space-between;margin-bottom:8px"><h4>Needs you</h4><span class="tag r">5</span></div>
+                <div class="lrow" style="padding:5px 0"><span class="tag" style="color:var(--subtle)">mention</span><span class="ttl" style="font-size:11.5px">@you confirm embed provider</span></div>
+                <div class="lrow" style="padding:5px 0"><span class="tag" style="color:var(--subtle)">blocked</span><span class="ttl" style="font-size:11.5px">DEV-69 unblocked, on you</span></div>
+                <div class="lrow" style="padding:5px 0"><span class="tag" style="color:var(--subtle)">starter</span><span class="ttl" style="font-size:11.5px">Acme Ops Concept Q</span></div>
+                <button class="btn sm" style="width:100%;margin-top:6px" data-v="focus">Open Focus →</button>
+              </div>
+              <div class="card" style="margin-bottom:10px;border-color:rgba(94,106,210,.35);background:linear-gradient(160deg,rgba(94,106,210,.1),var(--s1))">
+                <div class="row"><span class="si si-sm si-b"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></span><div><b style="font-size:12px">Continue starter</b><div class="muted" style="font-size:10.5px">Acme Ops · Concept 34%</div></div></div>
+                <div class="meter" style="margin:8px 0;background:var(--s1)"><div class="bar"><i style="width:34%;background:var(--pri)"></i></div></div>
+                <button class="btn pri sm" style="width:100%" data-v="starter">Resume</button>
+              </div>
+              <div class="card"><h4>Recent activity</h4>
+                <div class="tl" style="margin-top:6px">
+                  <div class="ev"><b>VAS health → on track</b><div class="when">2h</div></div>
+                  <div class="ev"><b>Note: transcript-plan edited</b><div class="when">today</div></div>
+                  <div class="ev"><b>Meeting filed: Embed sync</b><div class="when">1d</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- QUICK TILES -->
+          <div class="grid4" style="margin-top:12px">
+            <div class="lrow" data-v="notes" style="cursor:pointer;border:1px solid var(--hair);border-radius:11px;padding:11px;background:var(--s1)"><span class="si si-md si-v"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg></span><div><b style="font-size:12.5px">Notes</b><div class="muted" style="font-size:10.5px">Vault + ZenNotes</div></div></div>
+            <div class="lrow" data-v="meetings" style="cursor:pointer;border:1px solid var(--hair);border-radius:11px;padding:11px;background:var(--s1)"><span class="si si-md si-p"><svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/></svg></span><div><b style="font-size:12.5px">Meetings</b><div class="muted" style="font-size:10.5px">2 to file</div></div></div>
+            <div class="lrow" data-v="skills" style="cursor:pointer;border:1px solid var(--hair);border-radius:11px;padding:11px;background:var(--s1)"><span class="si si-md si-t"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/></svg></span><div><b style="font-size:12.5px">Skills</b><div class="muted" style="font-size:10.5px">Catalog</div></div></div>
+            <div class="lrow" data-v="starter" style="cursor:pointer;border:1px solid var(--hair);border-radius:11px;padding:11px;background:var(--s1)"><span class="si si-md si-b"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></span><div><b style="font-size:12.5px">Start from idea</b><div class="muted" style="font-size:10.5px">Project Starter</div></div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- FOCUS -->
+      <section class="view" id="focus">
+        <div class="vhead"><h1>Focus</h1><span class="sub">Today · attention</span><div class="sp"></div><div class="seg"><button class="on">List</button><button>Board</button><button>Split</button></div></div>
+        <div class="filters"><input placeholder="Filter…"><span class="chip on">Needs you 2</span><span class="chip">Today</span><span class="chip">Upcoming</span><span class="chip">Anytime</span><span class="chip">Someday</span><span class="chip">Logbook</span><span class="chip">Has note</span><span class="chip">Saved ▾</span></div>
+        <div class="vbody">
+          <div class="lrow"><span class="si si-sm si-r"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg></span><span class="id">DEV-69</span><span class="ttl">End-to-end smoke test</span><span class="tag r">overdue</span><span class="tag g">VAS</span><button class="btn ghost sm" data-v="notes">Open note</button></div>
+          <div class="lrow"><span class="si si-sm si-o"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg></span><span class="id">VAS-12</span><span class="ttl">Wire transcript export</span><span class="tag o">today</span><span class="tag v">note</span></div>
+          <div class="lrow"><span class="si si-sm si-b"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/></svg></span><span class="id">att</span><span class="ttl">@you confirm embed provider</span><span class="tag">needs you</span></div>
+          <div class="lrow"><span class="si si-sm si-gray"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg></span><span class="id">AID-4</span><span class="ttl">Embedding provider decision</span><span class="tag">waiting</span></div>
+          <hr class="sep">
+          <div class="row" style="justify-content:space-between"><h4 style="margin:0">Energy · today</h4><span class="subtle" style="font-size:11px">peak 9–11a protected</span></div>
+          <div class="meter" style="margin-top:6px"><div class="bar" style="height:8px;border-radius:4px"><i style="width:25%;background:var(--green)"></i></div></div>
+        </div>
+      </section>
+
+      <!-- CAPTURE -->
+      <section class="view" id="capture">
+        <div class="vhead"><h1>Capture</h1><span class="sub">Dump = get it out of your head</span><div class="sp"></div><button class="btn sm">Process all</button></div>
+        <div class="filters"><input placeholder="Search capture…"><div class="seg"><button class="on">Dump 4</button><button>Todos</button><button>Outline</button></div><span class="chip">Unfiled</span><span class="chip">@project</span></div>
+        <div class="vbody">
+          <div class="card" style="margin-bottom:8px"><b style="font-size:12.5px">“remember VAS eval harness path: /lib/eval”</b>
+            <div style="background:var(--s1);border:1px dashed var(--pri);border-radius:8px;padding:8px;margin-top:7px;display:flex;gap:8px;align-items:center"><span class="si si-sm si-b"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8"/></svg></span><span style="font-size:11.5px;flex:1">Suggested → <b>Note in VAS / decisions</b> <span class="subtle">(92%)</span></span><button class="btn sm">Accept</button><button class="btn ghost sm">Other</button></div>
+          </div>
+          <div class="lrow" style="border:1px solid var(--hair);border-radius:9px;background:var(--s1);margin-bottom:6px"><span class="ttl">call dentist friday</span><div class="sp"></div><button class="btn sm">→ Todo</button></div>
+          <div class="lrow" style="border:1px solid var(--hair);border-radius:9px;background:var(--s1);margin-bottom:6px"><span class="ttl">VAS: transcript plan next steps</span><div class="sp"></div><button class="btn sm">→ Note</button><button class="btn sm">→ Task</button></div>
+          <div class="card" style="margin-top:12px"><h4>Outline (WorkFlowy-lite)</h4>
+            <div style="margin-top:8px;font-size:12.5px;color:var(--muted)">
+              <div style="padding:3px 0">● Work <span class="kbd">zoom</span>
+                <div style="padding-left:16px"><div style="padding:3px 0">● Voice Agent — transcript export <span class="tag g">→ task</span></div></div>
+              </div>
+              <div style="padding:3px 0">● Life <span class="kbd">zoom</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- PROJECTS -->
+      <section class="view" id="projects">
+        <div class="vhead"><h1>Projects</h1><div class="sp"></div><button class="btn sm">Blank project</button><button class="btn pri sm" data-v="starter">Start from idea</button></div>
+        <div class="filters"><input placeholder="Search projects…"><span class="chip on">Active</span><span class="chip">All</span><span class="chip">Archived</span><span class="chip">Has starter</span><div class="seg" style="margin-left:auto"><button class="on">Grid</button><button>List</button></div></div>
+        <div class="vbody grid3">
+          <div data-v="project" style="cursor:pointer;border:1px solid var(--hair);border-radius:12px;padding:13px;background:var(--s1)">
+            <div class="row" style="margin-bottom:8px"><span class="si si-md si-g"><svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></span><div><b style="font-size:13px">Voice Agent Studio</b><div class="muted" style="font-size:10.5px">70 open · on track</div></div></div>
+            <div class="meter"><div class="bar"><i style="width:12%;background:var(--green)"></i></div></div>
+            <div class="row" style="margin-top:8px;gap:4px"><span class="tag t">4 skills</span><span class="tag v">12 notes</span><span class="tag">2 MCP</span><span class="tag r">3 secrets</span></div>
+          </div>
+          <div style="border:1px solid var(--hair);border-radius:12px;padding:13px;background:var(--s1)">
+            <div class="row" style="margin-bottom:8px"><span class="si si-md si-v"><svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></span><div><b style="font-size:13px">AI Interaction Dashboard</b><div class="muted" style="font-size:10.5px">12 open · at risk</div></div></div>
+            <div class="meter"><div class="bar"><i style="width:89%;background:var(--violet)"></i></div></div>
+          </div>
+          <div data-v="starter" style="cursor:pointer;border:1px solid rgba(94,106,210,.4);border-radius:12px;padding:13px;background:linear-gradient(160deg,rgba(94,106,210,.12),var(--s1))">
+            <div class="row" style="margin-bottom:8px"><span class="si si-md si-b"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></span><div><b style="font-size:13px">Start from an idea</b><div class="muted" style="font-size:10.5px">Grill · wayfind · handoff</div></div></div>
+            <button class="btn pri sm" style="width:100%">Open Project Starter</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- PROJECT HUB -->
+      <section class="view" id="project">
+        <div class="vhead"><span class="si si-md si-g"><svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></span><h1>Voice Agent Studio</h1><span class="tag g">on track</span><div class="sp"></div><div class="seg"><button class="on">Overview</button><button>Board</button><button data-v="notes">Notes</button><button>Updates</button></div></div>
+        <div class="vbody">
+          <div class="grid4" style="margin-bottom:12px">
+            <div class="lrow" data-v="notes" style="cursor:pointer;border:1px solid var(--hair);border-radius:11px;padding:11px;background:var(--s1)"><span class="si si-md si-v"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/></svg></span><div><b style="font-size:12.5px">12 notes</b><div class="muted" style="font-size:10.5px">Notebook</div></div></div>
+            <div class="lrow" style="border:1px solid var(--hair);border-radius:11px;padding:11px;background:var(--s1)"><span class="si si-md si-t"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/></svg></span><div><b style="font-size:12.5px">4 skills</b><div class="muted" style="font-size:10.5px">Pinned</div></div></div>
+            <div class="lrow" data-v="mcps" style="cursor:pointer;border:1px solid var(--hair);border-radius:11px;padding:11px;background:var(--s1)"><span class="si si-md si-b"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/></svg></span><div><b style="font-size:12.5px">2 MCPs</b><div class="muted" style="font-size:10.5px">Healthy</div></div></div>
+            <div class="lrow" data-v="secrets" style="cursor:pointer;border:1px solid var(--hair);border-radius:11px;padding:11px;background:var(--s1)"><span class="si si-md si-r"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/></svg></span><div><b style="font-size:12.5px">3 secrets</b><div class="muted" style="font-size:10.5px">Infisical</div></div></div>
+          </div>
+          <div class="grid2">
+            <div>
+              <h4 style="margin:0 0 8px">Initiative updates</h4>
+              <div class="composer"><textarea placeholder="Drop an update… what moved, what's stuck"></textarea><div class="row" style="justify-content:space-between"><div class="row"><span class="tag g">on track</span><span class="tag o">at risk</span></div><button class="btn pri sm">Post</button></div></div>
+              <div style="border:1px solid var(--hair);border-radius:10px;padding:10px;margin-bottom:7px"><div class="row" style="justify-content:space-between"><b style="font-size:12px">John</b><span class="tag g">on track</span></div><p class="muted" style="font-size:12px;margin:4px 0 0">Shipped eval harness. Next transcript → tasks.</p><div class="subtle" style="font-size:10.5px;margin-top:4px">2d · 3 comments</div></div>
+            </div>
+            <div>
+              <h4 style="margin:0 0 8px">Board · preview</h4>
+              <div class="split" style="min-height:180px">
+                <div class="col"><h5>Todo</h5><div style="padding:6px 0;font-size:11.5px">Smoke test <span class="tag r">!</span></div></div>
+                <div class="col"><h5>In prog</h5><div style="padding:6px 0;font-size:11.5px">Transcript export</div></div>
+                <div class="col"><h5>Done</h5><div style="padding:6px 0;font-size:11.5px;color:var(--muted)">git init</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- NOTES -->
+      <section class="view" id="notes">
+        <div class="vhead"><h1>Notes</h1><span class="sub">vault</span><div class="sp"></div><button class="btn sm">Ask vault</button><button class="btn pri sm">Open in ZenNotes ↗</button><button class="btn sm">+ New</button></div>
+        <div class="filters"><input placeholder="Search notes…"><span class="chip on">All</span><span class="chip">Projects</span><span class="chip">Areas</span><span class="chip">Inbox</span><span class="chip">Unfiled</span><span class="chip">Project ▾</span><span class="chip">Saved ▾</span></div>
+        <div class="notes3" style="flex:1;min-height:0">
+          <div class="tree">
+            <div class="n">Inbox <span class="bdg" style="margin-left:auto;background:var(--s3)">3</span></div>
+            <div class="n subtle" style="font-size:10px;text-transform:uppercase;margin-top:8px">Projects</div>
+            <div class="n on"><span style="color:var(--green)">●</span> Voice Agent Studio</div>
+            <div class="n pad">_index</div>
+            <div class="n pad2">decisions/</div>
+            <div class="n pad2">meetings/</div>
+            <div class="n pad2">notes/</div>
+            <div class="n"><span style="color:var(--violet)">●</span> AI Interaction Dash</div>
+            <div class="n subtle" style="font-size:10px;text-transform:uppercase;margin-top:8px">Areas</div>
+            <div class="n pad">ADHD systems</div>
+            <div class="n">Resources</div>
+          </div>
+          <div class="ed">
+            <div class="bc">Projects / Voice Agent Studio / notes / transcript-export</div>
+            <h2>Transcript → tasks path</h2>
+            <p class="muted">Linked from Focus VAS-12. Decisions and meeting actions file here.</p>
+            <p class="muted" style="margin-top:12px">## Next<br>- MCP auth refresh<br>- Wire export button</p>
+            <div class="row" style="margin-top:14px"><span class="tag g">VAS-12</span><span class="tag">Meeting Jul 18</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SKILLS -->
+      <section class="view" id="skills">
+        <div class="vhead"><h1>Skills</h1><div class="sp"></div><button class="btn sm">Re-scan</button></div>
+        <div class="filters"><input placeholder="Search skills…"><span class="chip on">All</span><span class="chip">Skills</span><span class="chip">Agents</span><span class="chip">Orch</span><span class="chip">Pinned</span><span class="chip">Source ▾</span></div>
+        <div class="vbody" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:10px;max-width:760px">
+          <div class="lrow" style="cursor:pointer;border:1px solid var(--hair);border-radius:11px;padding:13px;background:var(--s1);flex-direction:column;text-align:center;gap:7px;aspect-ratio:1;justify-content:center"><span class="si si-md si-t"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/></svg></span><b style="font-size:12px">grill-with-docs</b><span class="muted" style="font-size:10px">skill · global</span></div>
+          <div class="lrow" style="border:1px solid var(--hair);border-radius:11px;padding:13px;background:var(--s1);flex-direction:column;text-align:center;gap:7px;aspect-ratio:1;justify-content:center"><span class="si si-md si-v"><svg viewBox="0 0 24 24"><path d="M12 2a7 7 0 017 7c0 5-7 13-7 13S5 14 5 9a7 7 0 017-7z"/></svg></span><b style="font-size:12px">wayfinder</b><span class="muted" style="font-size:10px">pinned VAS</span></div>
+          <div class="lrow" style="border:1px solid var(--hair);border-radius:11px;padding:13px;background:var(--s1);flex-direction:column;text-align:center;gap:7px;aspect-ratio:1;justify-content:center"><span class="si si-md si-g"><svg viewBox="0 0 24 24"><path d="M12 2a5 5 0 015 5v3H7V7a5 5 0 015-5z"/></svg></span><b style="font-size:12px">forge-ui</b><span class="muted" style="font-size:10px">agent</span></div>
+          <div class="lrow" style="border:1px solid var(--hair);border-radius:11px;padding:13px;background:var(--s1);flex-direction:column;text-align:center;gap:7px;aspect-ratio:1;justify-content:center"><span class="si si-md si-b"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/></svg></span><b style="font-size:12px">implement</b><span class="muted" style="font-size:10px">skill</span></div>
+          <div class="lrow" style="border:1px solid var(--hair);border-radius:11px;padding:13px;background:var(--s1);flex-direction:column;text-align:center;gap:7px;aspect-ratio:1;justify-content:center"><span class="si si-md si-o"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/></svg></span><b style="font-size:12px">to-spec</b><span class="muted" style="font-size:10px">skill</span></div>
+          <div class="lrow" style="border:1px solid var(--hair);border-radius:11px;padding:13px;background:var(--s1);flex-direction:column;text-align:center;gap:7px;aspect-ratio:1;justify-content:center"><span class="si si-md si-p"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/></svg></span><b style="font-size:12px">lens</b><span class="muted" style="font-size:10px">agent</span></div>
+        </div>
+      </section>
+
+      <!-- MEETINGS -->
+      <section class="view" id="meetings">
+        <div class="vhead"><h1>Meetings</h1><div class="sp"></div><button class="btn sm">Paste</button><button class="btn pri sm">Upload</button></div>
+        <div class="filters"><input placeholder="Search…"><span class="chip on">All</span><span class="chip">Needs filing 2</span><span class="chip">Open actions</span><span class="chip">Project ▾</span><span class="chip">Date ▾</span></div>
+        <div class="vbody">
+          <div style="display:grid;grid-template-columns:240px 1fr 240px;gap:10px;min-height:340px">
+            <div style="border:1px solid var(--hair);border-radius:11px;background:var(--s1);overflow:auto">
+              <div style="padding:11px;border-bottom:1px solid var(--hair);background:rgba(94,106,210,.1)"><b style="font-size:12.5px">VAS weekly</b><div class="muted" style="font-size:10.5px">Jul 18 · 2 open actions</div><div class="row" style="margin-top:4px;gap:4px"><span class="tag o">actions</span><span class="tag">VAS</span></div></div>
+              <div style="padding:11px;border-bottom:1px solid var(--hair)"><b style="font-size:12.5px">Embedding sync</b><div class="muted" style="font-size:10.5px">Jul 12 · filed</div></div>
+            </div>
+            <div style="border:1px solid var(--hair);border-radius:11px;background:var(--s1)">
+              <div style="display:flex;gap:4px;padding:8px 10px;border-bottom:1px solid var(--hair)"><button class="seg" style="background:var(--s3);color:var(--ink);border:0;padding:4px 9px;border-radius:6px;font-size:11px">Summary</button><button style="background:transparent;border:0;color:var(--muted);padding:4px 9px;font-size:11px">Transcript</button><button style="background:transparent;border:0;color:var(--muted);padding:4px 9px;font-size:11px">Notes</button></div>
+              <div style="padding:13px"><b style="font-size:14px">VAS weekly · Jul 18</b><p class="muted" style="margin:6px 0">Summary (Local · LM Studio): Agreed transcript→tasks path. John owns MCP auth refresh.</p><p class="muted"><b style="color:var(--ink)">Decisions</b><br>· Transcript export P0 this week<br>· No cloud embeddings until LM probe fails</p></div>
+            </div>
+            <div style="border:1px solid var(--hair);border-radius:11px;background:var(--s1);padding:11px">
+              <h4 style="margin:0 0 8px;font-size:11px;color:var(--subtle);text-transform:uppercase">Open actions</h4>
+              <div style="padding:7px 0;border-bottom:1px solid var(--hair);font-size:11.5px"><b>Wire transcript export</b><div class="row" style="margin-top:5px;gap:4px"><button class="btn sm">→ Task</button><button class="btn sm">→ Todo</button></div></div>
+              <div style="padding:7px 0;font-size:11.5px"><b>Refresh MCP auth docs</b><div class="row" style="margin-top:5px;gap:4px"><button class="btn sm">→ Task</button></div></div>
+              <button class="btn pri sm" style="width:100%;margin-top:8px">Create all in VAS</button>
+              <button class="btn sm" style="width:100%;margin-top:5px" data-v="notes">File to notebook</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- HEALTH -->
+      <section class="view" id="health">
+        <div class="vhead"><h1>Workspace Health</h1><span class="sub">this week</span><div class="sp"></div><span class="healthdot"></span></div>
+        <div class="vbody">
+          <div class="grid4">
+            <div class="meter warn"><div class="lbl">Capture debt<span>↑</span></div><div class="big">4</div><div class="bar"><i style="width:40%;background:var(--warn)"></i></div></div>
+            <div class="meter danger"><div class="lbl">Unfiled meetings</div><div class="big">2</div><div class="bar"><i style="width:30%;background:var(--danger)"></i></div></div>
+            <div class="meter danger"><div class="lbl">Overdue</div><div class="big">1</div><div class="bar"><i style="width:12%;background:var(--danger)"></i></div></div>
+            <div class="meter ok"><div class="lbl">Needs you</div><div class="big">5</div><div class="bar"><i style="width:50%;background:var(--ok)"></i></div></div>
+            <div class="meter warn"><div class="lbl">Stale (7d+)</div><div class="big">1</div><div class="bar"><i style="width:25%;background:var(--warn)"></i></div></div>
+            <div class="meter ok"><div class="lbl">MCPs up</div><div class="big">6/6</div><div class="bar"><i style="width:100%;background:var(--ok)"></i></div></div>
+            <div class="meter warn"><div class="lbl">Wiki dead-links</div><div class="big">3</div><div class="bar"><i style="width:15%;background:var(--warn)"></i></div></div>
+            <div class="meter ok"><div class="lbl">Inbox trend</div><div class="big">↓</div><div class="bar"><i style="width:60%;background:var(--ok)"></i></div></div>
+          </div>
+          <h4 style="margin-top:16px">Suggested next actions</h4>
+          <div class="grid2" style="margin-top:8px">
+            <div class="card"><b>Process 4 captures</b><p>2 look like VAS, 1 todo, 1 unfiled.</p><button class="btn sm" style="margin-top:8px" data-v="capture">Open Capture →</button></div>
+            <div class="card"><b>File 2 meetings</b><p>Open actions waiting.</p><button class="btn sm" style="margin-top:8px" data-v="meetings">Open Meetings →</button></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ACTIVITY -->
+      <section class="view" id="activity">
+        <div class="vhead"><h1>Activity</h1><span class="sub">since Tue Jul 15</span><div class="sp"></div><span class="chip">all</span><span class="chip">task</span><span class="chip">note</span><span class="chip">meeting</span><span class="chip">project</span><span class="chip">starter</span></div>
+        <div class="vbody"><div class="tl">
+          <div class="ev"><b>VAS — on track</b><div class="when">2h · project update</div><p>“Shipped eval harness — next transcript → tasks.”</p></div>
+          <div class="ev"><b>New task VAS-13: Refresh MCP auth docs</b><div class="when">2h · from meeting</div></div>
+          <div class="ev"><b>Note edited: transcript → tasks path</b><div class="when">today · VAS notebook</div></div>
+          <div class="ev"><b>Meeting filed: Embedding sync</b><div class="when">1d · 3 actions</div></div>
+          <div class="ev"><b>Starter Acme → Architecture phase</b><div class="when">1d</div></div>
+          <div class="ev"><b>Skill pinned: wayfinder → VAS</b><div class="when">2d</div></div>
+        </div></div>
+      </section>
+
+      <!-- RITUALS -->
+      <section class="view" id="rituals">
+        <div class="vhead"><h1>Rituals</h1><span class="sub">structured, data-driven</span><div class="sp"></div><div class="seg"><button class="on">Morning</button><button>Weekly</button><button>EOD</button></div></div>
+        <div class="vbody">
+          <div class="card" style="max-width:520px">
+            <h4>Morning review</h4>
+            <div style="display:flex;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--hair)"><span style="width:18px;height:18px;border-radius:50%;background:var(--ok);display:grid;place-items:center;color:#020;font-size:10px">✓</span><div><b style="font-size:12.5px">Check Workspace Health</b><div class="muted" style="font-size:11px">4 debt · 2 unfiled</div></div></div>
+            <div style="display:flex;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--hair)"><span style="width:18px;height:18px;border-radius:50%;background:var(--ok);display:grid;place-items:center;color:#020;font-size:10px">✓</span><div><b style="font-size:12.5px">Process Needs you (5)</b></div></div>
+            <div style="display:flex;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--hair)"><span style="width:18px;height:18px;border-radius:50%;border:1px solid var(--hair2)"></span><div><b style="font-size:12.5px">Pick top 3 for Do now</b></div></div>
+            <div style="display:flex;gap:10px;align-items:center;padding:9px 0"><span style="width:18px;height:18px;border-radius:50%;border:1px solid var(--hair2)"></span><div><b style="font-size:12.5px">Sweep Capture (4)</b></div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- PROMPTS -->
+      <section class="view" id="prompts"><div class="vhead"><h1>Prompts</h1></div><div class="filters"><input placeholder="Search prompts…"><span class="chip on">All products</span><span class="chip">kbuddy</span></div><div class="vbody muted">Prompt library — cross-linked from Skills &amp; Chat. Soft product icons on cards.</div></section>
+
+      <!-- MCPS -->
+      <section class="view" id="mcps">
+        <div class="vhead"><h1>MCPs</h1><span class="sub">6 servers</span><div class="sp"></div><button class="btn pri sm">+ Add</button></div>
+        <div class="filters"><input placeholder="Search MCPs…"><span class="chip on">All</span><span class="chip">Up</span><span class="chip">Used by Claude</span><span class="chip">Project-scoped</span></div>
+        <div class="vbody grid3">
+          <div class="card"><div class="row" style="margin-bottom:7px;justify-content:space-between"><span class="row"><span class="si si-md si-b"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/></svg></span><div><b style="font-size:12.5px">nexus</b><div class="muted" style="font-size:10.5px">tasks · notes · todos</div></div></span><span class="tag g">up</span></div><p style="font-size:11px">Claude · Codex · Chat · 11 tools</p></div>
+          <div class="card"><div class="row" style="margin-bottom:7px;justify-content:space-between"><span class="row"><span class="si si-md si-v"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/></svg></span><div><b style="font-size:12.5px">zennotes</b><div class="muted" style="font-size:10.5px">vault R/W</div></div></span><span class="tag g">up</span></div></div>
+          <div class="card"><div class="row" style="margin-bottom:7px;justify-content:space-between"><span class="row"><span class="si si-md si-o"><svg viewBox="0 0 24 24"><path d="M2 12h20M12 2v20"/></svg></span><div><b style="font-size:12.5px">browser</b></div></span><span class="tag o">idle</span></div></div>
+        </div>
+      </section>
+
+      <!-- SECRETS -->
+      <section class="view" id="secrets">
+        <div class="vhead"><h1>Secrets</h1><span class="tag g">Infisical connected</span><div class="sp"></div><button class="btn sm">Import selected</button></div>
+        <div class="filters"><input placeholder="Search secrets…"><span class="chip on">All</span><span class="chip">Global</span><span class="chip">Project ▾</span><span class="chip">Injected to MCP</span></div>
+        <div class="vbody">
+          <div class="lrow" style="border:1px solid var(--hair);border-radius:9px;background:var(--s1);margin-bottom:6px"><span class="si si-sm si-r"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/></svg></span><span class="ttl">OPENAI_API_KEY</span><span class="tag">••••4f2a</span><span class="tag v">VAS</span><button class="btn sm">Copy</button></div>
+          <div class="lrow" style="border:1px solid var(--hair);border-radius:9px;background:var(--s1)"><span class="si si-sm si-r"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/></svg></span><span class="ttl">DATABASE_URL</span><span class="tag">••••</span><span class="tag t">→ nexus-mcp</span></div>
+        </div>
+      </section>
+
+      <!-- SETTINGS -->
+      <section class="view" id="settings">
+        <div class="vhead"><h1>Settings</h1></div>
+        <div class="vbody grid2">
+          <div class="card"><h4>Appearance</h4><div class="row" style="margin-top:6px;gap:10px"><span class="row" style="gap:5px;font-size:11px;color:var(--muted)"><i style="width:14px;height:14px;border-radius:4px;background:#5e6ad2;display:block"></i>lavender</span><span class="row" style="gap:5px;font-size:11px;color:var(--muted)"><i style="width:14px;height:14px;border-radius:4px;background:#4cb782;display:block"></i>green</span></div><p style="margin-top:8px">Density · ADHD-calm mode</p></div>
+          <div class="card"><h4>Models</h4><p>Cloud · LM Studio URL · Gemini fallback · default chat/embed</p></div>
+          <div class="card"><h4>Notes vault</h4><p>Root path · Open in ZenNotes command · embeddings</p></div>
+          <div class="card"><h4>Infisical</h4><p>Local Docker URL · identity</p></div>
+          <div class="card"><h4>Menu bar &amp; hotkeys</h4><p>⌘⇧Space capture · menu-bar item on · dock badge</p></div>
+          <div class="card"><h4>Spaces</h4><p>Work · Personal · Nexus — vault + secret scope per space</p></div>
+        </div>
+      </section>
+
+      <!-- STARTER -->
+      <section class="view" id="starter">
+        <div class="vhead"><h1>Project Starter</h1><span class="sub">Acme Ops Desk</span><div class="sp"></div><button class="btn ghost sm" data-v="home">Save &amp; leave</button></div>
+        <div class="filters" style="justify-content:flex-start"><span class="chip">✓ Seed</span><span class="chip on">1 Concept</span><span class="chip">2 Arch</span><span class="chip">3 UX</span><span class="chip">4 Plan</span><span class="chip">5 Handoff</span><span class="chip">→ Board</span><span class="subtle" style="margin-left:auto">34% · Claude oauth</span></div>
+        <div class="vbody grid41">
+          <div class="card"><div class="subtle" style="font-size:10px;text-transform:uppercase;color:var(--pri-h);margin-bottom:6px">grill-with-docs · Q 4</div><b style="font-size:14px">When you say “project,” Nexus record or git repo?</b><p class="muted" style="margin:7px 0">Recommended: Workspace = disk · Project = Nexus.</p><textarea style="width:100%;min-height:54px;background:var(--s2);border:1px solid var(--hair2);border-radius:8px;color:var(--ink);padding:8px;font:inherit">Agree — 1:1 for v1.</textarea><div class="row" style="margin-top:9px"><button class="btn pri sm">Send</button><button class="btn sm">Accept rec</button></div></div>
+          <div><div class="card" style="margin-bottom:9px"><b>CONTEXT.md</b><pre style="margin:7px 0 0;font-size:11px;color:var(--muted);font-family:var(--mono)">Workspace — disk
+Project — Nexus
++ Starter run</pre></div><div class="card" style="border-color:rgba(94,106,210,.35);background:linear-gradient(160deg,rgba(94,106,210,.1),var(--s1))"><b>After seal</b><p class="muted" style="font-size:12px;margin:6px 0">Board materializes · notebook scaffold · Home pulse starts</p><button class="btn sm" data-v="projects">See projects</button></div></div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+  <!-- ========== MAC-NATIVE OVERLAYS ========== -->
+  <!-- companion -->
+  <div class="companion overlay" id="ovCompanion">
+    <div class="ch"><span class="si si-sm si-v" style="width:18px"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></span> Companion · context</div>
+    <div class="cb"><b>Suggested:</b><div style="margin:6px 0;display:flex;gap:5px;flex-wrap:wrap"><span class="chip">✦ Draft update</span><span class="chip">✦ Summarize note</span><span class="chip">✦ Find related</span></div><div style="font-size:11px;color:var(--subtle);margin-top:6px">Local · LM Studio → Gemini</div></div>
+  </div>
+
+  <!-- command bar -->
+  <div class="overlay cmdbar" id="ovCmd">
+    <input value="vas transcript" />
+    <div class="grp">Navigate</div>
+    <div class="it on"><span class="si si-sm si-g"><svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></span> Voice Agent Studio<span class="k">↵</span></div>
+    <div class="it"><span class="si si-sm si-v"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/></svg></span> transcript → tasks · note</div>
+    <div class="grp">Create</div>
+    <div class="it"><span class="si si-sm si-o"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span> New task in VAS<span class="k">⌘↵</span></div>
+    <div class="it"><span class="si si-sm si-b"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8"/></svg></span> Start from idea</div>
+    <div class="grp">Ask</div>
+    <div class="it"><span class="si si-sm si-v"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5"/></svg></span> “What did we decide about embeddings?”<span class="k">tab</span></div>
+  </div>
+
+  <!-- menu bar dropdown -->
+  <div class="overlay menubar" id="ovBell">
+    <div class="mh"><b>Nexus</b><span class="subtle">menu bar</span></div>
+    <div class="mi"><span class="si si-sm si-g"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span><b>Quick capture</b><span class="kbd">⌘⇧␣</span></div>
+    <div class="mi"><span class="si si-sm si-r"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/></svg></span><b>5 need you</b><span>1 mention · 1 unblocked</span></div>
+    <div class="mi"><span class="si si-sm si-o"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span><b>Health: 2 warnings</b></div>
+    <div class="mi"><span class="si si-sm si-v"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8"/></svg></span><b>Continue starter</b><span>Acme 34%</span></div>
+    <div class="mi"><span class="si si-sm si-gray"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/></svg></span><b>Lock note → float</b><span class="kbd">⌘⇧F</span></div>
+  </div>
+
+  <!-- global capture -->
+  <div class="overlay gcap" id="ovCap">
+    <div class="lab"><span>Quick capture · any app</span><span class="kbd">esc</span></div>
+    <input value="call dentist friday — personal" />
+    <div class="row" style="margin-top:9px"><span class="chip">→ Dump</span><span class="chip">→ Todo</span><span class="kbd" style="margin-left:auto">⌘↵</span></div>
+  </div>
+
+  <!-- floating notes -->
+  <div class="overlay floatnotes" id="ovFloat">
+    <div class="fn"><h6>📌 Dev reminder</h6><p>nexus-mcp auth refresh — 10m</p></div>
+    <div class="fn b"><h6>📌 VAS goal</h6><p>ship transcript → tasks this week</p></div>
+  </div>
+
+  <!-- DOCK -->
+  <div class="dock">
+    <div class="di" style="background:rgba(94,106,210,.25);color:var(--pri-h);position:relative" title="Nexus">
+      <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+      <span class="bdg" style="position:absolute;top:-2px;right:-2px;min-width:14px;height:14px;border-radius:7px;background:var(--danger);color:#fff;font-size:9px;display:grid;place-items:center;padding:0 3px">5</span>
+      <span class="lab">Nexus — 5 need you</span>
+    </div>
+    <div class="di" style="background:rgba(76,183,130,.2);color:var(--green)" id="dockCap"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span class="lab">Quick capture ⌘⇧␣</span></div>
+    <div class="di" style="background:rgba(232,121,169,.18);color:var(--pink)" id="dockFloat"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v14"/></svg><span class="lab">Floating notes ⌘⇧F</span></div>
+    <div class="di" style="background:rgba(155,138,251,.2);color:var(--violet)"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg><span class="lab">Command ⌘K</span></div>
+  </div>
+
 </div>
+</div>
+
 <script>
-const navs=[...document.querySelectorAll('.sb .nav')];
+const navs=[...document.querySelectorAll('.sb .nav,[data-v]')];
 const views=[...document.querySelectorAll('.view')];
 function go(id){
   views.forEach(v=>v.classList.toggle('on',v.id===id));
-  navs.forEach(n=>{
-    const map={home:1,focus:1,capture:1,projects:1,project:'projects',notes:1,skills:1,meetings:1,prompts:1,mcps:1,secrets:1,settings:1,starter:'projects'};
-    const key=n.dataset.v;
-    const active = key===id || (id==='project'&&key==='project') || (id==='starter'&&key==='projects');
-    // highlight matching nav; project detail highlights favorite
-    n.classList.toggle('on', key===id || (id==='project'&&key==='project') || (id==='starter'&&false));
-  });
-  // fix: set on correctly
-  navs.forEach(n=>n.classList.remove('on'));
-  if(id==='project') document.querySelector('[data-v=project]')?.classList.add('on');
-  else if(id==='starter') document.querySelector('[data-v=projects]')?.classList.add('on');
-  else document.querySelector(`[data-v="${id}"]`)?.classList.add('on');
+  document.querySelectorAll('.sb .nav').forEach(n=>n.classList.toggle('on',n.dataset.v===id));
+  document.getElementById('win').scrollIntoView({behavior:'smooth'});
 }
-navs.forEach(n=>n.addEventListener('click',()=>go(n.dataset.v)));
-document.querySelectorAll('[data-go]').forEach(el=>el.addEventListener('click',()=>go(el.dataset.go)));
+document.querySelectorAll('.sb .nav').forEach(n=>n.addEventListener('click',()=>go(n.dataset.v)));
+document.querySelectorAll('[data-v]').forEach(el=>el.addEventListener('click',()=>go(el.dataset.v)));
 document.getElementById('ctaNew').addEventListener('click',()=>go('capture'));
-// filter chips toggle
-document.querySelectorAll('.filters .chip').forEach(c=>{
-  c.addEventListener('click',()=>{
-    if(c.textContent.includes('▾')||c.textContent.includes('Saved')) return;
-    // segment-like exclusive for first group of simple filters - just toggle
-    c.classList.toggle('on');
-  });
+document.getElementById('ritualBtn').addEventListener('click',()=>go('rituals'));
+// overlays
+function tog(id){document.getElementById(id).classList.toggle('on')}
+document.getElementById('openCmd').addEventListener('click',()=>tog('ovCmd'));
+document.getElementById('openCap').addEventListener('click',()=>tog('ovCap'));
+document.getElementById('openBell').addEventListener('click',()=>tog('ovBell'));
+document.getElementById('openCompanion').addEventListener('click',()=>tog('ovCompanion'));
+document.getElementById('dockCap').addEventListener('click',()=>tog('ovCap'));
+document.getElementById('dockFloat').addEventListener('click',()=>tog('ovFloat'));
+document.getElementById('toggleRail').addEventListener('click',()=>document.getElementById('win').classList.toggle('railon'));
+// close overlays on outside click
+document.addEventListener('click',e=>{
+  if(!e.target.closest('.overlay')&&!e.target.closest('#openCmd')&&!e.target.closest('#openCap')&&!e.target.closest('#openBell')&&!e.target.closest('#openCompanion')&&!e.target.closest('.dock')){
+    ['ovCmd','ovCap','ovBell'].forEach(id=>document.getElementById(id).classList.remove('on'));
+  }
 });
 </script>
 </body>
