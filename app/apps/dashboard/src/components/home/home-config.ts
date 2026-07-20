@@ -17,6 +17,7 @@
 export type HomeCardId =
 	| "greeting"
 	| "do-now"
+	| "todos"
 	| "agenda"
 	| "up-next"
 	| "active-projects"
@@ -42,6 +43,7 @@ export const DEFAULT_HOME_CONFIG: HomeConfig = {
 	cards: [
 		{ id: "greeting", enabled: true },
 		{ id: "do-now", enabled: true },
+		{ id: "todos", enabled: true },
 		{ id: "agenda", enabled: true },
 		{ id: "up-next", enabled: true },
 		{ id: "active-projects", enabled: true },
@@ -54,6 +56,7 @@ export const DEFAULT_HOME_CONFIG: HomeConfig = {
 export const HOME_CARD_LABELS: Record<HomeCardId, string> = {
 	greeting: "Greeting",
 	"do-now": "Do now",
+	todos: "To-do",
 	agenda: "My agenda",
 	"up-next": "Up next",
 	"active-projects": "Active projects",
@@ -65,6 +68,7 @@ export const HOME_CARD_LABELS: Record<HomeCardId, string> = {
 export const HOME_CARD_DESCRIPTIONS: Record<HomeCardId, string> = {
 	greeting: "Time-of-day greeting and day brief.",
 	"do-now": "Attention Graph top 5 — overdue, today, in progress.",
+	todos: "Quick todos — check off + add inline.",
 	agenda: "Tasks due today or overdue, assigned to you.",
 	"up-next": "Tasks currently in progress or in review.",
 	"active-projects": "Top active projects with progress bars.",

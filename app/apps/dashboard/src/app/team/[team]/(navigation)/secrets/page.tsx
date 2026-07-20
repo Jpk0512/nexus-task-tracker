@@ -1,5 +1,11 @@
-import { SecretsShell } from "@/components/secrets/secrets-shell";
+import { redirect } from "next/navigation";
 
-export default function SecretsPage() {
-	return <SecretsShell />;
+/** Legacy /secrets → /vault. */
+export default async function SecretsRedirectPage({
+	params,
+}: {
+	params: Promise<{ team: string }>;
+}) {
+	const { team } = await params;
+	redirect(`/team/${team}/vault`);
 }

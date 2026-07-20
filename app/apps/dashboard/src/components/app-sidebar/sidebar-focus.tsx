@@ -5,14 +5,13 @@ import {
 	SidebarGroupContent,
 	SidebarGroupLabel,
 	SidebarMenu,
-	SidebarMenuBadge,
 	SidebarMenuButton,
 	SidebarMenuItem,
 } from "@ui/components/ui/sidebar";
 import {
+	CheckSquareIcon,
 	FolderKanbanIcon,
 	HomeIcon,
-	InboxIcon,
 	PlusCircleIcon,
 	TargetIcon,
 } from "lucide-react";
@@ -22,8 +21,10 @@ import { useUser } from "../user-provider";
 
 /**
  * Workspace cluster — Dashboard OS IA lock:
- * Home · Focus · Capture · Projects · Create Project
- * (Chat demoted — available via header/⌘K, not peer of Home.)
+ * Home · To-do · Focus · Projects · Create Project
+ *
+ * To-do is the primary work surface (prominent, second slot).
+ * Brain dump lives in the global header Dump modal (⌘J), not a nav page.
  */
 export function SidebarFocus() {
 	const user = useUser();
@@ -38,6 +39,12 @@ export function SidebarFocus() {
 			active: pathname === base || pathname === `${base}/`,
 		},
 		{
+			href: `${base}/todos`,
+			label: "To-do",
+			icon: CheckSquareIcon,
+			active: pathname.startsWith(`${base}/todos`),
+		},
+		{
 			href: `${base}/focus`,
 			label: "Focus",
 			icon: TargetIcon,
@@ -47,15 +54,6 @@ export function SidebarFocus() {
 				pathname.startsWith(`${base}/my-tasks`) ||
 				pathname.startsWith(`${base}/views/my-tasks`) ||
 				pathname.startsWith(`${base}/triage`),
-		},
-		{
-			href: `${base}/capture`,
-			label: "Capture",
-			icon: InboxIcon,
-			active:
-				pathname.startsWith(`${base}/capture`) ||
-				pathname.startsWith(`${base}/todos`) ||
-				pathname.startsWith(`${base}/inbox`),
 		},
 		{
 			href: `${base}/projects`,

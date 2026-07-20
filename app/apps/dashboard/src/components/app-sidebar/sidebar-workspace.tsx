@@ -14,11 +14,10 @@ import {
 	BrainIcon,
 	FileTextIcon,
 	HeartPulseIcon,
-	KeyRoundIcon,
 	MessageSquareTextIcon,
 	MicIcon,
-	ServerIcon,
 	SettingsIcon,
+	ShieldCheckIcon,
 	SparklesIcon,
 } from "lucide-react";
 import Link from "next/link";
@@ -96,19 +95,14 @@ export function SidebarWorkspace() {
 
 	const ops = [
 		{
-			href: `${base}/mcps`,
-			label: "MCPs",
-			icon: ServerIcon,
+			href: `${base}/vault`,
+			label: "Vault",
+			icon: ShieldCheckIcon,
 			active:
+				pathname.startsWith(`${base}/vault`) ||
 				pathname.startsWith(`${base}/mcps`) ||
-				pathname.startsWith(`${base}/settings/mcp-servers`),
-		},
-		{
-			href: `${base}/secrets`,
-			label: "Secrets",
-			icon: KeyRoundIcon,
-			active:
 				pathname.startsWith(`${base}/secrets`) ||
+				pathname.startsWith(`${base}/settings/mcp-servers`) ||
 				pathname.startsWith(`${base}/settings/api-keys`),
 		},
 		{

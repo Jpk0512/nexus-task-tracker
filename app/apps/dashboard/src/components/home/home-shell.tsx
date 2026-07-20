@@ -23,6 +23,7 @@ import { DoNowCard } from "./do-now-card";
 import { HealthStrip } from "./health-strip";
 import { OsQuickTiles } from "./os-quick-tiles";
 import { QuickCapture } from "./quick-capture";
+import { TodosCard } from "./todos-card";
 import { StarterContinueCard } from "./starter-continue-card";
 import { StaleCommitmentDigest } from "./stale-commitment-digest";
 import { UpNextCard } from "./up-next-card";
@@ -52,6 +53,8 @@ function renderCard(id: HomeCardId): React.ReactNode {
 			return <GreetingCard />;
 		case "do-now":
 			return <DoNowCard />;
+		case "todos":
+			return <TodosCard />;
 		case "agenda":
 			return <AgendaCard />;
 		case "up-next":
@@ -207,6 +210,7 @@ function DefaultHomeFallback() {
 			<GreetingCard />
 			<div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
 				<DoNowCard />
+				<TodosCard />
 				<AgendaCard />
 				<UpNextCard />
 			</div>

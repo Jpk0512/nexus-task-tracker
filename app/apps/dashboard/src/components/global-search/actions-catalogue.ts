@@ -55,7 +55,7 @@ export const ACTIONS: GlobalSearchItem[] = [
 	{
 		id: "action:go-capture",
 		type: "navigation",
-		title: "/go capture",
+		title: "/go outline",
 		teamId: "",
 		href: "/capture",
 	},
@@ -102,18 +102,32 @@ export const ACTIONS: GlobalSearchItem[] = [
 		href: "/rituals",
 	},
 	{
+		id: "action:go-todos",
+		type: "navigation",
+		title: "/go todos",
+		teamId: "",
+		href: "/todos",
+	},
+	{
+		id: "action:go-vault",
+		type: "navigation",
+		title: "/go vault",
+		teamId: "",
+		href: "/vault",
+	},
+	{
 		id: "action:go-mcps",
 		type: "navigation",
 		title: "/go mcps",
 		teamId: "",
-		href: "/mcps",
+		href: "/vault",
 	},
 	{
 		id: "action:go-secrets",
 		type: "navigation",
 		title: "/go secrets",
 		teamId: "",
-		href: "/secrets",
+		href: "/vault",
 	},
 	{
 		id: "action:go-settings-labels",
