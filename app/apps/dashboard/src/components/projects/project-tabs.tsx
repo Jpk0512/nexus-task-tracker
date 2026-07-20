@@ -104,13 +104,13 @@ const TABS: TabDef[] = [
 	},
 	{
 		id: "knowledge",
-		label: "Knowledge",
+		label: "Notes",
 		href: (team, p) => `/team/${team}/projects/${p}/knowledge`,
 		icon: BrainIcon,
 	},
 	{
 		id: "library",
-		label: "Library",
+		label: "Skills",
 		href: (team, p) => `/team/${team}/projects/${p}/library`,
 		icon: BookOpenIcon,
 	},

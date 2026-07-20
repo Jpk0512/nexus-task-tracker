@@ -1,7 +1,9 @@
 "use client";
 
 import { cn } from "@ui/lib/utils";
-import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useInboxCounts } from "@/components/inbox/use-inbox-counts";
 import { InboxView } from "@/components/inbox/view";
 import { PersonalLens } from "@/components/lens/personal-lens";
 
@@ -9,10 +11,27 @@ type Tab = "focus" | "needs-you";
 
 /**
  * Focus surface — merges Lens work-list + Needs you (attention inbox).
- * Capture remains a separate Brain dump surface.
+ * Supports ?tab=needs-you for legacy /inbox redirects.
  */
 export function FocusShell() {
-	const [tab, setTab] = useState<Tab>("focus");
+	const searchParams = useSearchParams();
+	const initial =
+		searchParams.get("tab") === "needs-you" ||
+		searchParams.get("needs") === "you"
+			? "needs-you"
+			: "focus";
+	const [tab, setTab] = useState<Tab>(initial);
+	const { tabCounts } = useInboxCounts();
+	const unread = tabCounts?.unread ?? 0;
+
+	useEffect(() => {
+		if (
+			searchParams.get("tab") === "needs-you" ||
+			searchParams.get("needs") === "you"
+		) {
+			setTab("needs-you");
+		}
+	}, [searchParams]);
 
 	return (
 		<div className="flex h-full min-h-0 flex-col">
@@ -35,13 +54,18 @@ export function FocusShell() {
 							type="button"
 							onClick={() => setTab(id)}
 							className={cn(
-								"rounded-md px-3 py-1.5 text-[12.5px] font-[510] transition-colors",
+								"inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[12.5px] font-[510] transition-colors",
 								tab === id
 									? "bg-accent text-foreground"
 									: "text-muted-foreground hover:text-foreground",
 							)}
 						>
 							{label}
+							{id === "needs-you" && unread > 0 ? (
+								<span className="rounded-full bg-primary/20 px-1.5 text-[10px] tabular-nums text-primary">
+									{unread}
+								</span>
+							) : null}
 						</button>
 					))}
 				</div>

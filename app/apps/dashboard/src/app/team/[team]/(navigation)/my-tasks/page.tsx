@@ -1,24 +1,11 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { TasksView } from "@/components/tasks-view/tasks-view";
-import { useUser } from "@/components/user-provider";
-
-export default function Page() {
-	const user = useUser();
-
-	if (!user) {
-		return null;
-	}
-
-	return (
-		<TasksView
-			defaultFilters={{
-				assigneeId: [user?.id!],
-				viewType: "list",
-				groupBy: "none",
-				statusType: ["to_do", "in_progress"],
-				showEmptyColumns: false,
-			}}
-		/>
-	);
+/** Legacy My Tasks → Focus. */
+export default async function MyTasksRedirectPage({
+	params,
+}: {
+	params: Promise<{ team: string }>;
+}) {
+	const { team } = await params;
+	redirect(`/team/${team}/focus`);
 }

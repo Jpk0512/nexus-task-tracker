@@ -1,11 +1,19 @@
 "use client";
 import { useQuery } from "@tanstack/react-query";
-import { BrainIcon, FolderOpenIcon } from "lucide-react";
+import {
+	BookOpenIcon,
+	BrainIcon,
+	FileTextIcon,
+	FolderOpenIcon,
+	ListChecksIcon,
+	RadioIcon,
+} from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useMemo } from "react";
 import { useSetBreadcrumbs } from "@/components/breadcrumbs";
 import { ProjectForm } from "@/components/forms/project-form/form";
+import { SoftIcon } from "@/components/ui/soft-icon";
 import { trpc } from "@/utils/trpc";
 import { MilestonesCard } from "./milestones-card";
 
@@ -33,6 +41,7 @@ export const ProjectOverview = ({ projectId }: { projectId: string }) => {
 				// the rest of the properties into a compact chip strip directly
 				// below — no card chrome, full width within the constrained column.
 				<div className="mx-auto max-w-2xl px-6 py-8 lg:py-12">
+					<ProjectResourceStrip projectId={projectId} team={team ?? ""} />
 					<ProjectForm
 						defaultValues={{
 							...data,
@@ -55,12 +64,71 @@ export const ProjectOverview = ({ projectId }: { projectId: string }) => {
 	);
 };
 
+/** Dashboard OS resource strip — one-click jump to project surfaces. */
+function ProjectResourceStrip({
+	projectId,
+	team,
+}: {
+	projectId: string;
+	team: string;
+}) {
+	const items = [
+		{
+			label: "Board",
+			href: `/team/${team}/projects/${projectId}`,
+			icon: FolderOpenIcon,
+			tone: "blue" as const,
+		},
+		{
+			label: "Todos",
+			href: `/team/${team}/projects/${projectId}/todos`,
+			icon: ListChecksIcon,
+			tone: "green" as const,
+		},
+		{
+			label: "Docs",
+			href: `/team/${team}/projects/${projectId}/docs`,
+			icon: FileTextIcon,
+			tone: "orange" as const,
+		},
+		{
+			label: "Notes",
+			href: `/team/${team}/projects/${projectId}/knowledge`,
+			icon: BrainIcon,
+			tone: "violet" as const,
+		},
+		{
+			label: "Skills",
+			href: `/team/${team}/projects/${projectId}/library`,
+			icon: BookOpenIcon,
+			tone: "teal" as const,
+		},
+		{
+			label: "Updates",
+			href: `/team/${team}/projects/${projectId}/updates`,
+			icon: RadioIcon,
+			tone: "pink" as const,
+		},
+	];
+	return (
+		<div className="mb-8 grid grid-cols-3 gap-2 sm:grid-cols-6">
+			{items.map((it) => (
+				<Link
+					key={it.label}
+					href={it.href}
+					className="flex flex-col items-center gap-1.5 rounded-xl border border-border/60 bg-card/30 px-2 py-3 text-center transition-colors hover:bg-accent/40"
+				>
+					<SoftIcon icon={it.icon} tone={it.tone} size="sm" />
+					<span className="text-[11px] font-[510]">{it.label}</span>
+				</Link>
+			))}
+		</div>
+	);
+}
+
 /**
- * Compact "Linked knowledge" preview on the project Overview tab.
- * Surfaces up to 5 knowledge notes whose frontmatter `project:` key matches
- * this project's name OR prefix. Click-through goes to the full Knowledge
- * sub-route. Same matching logic as ProjectKnowledgeView — keep them in
- * sync if the rules ever change.
+ * Compact "Linked notes" preview on the project Overview tab.
+ * Matches frontmatter project key, name/prefix, or projects/{projectId}/ path.
  */
 function LinkedKnowledgeCard({
 	projectId,
@@ -106,17 +174,23 @@ function LinkedKnowledgeCard({
 			}
 			if (!matched) {
 				const path = n.relativePath.toLowerCase().replace(/\\+/g, "/");
-				for (const key of keys) {
-					if (path.startsWith(`projects/${key}/`)) {
-						matched = true;
-						break;
+				// Lock: vault folders by projectId for rename stability
+				if (path.startsWith(`projects/${projectId.toLowerCase()}/`)) {
+					matched = true;
+				}
+				if (!matched) {
+					for (const key of keys) {
+						if (path.startsWith(`projects/${key}/`)) {
+							matched = true;
+							break;
+						}
 					}
 				}
 			}
 			if (matched) out.push(n);
 		}
 		return out.slice(0, 5);
-	}, [notes, projectName, projectPrefix]);
+	}, [notes, projectName, projectPrefix, projectId]);
 
 	if (linked.length === 0) return null;
 
@@ -126,7 +200,7 @@ function LinkedKnowledgeCard({
 				<div className="flex items-center gap-2">
 					<BrainIcon className="size-3.5 text-violet-500" />
 					<h2 className="font-[510] text-[13px] tracking-[-0.005em]">
-						Linked knowledge
+						Linked notes
 					</h2>
 					<span className="text-[11px] text-muted-foreground">
 						· {linked.length} note{linked.length === 1 ? "" : "s"}

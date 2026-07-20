@@ -18,7 +18,9 @@ import {
 	resetHomeConfig,
 	saveHomeConfig,
 } from "./home-config";
+import { CompanionStub } from "@/components/ai/companion-stub";
 import { DoNowCard } from "./do-now-card";
+import { HealthStrip } from "./health-strip";
 import { OsQuickTiles } from "./os-quick-tiles";
 import { QuickCapture } from "./quick-capture";
 import { StarterContinueCard } from "./starter-continue-card";
@@ -142,6 +144,7 @@ export const HomeShell = () => {
 					<SettingsIcon className="size-3.5" />
 				</button>
 			</div>
+			<HealthStrip />
 			{layout === null ? (
 				// Initial paint before hydration — render defaults to avoid layout
 				// shift. The useEffect will replace this with the persisted layout
@@ -178,6 +181,7 @@ export const HomeShell = () => {
 			<StarterContinueCard />
 			{/* Dashboard OS quick tiles — Notes / Skills / Meetings / Starter */}
 			<OsQuickTiles />
+			<CompanionStub compact />
 			{config ? (
 				<DashboardConfigModal
 					open={open}

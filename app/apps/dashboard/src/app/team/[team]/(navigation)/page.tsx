@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { HomeShell } from "@/components/home/home-shell";
 
 type Props = {
@@ -7,24 +8,16 @@ type Props = {
 };
 
 /**
- * Home — iter-10 redesign.
- *
- * Server component is intentionally thin: the configurator (localStorage,
- * drag-reorder, gear icon) lives in `HomeShell`, a client component. Keeping
- * the route a server component preserves the existing render flow (auth,
- * teamLayout chrome) while letting the shell own all configurable state.
- *
- * Cards (server-paint defaults, fully configurable in the modal):
- *   - GreetingCard (time-of-day + day brief)         [on]
- *   - AgendaCard (due today / overdue)               [on]
- *   - UpNextCard (Triage Now slice)                  [on]
- *   - ActiveProjectsRail (horizontal scroll)         [on]
- *   - StaleCommitmentDigest (cron-style nag)         [off]
- *   - EndOfDayRecap (granola-style)                  [off]
- *   - ActivityFeed (last 10 events)                  [off]
- *
- * Quick-capture bar lands in commit 6.
+ * Home — Dashboard OS shell (Do now, health strip, capture dump default, companion).
  */
 export default async function Page({ searchParams: _searchParams }: Props) {
-	return <HomeShell />;
+	return (
+		<Suspense
+			fallback={
+				<div className="p-6 text-[13px] text-muted-foreground">Loading Home…</div>
+			}
+		>
+			<HomeShell />
+		</Suspense>
+	);
 }

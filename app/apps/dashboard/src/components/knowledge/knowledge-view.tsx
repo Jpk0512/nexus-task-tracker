@@ -538,11 +538,14 @@ export function KnowledgeView() {
 				<div className="flex flex-wrap items-start justify-between gap-4">
 					<div>
 						<h1 className="font-[510] text-[18px] text-foreground tracking-[-0.012em]">
-							Knowledge
+							Notes
 						</h1>
 						<p className="mt-1 max-w-2xl text-[12px] text-muted-foreground">
-							Obsidian-compatible markdown notes, organized by vault path,
-							frontmatter, and wiki-link relationships.
+							Project notebooks live under{" "}
+							<code className="rounded bg-muted px-1 py-0.5 text-[11px]">
+								projects/&#123;projectId&#125;/
+							</code>{" "}
+							— rename-stable. Obsidian-compatible markdown + wiki-links.
 						</p>
 					</div>
 					<div className="flex items-center gap-2">
@@ -556,6 +559,19 @@ export function KnowledgeView() {
 								className={cn("size-3.5", scanMut.isPending && "animate-spin")}
 							/>
 							{scanMut.isPending ? "Scanning..." : "Re-scan"}
+						</Button>
+						<Button
+							variant="outline"
+							size="sm"
+							asChild
+						>
+							<a
+								href="zennotes://open"
+								title="Open vault in ZenNotes if installed"
+							>
+								<BookOpenIcon className="size-3.5" />
+								Open ZenNotes
+							</a>
 						</Button>
 						<Button variant="outline" size="sm" onClick={createToday}>
 							<CalendarIcon className="size-3.5" />
@@ -577,8 +593,8 @@ export function KnowledgeView() {
 								if (event.key === "Enter") createNote();
 								if (event.key === "Escape") setShowNew(false);
 							}}
-							placeholder="projects/nexus/new-note"
-							className="h-8 text-[12px]"
+							placeholder="projects/{projectId}/new-note"
+							className="h-8 text-[12px] font-mono"
 						/>
 						<Button size="sm" onClick={createNote} disabled={!newPath.trim()}>
 							Create
@@ -984,7 +1000,7 @@ function NoteInspector({
 					<div className="rounded-md border border-border/50 bg-background/40 p-2">
 						<div className="text-muted-foreground">Vault</div>
 						<div className="mt-0.5 truncate font-[510] text-foreground">
-							{noteDetail?.vaultLabel ?? "Personal Knowledge"}
+							{noteDetail?.vaultLabel ?? "Personal Notes"}
 						</div>
 					</div>
 					<div className="rounded-md border border-border/50 bg-background/40 p-2">
@@ -1098,10 +1114,12 @@ function EmptyState({
 			<div className="flex flex-col items-center gap-2">
 				<BrainIcon className="size-10 text-muted-foreground/60" />
 				<p className="font-[510] text-[15px] tracking-[-0.012em]">
-					{hasNotes ? "No notes match these filters" : "Your vault is empty"}
+					{hasNotes ? "No notes match these filters" : "Your notes vault is empty"}
 				</p>
 				<p className="max-w-md text-balance text-[12px] text-muted-foreground">
-					Knowledge notes are markdown files on disk. Filter by vault category,
+					Notes are markdown files on disk. Prefer{" "}
+					<code className="text-[11px]">projects/&#123;projectId&#125;/</code> paths.
+					Filter by vault category,
 					status, or updated date, then inspect and edit the note in the right
 					pane.
 				</p>

@@ -1,10 +1,10 @@
-import { redirect } from "next/navigation";
+import { KnowledgeView } from "@/components/knowledge/knowledge-view";
 
-export default async function NotesAliasPage({
-	params,
-}: {
-	params: Promise<{ team: string }>;
-}) {
-	const { team } = await params;
-	redirect(`/team/${team}/knowledge`);
+/** /notes — product name for Knowledge engine (URL stays Notes). */
+export default function NotesPage() {
+	return (
+		<div className="h-full animate-blur-in">
+			<KnowledgeView />
+		</div>
+	);
 }

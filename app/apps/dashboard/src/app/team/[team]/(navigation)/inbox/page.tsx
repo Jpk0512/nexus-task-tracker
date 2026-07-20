@@ -1,9 +1,11 @@
-import { InboxView } from "@/components/inbox/view";
+import { redirect } from "next/navigation";
 
-export default async function Page() {
-	return (
-		<div className="animate-blur-in">
-			<InboxView />
-		</div>
-	);
+/** Legacy Inbox → Focus Needs you. */
+export default async function InboxRedirectPage({
+	params,
+}: {
+	params: Promise<{ team: string }>;
+}) {
+	const { team } = await params;
+	redirect(`/team/${team}/focus?tab=needs-you`);
 }

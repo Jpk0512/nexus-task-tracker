@@ -13,7 +13,7 @@ import { useMemo } from "react";
 import { SoftIcon } from "@/components/ui/soft-icon";
 import { useUser } from "@/components/user-provider";
 import { useTasks } from "@/hooks/use-data";
-import { useInbox } from "@/components/inbox/use-inbox";
+import { useInboxCounts } from "@/components/inbox/use-inbox-counts";
 
 type DebtCard = {
 	id: string;
@@ -36,7 +36,7 @@ export function WorkspaceHealthShell() {
 		},
 		{ enabled: !!user?.id },
 	);
-	const { tabCounts } = useInbox();
+	const { tabCounts } = useInboxCounts();
 
 	const cards = useMemo((): DebtCard[] => {
 		const overdue = tasks.filter((t) => {

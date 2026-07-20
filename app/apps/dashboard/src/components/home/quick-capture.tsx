@@ -158,6 +158,8 @@ export const QuickCapture = () => {
 	const qc = useQueryClient();
 	const inputRef = useRef<HTMLInputElement | null>(null);
 	const [value, setValue] = useState("");
+	/** Dashboard OS lock: Dump is default; Task is opt-in. */
+	const [mode, setMode] = useState<"dump" | "task">("dump");
 
 	const { data: projectsData } = useProjects();
 	const parsed = useMemo(() => parseQuickCapture(value), [value]);
@@ -229,7 +231,36 @@ export const QuickCapture = () => {
 		{ enabled: true },
 	);
 
+	const submitDump = () => {
+		const text = value.trim();
+		if (!text) {
+			toast.error("Type something to dump.", { id: "quick-capture" });
+			return;
+		}
+		try {
+			const key = "nexus.capture.dump";
+			const raw = localStorage.getItem(key);
+			const items = raw ? (JSON.parse(raw) as Array<unknown>) : [];
+			items.unshift({
+				id: crypto.randomUUID(),
+				text,
+				createdAt: new Date().toISOString(),
+			});
+			localStorage.setItem(key, JSON.stringify(items));
+			toast.success("Dumped — open Capture to promote", {
+				id: "quick-capture",
+			});
+			setValue("");
+		} catch {
+			toast.error("Could not save dump", { id: "quick-capture" });
+		}
+	};
+
 	const submit = () => {
+		if (mode === "dump") {
+			submitDump();
+			return;
+		}
 		if (!parsed.title) {
 			toast.error("Type a title to create a task.", { id: "quick-capture" });
 			return;
@@ -297,6 +328,30 @@ export const QuickCapture = () => {
 			)}
 		>
 			<div className="flex items-center gap-2">
+				<div className="inline-flex shrink-0 rounded-md border border-border/60 p-0.5 text-[10px] font-[510]">
+					<button
+						type="button"
+						onClick={() => setMode("dump")}
+						className={cn(
+							"rounded px-1.5 py-0.5",
+							mode === "dump" && "bg-accent text-foreground",
+							mode !== "dump" && "text-muted-foreground",
+						)}
+					>
+						Dump
+					</button>
+					<button
+						type="button"
+						onClick={() => setMode("task")}
+						className={cn(
+							"rounded px-1.5 py-0.5",
+							mode === "task" && "bg-accent text-foreground",
+							mode !== "task" && "text-muted-foreground",
+						)}
+					>
+						Task
+					</button>
+				</div>
 				<SparklesIcon className="size-4 shrink-0 text-violet-500" />
 				<input
 					ref={inputRef}
@@ -304,7 +359,11 @@ export const QuickCapture = () => {
 					value={value}
 					onChange={(e) => setValue(e.target.value)}
 					onKeyDown={handleKey}
-					placeholder="What's on your mind?  @project  #label  !urgent  :tomorrow"
+					placeholder={
+						mode === "dump"
+							? "Dump a thought — no commitment yet…"
+							: "Task title  @project  #label  !urgent  :tomorrow"
+					}
 					className={cn(
 						"min-w-0 flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground",
 					)}
@@ -317,11 +376,15 @@ export const QuickCapture = () => {
 					size="sm"
 					variant="ghost"
 					onClick={submit}
-					disabled={!parsed.title || createMut.isPending}
+					disabled={
+						mode === "dump"
+							? !value.trim()
+							: !parsed.title || createMut.isPending
+					}
 					className="gap-1 text-[12px]"
 				>
 					<PlusIcon className="size-3.5" />
-					Add
+					{mode === "dump" ? "Dump" : "Add"}
 				</Button>
 			</div>
 			{previewChips.length > 0 ? (

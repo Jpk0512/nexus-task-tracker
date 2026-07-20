@@ -36,12 +36,23 @@ const KIND_ICON: Record<LibraryKind, typeof BookOpenIcon> = {
 
 const HOVER_GRACE_MS = 200;
 
-export function LibraryListView() {
+export function LibraryListView({
+	defaultKind = "all",
+	title = "Library",
+	description = "Skills, agents, and orchestration configs across all your projects. Disk is source of truth.",
+	defaultView = "list",
+}: {
+	defaultKind?: LibraryKind | "all";
+	title?: string;
+	description?: string;
+	defaultView?: "list" | "grid";
+} = {}) {
 	const { team } = useParams<{ team: string }>();
 	const router = useRouter();
-	const [kind, setKind] = useState<LibraryKind | "all">("all");
+	const [kind, setKind] = useState<LibraryKind | "all">(defaultKind);
 	const [sourceId, setSourceId] = useState<string>("all");
 	const [search, setSearch] = useState("");
+	const [viewMode, setViewMode] = useState<"list" | "grid">(defaultView);
 	const [hoveredId, setHoveredId] = useState<string | null>(null);
 	const leaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -162,11 +173,10 @@ export function LibraryListView() {
 				<div className="flex items-baseline justify-between gap-4">
 					<div>
 						<h1 className="font-[510] text-[15px] text-foreground tracking-[-0.012em]">
-							Library
+							{title}
 						</h1>
 						<p className="mt-0.5 text-[12px] text-muted-foreground">
-							Skills, agents, and orchestration configs across all your
-							projects. Disk is source of truth.
+							{description}
 						</p>
 					</div>
 					<div className="flex items-center gap-3">
@@ -226,6 +236,22 @@ export function LibraryListView() {
 						</SelectContent>
 					</Select>
 					<div className="ml-auto flex items-center gap-2 text-muted-foreground text-xs">
+						<div className="inline-flex rounded-md border border-border/60 p-0.5">
+							<button
+								type="button"
+								onClick={() => setViewMode("list")}
+								className={`rounded px-2 py-0.5 text-[11px] ${viewMode === "list" ? "bg-accent text-foreground" : ""}`}
+							>
+								List
+							</button>
+							<button
+								type="button"
+								onClick={() => setViewMode("grid")}
+								className={`rounded px-2 py-0.5 text-[11px] ${viewMode === "grid" ? "bg-accent text-foreground" : ""}`}
+							>
+								Grid
+							</button>
+						</div>
 						{Object.entries(totalByKind).map(([k, n]) => (
 							<LabelBadge
 								key={k}
@@ -257,78 +283,126 @@ export function LibraryListView() {
 							</p>
 						</div>
 					)}
-					{groups.map((group, gIdx) => (
-						<section
-							key={group.sourceId ?? `g-${gIdx}`}
-							className={gIdx > 0 ? "mt-6" : ""}
-						>
-							{sourceId === "all" && (
-								<div className="mb-2 flex items-baseline gap-2 px-3">
-									<span className="font-[510] text-[11px] text-muted-foreground uppercase tracking-[0.06em]">
-										{group.sourceLabel}
-									</span>
-									<span className="text-[11px] text-muted-foreground/70">
-										· {group.rows.length} entr
-										{group.rows.length === 1 ? "y" : "ies"}
-									</span>
-								</div>
-							)}
-							<ul className="space-y-1">
-								{group.rows.map((e) => {
-									const Icon = KIND_ICON[e.kind as LibraryKind] ?? BookOpenIcon;
-									const focused = jk.isFocused(e.id);
-									return (
-										<li
-											key={e.id}
-											data-jk-row={e.id}
-											onMouseEnter={() => handleEnter(e.id)}
-											onMouseLeave={handleLeave}
+					{viewMode === "grid" ? (
+						<ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+							{entries.map((e) => {
+								const Icon = KIND_ICON[e.kind as LibraryKind] ?? BookOpenIcon;
+								const focused = jk.isFocused(e.id);
+								return (
+									<li
+										key={e.id}
+										data-jk-row={e.id}
+										onMouseEnter={() => handleEnter(e.id)}
+										onMouseLeave={handleLeave}
+									>
+										<Link
+											href={`/team/${team}/library/${e.id}`}
+											onFocus={() => handleFocus(e.id)}
+											onBlur={handleBlur}
+											className={`flex aspect-square flex-col gap-3 rounded-xl border p-4 transition hover:bg-accent/40 ${
+												focused
+													? "border-violet-400/70 ring-2 ring-violet-400/40"
+													: "border-border/60"
+											}`}
 										>
-											<Link
-												href={`/team/${team}/library/${e.id}`}
-												onFocus={() => handleFocus(e.id)}
-												onBlur={handleBlur}
-												className={`group flex items-start gap-3 rounded-md border px-3 py-2 transition hover:border-border hover:bg-accent/40 focus-visible:border-violet-400/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/40 ${
-													focused
-														? "border-violet-400/70 ring-2 ring-violet-400/40"
-														: "border-transparent"
-												}`}
+											<div
+												className={`flex size-10 items-center justify-center rounded-xl ${kindIconBg(e.kind)}`}
 											>
-												<div
-													className={`mt-0.5 flex size-7 shrink-0 items-center justify-center rounded ${kindIconBg(e.kind)}`}
+												<Icon className="size-5" />
+											</div>
+											<div className="min-w-0 flex-1">
+												<p className="line-clamp-2 font-[510] text-[13px]">
+													{e.name}
+												</p>
+												{e.description ? (
+													<p className="mt-1 line-clamp-3 text-[11px] text-muted-foreground">
+														{e.description}
+													</p>
+												) : null}
+											</div>
+											<span className="text-[10px] text-muted-foreground">
+												{e.kind}
+											</span>
+										</Link>
+									</li>
+								);
+							})}
+						</ul>
+					) : (
+						groups.map((group, gIdx) => (
+							<section
+								key={group.sourceId ?? `g-${gIdx}`}
+								className={gIdx > 0 ? "mt-6" : ""}
+							>
+								{sourceId === "all" && (
+									<div className="mb-2 flex items-baseline gap-2 px-3">
+										<span className="font-[510] text-[11px] text-muted-foreground uppercase tracking-[0.06em]">
+											{group.sourceLabel}
+										</span>
+										<span className="text-[11px] text-muted-foreground/70">
+											· {group.rows.length} entr
+											{group.rows.length === 1 ? "y" : "ies"}
+										</span>
+									</div>
+								)}
+								<ul className="space-y-1">
+									{group.rows.map((e) => {
+										const Icon =
+											KIND_ICON[e.kind as LibraryKind] ?? BookOpenIcon;
+										const focused = jk.isFocused(e.id);
+										return (
+											<li
+												key={e.id}
+												data-jk-row={e.id}
+												onMouseEnter={() => handleEnter(e.id)}
+												onMouseLeave={handleLeave}
+											>
+												<Link
+													href={`/team/${team}/library/${e.id}`}
+													onFocus={() => handleFocus(e.id)}
+													onBlur={handleBlur}
+													className={`group flex items-start gap-3 rounded-md border px-3 py-2 transition hover:border-border hover:bg-accent/40 focus-visible:border-violet-400/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/40 ${
+														focused
+															? "border-violet-400/70 ring-2 ring-violet-400/40"
+															: "border-transparent"
+													}`}
 												>
-													<Icon className="size-3.5" />
-												</div>
-												<div className="min-w-0 grow">
-													<div className="flex items-center gap-2">
-														<span className="truncate font-medium text-sm">
-															{e.name}
-														</span>
-														<LabelBadge
-															name={e.kind}
-															color={kindColor(e.kind)}
-															className="h-[18px] px-1.5 font-normal text-[10px]"
-														/>
-														<span className="truncate text-muted-foreground text-xs">
-															{e.sourceLabel}
-														</span>
+													<div
+														className={`mt-0.5 flex size-7 shrink-0 items-center justify-center rounded ${kindIconBg(e.kind)}`}
+													>
+														<Icon className="size-3.5" />
 													</div>
-													{e.description && (
-														<p className="mt-0.5 line-clamp-1 text-muted-foreground text-xs">
-															{e.description}
-														</p>
-													)}
-												</div>
-												<span className="hidden text-muted-foreground text-xs sm:inline">
-													{e.relativePath}
-												</span>
-											</Link>
-										</li>
-									);
-								})}
-							</ul>
-						</section>
-					))}
+													<div className="min-w-0 grow">
+														<div className="flex items-center gap-2">
+															<span className="truncate font-medium text-sm">
+																{e.name}
+															</span>
+															<LabelBadge
+																name={e.kind}
+																color={kindColor(e.kind)}
+																className="h-[18px] px-1.5 font-normal text-[10px]"
+															/>
+															<span className="truncate text-muted-foreground text-xs">
+																{e.sourceLabel}
+															</span>
+														</div>
+														{e.description && (
+															<p className="mt-0.5 line-clamp-1 text-muted-foreground text-xs">
+																{e.description}
+															</p>
+														)}
+													</div>
+													<span className="hidden text-muted-foreground text-xs sm:inline">
+														{e.relativePath}
+													</span>
+												</Link>
+											</li>
+										);
+									})}
+								</ul>
+							</section>
+						))
+					)}
 				</div>
 				{entries.length > 0 && (
 					<div className="hidden shrink-0 px-4 py-4 lg:block">
