@@ -1,10 +1,10 @@
 # FEAT-004 — Dashboard OS (Personal command center)
 
-**Status:** design / IA + UX overhaul (REV 1)  
+**Status:** design / IA + UX overhaul (REV 2 — locks + connected UX + final mockup)  
 **Goal:** One app that replaces and integrates Linear · Notion · WorkFlowy/Dotflowy · ZenNotes · Infisical · MCP catalog · Claude/Codex ops — without feeling like six half-apps bolted together.  
 **North-star feeling:** OpenShip’s quiet polish + Linear’s professional density + ADHD-friendly capture/find/close loops.  
 **Reference shots:** `docs/design/dashboard-os/ref/shot-*.png`  
-**Mockups:** `docs/design/dashboard-os/mockups.html`
+**Mockups:** `docs/design/dashboard-os/mockups.html` (options) · **`final.html`** (locked system)
 
 ---
 
@@ -29,6 +29,27 @@
 | Linear-style initiative updates (drop comments) | Linear Initiatives | Project health updates exist but feel thin/cheap |
 | ADHD: reduce fragmentation | — | Too many places for the same thought |
 
+
+---
+
+## 0b. Locks (user decisions — 2026-07-19)
+
+| Surface | Lock | Notes |
+|---|---|---|
+| **Soft icons** | **Yes, but NOT in sidebar** | Soft tinted tiles on Home tiles, Skills cards, empty states, project overview, MCP/Secrets cards. **Sidebar = plain stroke icons only** (Linear-like), active row still soft-fills. |
+| **Home** | **Option B — Do now + project pulse** | Capture bar + greeting + Do now + Project pulse + right rail (Inbox / Starter / Ops). |
+| **Sidebar IA** | **Option B — Brain / Ops** | Home · Focus · Capture · Projects · Favorites · Brain (Notes, Skills, Meetings, Prompts) · Ops (MCPs, Secrets, Settings). |
+| **Notes** | **Option A — Project notebooks** | Project top-level → notes under; Open in ZenNotes; Ask vault. |
+| **MCPs** | **Catalog cards** | Living ops surface, not settings-only. |
+| **Secrets** | **Infisical bridge** | Masked list, import, inject into MCP/project. |
+| **Focus** | **Option A — Things segments** (Today/Upcoming/…) | Keep N/N/L as optional layout toggle later if needed. |
+| **Project updates** | **Initiative composer** | Linear-style drop-in updates. |
+| **Meetings** | **Rework required** | See §3.7 REV 2 — not the thin list+detail only. |
+| **Filters** | **Required on every major screen** | Sticky filter chip row + saved views where lists/boards exist. |
+| **Project Starter** | **Included** | Projects CTA + Home “Continue starter” + Capture promote path. FEAT-003. |
+
+**Explicit reject:** soft icon squares in the sidebar.
+
 ---
 
 ## 1. Visual language — steal with intent
@@ -37,7 +58,7 @@
 
 | Pattern | Spec for Nexus |
 |---|---|
-| **Soft icon tiles** | 36×36 rounded-xl square, icon in brand color, background `color @ 12–16%`, optional 1px ring `color @ 25%`. No bare monochrome lucide in primary nav. |
+| **Soft icon tiles** | 36×36 rounded-xl on **content surfaces only** (Home tiles, cards, empty states, Skills/MCP/Secrets). **Sidebar icons stay plain strokes** (no tint square) — Linear density. Active sidebar row uses soft fill, not icon chrome. |
 | **Quiet empty states** | Centered illustration + one sentence + two CTAs (primary filled white/light, secondary ghost). Tip line with `⌘K`. |
 | **Home as dashboard** | Greeting + one hero panel + right rail (Activity / Tips / Recent) + bottom quick-action tiles. Not a sparse card graveyard. |
 | **Sidebar restraint** | ≤6 top-level items in MAIN. Nested stuff under Projects / Knowledge / System. Account footer. Gradient primary CTA at bottom of nav. |
@@ -256,16 +277,33 @@ Vault root (ZenNotes-compatible on disk)
 
 Agents & orchestration = filters/tabs inside Skills, not separate top-level mystery.
 
-### 3.7 Meetings (NEW)
+### 3.7 Meetings (NEW — REV 2 rework)
+
+Meetings is not a thin transcript dump. It is a **pipeline**: capture → understand → act → file.
 
 ```
-Meetings
-  list: date, title, source (otter/zoom/upload/paste), project?
-  detail: transcript · AI summary (LM Studio) · action items → tasks
-         · “Save notes to project notebook”
+┌ Meetings ──────────────────────────────────────────────────────────────┐
+│ Filters: Project · Source · Has actions · Date range · Saved views      │
+├─ Left: sessions ──────┬─ Center: workspace ──────────┬─ Right: actions ─┤
+│ grouped by week       │ tabs: Summary | Transcript   │ unchecked items  │
+│ status chips:         │         | Notes | People     │ [→ Task] each    │
+│  new / summarized /   │ player-style jump-to-ts      │ [→ Todo]         │
+│  actions-open / filed │ highlight speakers           │ [→ Note bullet]  │
+│                       │ LM Studio re-summarize       │ Link project     │
+│ [Drop / Paste / Import]│                             │ File to notebook │
+└───────────────────────┴──────────────────────────────┴──────────────────┘
 ```
 
-Storage: `notes/projects/{slug}/meetings/YYYY-MM-DD-title.md` + optional raw in `meetings/raw/`.
+**Why rework:** ADHD brains need the *output* (actions + filed note), not the raw wall of text. Default landing after import = **Summary + open actions**, transcript is secondary tab.
+
+**Sources:** paste · file drop (.txt/.vtt/.srt/.md) · folder watch later · manual “live notes” without transcript.
+
+**Storage**
+- Raw: `meetings/raw/YYYY-MM-DD-slug.{vtt,txt}`
+- Filed note: `notes/projects/{slug}/meetings/YYYY-MM-DD-title.md` (summary + links + action refs)
+- Actions become Tasks/Todos with `sourceMeetingId`
+
+**Filters (required):** project, source, date, “has open actions”, “unfiled”, saved view “Needs filing”.
 
 ### 3.8 Prompts & Documents
 
@@ -375,6 +413,50 @@ flowchart LR
 | Ask vault | RAG: embed chunks, retrieve top-k, answer with citations to note paths |
 
 Settings → Models: Cloud | LM Studio URL | default chat model | embedding model | probe status.
+
+---
+
+
+---
+
+## 7b. Connected experience (how surfaces flow)
+
+The product wins only if tabs **hand off** work. Canonical loops:
+
+### Loop 1 — Morning (ADHD start)
+Home **Do now** → open item in **Focus** → if blocked, open **linked Note** or drop **Project update** → done item returns Home count to zero.
+
+### Loop 2 — Brain dump
+`⌘⇧N` **Capture** → later Process: promote lines to Todo / Task / Note under project notebook → Inbox zero.
+
+### Loop 3 — Project workday
+**Projects** → Board (Focus filter pre-applied to project) ↔ **Notes** notebook ↔ **Updates** composer ↔ **Skills** pinned to project ↔ **Secrets/MCPs** scoped chips on overview.
+
+### Loop 4 — Meeting aftermath
+**Meetings** import → Summary tab → check actions → bulk “Create tasks in project” → **File to notebook** → appears in project Notes + Home pulse if update posted.
+
+### Loop 5 — Agent work
+**Skills** pin to project → **Project Starter** (FEAT-003) or Chat/Claude uses **nexus-mcp** + **ZenNotes MCP** + secrets-injected env → board moves on **Focus/Projects**.
+
+### Loop 6 — New idea → build
+Home/Projects **Start from idea** → Starter workshop (concept→handoff→board) → continues on Home “Continue starter” → sealed project lands in Projects with notebook scaffolded under Notes.
+
+### Universal chrome on every major list/board
+1. **Sticky filter bar:** search · project · status/segment · label/tag · date · “has link”  
+2. **View switch:** list | board | timeline (where relevant)  
+3. **Saved views:** personal, pinable to Favorites  
+4. **Empty state:** one primary + one secondary CTA  
+5. **Deep link out:** Open in ZenNotes / Open board / Open Focus with filters  
+
+### Cross-link chips (always visible on entities)
+| Entity | Shows chips to |
+|---|---|
+| Task | Project, Note, Meeting, Skill |
+| Note | Project, Tasks, Open ZenNotes, Ask |
+| Project | Board, Notes, Updates, Skills, MCPs, Secrets, Starter |
+| Meeting | Project, Actions→Tasks, Filed note |
+| MCP | Secrets used, Projects |
+| Starter | Phase, Resume, Target project |
 
 ---
 
