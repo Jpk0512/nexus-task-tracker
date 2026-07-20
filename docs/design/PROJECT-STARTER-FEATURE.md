@@ -1,11 +1,11 @@
 # FEAT-003 — Project Starter (Idea → Wayfind → Grill → Handoff → Kanban → Code)
 
-**Status:** design (REV 2 — reviewed; gaps from v1 addressed, UI deepened)  
+**Status:** design (REV 3 — UX journey deepened; two full walkthrough passes; micro-features + ceremonies)  
 **Owner surface:** Nexus dashboard (`apps/dashboard`) + host-side Agent Runtime  
 **Drivers:** Claude Code (OAuth sub) + Codex CLI (OAuth sub) — **no API keys**  
 **Skill spine:** Matt Pocock [`wayfinder`](https://github.com/mattpocock/skills/blob/main/skills/engineering/wayfinder/SKILL.md) + [`grill-with-docs`](https://github.com/mattpocock/skills/blob/main/skills/engineering/grill-with-docs/SKILL.md) (+ `prototype`, `to-spec`, `to-tickets`, `implement`, `grilling`, `domain-modeling`)  
 **Related local skills:** `AI Agent:Skills Catalog/{grill-me-with-docs,grill-me-chat,handoff-chat,project-creation-chat-instructions}`  
-**Mockups:** [`project-starter/mockups.html`](./project-starter/mockups.html) (11 interactive screens + modals)
+**Mockups:** [`project-starter/mockups.html`](./project-starter/mockups.html) (entry → execute, ceremonies, micro-features)
 
 ---
 
@@ -340,81 +340,287 @@ Default role split: **Claude = discovery/HITL (Concept, Arch HITL, UX critique, 
 
 ---
 
-## 8. UI design (deep — R12)
+## 8. UI design (deep — R12 + REV 3 UX)
 
-Design tokens are the existing **Linear** palette in `DESIGN.md` (`#010102` canvas, `#5e6ad2` accent, `#f7f8f8` ink, charcoal panels, hairline borders). Every screen below is implemented in [`project-starter/mockups.html`](./project-starter/mockups.html) with the same tokens.
+Design tokens are the existing **Linear** palette in `DESIGN.md` (`#010102` canvas, `#5e6ad2` accent, `#f7f8f8` ink, charcoal panels, hairline borders). Every screen below is in [`project-starter/mockups.html`](./project-starter/mockups.html).
+
+**REV 3 focus:** the *felt* journey of creating a project — entry surfaces, micro-interactions, phase ceremonies, abandonment recovery, agent presence, and continuity with Home / Cmd-K / project overview. The technical spine (runtime, skills, kanban) is unchanged; the *experience* is what this revision deepens.
 
 ### 8.1 Information architecture
 
 ```
-/team/[team]/projects                          existing grid; new CTA "Start from idea"
-/team/[team]/starter                           workshop home (in-flight starters)
-/team/[team]/starter/[id]                      active workshop shell (all phases)
-/team/[team]/starter/[id]?phase=concept|architecture|ux|plan|handoff|grill2
-/team/[team]/projects/[projectId]/board        existing kanban (execute home)
+/team/[team]                                    Home — "Continue starter" card + Up Next
+/team/[team]/projects                          grid CTA "Start from idea" + empty-state hero
+/team/[team]/starter                           workshop home (in-flight + sealed + abandoned)
+/team/[team]/starter/[id]                      active workshop shell
+/team/[team]/starter/[id]?phase=…              phase deep-link (shareable, resume-safe)
+/team/[team]/projects/[projectId]              project overview gains Starter tab (provenance)
+/team/[team]/projects/[projectId]/board        kanban = execute home
+Cmd-K / global search                           actions: Start from idea · Resume starter · Open board
 ```
 
-The shell is one route; the `phase` query param + phase rail drives which panes render.
-
-### 8.2 The workshop shell (all phases)
+### 8.2 The workshop shell (persistent chrome)
 
 ```
-┌─ Nexus ──────────────────── Sidebar ┬──────── Phase rail (sticky) ─────────────────────┐
-│ Projects > Starter > acme-ops       │ ✓Seed ●1 Concept ○2 Arch ○3 UX ○4 Plan ○5 ○6 ○7 ○8 │
-├──────────────────────────┬──────────┴───────────────────────────────────────────────────┤
-│ LEFT  Dialogue           │ RIGHT  Living artifacts (tabs per phase)                      │
-│  Question card           │  CONTEXT │ ADRs │ Map │ Mockups │ Spec │ Handoff              │
-│  + recommended answer    │  markdown/mermaid/iframe + diff pulse on disk write           │
-│  + freeform reply        │                                                              │
-│  [Send][Accept rec][Skip]│ BOTTOM-RIGHT session strip: driver · session · quota · Resume │
-└──────────────────────────┴──────────────────────────────────────────────────────────────┘
+┌─ breadcrumb: Projects › Starter › acme-ops-desk · color-dot ────────────── [Save & leave] [⋯] ┐
+│ Phase rail (sticky): ✓Seed ●1 Concept ○2…   momentum ring  ████░ 34%   ETA ~18m remaining     │
+├─ Decision ribbon (collapsible): Workspace=disk · Project=Nexus · Local tracker · …  [pin+] ──┤
+├──────────────────────────┬───────────────────────────────────────────────────────────────────┤
+│ LEFT Dialogue            │ RIGHT Living artifacts                                            │
+│  skill chip · why?       │  tabs + "Open in Finder" · "Copy path" · last-write pulse         │
+│  Question card           │  CONTEXT | ADRs | Map | Mockups | Spec | Handoff | Diff           │
+│  recommended · freeform  │                                                                   │
+│  [Send ⏎][Accept ⌘⏎]     │                                                                   │
+├──────────────────────────┴───────────────────────────────────────────────────────────────────┤
+│ Session strip: ● Claude 7f3a · oauth · turns 4 · quota ▓▓░░ $0.34/$2 · [Activity] [Pause]    │
+└──────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-Persistent chrome across all phases: **phase rail** (clickable, gate-locked), **left dialogue**, **right artifact pane** (phase-specific tabs), **session strip** (driver, session id, quota gauge, resume). The right pane is the source of truth viewer; the left is the only place the human types.
+**Always-on chrome**
+- **Phase rail** — clickable only for completed/current; future phases show lock + gate reason on hover.
+- **Momentum ring + ETA** — rough time remaining from historical phase averages (local, opt-out).
+- **Decision ribbon** — pinned glossary terms and ADRs as chips; click → jump to source; drag to reorder importance.
+- **Save & leave** — always top-right; never "are you sure?" for pause; session_id persisted.
+- **Skill chip** — which skill is driving this turn (`grill-with-docs`, `wayfinder:grilling`, …) + "Why this question?" expand.
+- **Diff tab** — CONTEXT/ADR delta since last answer (green/red lines).
+- **Agent presence** — subtle left-edge breath when thinking; tool-use chips (`Read`, `Write CONTEXT.md`) under the question while streaming.
 
-### 8.3 Per-phase tool allowlists (R10 — "decisions, not deliverables")
+### 8.3 Per-phase tool allowlists (R10)
 
 | Phase | `allowedTools` | `permissionMode` | Can write code? |
 |---|---|---|---|
 | Seed | — (no agent) | — | n/a |
-| Concept | Read, Write(targeted: CONTEXT/ADRs), Glob, Grep, Skill | acceptEdits (scoped) | **No** |
-| Architecture | Read, Glob, Grep, Skill, WebFetch, TodoWrite | default (writes → ADRs only) | **No** |
-| UX | + Write(`docs/ux/**`), Bash(`pnpm dev` scoped) | acceptEdits (scoped) | Prototype HTML only (throwaway) |
+| Concept | Read, Write(CONTEXT/ADRs), Glob, Grep, Skill | acceptEdits (scoped) | **No** |
+| Architecture | Read, Glob, Grep, Skill, WebFetch, TodoWrite | default (ADRs only) | **No** |
+| UX | + Write(`docs/ux/**`), Bash scoped | acceptEdits (scoped) | Prototype HTML only |
 | Plan | Read, Glob, Grep, Skill | plan | **No** |
-| Handoff | Write(`docs/**`, root `.md`s) | acceptEdits | Docs only |
+| Handoff | Write(docs + root md) | acceptEdits | Docs only |
 | Grill² | Read, Write(CONTEXT/ADRs) | acceptEdits | **No** |
 | Board build | Write(`.scratch/**`), nexus-mcp | acceptEdits | Tickets only |
-| Execute | full claude_code preset + nexus-mcp | acceptEdits or default | **Yes** |
+| Execute | full claude_code + nexus-mcp | acceptEdits or default | **Yes** |
 
-Enforced via the SDK `tools`/`allowedTools`/`permissionMode` per phase.
+### 8.4 Screen catalog (mockups.html)
 
-### 8.4 Screen catalog (all in mockups.html)
+Entry & recovery: **Home continue card**, **Projects empty hero**, **Projects CTA**, **Starter home**, **Cmd-K actions**, **Pairing**, **Abandoned resume**.  
+Workshop: **Seed** (+ idea coach, recent dirs, identity color), **Scaffolding ceremony**, **Concept**, **Phase transition**, **Architecture**, **UX**, **Plan**, **Handoff**, **Grill²**, **Board build confirm**, **Execute board**.  
+Chrome: **Permission**, **Phase gate**, **ADR toast**, **Quota**, **Activity drawer**, **States**.
 
-1. **Pairing** (R11) — runtime health, `claude --whoami`, `codex login`, paste one-time token, path-allowlist hint. Blocking until Paired.
-2. **Seed** — idea, host directory picker (runtime-browsed), driver defaults, stack hints; scaffold + skills-vendor progress.
-3. **Concept** — question card (Q N/~M), recommended-answer chip, freeform reply; right pane live `CONTEXT.md` with diff pulse; ADR toast.
-4. **Architecture** — two sub-views: **map** (Destination / Frontier / Blocked / Fog / Decisions) + optional **DAG graph**; dialogue shows the current grilling ticket.
-5. **UX** — variant gallery (3–5), compare, annotation pins, "Lock variant + ADR".
-6. **Plan** — spec checklist (problem/solution/stories/seams/testing), approve to advance.
-7. **Handoff** — 7-doc completeness meters; red flag if `handoff.md` under-populated; "Seal" gated.
-8. **Grill²** — only `handoff.md` open-questions surfaced as question cards; close/defer each.
-9. **Execute board** — existing kanban, augmented with driver badges, session links, verification criteria, live agent-log drawer, ready-frontier highlight.
-10. **Modals/overlays** — Permission prompt; Phase-gate advance; ADR draft toast; Quota warning; Activity/reasoning drawer; Resume/reconnect banner.
+### 8.5 State variations
 
-### 8.5 State variations (every interactive screen has)
+Empty · Loading · Streaming · Error · Paused · Permission · Stale (idle > 48h) · Conflict (two tabs) · Offline runtime · Quota-soft-pause.
 
-- **Empty** — no starter yet (Seed CTA), no map yet (Architecture placeholder), empty frontier (Done-ish).
-- **Loading** — "agent thinking…" skeleton in dialogue; spinner on artifact tab while fs read.
-- **Streaming** — partial-assistant-message shimmer; typed cursor.
-- **Error** — agent errored (show `result` error + Retry/Resume); runtime disconnected (reconnect banner); CLAUDE_LOGGED_OUT (re-pair).
-- **Paused** — quota-paused or user-paused; session id saved; big Resume button.
-- **Permission** — pending `permission_request` blocks the turn; countdown to auto-deny.
+### 8.6 Accessibility & keyboard
 
-### 8.6 Accessibility / interaction notes
+| Key | Action |
+|---|---|
+| `⏎` | Send answer |
+| `⌘⏎` | Accept recommendation |
+| `Esc` | Skip / close modal |
+| `⌘.` | Pause / Save & leave |
+| `⌘⇧A` | Toggle activity drawer |
+| `⌘⇧D` | Focus decision ribbon |
+| `⌘1…8` | Jump phase if unlocked |
+| `⌘K` then type | Start / Resume starter |
+| `?` | Why this question? |
 
-- Every question reachable by keyboard; `Accept recommendation` = `Cmd+Enter`, `Send` = `Enter`, `Skip` = `Esc`.
-- Diff pulse is motion-limited (respect `prefers-reduced-motion`).
-- Session strip's quota gauge is the only always-visible cost affordance.
+Focus trap in question card; `aria-live="polite"` on assistant stream; reduced-motion disables breath/diff pulse; contrast AA on chips.
+
+---
+
+## 8A. End-to-end UX walkthrough — Pass 1 (structure the feeling)
+
+Goal of Pass 1: make every phase *mean something* and never strand the user.
+
+### Entry (before Seed)
+
+1. **Home** shows a `Continue starter` card when any starter is in-flight (phase, % momentum, last activity "2h ago", one-click Resume).
+2. **Projects empty state** is not a blank form — a two-path hero: *Blank project* (existing) vs *Start from an idea* (Starter) with one-line difference copy.
+3. **Projects with items** — primary `+` menu gains "From idea…"; secondary button on the grid header.
+4. **Cmd-K** actions: `Start from idea`, `Resume last starter`, `Open starter board`.
+5. First-run only: a **3-step quiet coach** ("Pair runtime → Drop an idea → Answer one question at a time") dismissible forever.
+
+### Pairing
+
+- Checks render as a vertical "preflight runway" with live re-check.
+- Token field supports paste-from-clipboard on focus if clipboard matches `nxrt_*`.
+- Success confetti is **one soft pulse** of the accent ring — not fireworks.
+- "Don't ask again on this machine" stores pairing token hash locally.
+
+### Seed
+
+- **Idea coach strip** (optional, collapsed by default): 3 example ideas as chips; "Sharpen" runs a *local* heuristic (not agent) — length, verb presence, "for whom?" — and nudges, never blocks.
+- **Identity**: auto color from name hash (same as project colors); optional emoji/icon; live preview of how the project card will look on the grid.
+- **Directory**: recent 5 dirs from runtime; Browse opens a slim tree (allowlisted roots only); collision detection ("folder exists — Open / Use new name").
+- **Drivers** as segmented control with one-line "why Claude/Codex here".
+- **Advanced** disclosure: stack hints, skills pin override, path allowlist edit.
+- Primary CTA label evolves: empty idea → disabled "Add an idea first"; valid → "Create workspace & begin".
+
+### Scaffolding ceremony (10–20s)
+
+Full-screen soft overlay (not a blocking modal you can't read):
+1. Create directory ✓  
+2. `git init` ✓  
+3. Vendor skills (closure check) …  
+4. Draft Nexus project …  
+5. Open Concept →  
+
+Each step has a 1-line plain-English explanation. Failures are inline with Retry, not a toast that vanishes.
+
+### Concept
+
+- Question card shows **branch context** ("This locks the *Workspace vs Project* term — 3 later questions depend on it").
+- **Recommended answer** is a chip you can edit in-place before accepting.
+- **Undo last answer** (one level) rewinds CONTEXT diff and re-asks.
+- Right pane **Diff** tab default-on after first write so the user *sees* the interview produce durable truth.
+- Decision ribbon gains a chip on every locked term (subtle scale-in).
+- Progress: "Branches resolved 6 · open contradictions 0 · est. 4 questions left" (agent-estimated, not fake precision).
+
+### Phase transition (between every phase)
+
+A **60% width ceremony card** (not a full page):
+- What we locked (3 bullets max)
+- What the next phase will decide
+- Artifacts written (paths as links)
+- Primary: Continue · Secondary: Review artifacts · Tertiary: Save & leave
+
+This is the emotional "we made progress" beat missing from v1/v2.
+
+### Architecture
+
+- Map columns are **droppable** only for reordering *priority within frontier* (not cheating blockers).
+- Hover a blocked ticket → highlight its blockers in the Decisions column.
+- "What does resolving this unlock?" expand under the active ticket.
+- AFK research tickets show a **live subagent pulse** (name + elapsed) without opening a drawer.
+- Fog items can be **promoted to ticket** with one click when the user can phrase the question.
+
+### UX (mockups)
+
+- Gallery supports **A/B compare mode** (split view of two variants).
+- Annotation pins are sticky notes with author "you"; export into the locked ADR.
+- "Regenerate" asks *what to change* (one line) so variants don't feel random.
+- Keyboard `1/2/3` selects variant; `L` locks.
+
+### Plan / Handoff / Grill²
+
+- Plan seams are **checkable with inline comment** ("seam ok, but prefer vitest over playwright").
+- Handoff docs open in a **reader mode** (comfortable measure, prev/next doc).
+- Completeness meters animate once when a section flips to ready.
+- Grill² opens with a **scope banner**: "I will only ask about these N open questions — I will not redesign settled decisions."
+- Defer requires an **owner + revisit date** (defaults: you + +7d) so deferred ≠ forgotten.
+
+### Board build → Execute
+
+- Board build shows a **preview table** of tasks + deps before commit; user can merge/split rows.
+- First Execute start plays a quiet "lane open" state: frontier cards get a green ready ring for 2s.
+- Agent activity drawer defaults **collapsed** on large screens, **peek** (last line) on small.
+- Completing the first task triggers a **single** toast: "First slice landed — 11 remain."
+- Stuck affordance on In Progress card: **I'm stuck** → opens Grill²-style question for that ticket only.
+
+### Exit / abandonment
+
+- Leave always safe.
+- After 48h idle: Home card becomes **Stale** with "Pick up where you left off" + "Archive starter".
+- After seal + all tasks Done: starter auto-archives; project overview gains a **Provenance** tab (read-only workshop history).
+
+---
+
+## 8B. End-to-end UX walkthrough — Pass 2 (texture & subtlety)
+
+Goal of Pass 2: the small things that make it feel *finished* and trustworthy for real project creation.
+
+### Microcopy voice
+
+- Direct, calm, second person. No "Let's embark on a journey."
+- Agent recommendations start with a verb: "Call the disk tree a Workspace…"
+- Errors name the next action: "Runtime disconnected — Reconnect or run `nexus-runtime start`."
+- Phase rail tooltips use outcomes, not jargon: Architecture = "Lock the hard-to-reverse choices."
+
+### Visual language (subtle)
+
+| Element | Behavior |
+|---|---|
+| Color-dot identity | Seed color flows to phase rail accent, project card, kanban header |
+| Diff pulse | 400ms hairline glow on changed lines; reduced-motion → static badge "updated" |
+| Agent breath | 2.4s opacity cycle on left dialogue edge while thinking |
+| Ready ring | 2s green inset on frontier cards when exec starts |
+| Decision chip | Soft scale 0.96→1.0 on pin; filled accent when from ADR |
+| Momentum ring | Phase rail right; fills per gate criteria, not time |
+| Scaffolding checks | Staggered 80ms checkmark draws |
+| Quota bar | Turns warn at 70%, danger at 90%; never shocks to empty |
+
+### Subtle user features (catalog)
+
+1. **Paste idea from clipboard** on Seed focus if clipboard looks like a paragraph.
+2. **Recent directories** + **Open in Finder** (runtime `open`/`xdg-open`).
+3. **Collision rename** with live slug preview (`acme-ops-desk-2`).
+4. **Undo last grill answer** (one stack).
+5. **Edit recommendation in-place** before accept.
+6. **Why this question?** expand (agent one-liner + branch deps).
+7. **Decision ribbon** pin/unpin/reorder; export as markdown checklist.
+8. **CONTEXT Diff tab** default after first write.
+9. **Skill chip** always visible (trust: you know who's driving).
+10. **Phase transition ceremony** with locked bullets.
+11. **Save & leave** always available; `⌘.`
+12. **Stale after 48h** treatment on Home + Starter home.
+13. **Two-tab conflict** banner: "Another session is live — Take over / Watch only."
+14. **Cmd-K** Start / Resume / Open board.
+15. **Home Continue card** with phase + momentum + last activity.
+16. **Project card preview** on Seed (how it'll look in the grid).
+17. **A/B compare** mockups; `1/2/3` + `L` to lock.
+18. **Annotation → ADR** fold-in on lock.
+19. **Handoff reader mode** + zip download of the 7 docs.
+20. **Board preview** before materialize; merge/split tickets.
+21. **I'm stuck** on execute cards → mini grill.
+22. **First-slice toast** only once per project.
+23. **Provenance tab** on the finished project.
+24. **Quiet coach** first-run only (3 steps).
+25. **Token auto-paste** on pairing when clipboard matches.
+26. **Subagent pulse** on AFK research tickets.
+27. **Fog → ticket** promote control.
+28. **Defer with owner + date** on Grill².
+29. **Keyboard map** via `?` cheatsheet drawer.
+30. **Open path / Copy path** on every artifact tab.
+31. **Estimated questions left** during Concept (soft).
+32. **Driver switch mid-phase** with confirm (forks session).
+33. **Sound** optional (off by default): soft tick on decision lock; none on stream.
+34. **Project overview Starter tab** while in-flight (progress, not just provenance).
+35. **Inbox notification** when AFK research batch completes or exec blocks.
+
+### Continuity with existing Nexus surfaces
+
+| Surface | Integration |
+|---|---|
+| Home | Continue card; Up Next row for "Answer starter question" when a HITL ticket waits |
+| Projects grid | Idea CTA; in-flight starters show momentum ring on card; sealed show ✓ |
+| Project overview | Tabs: Overview · **Starter** · Board · Docs · Knowledge… |
+| Kanban | Ready ring, driver badge, stuck action, session link |
+| Cmd-K | 3 actions |
+| Inbox | Research-done, blocked-task, stale-starter |
+| Knowledge | Optional: on seal, offer "Copy handoff into vault" |
+
+### Meaningfulness check — is this a *project creation* UX?
+
+A user who finishes Starter has:
+
+1. A **named identity** (color, slug, path) they chose in seconds.  
+2. A **glossary and ADRs** they watched form — not a black-box PRD dump.  
+3. A **map of decisions** they can explain to a collaborator.  
+4. A **visual direction** they picked, not a default template.  
+5. A **handoff pack** that survives a cold coding-agent start.  
+6. A **board whose first column is actually doable** (deps respected).  
+7. A **first green slice** they saw land — proof the factory works.  
+8. A **provenance trail** if they return in a month.
+
+If any of 1–8 is missing, the experience is incomplete. REV 3 treats these as acceptance themes (§19).
+
+### Anti-features (explicitly out)
+
+- Auto-advancing phases without a human click.  
+- Agent answering its own grill questions.  
+- Confetti every phase.  
+- Forcing voice input.  
+- Replacing the existing blank-project create path.  
+- Multiplayer editing of one starter (v1 is single-user local).
 
 ---
 
@@ -710,13 +916,21 @@ Claude conductor + parallel Codex lanes in git worktrees, coordinated on the map
 
 Given OAuth-logged `claude` + `codex` on the host and the runtime running:
 
-1. Projects → **Start from idea** → idea + `~/code/acme` → pairing passes.
-2. Concept: ≥5 locked glossary terms visible in UI **and** on disk; reload resumes the same session.
-3. Architecture map: ≥3 resolved decisions; frontier empty or force-advanced.
-4. UX: variant selected; ADR on disk.
-5. Handoff sealed: 7 docs present; `handoff.md` lists zero unacknowledged open Qs after Grill².
-6. Board: vertical-slice tasks; `task_dependencies` respected (a blocked task never appears ready).
-7. Execute: driver moves a task In Progress → Done with a verification note, via `nexus-mcp`, no API key used.
+**Factory path**
+1. Entry from Home / Projects empty / Cmd-K all reach Seed.
+2. Pairing preflight green; token paste works.
+3. Seed: identity preview, recent dir, collision handling; scaffold ceremony completes with plain-English steps.
+4. Concept: ≥5 locked terms on ribbon + disk; undo works once; Diff tab shows writes; reload resumes.
+5. Phase transition card appears with locked bullets before Architecture.
+6. Architecture: ≥3 decisions; blocker hover highlights; fog can promote to ticket.
+7. UX: A/B compare; lock writes ADR with annotations folded in.
+8. Plan seams approved with optional comments.
+9. Handoff reader mode; Seal blocked until complete; Grill² scope banner; defer needs owner+date.
+10. Board preview → materialize; deps respected; ready ring on exec start.
+11. First slice Done → one toast; **I'm stuck** opens mini-grill; activity drawer shows nexus-mcp calls.
+12. Save & leave / stale-48h / provenance tab all behave.
+
+**Meaningfulness (8A)** — user leaves with identity, glossary, map, visual direction, handoff, doable board, first green slice, provenance.
 
 ---
 

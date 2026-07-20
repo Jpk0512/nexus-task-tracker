@@ -3,594 +3,642 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Nexus Project Starter — UI Mockups (REV 2)</title>
+<title>Nexus Project Starter — UX Mockups REV 3</title>
 <style>
-  :root{
-    --canvas:#010102; --s1:#0f1011; --s2:#141516; --s3:#18191a;
-    --hair:#23252a; --hair2:#34343a;
-    --ink:#f7f8f8; --muted:#8a8f98; --subtle:#62666d;
-    --accent:#5e6ad2; --accent-h:#828fff;
-    --ok:#27a644; --warn:#d4a017; --danger:#e5484d; --info:#7dd3fc;
-    --font:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-  }
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--canvas);color:var(--ink);font-family:var(--font);font-size:14px;line-height:1.45}
-  header.app{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:14px;padding:10px 18px;border-bottom:1px solid var(--hair);background:rgba(1,1,2,.93);backdrop-filter:blur(8px);flex-wrap:wrap}
-  .mark{width:20px;height:20px;border-radius:6px;background:linear-gradient(135deg,var(--accent),#8b5cf6)}
-  header.app h1{font-size:13px;font-weight:600;margin:0;letter-spacing:-.2px}
-  header.app .sub{color:var(--muted);font-size:11px}
-  .tabs{display:flex;gap:5px;margin-left:auto;flex-wrap:wrap}
-  .tabs button{background:transparent;border:1px solid var(--hair);color:var(--muted);border-radius:999px;padding:5px 10px;cursor:pointer;font-size:11px}
-  .tabs button:hover{border-color:var(--hair2);color:var(--ink)}
-  .tabs button.active{background:var(--accent);border-color:var(--accent);color:#fff}
-  main{max-width:1320px;margin:0 auto;padding:20px 18px 90px}
-  .screen{display:none}.screen.active{display:block}
-  .caption{color:var(--muted);font-size:12px;margin:0 0 12px;padding:9px 11px;border:1px dashed var(--hair2);border-radius:8px;background:var(--s1)}
-  .caption b{color:var(--ink)}.caption code{color:var(--accent-h)}
-  .frame{border:1px solid var(--hair);border-radius:12px;overflow:hidden;background:var(--s1);box-shadow:0 30px 80px rgba(0,0,0,.45)}
-  .titlebar{display:flex;align-items:center;gap:8px;padding:9px 13px;border-bottom:1px solid var(--hair);background:var(--s2);font-size:11px;color:var(--muted)}
-  .dots{display:flex;gap:6px;margin-right:6px}.dots i{width:9px;height:9px;border-radius:50%;background:var(--hair2);display:block}
-  .shell{display:grid;grid-template-columns:210px 1fr;min-height:600px}
-  .nav{border-right:1px solid var(--hair);background:var(--s1);padding:12px 9px}
-  .nav .item{padding:7px 9px;border-radius:8px;color:var(--muted);font-size:12px;margin-bottom:2px}
-  .nav .item.active{background:var(--s3);color:var(--ink)}
-  .nav .label{font-size:10px;color:var(--subtle);text-transform:uppercase;letter-spacing:.06em;padding:10px 9px 5px}
-  .content{display:flex;flex-direction:column;min-width:0;background:var(--canvas)}
-  .phase-rail{display:flex;gap:3px;padding:10px 14px;border-bottom:1px solid var(--hair);overflow-x:auto;background:var(--s1);align-items:center}
-  .phase{display:flex;align-items:center;gap:7px;padding:5px 9px;border-radius:8px;color:var(--muted);white-space:nowrap;font-size:11px;border:1px solid transparent}
-  .phase .n{width:16px;height:16px;border-radius:50%;border:1px solid var(--hair2);display:grid;place-items:center;font-size:9px}
-  .phase.done{color:var(--ok)}.phase.done .n{border-color:var(--ok);background:rgba(39,166,68,.12)}
-  .phase.now{color:var(--ink);background:rgba(94,106,210,.12);border-color:rgba(94,106,210,.35)}.phase.now .n{border-color:var(--accent);background:var(--accent);color:#fff}
-  .workspace{display:grid;grid-template-columns:1.05fr 1fr;flex:1;min-height:0}
-  .pane{min-width:0;display:flex;flex-direction:column}
-  .pane+.pane{border-left:1px solid var(--hair)}
-  .pane-h{display:flex;align-items:center;justify-content:space-between;padding:9px 13px;border-bottom:1px solid var(--hair);color:var(--muted);font-size:11px;gap:8px}
-  .pane-b{padding:13px;flex:1;overflow:auto}
-  .q-card{border:1px solid var(--hair2);background:var(--s2);border-radius:12px;padding:15px}
-  .eyebrow{color:var(--accent-h);font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;margin-bottom:7px}
-  .q-card h3{margin:0 0 9px;font-size:15px;font-weight:600;letter-spacing:-.2px}
-  .q-card p{margin:0 0 11px;color:var(--muted)}
-  .rec{background:rgba(94,106,210,.1);border:1px solid rgba(94,106,210,.35);border-radius:8px;padding:9px 11px;margin-bottom:11px;font-size:12px}
-  .rec b{color:var(--accent-h);font-weight:600}
-  textarea,input[type=text]{width:100%;background:var(--s1);border:1px solid var(--hair2);color:var(--ink);border-radius:8px;padding:9px 11px;font:inherit;resize:vertical}
-  textarea:focus,input[type=text]:focus{outline:1px solid var(--accent);border-color:var(--accent)}
-  .row{display:flex;gap:8px;margin-top:11px;flex-wrap:wrap}
-  .btn{border:1px solid var(--hair2);background:var(--s3);color:var(--ink);border-radius:8px;padding:7px 11px;font-size:12px;cursor:pointer}
-  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
-  .btn.ghost{background:transparent;color:var(--muted)}
-  .btn:disabled{opacity:.4;cursor:not-allowed}
-  .btn:hover:not(:disabled){filter:brightness(1.08)}
-  .tabs-mini{display:flex;gap:2px}.tabs-mini span{padding:3px 7px;border-radius:6px}.tabs-mini span.on{background:var(--s3);color:var(--ink)}
-  pre.md{margin:0;white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;color:var(--ink);background:var(--s1);border:1px solid var(--hair);border-radius:8px;padding:11px;line-height:1.5}
-  .hi{background:rgba(94,106,210,.25);border-radius:3px;padding:0 3px}
-  .add{color:#3dd68c}.del{color:#e5484d}
-  .session-strip{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:7px 13px;border-top:1px solid var(--hair);background:var(--s2);font-size:10.5px;color:var(--muted)}
-  .pill{display:inline-flex;align-items:center;gap:6px;padding:2px 7px;border-radius:999px;border:1px solid var(--hair2)}
-  .dot{width:6px;height:6px;border-radius:50%;background:var(--ok)}
-  .quota{display:inline-flex;align-items:center;gap:6px}.quota .bar{width:60px;height:5px;border-radius:3px;background:var(--hair2);overflow:hidden}.quota .bar i{display:block;height:100%;background:var(--ok);width:34%}
-  /* seed hero */
-  .seed-hero{max-width:680px;margin:30px auto;padding:0 18px 30px}
-  .seed-hero h2{font-size:26px;letter-spacing:-.5px;margin:0 0 7px;font-weight:600}
-  .seed-hero .lead{color:var(--muted);margin-bottom:24px}
-  .field{margin-bottom:14px}.field label{display:block;font-size:11px;color:var(--muted);margin-bottom:5px}
-  .path{display:flex;align-items:center;gap:8px;background:var(--s1);border:1px solid var(--hair2);border-radius:8px;padding:3px 3px 3px 11px}
-  .path input{border:0;background:transparent;padding:7px 0}.path input:focus{outline:none}
-  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:11px}
-  .choice{border:1px solid var(--hair2);border-radius:10px;padding:11px;background:var(--s2);cursor:pointer}
-  .choice.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
-  .choice b{display:block;margin-bottom:3px}.choice span{color:var(--muted);font-size:11px}
-  /* pairing */
-  .pair{max-width:560px;margin:24px auto;padding:22px}
-  .check{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--hair2);border-radius:8px;background:var(--s2);margin-bottom:8px}
-  .check .ic{width:18px;height:18px;border-radius:50%;display:grid;place-items:center;font-size:11px;border:1px solid var(--hair2)}
-  .check.ok .ic{background:rgba(39,166,68,.15);border-color:var(--ok);color:var(--ok)}
-  .check.bad .ic{background:rgba(229,72,77,.15);border-color:var(--danger);color:var(--danger)}
-  .check.warn .ic{background:rgba(212,160,23,.15);border-color:var(--warn);color:var(--warn)}
-  .check .t{font-size:12px;flex:1}.check .t b{display:block;font-weight:500}.check .t span{color:var(--muted);font-size:11px}
-  /* map */
-  .map-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px}
-  .col-card{background:var(--s1);border:1px solid var(--hair);border-radius:10px;padding:9px;min-height:200px}
-  .col-card h4{margin:0 0 9px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
-  .ticket{background:var(--s2);border:1px solid var(--hair2);border-radius:8px;padding:9px;margin-bottom:7px;font-size:11.5px}
-  .ticket .meta{color:var(--subtle);font-size:10px;margin-top:5px}
-  .ticket.hitl{border-left:3px solid var(--accent)}.ticket.afk{border-left:3px solid var(--ok)}
-  .dest{grid-column:1/-1;background:rgba(94,106,210,.08);border:1px solid rgba(94,106,210,.3);border-radius:10px;padding:11px 13px;margin-bottom:9px}
-  .dest b{color:var(--accent-h);font-size:10px;text-transform:uppercase;letter-spacing:.05em}
-  /* gallery */
-  .gallery{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
-  .variant{border:1px solid var(--hair2);border-radius:10px;overflow:hidden;background:var(--s2);cursor:pointer}
-  .variant.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
-  .variant .preview{height:108px;background:linear-gradient(180deg,#12131a,#0a0b10);display:grid;place-items:center;color:var(--muted);font-size:10px}
-  .variant .preview .wire{width:70%;height:70%;border:1px dashed var(--hair2);border-radius:6px;display:grid;grid-template-rows:14px 1fr;gap:5px;padding:5px}
-  .variant .preview .wire i{background:var(--hair2);display:block;border-radius:2px}
-  .variant .preview .wire .body{display:grid;grid-template-columns:1fr 2fr;gap:5px}
-  .variant figcaption{padding:7px 9px;font-size:11px}.variant figcaption b{display:block}.variant figcaption span{color:var(--muted);font-size:10px}
-  /* kanban */
-  .kanban{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;padding:11px}
-  .kcol{background:var(--s1);border-radius:10px;border:1px solid var(--hair);padding:7px;min-height:320px}
-  .kcol h4{margin:0 7px 7px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
-  .kcard{background:var(--s2);border:1px solid var(--hair2);border-radius:8px;padding:9px;margin-bottom:7px;font-size:11px}
-  .kcard .title{font-weight:500;margin-bottom:5px}.kcard.ready{box-shadow:inset 0 0 0 1px rgba(39,166,68,.5)}
-  .kcard.blocked{opacity:.7}
-  .badges{display:flex;gap:4px;flex-wrap:wrap}
-  .badge{font-size:9px;padding:1px 5px;border-radius:999px;border:1px solid var(--hair2);color:var(--muted)}
-  .badge.claude{color:#d4a574;border-color:#5c4030}.badge.codex{color:var(--info);border-color:#0c4a6e}.badge.dep{color:var(--warn);border-color:#5c4a10}
-  /* spec checklist */
-  .spec-list{display:flex;flex-direction:column;gap:7px}
-  .spec-item{display:flex;gap:9px;align-items:flex-start;padding:10px 12px;border:1px solid var(--hair2);border-radius:8px;background:var(--s2)}
-  .spec-item .box{width:15px;height:15px;border-radius:4px;border:1px solid var(--hair2);margin-top:1px;flex-shrink:0;display:grid;place-items:center;font-size:10px}
-  .spec-item.ok .box{background:var(--ok);border-color:var(--ok);color:#020}
-  .spec-item .t b{display:block;font-size:12px;font-weight:500}.spec-item .t span{color:var(--muted);font-size:11px}
-  /* handoff docs */
-  .doc{display:flex;justify-content:space-between;align-items:center;padding:9px 11px;border:1px solid var(--hair2);border-radius:8px;background:var(--s2);margin-bottom:6px;font-size:12px}
-  .st{font-size:10px}.st.ok{color:var(--ok)}.st.warn{color:var(--warn)}.st.bad{color:var(--danger)}
-  /* drawer / modal */
-  .overlay-wrap{display:grid;grid-template-columns:1fr 360px;gap:12px;align-items:start}
-  .drawer{border:1px solid var(--hair2);border-radius:10px;background:var(--s2);overflow:hidden}
-  .drawer .dh{padding:9px 12px;border-bottom:1px solid var(--hair);font-size:11px;color:var(--muted);display:flex;justify-content:space-between}
-  .drawer .db{padding:10px 12px;font-size:11px;font-family:ui-monospace,monospace;color:var(--muted);max-height:230px;overflow:auto}
-  .modal{border:1px solid var(--hair2);border-radius:12px;background:var(--s2);padding:15px;margin-bottom:12px}
-  .modal h4{margin:0 0 8px;font-size:13px}.modal p{margin:0 0 11px;color:var(--muted);font-size:12px}
-  /* graphs */
-  .graph{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:8px}
-  .node{border:1px solid var(--hair2);border-radius:8px;padding:8px;font-size:11px;text-align:center;background:var(--s2);position:relative}
-  .node.done{border-color:var(--ok);color:var(--ok)}.node.now{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
-  .edge{color:var(--subtle);text-align:center;font-size:10px}
-  /* states gallery */
-  .states{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-  .state{border:1px solid var(--hair);border-radius:10px;background:var(--s1);overflow:hidden}
-  .state .lab{padding:7px 10px;border-bottom:1px solid var(--hair);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
-  .state .body{padding:14px;text-align:center;min-height:120px;display:grid;place-content:center;gap:8px}
-  .spinner{width:22px;height:22px;border-radius:50%;border:2px solid var(--hair2);border-top-color:var(--accent);margin:0 auto;animation:sp 1s linear infinite}
-  @keyframes sp{to{transform:rotate(360deg)}}
-  .banner{border-radius:8px;padding:8px 10px;font-size:11px;border:1px solid}
-  .banner.err{border-color:var(--danger);color:#ffb3b6;background:rgba(229,72,77,.1)}
-  .banner.warn{border-color:var(--warn);color:#ffe08a;background:rgba(212,160,23,.1)}
-  .banner.info{border-color:var(--accent);color:var(--accent-h);background:rgba(94,106,210,.1)}
-  .flow-box{margin-top:24px;padding:14px;border:1px solid var(--hair);border-radius:12px;background:var(--s1)}
-  .flow-box h3{margin:0 0 8px;font-size:13px}
-  .flow-box pre{margin:0;overflow:auto;color:var(--muted);font-size:10.5px;line-height:1.35;font-family:ui-monospace,monospace}
-  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:10px;color:var(--muted);margin-top:8px}
+:root{
+  --canvas:#010102;--s1:#0f1011;--s2:#141516;--s3:#18191a;--s4:#191a1b;
+  --hair:#23252a;--hair2:#34343a;--ink:#f7f8f8;--muted:#8a8f98;--subtle:#62666d;
+  --accent:#5e6ad2;--accent-h:#828fff;--ok:#27a644;--warn:#d4a017;--danger:#e5484d;--info:#7dd3fc;
+  --font:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+*{box-sizing:border-box}body{margin:0;background:var(--canvas);color:var(--ink);font-family:var(--font);font-size:13.5px;line-height:1.45}
+header.app{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:12px;padding:9px 16px;border-bottom:1px solid var(--hair);background:rgba(1,1,2,.94);backdrop-filter:blur(10px);flex-wrap:wrap}
+.mark{width:18px;height:18px;border-radius:5px;background:linear-gradient(135deg,var(--accent),#8b5cf6)}
+header.app h1{font-size:12.5px;font-weight:600;margin:0;letter-spacing:-.2px}
+header.app .sub{color:var(--muted);font-size:10.5px}
+.tabs{display:flex;gap:4px;margin-left:auto;flex-wrap:wrap;max-width:72vw}
+.tabs button{background:transparent;border:1px solid var(--hair);color:var(--muted);border-radius:999px;padding:4px 9px;cursor:pointer;font-size:10.5px}
+.tabs button:hover{border-color:var(--hair2);color:var(--ink)}
+.tabs button.active{background:var(--accent);border-color:var(--accent);color:#fff}
+main{max-width:1340px;margin:0 auto;padding:18px 16px 80px}
+.screen{display:none}.screen.active{display:block}
+.caption{color:var(--muted);font-size:11.5px;margin:0 0 11px;padding:8px 11px;border:1px dashed var(--hair2);border-radius:8px;background:var(--s1)}
+.caption b{color:var(--ink)}.caption code{color:var(--accent-h);font-size:11px}
+.frame{border:1px solid var(--hair);border-radius:12px;overflow:hidden;background:var(--s1);box-shadow:0 24px 70px rgba(0,0,0,.45)}
+.titlebar{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--hair);background:var(--s2);font-size:11px;color:var(--muted)}
+.dots{display:flex;gap:5px;margin-right:6px}.dots i{width:8px;height:8px;border-radius:50%;background:var(--hair2);display:block}
+.shell{display:grid;grid-template-columns:200px 1fr;min-height:560px}
+.nav{border-right:1px solid var(--hair);background:var(--s1);padding:11px 8px}
+.nav .item{padding:6px 8px;border-radius:7px;color:var(--muted);font-size:12px;margin-bottom:1px}
+.nav .item.active{background:var(--s3);color:var(--ink)}
+.nav .label{font-size:9.5px;color:var(--subtle);text-transform:uppercase;letter-spacing:.06em;padding:10px 8px 4px}
+.content{display:flex;flex-direction:column;min-width:0;background:var(--canvas)}
+.phase-rail{display:flex;gap:3px;padding:8px 12px;border-bottom:1px solid var(--hair);overflow-x:auto;background:var(--s1);align-items:center}
+.phase{display:flex;align-items:center;gap:6px;padding:4px 8px;border-radius:7px;color:var(--muted);white-space:nowrap;font-size:10.5px;border:1px solid transparent}
+.phase .n{width:15px;height:15px;border-radius:50%;border:1px solid var(--hair2);display:grid;place-items:center;font-size:9px}
+.phase.done{color:var(--ok)}.phase.done .n{border-color:var(--ok);background:rgba(39,166,68,.12)}
+.phase.now{color:var(--ink);background:rgba(94,106,210,.12);border-color:rgba(94,106,210,.35)}.phase.now .n{border-color:var(--accent);background:var(--accent);color:#fff}
+.momentum{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:10px;color:var(--muted)}
+.ring{width:22px;height:22px;border-radius:50%;background:conic-gradient(var(--accent) 34%,var(--hair2) 0);display:grid;place-items:center}
+.ring i{width:14px;height:14px;border-radius:50%;background:var(--s1);display:block}
+.ribbon{display:flex;gap:6px;padding:7px 12px;border-bottom:1px solid var(--hair);background:var(--s2);overflow-x:auto;align-items:center}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:999px;border:1px solid var(--hair2);font-size:10.5px;color:var(--muted);white-space:nowrap;background:var(--s1)}
+.chip.locked{border-color:rgba(94,106,210,.45);color:var(--accent-h)}.chip .x{opacity:.5;cursor:default}
+.workspace{display:grid;grid-template-columns:1.05fr 1fr;flex:1;min-height:0}
+.pane{min-width:0;display:flex;flex-direction:column}.pane+.pane{border-left:1px solid var(--hair)}
+.pane-h{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--hair);color:var(--muted);font-size:11px;gap:8px}
+.pane-b{padding:12px;flex:1;overflow:auto}
+.q-card{border:1px solid var(--hair2);background:var(--s2);border-radius:12px;padding:14px;position:relative}
+.q-card.breath::before{content:"";position:absolute;left:0;top:12px;bottom:12px;width:2px;border-radius:2px;background:var(--accent);opacity:.55;animation:breath 2.4s ease-in-out infinite}
+@keyframes breath{0%,100%{opacity:.25}50%{opacity:.85}}
+.eyebrow{color:var(--accent-h);font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;margin-bottom:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.skill{font-weight:500;text-transform:none;letter-spacing:0;color:var(--muted);border:1px solid var(--hair2);padding:1px 6px;border-radius:999px;font-size:10px}
+.q-card h3{margin:0 0 8px;font-size:14.5px;font-weight:600;letter-spacing:-.2px}
+.q-card p{margin:0 0 10px;color:var(--muted);font-size:12.5px}
+.branch{font-size:11px;color:var(--subtle);margin:-4px 0 10px;padding:6px 8px;border-left:2px solid var(--hair2)}
+.rec{background:rgba(94,106,210,.1);border:1px solid rgba(94,106,210,.35);border-radius:8px;padding:8px 10px;margin-bottom:10px;font-size:12px}
+.rec b{color:var(--accent-h)}
+.tools{display:flex;gap:4px;flex-wrap:wrap;margin:0 0 10px}
+.tool{font-size:9.5px;padding:1px 6px;border-radius:4px;background:var(--s1);border:1px solid var(--hair);color:var(--subtle);font-family:var(--mono)}
+textarea,input[type=text]{width:100%;background:var(--s1);border:1px solid var(--hair2);color:var(--ink);border-radius:8px;padding:8px 10px;font:inherit;resize:vertical}
+textarea:focus,input[type=text]:focus{outline:1px solid var(--accent);border-color:var(--accent)}
+.row{display:flex;gap:7px;margin-top:10px;flex-wrap:wrap;align-items:center}
+.btn{border:1px solid var(--hair2);background:var(--s3);color:var(--ink);border-radius:8px;padding:6px 10px;font-size:11.5px;cursor:pointer}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.ghost{background:transparent;color:var(--muted)}.btn:disabled{opacity:.4}
+.kbd{font-size:9.5px;opacity:.55;margin-left:4px;font-family:var(--mono)}
+.tabs-mini{display:flex;gap:2px}.tabs-mini span{padding:2px 7px;border-radius:6px}.tabs-mini span.on{background:var(--s3);color:var(--ink)}
+pre.md{margin:0;white-space:pre-wrap;font-family:var(--mono);font-size:11px;color:var(--ink);background:var(--s1);border:1px solid var(--hair);border-radius:8px;padding:10px;line-height:1.5}
+.hi{background:rgba(94,106,210,.25);border-radius:3px;padding:0 3px}.add{color:#3dd68c}.del{color:#e5484d}
+.session-strip{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:6px 12px;border-top:1px solid var(--hair);background:var(--s2);font-size:10px;color:var(--muted)}
+.pill{display:inline-flex;align-items:center;gap:5px;padding:2px 7px;border-radius:999px;border:1px solid var(--hair2)}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--ok)}
+.quota{display:inline-flex;align-items:center;gap:5px}.quota .bar{width:54px;height:4px;border-radius:3px;background:var(--hair2);overflow:hidden}.quota .bar i{display:block;height:100%;background:var(--ok)}
+.cd{width:8px;height:8px;border-radius:50%;background:#7c6aef;display:inline-block;margin-right:4px;box-shadow:0 0 0 2px rgba(124,106,239,.25)}
+/* cards / home */
+.home-grid{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:10px;padding:14px}
+.card{border:1px solid var(--hair);border-radius:10px;background:var(--s2);padding:12px;min-height:120px}
+.card h4{margin:0 0 6px;font-size:12px;font-weight:600}.card p{margin:0;color:var(--muted);font-size:11.5px}
+.card.feature{border-color:rgba(94,106,210,.4);background:linear-gradient(160deg,rgba(94,106,210,.12),var(--s2))}
+.meta{font-size:10.5px;color:var(--subtle);margin-top:8px;display:flex;gap:8px;flex-wrap:wrap}
+/* seed */
+.seed-hero{max-width:700px;margin:24px auto;padding:0 16px 24px}
+.seed-hero h2{font-size:24px;letter-spacing:-.5px;margin:0 0 6px;font-weight:600}
+.seed-hero .lead{color:var(--muted);margin-bottom:18px;font-size:13px}
+.field{margin-bottom:12px}.field label{display:block;font-size:10.5px;color:var(--muted);margin-bottom:4px}
+.path{display:flex;align-items:center;gap:7px;background:var(--s1);border:1px solid var(--hair2);border-radius:8px;padding:3px 3px 3px 10px}
+.path input{border:0;background:transparent;padding:6px 0;flex:1}.path input:focus{outline:none}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.choice{border:1px solid var(--hair2);border-radius:9px;padding:10px;background:var(--s2)}
+.choice.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.choice b{display:block;margin-bottom:2px;font-size:12px}.choice span{color:var(--muted);font-size:10.5px}
+.examples{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 0}
+.ex{font-size:10.5px;padding:3px 8px;border-radius:999px;border:1px dashed var(--hair2);color:var(--muted);cursor:default}
+.preview-card{border:1px solid var(--hair2);border-radius:10px;padding:10px;background:var(--s1);display:flex;gap:10px;align-items:center}
+.preview-card .ic{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#7c6aef,#5e6ad2);display:grid;place-items:center;font-size:14px}
+/* ceremony */
+.ceremony{max-width:480px;margin:40px auto;padding:20px}
+.step{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--hair)}
+.step .ic{width:18px;height:18px;border-radius:50%;border:1px solid var(--ok);color:var(--ok);display:grid;place-items:center;font-size:10px;flex-shrink:0;margin-top:1px}
+.step.run .ic{border-color:var(--accent);color:var(--accent);animation:breath 1.2s infinite}
+.step.wait .ic{border-color:var(--hair2);color:var(--subtle)}
+.step b{display:block;font-size:12px;font-weight:500}.step span{color:var(--muted);font-size:11px}
+/* transition */
+.trans{max-width:520px;margin:36px auto;padding:20px;border:1px solid rgba(94,106,210,.35);border-radius:14px;background:var(--s2)}
+.trans h3{margin:0 0 6px;font-size:16px}.trans .sub{color:var(--muted);font-size:12px;margin-bottom:12px}
+.trans ul{margin:0 0 12px;padding-left:16px;color:var(--ink);font-size:12.5px}
+.trans ul li{margin-bottom:4px}.trans .next{background:var(--s1);border-radius:8px;padding:10px;font-size:12px;color:var(--muted);margin-bottom:12px}
+/* map */
+.map-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.col-card{background:var(--s1);border:1px solid var(--hair);border-radius:9px;padding:8px;min-height:180px}
+.col-card h4{margin:0 0 8px;font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.ticket{background:var(--s2);border:1px solid var(--hair2);border-radius:7px;padding:8px;margin-bottom:6px;font-size:11px}
+.ticket .meta{color:var(--subtle);font-size:9.5px;margin-top:4px}
+.ticket.hitl{border-left:3px solid var(--accent)}.ticket.afk{border-left:3px solid var(--ok)}
+.ticket.hl{box-shadow:0 0 0 1px var(--warn)}
+.dest{background:rgba(94,106,210,.08);border:1px solid rgba(94,106,210,.3);border-radius:9px;padding:10px 12px;margin-bottom:8px}
+.dest b{color:var(--accent-h);font-size:9.5px;text-transform:uppercase;letter-spacing:.05em}
+/* gallery */
+.gallery{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.variant{border:1px solid var(--hair2);border-radius:9px;overflow:hidden;background:var(--s2)}
+.variant.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.variant .preview{height:96px;background:linear-gradient(180deg,#12131a,#0a0b10);display:grid;place-items:center}
+.variant .preview .wire{width:70%;height:68%;border:1px dashed var(--hair2);border-radius:5px;display:grid;grid-template-rows:12px 1fr;gap:4px;padding:5px}
+.variant .preview .wire i{background:var(--hair2);display:block;border-radius:2px}
+.variant .preview .wire .body{display:grid;grid-template-columns:1fr 2fr;gap:4px}
+.variant figcaption{padding:6px 8px;font-size:10.5px}.variant figcaption b{display:block}
+/* kanban */
+.kanban{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;padding:10px}
+.kcol{background:var(--s1);border-radius:9px;border:1px solid var(--hair);padding:6px;min-height:280px}
+.kcol h4{margin:0 6px 6px;font-size:9.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.kcard{background:var(--s2);border:1px solid var(--hair2);border-radius:7px;padding:8px;margin-bottom:6px;font-size:10.5px}
+.kcard .title{font-weight:500;margin-bottom:4px}.kcard.ready{box-shadow:inset 0 0 0 1px rgba(39,166,68,.55)}
+.badges{display:flex;gap:3px;flex-wrap:wrap}
+.badge{font-size:9px;padding:1px 5px;border-radius:999px;border:1px solid var(--hair2);color:var(--muted)}
+.badge.claude{color:#d4a574;border-color:#5c4030}.badge.codex{color:var(--info);border-color:#0c4a6e}.badge.dep{color:var(--warn);border-color:#5c4a10}
+/* pairing / lists */
+.check{display:flex;align-items:center;gap:9px;padding:9px 11px;border:1px solid var(--hair2);border-radius:8px;background:var(--s2);margin-bottom:7px}
+.check .ic{width:16px;height:16px;border-radius:50%;display:grid;place-items:center;font-size:10px;border:1px solid var(--hair2)}
+.check.ok .ic{background:rgba(39,166,68,.15);border-color:var(--ok);color:var(--ok)}
+.check.bad .ic{background:rgba(229,72,77,.15);border-color:var(--danger);color:var(--danger)}
+.check .t{font-size:11.5px;flex:1}.check .t b{display:block;font-weight:500}.check .t span{color:var(--muted);font-size:10.5px}
+.banner{border-radius:8px;padding:7px 10px;font-size:11px;border:1px solid;margin-top:8px}
+.banner.info{border-color:var(--accent);color:var(--accent-h);background:rgba(94,106,210,.1)}
+.banner.warn{border-color:var(--warn);color:#ffe08a;background:rgba(212,160,23,.1)}
+.banner.ok{border-color:var(--ok);color:#9be7a8;background:rgba(39,166,68,.1)}
+.doc{display:flex;justify-content:space-between;padding:8px 10px;border:1px solid var(--hair2);border-radius:7px;background:var(--s2);margin-bottom:5px;font-size:11.5px}
+.st.ok{color:var(--ok)}.st.warn{color:var(--warn)}.st.bad{color:var(--danger)}
+.spec-item{display:flex;gap:8px;padding:9px 10px;border:1px solid var(--hair2);border-radius:7px;background:var(--s2);margin-bottom:6px}
+.spec-item .box{width:14px;height:14px;border-radius:3px;border:1px solid var(--hair2);margin-top:1px;flex-shrink:0;display:grid;place-items:center;font-size:9px}
+.spec-item.ok .box{background:var(--ok);border-color:var(--ok);color:#020}
+.drawer{border:1px solid var(--hair2);border-radius:9px;background:var(--s2);overflow:hidden;margin:10px}
+.drawer .dh{padding:7px 10px;border-bottom:1px solid var(--hair);font-size:10.5px;color:var(--muted);display:flex;justify-content:space-between}
+.drawer .db{padding:9px 10px;font-size:10.5px;font-family:var(--mono);color:var(--muted);max-height:160px;overflow:auto}
+.modal{border:1px solid var(--hair2);border-radius:11px;background:var(--s2);padding:13px;margin-bottom:10px}
+.modal h4{margin:0 0 6px;font-size:12.5px}.modal p{margin:0 0 9px;color:var(--muted);font-size:11.5px}
+.cmdk{max-width:480px;margin:30px auto;border:1px solid var(--hair2);border-radius:12px;background:var(--s2);overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.5)}
+.cmdk input{width:100%;border:0;border-bottom:1px solid var(--hair);background:transparent;padding:12px 14px;color:var(--ink);font:inherit}
+.cmdk input:focus{outline:none}
+.cmdk .item{padding:9px 14px;display:flex;justify-content:space-between;font-size:12px;border-bottom:1px solid var(--hair)}
+.cmdk .item.on{background:rgba(94,106,210,.15)}
+.cmdk .item span{color:var(--muted);font-size:10.5px}
+.two-path{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:24px;max-width:720px;margin:0 auto}
+.two-path .p{border:1px solid var(--hair2);border-radius:12px;padding:16px;background:var(--s2)}
+.two-path .p.hi{border-color:rgba(94,106,210,.5)}
+.two-path h3{margin:0 0 6px;font-size:14px}.two-path p{margin:0 0 12px;color:var(--muted);font-size:12px}
+.starter-list .rowc{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid var(--hair)}
+.starter-list .rowc b{font-size:12.5px}.starter-list .rowc span{color:var(--muted);font-size:11px}
+.compare{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.flow-box{margin-top:16px;padding:12px;border:1px solid var(--hair);border-radius:10px;background:var(--s1)}
+.flow-box h3{margin:0 0 6px;font-size:12px}
+.flow-box pre{margin:0;color:var(--muted);font-size:10px;line-height:1.35;font-family:var(--mono);overflow:auto}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--hair);font-size:11px;color:var(--muted);background:var(--s1)}
 </style>
 </head>
 <body>
 <header class="app">
   <div class="mark"></div>
   <div>
-    <h1>Project Starter — UI Mockups · REV 2</h1>
-    <div class="sub">FEAT-003 · idea → wayfind → grill → handoff → kanban → code · host OAuth runtime</div>
+    <h1>Project Starter — UX Mockups · REV 3</h1>
+    <div class="sub">Two walkthrough passes · micro-features · ceremonies · entry → first green slice</div>
   </div>
   <div class="tabs" id="tabs">
     <button data-tab="overview" class="active">Overview</button>
+    <button data-tab="entry">Entry</button>
+    <button data-tab="cmdk">Cmd-K</button>
     <button data-tab="pair">Pairing</button>
-    <button data-tab="seed">0 Seed</button>
-    <button data-tab="concept">1 Concept</button>
-    <button data-tab="arch">2 Architecture</button>
-    <button data-tab="ux">3 UX</button>
-    <button data-tab="plan">4 Plan</button>
-    <button data-tab="handoff">5 Handoff</button>
-    <button data-tab="grill2">6 Grill²</button>
-    <button data-tab="board">8 Execute</button>
-    <button data-tab="states">States &amp; modals</button>
+    <button data-tab="seed">Seed</button>
+    <button data-tab="scaffold">Scaffold</button>
+    <button data-tab="concept">Concept</button>
+    <button data-tab="trans">Transition</button>
+    <button data-tab="arch">Architecture</button>
+    <button data-tab="ux">UX</button>
+    <button data-tab="plan">Plan</button>
+    <button data-tab="handoff">Handoff</button>
+    <button data-tab="grill2">Grill²</button>
+    <button data-tab="boardprev">Board preview</button>
+    <button data-tab="board">Execute</button>
+    <button data-tab="states">States</button>
   </div>
 </header>
-
 <main>
-  <!-- OVERVIEW -->
-  <section class="screen active" id="overview">
-    <p class="caption"><b>REV 2.</b> 11 screens + modals/states. Drivers use host-side OAuth (Claude Agent SDK streaming-input + <code>codex exec resume</code>) — no API keys. Verified gaps from v1 fixed: <code>task_dependencies</code> (no blocking model existed), local-only pairing auth, reused <code>nexus-mcp</code> for execute, Codex app-server downgraded to research. Full write-up: <code>docs/design/PROJECT-STARTER-FEATURE.md</code>.</p>
-    <div class="frame"><div class="titlebar"><div class="dots"><i></i><i></i><i></i></div> End-to-end flow</div>
-      <div style="padding:16px;overflow:auto"><pre style="margin:0;color:var(--muted);font-size:11px;line-height:1.4;font-family:ui-monospace,monospace">
- Seed          Concept           Architecture        UX mockups         Phased plan
- ┌────┐       ┌──────────┐      ┌────────────┐     ┌───────────┐      ┌───────────┐
- │idea│──────▶│grill-with│─────▶│ wayfinder  │────▶│ prototype │─────▶│  to-spec  │
- │dir │       │  -docs   │      │ map+tickets│     │ gallery   │      │           │
- └────┘       └──────────┘      └────────────┘     └───────────┘      └─────┬─────┘
-                                                                            │
- Handoff pack     2nd grill (coding agent)     to-tickets → kanban+deps     Execute
- ┌──────────┐      ┌──────────────────┐       ┌──────────────────┐    ┌─────────────────┐
- │ 7 docs   │─────▶│ open Qs only     │──────▶│ Nexus board +    │───▶│Claude/Codex via │
- │ on disk  │      │ grill-with-docs  │       │ task_dependencies│    │ nexus-mcp       │
- └──────────┘      └──────────────────┘       └──────────────────┘    └─────────────────┘
-</pre></div></div>
 
-    <div class="overlay-wrap" style="margin-top:16px">
-      <div class="flow-box">
-        <h3>System context (local-only)</h3>
-<pre>Browser (Dashboard :5179, in container) ──WS──▶ nexus-agent-runtime :7788 (host)
-                                                   │
-                                                   ├─▶ Claude Agent SDK ──OAuth──▶ claude binary
-                                                   ├─▶ codex exec resume ──OAuth──▶ codex
-                                                   ├─▶ nexus-mcp (spawned, direct pg)
-                                                   └─▶ filesystem + git (project dir)
-Browser ──tRPC──▶ Nexus API/Postgres (project + kanban + task_dependencies)</pre>
-        <div class="legend"><span><span class="dot" style="display:inline-block;background:var(--accent)"></span> verified</span><span>dashboard in container; browser reaches host runtime directly via ws://localhost:7788</span></div>
-      </div>
-      <div class="flow-box">
-        <h3>One living process / phase (verified)</h3>
-<pre>query({ prompt: AsyncIterable&lt;SDKUserMessage&gt; })
-  → spawn claude ONCE (OAuth)
-  loop:
-    agent asks Q, turn ends
-    SDK yields msg → UI QuestionCard
-    user answers → push SDKUserMessage
-    SAME process continues
-  resume=sessionId on reload</pre>
-        <p style="color:var(--muted);font-size:10px;margin:8px 0 0">Fallback: <code>resume</code>-per-turn if streaming-input misbehaves.</p>
-      </div>
+<!-- OVERVIEW -->
+<section class="screen active" id="overview">
+  <p class="caption"><b>REV 3.</b> Same technical spine as REV 2; this pass is the <b>felt journey</b> of project creation — entry surfaces, scaffolding ceremony, phase transitions, decision ribbon, agent presence, abandonment recovery, first-slice moment. See design doc §8A / §8B.</p>
+  <div class="frame"><div class="titlebar"><div class="dots"><i></i><i></i><i></i></div> Experience map</div>
+    <div style="padding:14px"><pre style="margin:0;color:var(--muted);font-size:11px;line-height:1.45;font-family:var(--mono)">
+ ENTRY                 WORKSHOP                              SEAL                    RUN
+ Home continue ─┐
+ Projects empty ─┼─▶ Pair ─▶ Seed ─▶ Scaffold ceremony
+ Cmd-K action  ─┘              │
+                               ▼
+                    Concept (grill) ─▶ Transition card
+                               ▼
+                    Architecture map ─▶ Transition
+                               ▼
+                    UX gallery lock ─▶ Plan ─▶ Handoff ─▶ Grill²
+                               ▼
+                    Board preview ─▶ Materialize ─▶ Execute (nexus-mcp)
+                               ▼
+                    First green slice toast ─▶ Provenance tab
+</pre></div>
+  </div>
+  <div class="grid2" style="margin-top:12px">
+    <div class="flow-box"><h3>Pass 1 — structure the feeling</h3>
+      <pre>Multi-entry · pairing runway · idea coach · identity preview
+Scaffold ceremony · question branch context · undo
+Phase transition cards · decision ribbon · fog promote
+Board preview · stuck affordance · stale recovery</pre>
     </div>
-  </section>
+    <div class="flow-box"><h3>Pass 2 — texture</h3>
+      <pre>35 micro-features · keyboard map · agent breath
+Diff default-on · skill chip · ready ring · quiet coach
+Zip handoff · inbox hooks · provenance · anti-features</pre>
+    </div>
+  </div>
+</section>
 
-  <!-- PAIRING -->
-  <section class="screen" id="pair">
-    <p class="caption"><b>Pairing (R11).</b> Blocks Seed until the host runtime is reachable, <code>claude</code> and <code>codex</code> are OAuth-logged, and a one-time token is pasted. Local-only ⇒ no tenant model (R3).</p>
-    <div class="frame"><div class="titlebar"><div class="dots"><i></i><i></i><i></i></div> nexus.local / starter / pairing</div>
-      <div class="shell">
-        <aside class="nav"><div class="label">Workspace</div><div class="item">Projects</div><div class="item active">Starter</div></aside>
-        <div class="content">
-          <div class="pair">
-            <h2 style="font-size:20px;margin:0 0 6px">Connect the agent runtime</h2>
-            <p style="color:var(--muted);margin:0 0 18px">Project Starter runs Claude &amp; Codex on your machine via your OAuth subscriptions — no API keys. Run the runtime once and paste its token.</p>
-            <div class="check ok"><div class="ic">✓</div><div class="t"><b>Host runtime reachable</b><span>nexus-runtime v0.1.0 · ws://localhost:7788</span></div></div>
-            <div class="check ok"><div class="ic">✓</div><div class="t"><b>claude CLI</b><span>OAuth logged in · subscription · model opus</span></div></div>
-            <div class="check bad"><div class="ic">!</div><div class="t"><b>codex CLI</b><span>Not logged in — run <code>codex login</code> in a terminal</span></div></div>
-            <div class="check warn"><div class="ic">●</div><div class="t"><b>Pairing token</b><span>Paste the token printed by <code>nexus-runtime start</code></span></div></div>
-            <div class="path" style="margin:6px 0 4px"><span style="color:var(--subtle)">token</span><input type="text" placeholder="nxrt_••••••••••••••••"></div>
-            <div class="row"><button class="btn primary" disabled>Pair &amp; continue</button><button class="btn ghost">Retry checks</button></div>
-            <div class="banner info" style="margin-top:14px">Path allowlist: <code>~/code</code>, <code>~/Projects</code> (editable in settings). The runtime only touches these roots.</div>
+<!-- ENTRY -->
+<section class="screen" id="entry">
+  <p class="caption"><b>Entry surfaces.</b> Home continue card · Projects empty two-path hero · Starter home with stale treatment. Creating a project must feel available from wherever you already are.</p>
+  <div class="frame" style="margin-bottom:14px">
+    <div class="titlebar"><div class="dots"><i></i><i></i><i></i></div> Home</div>
+    <div class="shell">
+      <aside class="nav"><div class="label">Workspace</div><div class="item active">Home</div><div class="item">Inbox</div><div class="item">Projects</div></aside>
+      <div class="content">
+        <div class="home-grid">
+          <div class="card feature">
+            <h4><span class="cd"></span>Continue · Acme Ops Desk</h4>
+            <p>Concept · Q 4 of ~12 · last active 2h ago</p>
+            <div class="meta"><span>momentum 34%</span><span>Claude session live</span></div>
+            <div class="row"><button class="btn primary">Resume</button><button class="btn ghost">Save &amp; leave</button></div>
           </div>
+          <div class="card"><h4>Up next</h4><p>Answer starter question — Workspace vs Project term</p><div class="meta">HITL waiting</div></div>
+          <div class="card"><h4>Inbox</h4><p>Research batch finished: SDK OAuth</p><div class="meta">AFK · 12m ago</div></div>
         </div>
       </div>
     </div>
-  </section>
+  </div>
+  <div class="frame" style="margin-bottom:14px">
+    <div class="titlebar"><div class="dots"><i></i><i></i><i></i></div> Projects · empty</div>
+    <div class="two-path">
+      <div class="p"><h3>Blank project</h3><p>Name it, pick a color, start a board. You bring the plan.</p><button class="btn">Create blank</button></div>
+      <div class="p hi"><h3>Start from an idea</h3><p>We'll grill, wayfind, mock, and hand off — then a coding agent runs the board.</p><button class="btn primary">Start from idea</button></div>
+    </div>
+  </div>
+  <div class="frame">
+    <div class="titlebar"><div class="dots"><i></i><i></i><i></i></div> Starter home · in-flight</div>
+    <div class="starter-list">
+      <div class="rowc"><div><b><span class="cd"></span>Acme Ops Desk</b><br><span>Concept · 34% · active 2h ago</span></div><button class="btn primary">Resume</button></div>
+      <div class="rowc"><div><b>Ledger rewrite</b><br><span style="color:var(--warn)">Stale · idle 5d · was at Architecture</span></div><div class="row" style="margin:0"><button class="btn">Pick up</button><button class="btn ghost">Archive</button></div></div>
+      <div class="rowc"><div><b>Ops metrics v2</b><br><span style="color:var(--ok)">Sealed · board running</span></div><button class="btn">Open board</button></div>
+    </div>
+  </div>
+</section>
 
-  <!-- SEED -->
-  <section class="screen" id="seed">
-    <p class="caption"><b>Phase 0 · Seed.</b> Deterministic — no agent yet. Pick host dir (runtime-browsed), name, drivers. Scaffolds dir + git + vendored skill <i>closure</i> (R5), creates a <b>draft</b> Nexus project.</p>
-    <div class="frame"><div class="titlebar"><div class="dots"><i></i><i></i><i></i></div> nexus.local / projects / start from idea</div>
-      <div class="shell">
-        <aside class="nav"><div class="label">Workspace</div><div class="item">Home</div><div class="item">Inbox</div><div class="item active">Projects</div><div class="item">Tasks</div><div class="item">Knowledge</div><div class="label">Build</div><div class="item">Starter</div></aside>
-        <div class="content">
-          <div class="seed-hero">
-            <h2>Start from an idea</h2>
-            <p class="lead">Lock the concept, chart architecture, design UX, seal a handoff, then run the build on a kanban board — driven by Claude &amp; Codex via your OAuth subscriptions.</p>
-            <div class="field"><label>Working title</label><input type="text" value="Acme Ops Desk"></div>
-            <div class="field"><label>Idea</label><textarea rows="4">A local ops desk that turns a product idea into a grilled, wayfinded handoff and a kanban board coding agents can execute without API keys.</textarea></div>
-            <div class="field"><label>Project directory (host)</label><div class="path"><span style="color:var(--subtle)">~/code/</span><input type="text" value="acme-ops-desk" style="flex:1"><button class="btn">Browse…</button></div></div>
-            <div class="grid2">
-              <div class="field"><label>Discovery driver</label><div class="choice on"><b>Claude</b><span>OAuth · best for grill / wayfind HITL</span></div></div>
-              <div class="field"><label>Execute driver</label><div class="choice on"><b>Codex</b><span>OAuth · strong AFK implementation</span></div></div>
-            </div>
-            <div class="row"><button class="btn primary">Create workspace &amp; begin concept lock</button><button class="btn ghost">Save draft</button></div>
+<!-- CMDK -->
+<section class="screen" id="cmdk">
+  <p class="caption"><b>Cmd-K.</b> Three actions so Starter is reachable without hunting the sidebar. Mirrors existing global-search action catalogue pattern.</p>
+  <div class="cmdk">
+    <input value="start id" />
+    <div class="item on"><b>Start from idea</b><span>⏎</span></div>
+    <div class="item"><b>Resume last starter</b><span>Acme Ops Desk</span></div>
+    <div class="item"><b>Open starter board</b><span>Acme Ops Desk</span></div>
+  </div>
+</section>
+
+<!-- PAIR -->
+<section class="screen" id="pair">
+  <p class="caption"><b>Pairing runway.</b> Live preflight. Token auto-paste when clipboard matches <code>nxrt_*</code>. One soft success pulse — no fireworks.</p>
+  <div class="frame"><div class="titlebar"><div class="dots"><i></i><i></i><i></i></div> starter / pairing</div>
+    <div class="shell"><aside class="nav"><div class="item active">Starter</div></aside>
+      <div class="content" style="padding:22px;max-width:520px;margin:0 auto">
+        <h2 style="font-size:18px;margin:0 0 4px">Connect the agent runtime</h2>
+        <p style="color:var(--muted);margin:0 0 14px;font-size:12.5px">Claude &amp; Codex on your machine via OAuth — no API keys.</p>
+        <div class="check ok"><div class="ic">✓</div><div class="t"><b>Host runtime</b><span>v0.1.0 · ws://localhost:7788</span></div></div>
+        <div class="check ok"><div class="ic">✓</div><div class="t"><b>claude CLI</b><span>OAuth · subscription</span></div></div>
+        <div class="check ok"><div class="ic">✓</div><div class="t"><b>codex CLI</b><span>OAuth · ready</span></div></div>
+        <div class="check ok"><div class="ic">✓</div><div class="t"><b>Pairing token</b><span>pasted from clipboard</span></div></div>
+        <div class="path" style="margin:4px 0 8px"><span style="color:var(--subtle)">token</span><input value="nxrt_9f3a…c21"></div>
+        <label style="font-size:11px;color:var(--muted);display:flex;gap:6px;align-items:center;margin-bottom:10px"><input type="checkbox" checked> Don't ask again on this machine</label>
+        <div class="row"><button class="btn primary">Pair &amp; continue</button><button class="btn ghost">Retry checks</button></div>
+        <div class="banner info">Path allowlist: ~/code, ~/Projects</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SEED -->
+<section class="screen" id="seed">
+  <p class="caption"><b>Seed.</b> Idea coach chips · clipboard paste · identity preview (how the project card will look) · recent dirs · collision-safe slug · drivers as segmented why-copy.</p>
+  <div class="frame"><div class="titlebar"><div class="dots"><i></i><i></i><i></i></div> projects / start from idea</div>
+    <div class="shell"><aside class="nav"><div class="item active">Projects</div><div class="item">Starter</div></aside>
+      <div class="content">
+        <div class="seed-hero">
+          <h2>Start from an idea</h2>
+          <p class="lead">We'll lock the concept, chart architecture, design UX, seal a handoff — then run the build on a kanban board.</p>
+          <div class="field"><label>Working title</label><input value="Acme Ops Desk"></div>
+          <div class="field"><label>Idea <span style="color:var(--subtle)">(pasted from clipboard)</span></label>
+            <textarea rows="3">A local ops desk that turns a product idea into a grilled handoff and a kanban board coding agents execute without API keys.</textarea>
+            <div class="examples"><span class="ex">CLI that syncs Linear → git</span><span class="ex">Family meal planner</span><span class="ex">Sharpen…</span></div>
+            <div class="banner ok" style="margin-top:6px">Idea looks sharp — has a who, a what, and a constraint (no API keys).</div>
           </div>
-          <div class="session-strip">
-            <span class="pill"><span class="dot"></span> paired</span>
-            <span class="pill">path ok · empty dir</span>
-            <span class="pill">skills closure: wayfinder + grill-with-docs + grilling + domain-modeling + prototype + to-spec + to-tickets + implement + research + code-review</span>
+          <div class="field"><label>Project directory</label>
+            <div class="path"><span style="color:var(--subtle)">~/code/</span><input value="acme-ops-desk"><button class="btn">Browse</button></div>
+            <div class="examples"><span class="ex">~/code/ledger</span><span class="ex">~/Projects/dash</span><span class="ex">recent</span></div>
           </div>
+          <div class="field"><label>How it'll look on Projects</label>
+            <div class="preview-card"><div class="ic">A</div><div><b style="font-size:12.5px">Acme Ops Desk</b><div style="color:var(--muted);font-size:11px">planning · ~/code/acme-ops-desk</div></div></div>
+          </div>
+          <div class="grid2">
+            <div class="field"><label>Discovery</label><div class="choice on"><b>Claude</b><span>Best for grill / wayfind HITL</span></div></div>
+            <div class="field"><label>Execute</label><div class="choice on"><b>Codex</b><span>Strong AFK implementation</span></div></div>
+          </div>
+          <div class="row"><button class="btn primary">Create workspace &amp; begin</button><button class="btn ghost">Advanced…</button></div>
         </div>
       </div>
     </div>
-  </section>
+  </div>
+</section>
 
-  <!-- CONCEPT -->
-  <section class="screen" id="concept">
-    <p class="caption"><b>Phase 1 · Concept.</b> <code>grill-with-docs</code> — one Q at a time, recommended answer, live <code>CONTEXT.md</code> + ADR writes (acceptEdits scoped to docs). One living SDK process (R8).</p>
-    <div class="frame"><div class="titlebar"><div class="dots"><i></i><i></i><i></i></div> Starter / acme-ops-desk / concept</div>
-      <div class="shell">
-        <aside class="nav"><div class="label">Workspace</div><div class="item">Projects</div><div class="item active">Starter</div><div class="item">Tasks</div></aside>
-        <div class="content">
-          <div class="phase-rail">
-            <div class="phase done"><span class="n">✓</span> Seed</div>
-            <div class="phase now"><span class="n">1</span> Concept</div>
-            <div class="phase"><span class="n">2</span> Arch</div><div class="phase"><span class="n">3</span> UX</div><div class="phase"><span class="n">4</span> Plan</div><div class="phase"><span class="n">5</span> Handoff</div><div class="phase"><span class="n">6</span> Grill²</div><div class="phase"><span class="n">7</span> Board</div><div class="phase"><span class="n">8</span> Exec</div>
-          </div>
-          <div class="workspace">
-            <div class="pane">
-              <div class="pane-h"><span>Dialogue · grill-with-docs</span><span>Q 4 of ~12</span></div>
-              <div class="pane-b">
-                <div class="q-card">
-                  <div class="eyebrow">Decision · domain language</div>
-                  <h3>When you say “project,” is that the Nexus record, the git repo on disk, or both?</h3>
-                  <p>Earlier answers treat them 1:1, but the handoff pack lives on disk while the kanban lives in Nexus. Overloaded terms will poison CONTEXT.md.</p>
-                  <div class="rec"><b>Recommended:</b> Disk tree = <i>Workspace</i>; Nexus record = <i>Project</i>. One Project points at one Workspace path.</div>
-                  <textarea rows="3" placeholder="Your answer…">Agree — Workspace = disk, Project = Nexus. Starter binds them 1:1 for v1.</textarea>
-                  <div class="row"><button class="btn primary">Send answer <span style="opacity:.6">⏎</span></button><button class="btn">Accept recommendation <span style="opacity:.6">⌘⏎</span></button><button class="btn ghost">Skip <span style="opacity:.6">esc</span></button></div>
+<!-- SCAFFOLD -->
+<section class="screen" id="scaffold">
+  <p class="caption"><b>Scaffolding ceremony.</b> 10–20s of plain-English progress — not a spinner. Failures stay on the step with Retry.</p>
+  <div class="frame"><div class="titlebar"><div class="dots"><i></i><i></i><i></i></div> creating acme-ops-desk</div>
+    <div class="ceremony">
+      <h2 style="font-size:16px;margin:0 0 4px"><span class="cd"></span>Setting up Acme Ops Desk</h2>
+      <p style="color:var(--muted);font-size:12px;margin:0 0 14px">This only happens once.</p>
+      <div class="step"><div class="ic">✓</div><div><b>Create directory</b><span>~/code/acme-ops-desk</span></div></div>
+      <div class="step"><div class="ic">✓</div><div><b>git init</b><span>main branch, empty commit</span></div></div>
+      <div class="step run"><div class="ic">●</div><div><b>Vendor skills</b><span>wayfinder + grill-with-docs + closure check…</span></div></div>
+      <div class="step wait"><div class="ic">·</div><div><b>Draft Nexus project</b><span>color, prefix, planning status</span></div></div>
+      <div class="step wait"><div class="ic">·</div><div><b>Open Concept</b><span>first grill question</span></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- CONCEPT -->
+<section class="screen" id="concept">
+  <p class="caption"><b>Concept.</b> Skill chip · branch context · agent breath · tool chips · editable recommendation · undo · decision ribbon · Diff tab · momentum/ETA.</p>
+  <div class="frame">
+    <div class="topbar"><span>Projects › Starter › <span class="cd"></span>acme-ops-desk</span><div class="row" style="margin:0"><button class="btn ghost">Save &amp; leave <span class="kbd">⌘.</span></button><button class="btn ghost">⋯</button></div></div>
+    <div class="shell" style="grid-template-columns:1fr">
+      <div class="content">
+        <div class="phase-rail">
+          <div class="phase done"><span class="n">✓</span> Seed</div>
+          <div class="phase now"><span class="n">1</span> Concept</div>
+          <div class="phase"><span class="n">2</span> Arch</div><div class="phase"><span class="n">3</span> UX</div><div class="phase"><span class="n">4</span> Plan</div><div class="phase"><span class="n">5+</span> …</div>
+          <div class="momentum"><div class="ring"><i></i></div> 34% · ~18m left</div>
+        </div>
+        <div class="ribbon">
+          <span style="font-size:10px;color:var(--subtle)">Decisions</span>
+          <span class="chip locked">Workspace=disk</span>
+          <span class="chip locked">Project=Nexus</span>
+          <span class="chip locked">Local tracker</span>
+          <span class="chip">+ pin</span>
+        </div>
+        <div class="workspace">
+          <div class="pane">
+            <div class="pane-h"><span>Dialogue</span><span>Q 4 · ~4 left · 0 contradictions</span></div>
+            <div class="pane-b">
+              <div class="q-card breath">
+                <div class="eyebrow"><span class="skill">grill-with-docs</span> Decision · domain <a style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0">Why this?</a></div>
+                <h3>When you say “project,” is that the Nexus record, the git repo, or both?</h3>
+                <div class="branch">Locks the <i>Workspace vs Project</i> term — 3 later questions depend on it.</div>
+                <div class="tools"><span class="tool">Read CONTEXT.md</span><span class="tool">Write CONTEXT.md</span></div>
+                <div class="rec"><b>Recommended:</b> Disk = <i>Workspace</i>; Nexus = <i>Project</i>. One Project → one Workspace path. <span style="color:var(--subtle)">(edit me)</span></div>
+                <textarea rows="2">Agree — Workspace = disk, Project = Nexus. 1:1 for v1.</textarea>
+                <div class="row">
+                  <button class="btn primary">Send <span class="kbd">⏎</span></button>
+                  <button class="btn">Accept rec <span class="kbd">⌘⏎</span></button>
+                  <button class="btn ghost">Undo last</button>
+                  <button class="btn ghost">Skip <span class="kbd">esc</span></button>
                 </div>
               </div>
             </div>
-            <div class="pane">
-              <div class="pane-h"><div class="tabs-mini"><span class="on">CONTEXT.md</span><span>ADRs (1)</span><span>Session</span></div><span class="pill"><span class="dot"></span> live</span></div>
-              <div class="pane-b">
-<pre class="md"># CONTEXT
-
-## Glossary
-- <span class="hi">Workspace</span> — git repo root on host created by Starter.
-- <span class="hi">Project</span> — Nexus DB entity (board, tasks, members).
-- <span class="add">+ Starter run</span> — one guided workshop binding Workspace→Project.
-
-## Relationships
-- A Starter run creates one Workspace, eventually one Project.
+          </div>
+          <div class="pane">
+            <div class="pane-h"><div class="tabs-mini"><span>CONTEXT</span><span class="on">Diff</span><span>ADRs</span></div><span class="pill">Open in Finder</span></div>
+            <div class="pane-b">
+<pre class="md"> ## Glossary
+- Workspace — git repo root on host
+- Project — Nexus DB entity
+<span class="add">+ Starter run — workshop binding Workspace→Project</span>
 </pre>
-                <div class="banner info" style="margin-top:10px;font-size:10px">ADR-0001 drafted: <b>Local-only host runtime</b> — hard-to-reverse. <a style="color:var(--accent-h)">Review</a></div>
-              </div>
+              <div class="banner info">ADR-0001 drafted: Local-only host runtime · <a style="color:var(--accent-h)">Review</a></div>
             </div>
           </div>
-          <div class="session-strip">
-            <span class="pill"><span class="dot"></span> Claude 7f3a…c21 · oauth</span>
-            <span class="pill">turns this phase: 4</span>
-            <span class="quota">quota <span class="bar"><i></i></span> $0.34 / $2.00</span>
-            <button class="btn ghost" style="margin-left:auto;padding:3px 7px;font-size:10px">Advance when ready →</button>
-          </div>
+        </div>
+        <div class="session-strip">
+          <span class="pill"><span class="dot"></span> Claude 7f3a · oauth</span>
+          <span class="pill">turns 4</span>
+          <span class="quota">quota <span class="bar"><i style="width:17%"></i></span> $0.34/$2</span>
+          <button class="btn ghost" style="margin-left:auto;padding:2px 7px;font-size:10px">Activity <span class="kbd">⌘⇧A</span></button>
         </div>
       </div>
     </div>
-  </section>
+  </div>
+</section>
 
-  <!-- ARCH -->
-  <section class="screen" id="arch">
-    <p class="caption"><b>Phase 2 · Architecture.</b> <code>wayfinder</code> — Destination, fog, frontier decision tickets (research AFK / grilling HITL / prototype). Planning-only until the way is clear (tool allowlist R10 blocks coding).</p>
-    <div class="frame"><div class="titlebar"><div class="dots"><i></i><i></i><i></i></div> Starter / acme-ops-desk / architecture · wayfinder map</div>
-      <div class="shell">
-        <aside class="nav"><div class="item active">Starter</div><div class="item">Projects</div></aside>
-        <div class="content">
-          <div class="phase-rail">
-            <div class="phase done"><span class="n">✓</span> Seed</div><div class="phase done"><span class="n">✓</span> Concept</div>
-            <div class="phase now"><span class="n">2</span> Architecture</div><div class="phase"><span class="n">3</span> UX</div><div class="phase"><span class="n">4</span> Plan</div><div class="phase"><span class="n">5+</span> …</div>
-          </div>
-          <div class="pane-h"><div class="tabs-mini"><span class="on">Map</span><span>DAG</span><span>Dialogue</span><span>map.md</span></div><span class="pill">frontier 2 · blocked 2 · fog 2</span></div>
-          <div class="pane-b">
-            <div class="dest"><b>Destination</b><div style="margin-top:5px">Seal a handoff pack + Nexus kanban that let Codex implement Acme Ops Desk without re-discovering architecture.</div></div>
-            <div class="map-grid">
-              <div class="col-card"><h4>Frontier · ready</h4>
-                <div class="ticket hitl"><b>Host runtime transport</b><div>WS vs SDK-only embedding?</div><div class="meta">grilling · HITL</div></div>
-                <div class="ticket afk"><b>Research: SDK OAuth</b><div>Confirm tokenSource=oauth, no key</div><div class="meta">research · AFK · running</div></div>
-              </div>
-              <div class="col-card"><h4>Blocked</h4>
-                <div class="ticket"><b>Permission prompt UX</b><div class="meta">blocked by: Host runtime transport</div></div>
-                <div class="ticket"><b>Execute driver policy</b><div class="meta">blocked by: Host runtime transport</div></div>
-              </div>
-              <div class="col-card"><h4>Fog · not yet specified</h4>
-                <div class="ticket" style="opacity:.75">Multi-tenant Starter later?</div>
-                <div class="ticket" style="opacity:.75">GitHub issues tracker option</div>
-                <h4 style="margin-top:14px">Decisions so far</h4>
-                <div class="ticket" style="border-left:3px solid var(--ok)"><b>Local markdown tracker</b><div class="meta">skills run unchanged on .scratch/</div></div>
-              </div>
-            </div>
-            <div class="row" style="margin-top:11px"><button class="btn primary">Claim next frontier ticket</button><button class="btn">Run AFK research batch</button><button class="btn ghost">Open map.md</button></div>
-            <div class="graph" style="grid-template-columns:repeat(3,1fr)">
-              <div class="node done">✓ Concept</div><div class="edge">▶</div>
-              <div class="node done">✓ Tracker</div>
-              <div class="node now">● Transport</div><div class="edge">▶</div>
-              <div class="node">Permission UX</div>
-              <div class="node">Exec policy</div><div class="edge">▶</div>
-              <div class="node">Board build</div>
-            </div>
-          </div>
-          <div class="session-strip"><span class="pill"><span class="dot"></span> map · .scratch/starter/map.md</span><span class="pill">Claude + research subagents</span><span class="quota">quota <span class="bar"><i style="width:48%"></i></span> $0.96 / $2.00</span></div>
-        </div>
-      </div>
+<!-- TRANSITION -->
+<section class="screen" id="trans">
+  <p class="caption"><b>Phase transition ceremony.</b> Between every phase — what locked, what's next, artifact links. The missing "we made progress" beat.</p>
+  <div class="frame" style="min-height:420px;background:radial-gradient(ellipse at center,rgba(94,106,210,.08),var(--canvas))">
+    <div class="trans">
+      <div class="eyebrow" style="margin-bottom:4px">Concept complete</div>
+      <h3>Architecture is next</h3>
+      <div class="sub">We locked the language. Now we chart the hard-to-reverse choices.</div>
+      <b style="font-size:11px;color:var(--muted)">Locked</b>
+      <ul>
+        <li>Workspace = disk · Project = Nexus (1:1)</li>
+        <li>Local markdown tracker for wayfinder</li>
+        <li>Host runtime outside Docker (ADR-0001)</li>
+      </ul>
+      <div class="next"><b style="color:var(--ink)">Up next · Architecture</b><br>Name the destination, fan out the frontier, resolve decision tickets one at a time. No code yet.</div>
+      <div style="font-size:11px;color:var(--subtle);margin-bottom:12px">Artifacts: CONTEXT.md · docs/adr/0001-….md · .nexus-starter.json</div>
+      <div class="row"><button class="btn primary">Continue to Architecture</button><button class="btn">Review artifacts</button><button class="btn ghost">Save &amp; leave</button></div>
     </div>
-  </section>
+  </div>
+</section>
 
-  <!-- UX -->
-  <section class="screen" id="ux">
-    <p class="caption"><b>Phase 3 · UX.</b> <code>/prototype</code> UI branch — throwaway variants; pick one, lock ADR. Prototype HTML writes only to <code>docs/ux/**</code> (scoped allowlist).</p>
-    <div class="frame"><div class="titlebar"><div class="dots"><i></i><i></i><i></i></div> Starter / acme-ops-desk / ux</div>
-      <div class="shell"><aside class="nav"><div class="item active">Starter</div></aside>
-        <div class="content">
-          <div class="phase-rail"><div class="phase done"><span class="n">✓</span> Concept</div><div class="phase done"><span class="n">✓</span> Arch</div><div class="phase now"><span class="n">3</span> UX</div><div class="phase"><span class="n">4</span> Plan</div></div>
-          <div class="workspace">
-            <div class="pane"><div class="pane-h"><span>Variants</span><span>pick one to lock</span></div><div class="pane-b">
-              <div class="gallery">
-                <div class="variant on"><div class="preview"><div class="wire"><i></i><div class="body"><i></i><i></i></div></div></div><figcaption><b>A · Split workshop</b><span>Dialogue | artifacts — recommended</span></figcaption></div>
-                <div class="variant"><div class="preview"><div class="wire" style="grid-template-rows:1fr"><i style="height:100%"></i></div></div><figcaption><b>B · Single column</b><span>Linear-style document flow</span></figcaption></div>
-                <div class="variant"><div class="preview"><div class="wire"><i></i><div class="body" style="grid-template-columns:1fr"><i></i></div></div></div><figcaption><b>C · Map-first</b><span>Wayfinder DAG dominates</span></figcaption></div>
-              </div>
-              <div class="row"><button class="btn primary">Lock variant A + write ADR</button><button class="btn">Regenerate 2 more</button></div>
-            </div></div>
-            <div class="pane"><div class="pane-h"><span>Preview · variant A</span></div><div class="pane-b">
-              <div style="border:1px solid var(--hair);border-radius:8px;height:260px;background:var(--s1);display:grid;place-items:center;color:var(--muted);font-size:11px">iframe → docs/ux/variant-a/index.html</div>
-              <p style="color:var(--muted);font-size:11px;margin:11px 0 0">Annotations: “Keep phase rail sticky”, “Accept-rec needs ⌘⏎ shortcut”, “Quota gauge always visible”.</p>
-            </div></div>
+<!-- ARCH -->
+<section class="screen" id="arch">
+  <p class="caption"><b>Architecture.</b> Map + unlock copy · AFK subagent pulse · fog promote · blocker hover highlight · decisions column.</p>
+  <div class="frame">
+    <div class="topbar"><span><span class="cd"></span>acme-ops-desk · architecture</span><span class="pill">frontier 2 · blocked 2 · fog 2</span></div>
+    <div class="content">
+      <div class="phase-rail"><div class="phase done"><span class="n">✓</span> Concept</div><div class="phase now"><span class="n">2</span> Architecture</div><div class="phase"><span class="n">3</span> UX</div><div class="momentum"><div class="ring" style="background:conic-gradient(var(--accent) 52%,var(--hair2) 0)"><i></i></div> 52%</div></div>
+      <div class="ribbon"><span class="chip locked">Workspace=disk</span><span class="chip locked">Local tracker</span><span class="chip locked">Host runtime</span></div>
+      <div class="pane-b">
+        <div class="dest"><b>Destination</b><div style="margin-top:4px">Seal a handoff + kanban that let Codex implement without re-discovering architecture.</div></div>
+        <div class="map-grid">
+          <div class="col-card"><h4>Frontier</h4>
+            <div class="ticket hitl"><b>Host runtime transport</b><div>WS vs SDK-only?</div><div class="meta">grilling · unlocks: Permission UX, Exec policy</div></div>
+            <div class="ticket afk"><b>Research: SDK OAuth</b><div class="meta">AFK · subagent pulse 1m 12s</div></div>
+          </div>
+          <div class="col-card"><h4>Blocked</h4>
+            <div class="ticket hl"><b>Permission prompt UX</b><div class="meta">blocked by: Transport ← hover highlight</div></div>
+            <div class="ticket"><b>Execute driver policy</b><div class="meta">blocked by: Transport</div></div>
+          </div>
+          <div class="col-card"><h4>Fog</h4>
+            <div class="ticket" style="opacity:.8">Multi-tenant later? <button class="btn ghost" style="padding:1px 6px;font-size:9px;margin-top:4px">Promote to ticket</button></div>
+            <div class="ticket" style="opacity:.8">GitHub issues option</div>
+            <h4 style="margin-top:10px">Decisions</h4>
+            <div class="ticket" style="border-left:3px solid var(--ok)"><b>Local markdown tracker</b></div>
           </div>
         </div>
+        <div class="row"><button class="btn primary">Claim next</button><button class="btn">Run AFK research batch</button></div>
       </div>
     </div>
-  </section>
+  </div>
+</section>
 
-  <!-- PLAN -->
-  <section class="screen" id="plan">
-    <p class="caption"><b>Phase 4 · Plan.</b> <code>/to-spec</code> synthesis — no interview, just crystallize. Spec checklist gates advance; seams must be approved before Handoff.</p>
-    <div class="frame"><div class="titlebar"><div class="dots"><i></i><i></i><i></i></div> Starter / acme-ops-desk / plan · to-spec</div>
-      <div class="shell"><aside class="nav"><div class="item active">Starter</div></aside>
-        <div class="content">
-          <div class="phase-rail"><div class="phase done"><span class="n">✓</span> …</div><div class="phase now"><span class="n">4</span> Plan</div><div class="phase"><span class="n">5</span> Handoff</div></div>
-          <div class="workspace">
-            <div class="pane"><div class="pane-h"><span>Spec sections</span><span>3 of 5 approved</span></div><div class="pane-b">
-              <div class="spec-list">
-                <div class="spec-item ok"><div class="box">✓</div><div class="t"><b>Problem statement</b><span>from user's perspective</span></div></div>
-                <div class="spec-item ok"><div class="box">✓</div><div class="t"><b>Solution</b><span>from user's perspective</span></div></div>
-                <div class="spec-item ok"><div class="box">✓</div><div class="t"><b>User stories (12)</b><span>actor-action-outcome</span></div></div>
-                <div class="spec-item"><div class="box"></div><div class="t"><b>Implementation decisions</b><span>modules, interfaces, schema — 2 seams unconfirmed</span></div></div>
-                <div class="spec-item"><div class="box"></div><div class="t"><b>Testing decisions</b><span>prefer existing seams; none picked yet</span></div></div>
-              </div>
-              <div class="row"><button class="btn primary" disabled>Approve spec → Handoff</button><button class="btn">Confirm remaining seams</button></div>
-            </div></div>
-            <div class="pane"><div class="pane-h"><div class="tabs-mini"><span class="on">spec.md</span><span>stories</span></div></div><div class="pane-b">
-<pre class="md">## Problem Statement
-Users start greenfield projects across disconnected chats…
-## Solution
-A guided workshop that runs the wayfinder→grill→handoff chain…
-## Implementation Decisions
-- Host runtime outside Docker (ADR-0001)
-- <span class="hi">task_dependencies</span> table — Nexus had no blocking model
-- nexus-mcp as the execute bridge
-## Testing Decisions
-<span class="del">// TODO: pick seams (vitest unit, e2e via mock tool)</span>
-</pre>
-            </div></div>
+<!-- UX -->
+<section class="screen" id="ux">
+  <p class="caption"><b>UX gallery.</b> A/B compare · regenerate with intent · annotations fold into ADR · keys 1/2/3 + L.</p>
+  <div class="frame"><div class="titlebar"><div class="dots"><i></i><i></i><i></i></div> ux · compare A|B</div>
+    <div class="content">
+      <div class="phase-rail"><div class="phase done"><span class="n">✓</span> Arch</div><div class="phase now"><span class="n">3</span> UX</div></div>
+      <div class="pane-b">
+        <div class="compare">
+          <div class="variant on"><div class="preview"><div class="wire"><i></i><div class="body"><i></i><i></i></div></div></div><figcaption><b>A · Split workshop</b><span style="color:var(--muted)">Dialogue | artifacts</span></figcaption></div>
+          <div class="variant"><div class="preview"><div class="wire" style="grid-template-rows:1fr"><i style="height:100%"></i></div></div><figcaption><b>B · Single column</b><span style="color:var(--muted)">Document flow</span></figcaption></div>
+        </div>
+        <div class="banner info" style="margin-top:10px">Pin: “Keep phase rail sticky” · Pin: “⌘⏎ accepts rec” — will fold into ADR on lock.</div>
+        <div class="row"><button class="btn primary">Lock A + ADR <span class="kbd">L</span></button><button class="btn">Regenerate with note…</button><button class="btn ghost">Compare off</button></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PLAN -->
+<section class="screen" id="plan">
+  <p class="caption"><b>Plan.</b> Seams checkable with inline comments — approval is deliberate, not a rubber stamp.</p>
+  <div class="frame"><div class="titlebar"><div class="dots"><i></i><i></i><i></i></div> plan · to-spec</div>
+    <div class="workspace">
+      <div class="pane"><div class="pane-h">Seams</div><div class="pane-b">
+        <div class="spec-item ok"><div class="box">✓</div><div><b style="font-size:12px">Problem / Solution</b><div style="color:var(--muted);font-size:11px">approved</div></div></div>
+        <div class="spec-item ok"><div class="box">✓</div><div><b style="font-size:12px">User stories (12)</b><div style="color:var(--muted);font-size:11px">approved</div></div></div>
+        <div class="spec-item"><div class="box"></div><div><b style="font-size:12px">Implementation decisions</b><div style="color:var(--muted);font-size:11px">comment: prefer vitest over playwright for unit</div></div></div>
+        <div class="spec-item"><div class="box"></div><div><b style="font-size:12px">Testing decisions</b><div style="color:var(--muted);font-size:11px">pick seams</div></div></div>
+        <div class="row"><button class="btn primary" disabled>Approve → Handoff</button></div>
+      </div></div>
+      <div class="pane"><div class="pane-h">spec.md</div><div class="pane-b"><pre class="md">## Testing Decisions
+- Unit: vitest at session wrapper
+- E2E: mock tool dry-run for execute
+<span class="del">// playwright full — deferred</span>
+</pre></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- HANDOFF -->
+<section class="screen" id="handoff">
+  <p class="caption"><b>Handoff.</b> Reader mode · completeness meters · zip download · Seal hard-gated.</p>
+  <div class="frame"><div class="titlebar"><div class="dots"><i></i><i></i><i></i></div> handoff · reader</div>
+    <div class="workspace">
+      <div class="pane"><div class="pane-h"><span>Documents</span><span>Zip all</span></div><div class="pane-b">
+        <div class="doc"><span>README.md</span><span class="st ok">ready</span></div>
+        <div class="doc"><span>PRD.md</span><span class="st ok">ready</span></div>
+        <div class="doc"><span>user-stories.md</span><span class="st ok">ready</span></div>
+        <div class="doc"><span>tech-spec.md</span><span class="st ok">ready</span></div>
+        <div class="doc"><span>plan.md</span><span class="st warn">2 lack verification</span></div>
+        <div class="doc"><span>CLAUDE.md</span><span class="st ok">ready</span></div>
+        <div class="doc"><span>handoff.md</span><span class="st bad">3 open Qs</span></div>
+      </div></div>
+      <div class="pane"><div class="pane-h">Reader · handoff.md</div><div class="pane-b">
+        <div class="q-card"><div class="eyebrow">Cannot seal</div><h3>Handoff refuses to invent</h3><p>Close or defer open questions in Grill². Verification criteria still missing on 2 plan tasks.</p>
+          <div class="row"><button class="btn primary">Start Grill²</button><button class="btn" disabled>Seal</button><button class="btn ghost">Zip draft</button></div>
+        </div>
+      </div></div>
+    </div>
+  </div>
+</section>
+
+<!-- GRILL2 -->
+<section class="screen" id="grill2">
+  <p class="caption"><b>Grill².</b> Scope banner — only open Qs. Defer needs owner + date. Same card chrome as Concept for muscle memory.</p>
+  <div class="frame"><div class="titlebar"><div class="dots"><i></i><i></i><i></i></div> grill² · implementing agent</div>
+    <div class="content">
+      <div class="banner warn" style="margin:10px 12px">Scope: I will only ask about these 3 open questions. I will not redesign settled decisions.</div>
+      <div class="workspace">
+        <div class="pane"><div class="pane-b">
+          <div class="q-card">
+            <div class="eyebrow"><span class="skill">grill-with-docs · coding agent</span> Open Q · 1/3</div>
+            <h3>Which Postgres — Nexus container or per-Workspace?</h3>
+            <div class="rec"><b>Recommended:</b> Reuse Nexus container (55432); one schema per Workspace.</div>
+            <textarea rows="2">Reuse Nexus container; schema per Workspace.</textarea>
+            <div class="row"><button class="btn primary">Resolve</button><button class="btn">Defer…</button></div>
+            <div class="banner info">Defer form: owner = you · revisit = +7d</div>
+          </div>
+        </div></div>
+        <div class="pane"><div class="pane-h">handoff.md open Qs</div><div class="pane-b"><pre class="md">- [x] Auth model → pairing token
+- [x] Tracker → local markdown
+- [ ] <span class="hi">Postgres topology</span>
+</pre></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- BOARD PREVIEW -->
+<section class="screen" id="boardprev">
+  <p class="caption"><b>Board preview.</b> Before materialize — see tasks + deps, merge/split, then commit to Nexus kanban. Prevents surprise boards.</p>
+  <div class="frame"><div class="titlebar"><div class="dots"><i></i><i></i><i></i></div> board build · preview</div>
+    <div class="pane-b">
+      <table style="width:100%;border-collapse:collapse;font-size:11.5px">
+        <thead><tr style="color:var(--muted);text-align:left"><th style="padding:6px">#</th><th>Title</th><th>Blocked by</th><th>Verify</th><th></th></tr></thead>
+        <tbody>
+          <tr style="border-top:1px solid var(--hair)"><td style="padding:8px 6px">01</td><td>git init + skills vendor</td><td>—</td><td>dir exists</td><td><button class="btn ghost" style="padding:2px 6px">split</button></td></tr>
+          <tr style="border-top:1px solid var(--hair)"><td style="padding:8px 6px">02</td><td>task_dependencies schema</td><td>01</td><td>migration</td><td></td></tr>
+          <tr style="border-top:1px solid var(--hair)"><td style="padding:8px 6px">03</td><td>Claude SDK session wrapper</td><td>02</td><td>vitest</td><td><button class="btn ghost" style="padding:2px 6px">merge↑</button></td></tr>
+          <tr style="border-top:1px solid var(--hair)"><td style="padding:8px 6px">04</td><td>Pairing token flow</td><td>03</td><td>e2e mock</td><td></td></tr>
+        </tbody>
+      </table>
+      <div class="row"><button class="btn primary">Materialize 4 tasks + deps</button><button class="btn ghost">Back to tickets</button></div>
+    </div>
+  </div>
+</section>
+
+<!-- EXECUTE -->
+<section class="screen" id="board">
+  <p class="caption"><b>Execute.</b> Ready ring · driver badges · I'm stuck · activity drawer with nexus-mcp · first-slice toast · quota weekly.</p>
+  <div class="frame">
+    <div class="topbar"><span><span class="cd"></span>Acme Ops Desk · board · exec live</span>
+      <div class="row" style="margin:0"><span class="pill"><span class="dot"></span> codex loop</span><button class="btn" style="padding:2px 7px;font-size:10px">Pause</button></div>
+    </div>
+    <div class="banner ok" style="margin:8px 10px">First slice landed — <b>git init + skills vendor</b> · 11 remain</div>
+    <div style="display:grid;grid-template-columns:1fr 280px">
+      <div class="kanban">
+        <div class="kcol"><h4>Backlog</h4><div class="kcard" style="opacity:.75"><div class="title">Permission prompt UX</div><div class="badges"><span class="badge dep">blocked-by #03</span></div></div></div>
+        <div class="kcol"><h4>Todo · frontier</h4>
+          <div class="kcard ready"><div class="title">Seed scaffold API</div><div class="badges"><span class="badge">verify: vitest</span></div></div>
+          <div class="kcard ready"><div class="title">Pairing token flow</div></div>
+        </div>
+        <div class="kcol"><h4>In progress</h4>
+          <div class="kcard" style="border-color:rgba(125,211,252,.45)"><div class="title">Claude SDK session wrapper</div>
+            <div class="badges"><span class="badge codex">codex</span><span class="badge">sess 12ab</span></div>
+            <div class="row" style="margin-top:6px"><button class="btn ghost" style="padding:2px 6px;font-size:10px">I'm stuck</button></div>
           </div>
         </div>
+        <div class="kcol"><h4>In review</h4><div class="kcard"><div class="title">Protocol zod types</div><div class="badges"><span class="badge claude">claude review</span></div></div></div>
+        <div class="kcol"><h4>Done</h4><div class="kcard" style="opacity:.75"><div class="title">git init + skills vendor</div></div>
+          <div class="kcard" style="opacity:.75"><div class="title">task_dependencies schema</div></div></div>
+      </div>
+      <div class="drawer"><div class="dh"><span>Activity · 12ab</span><span class="badge codex">codex</span></div>
+        <div class="db">▸ nexus.list_tasks(todo)<br>▸ nexus.claim_task(07)<br>▸ Read sessions/claude.ts<br>▸ Edit streamInput wrapper<br>▸ bun test → 3 pass<br>▸ nexus.move_task(In Review)</div>
       </div>
     </div>
-  </section>
+    <div class="session-strip"><span class="pill">ready 2</span><span class="pill">blocked 1</span><span class="quota">weekly <span class="bar"><i style="width:62%;background:var(--warn)"></i></span> 62%</span></div>
+  </div>
+</section>
 
-  <!-- HANDOFF -->
-  <section class="screen" id="handoff">
-    <p class="caption"><b>Phase 5 · Handoff.</b> Seven docs, handoff-skill hard rules. Incomplete <code>handoff.md</code> blocks Seal (R-handoff). Each doc shows a completeness state.</p>
-    <div class="frame"><div class="titlebar"><div class="dots"><i></i><i></i><i></i></div> Starter / acme-ops-desk / handoff</div>
-      <div class="shell"><aside class="nav"><div class="item active">Starter</div></aside>
-        <div class="content">
-          <div class="phase-rail"><div class="phase done"><span class="n">✓</span> …</div><div class="phase now"><span class="n">5</span> Handoff</div><div class="phase"><span class="n">6</span> Grill²</div><div class="phase"><span class="n">7</span> Board</div></div>
-          <div class="workspace">
-            <div class="pane"><div class="pane-h"><span>Documents</span><span>5 of 7 ready</span></div><div class="pane-b">
-              <div class="doc"><span>README.md</span><span class="st ok">ready</span></div>
-              <div class="doc"><span>PRD.md</span><span class="st ok">ready</span></div>
-              <div class="doc"><span>user-stories.md</span><span class="st ok">ready</span></div>
-              <div class="doc"><span>tech-spec.md</span><span class="st ok">ready</span></div>
-              <div class="doc"><span>plan.md</span><span class="st warn">2 tasks lack verification</span></div>
-              <div class="doc"><span>CLAUDE.md</span><span class="st ok">ready</span></div>
-              <div class="doc"><span>handoff.md</span><span class="st bad">3 open questions</span></div>
-            </div></div>
-            <div class="pane"><div class="pane-h"><span>Gate</span></div><div class="pane-b">
-              <div class="q-card">
-                <div class="eyebrow">Cannot seal yet</div>
-                <h3>Handoff refuses to invent</h3>
-                <p>Resolve verification on plan.md and either answer or defer the 3 open questions in handoff.md (handled next in Grill²).</p>
-                <div class="row"><button class="btn">Return to plan</button><button class="btn primary">Start Grill² now</button><button class="btn" disabled>Seal handoff</button></div>
-              </div>
-            </div></div>
-          </div>
-        </div>
-      </div>
+<!-- STATES -->
+<section class="screen" id="states">
+  <p class="caption"><b>States &amp; modals.</b> Permission · phase gate · ADR · quota · two-tab conflict · stale · keyboard cheatsheet.</p>
+  <div class="grid2">
+    <div class="modal"><h4>Permission</h4><p><code>Edit docs/adr/0002-….md</code> outside allowlist roots.</p><div class="row"><button class="btn primary">Allow once</button><button class="btn">Allow phase</button><button class="btn ghost">Deny</button></div></div>
+    <div class="modal"><h4>Phase gate · ready</h4><p>Concept → Architecture. 6 terms · 0 contradictions.</p><div class="row"><button class="btn primary">Advance</button><button class="btn ghost">Keep drilling</button></div></div>
+    <div class="modal"><h4>Two-tab conflict</h4><p>Another browser tab holds the live session.</p><div class="row"><button class="btn primary">Take over</button><button class="btn">Watch only</button></div></div>
+    <div class="modal"><h4>Stale starter · 5d</h4><p>Ledger rewrite was at Architecture. Session still resumable.</p><div class="row"><button class="btn primary">Pick up</button><button class="btn ghost">Archive</button></div></div>
+    <div class="modal"><h4>Quota soft-pause</h4><p>Weekly headless at 82%.</p><div class="row"><button class="btn">Pause &amp; save</button><button class="btn primary">Finish turn</button></div></div>
+    <div class="modal"><h4>Keyboard <span class="kbd">?</span></h4>
+      <pre style="margin:0;font-size:10.5px;color:var(--muted);font-family:var(--mono)">⏎ send · ⌘⏎ accept rec · esc skip
+⌘. save & leave · ⌘⇧A activity
+⌘⇧D decision ribbon · ⌘1–8 phase
+⌘K start/resume · ? this sheet</pre>
     </div>
-  </section>
+  </div>
+</section>
 
-  <!-- GRILL2 -->
-  <section class="screen" id="grill2">
-    <p class="caption"><b>Phase 6 · Grill².</b> The coding agent reads the handoff and grills the human <b>only</b> on <code>handoff.md</code> open questions/contradictions. Same question-card UX as Concept; closes/defers each Q.</p>
-    <div class="frame"><div class="titlebar"><div class="dots"><i></i><i></i><i></i></div> Starter / acme-ops-desk / grill²</div>
-      <div class="shell"><aside class="nav"><div class="item active">Starter</div></aside>
-        <div class="content">
-          <div class="phase-rail"><div class="phase done"><span class="n">✓</span> Handoff</div><div class="phase now"><span class="n">6</span> Grill²</div><div class="phase"><span class="n">7</span> Board</div></div>
-          <div class="workspace">
-            <div class="pane"><div class="pane-h"><span>Open questions · 3</span><span>persona: implementing agent</span></div><div class="pane-b">
-              <div class="q-card">
-                <div class="eyebrow">Open Q · 1 of 3</div>
-                <h3>Which Postgres — local container or each Workspace its own?</h3>
-                <p>handoff.md lists this as unresolved; it changes the seed scaffold materially.</p>
-                <div class="rec"><b>Recommended:</b> Reuse the Nexus local container (55432) via a per-project schema; avoids per-project Docker.</div>
-                <textarea rows="2" placeholder="Answer or defer…">Reuse Nexus container; one schema per Workspace.</textarea>
-                <div class="row"><button class="btn primary">Resolve</button><button class="btn">Defer (with owner)</button></div>
-              </div>
-            </div></div>
-            <div class="pane"><div class="pane-h"><span>handoff.md</span><span>2 of 3 closed</span></div><div class="pane-b">
-<pre class="md">## Open Questions
-- [x] Auth model for runtime → resolved: pairing token (local-only)
-- [x] Tracker format → local markdown
-- [ ] <span class="hi">Postgres topology</span> ← answering now
-## Assumptions to validate
-- Codex exec resume is stable for execute (verified)
-## Contradictions
-- none remaining
-</pre>
-              <div class="row"><button class="btn primary" disabled>All closed → Build board</button></div>
-            </div></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- BOARD -->
-  <section class="screen" id="board">
-    <p class="caption"><b>Phase 8 · Execute.</b> Existing Nexus kanban = ops board. Driver claims ready-frontier cards (status=Todo ∧ all <code>task_dependencies</code> Done) and moves them via <code>nexus-mcp</code> (R4) — no tRPC-from-runtime, no API key. Live agent-log drawer + blocked highlighting (R1).</p>
-    <div class="frame"><div class="titlebar"><div class="dots"><i></i><i></i><i></i></div> Projects / Acme Ops Desk / board · exec live</div>
-      <div class="shell"><aside class="nav"><div class="item">Starter</div><div class="item active">Projects</div><div class="item">Tasks</div></aside>
-        <div class="content">
-          <div class="pane-h"><span>Acme Ops Desk · implementation board</span><div class="row" style="margin:0"><span class="pill"><span class="dot"></span> exec loop · codex</span><button class="btn" style="padding:3px 7px;font-size:10px">Pause</button><button class="btn ghost" style="padding:3px 7px;font-size:10px">Switch driver</button></div></div>
-          <div class="overlay-wrap" style="padding:0">
-            <div class="kanban">
-              <div class="kcol"><h4>Backlog</h4>
-                <div class="kcard blocked"><div class="title">Permission prompt UX</div><div class="badges"><span class="badge dep">blocked-by #03</span></div></div>
-              </div>
-              <div class="kcol"><h4>Todo · frontier</h4>
-                <div class="kcard ready"><div class="title">Seed scaffold API</div><div class="badges"><span class="badge">verify: vitest</span></div></div>
-                <div class="kcard ready"><div class="title">Pairing token flow</div><div class="badges"><span class="badge">slice</span></div></div>
-              </div>
-              <div class="kcol"><h4>In progress</h4>
-                <div class="kcard" style="border-color:rgba(125,211,252,.4)"><div class="title">Claude SDK session wrapper</div><div class="badges"><span class="badge codex">codex</span><span class="badge">sess 12ab…</span></div></div>
-              </div>
-              <div class="kcol"><h4>In review</h4>
-                <div class="kcard"><div class="title">Protocol zod types</div><div class="badges"><span class="badge claude">claude review</span></div></div>
-              </div>
-              <div class="kcol"><h4>Done</h4>
-                <div class="kcard" style="opacity:.75"><div class="title">git init + skills vendor</div></div>
-                <div class="kcard" style="opacity:.75"><div class="title">task_dependencies schema</div></div>
-              </div>
-            </div>
-            <div class="drawer" style="margin:11px"><div class="dh"><span>Agent activity · sess 12ab</span><span class="badge codex">codex</span></div><div class="db">
-▸ nexus.list_tasks(project=acme, status=todo)
-▸ nexus.claim_task(07-sdk-wrapper) → In Progress
-▸ Read packages/agent-runtime/src/sessions/claude.ts
-▸ Edit … (acceptEdits) → streamInput wrapper
-▸ Bash: bun test sessions/claude.test.ts → 3 pass
-▸ nexus.move_task(07, 'In Review') + comment
-            </div></div>
-          </div>
-          <div class="session-strip"><span class="pill">ready frontier: 2</span><span class="pill">blocked: 1</span><span class="pill">last verify: pass · 42s ago</span><span class="quota">weekly headless <span class="bar"><i style="width:62%"></i></span> 62%</span></div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- STATES & MODALS -->
-  <section class="screen" id="states">
-    <p class="caption"><b>States &amp; modals (R12).</b> Every interactive screen ships these. Permission, phase-gate, ADR toast, quota warning, activity drawer, resume banner, plus empty/loading/error/paused.</p>
-
-    <div class="grid2" style="grid-template-columns:1fr 1fr">
-      <div class="modal"><h4>🛂 Permission request</h4><p><code>Edit docs/adr/0002-postgres-topology.md</code> — out of the phase allowlist's doc roots.</p><div class="row"><button class="btn primary">Allow once</button><button class="btn">Allow this phase</button><button class="btn ghost">Deny</button></div></div>
-      <div class="modal"><h4>🚪 Phase gate</h4><p>Concept → Architecture. Ready: 6 glossary terms, 0 contradictions. <span style="color:var(--ok)">All checks pass.</span></p><div class="row"><button class="btn primary">Advance</button><button class="btn ghost">Keep drilling</button></div></div>
-    </div>
-    <div class="grid2" style="grid-template-columns:1fr 1fr;margin-top:12px">
-      <div class="modal"><h4>📜 ADR draft</h4><p>Hard-to-reverse decision detected: <b>Postgres topology — reuse Nexus container</b>. Worth an ADR?</p><div class="row"><button class="btn primary">Draft ADR-0002</button><button class="btn ghost">Skip</button></div></div>
-      <div class="modal"><h4>⏳ Quota warning</h4><p>Weekly headless usage at <b>82%</b>. Pause now and resume next cycle, or continue this turn?</p><div class="row"><button class="btn">Pause &amp; save session</button><button class="btn primary">Finish this turn</button></div></div>
-    </div>
-
-    <h3 style="font-size:13px;margin:22px 0 10px">Screen states</h3>
-    <div class="states">
-      <div class="state"><div class="lab">Empty · no starter</div><div class="body"><div style="color:var(--muted);font-size:12px">No workshops yet</div><button class="btn primary">Start from idea</button></div></div>
-      <div class="state"><div class="lab">Loading · agent thinking</div><div class="body"><div class="spinner"></div><div style="color:var(--muted);font-size:11px">grilling your answer…</div></div></div>
-      <div class="state"><div class="lab">Streaming</div><div class="body"><pre class="md" style="text-align:left">Recommended: ▮</pre><div style="color:var(--muted);font-size:11px">partial assistant message</div></div></div>
-      <div class="state"><div class="lab">Error · agent</div><div class="body"><div class="banner err">maxBudgetUsd exceeded this phase</div><button class="btn">Resume / raise cap</button></div></div>
-      <div class="state"><div class="lab">Error · runtime</div><div class="body"><div class="banner err">runtime disconnected</div><button class="btn">Reconnect</button></div></div>
-      <div class="state"><div class="lab">Paused</div><div class="body"><div class="banner warn">Paused — session 7f3a… saved</div><button class="btn primary">Resume</button></div></div>
-    </div>
-
-    <h3 style="font-size:13px;margin:22px 0 10px">Resume / reconnect banner (persistent)</h3>
-    <div class="banner info">↻ Reconnected to Claude session <code>7f3a…c21</code> — 2 turns replayed, no settled questions re-asked. <a style="color:var(--accent-h)">View transcript</a></div>
-
-    <div class="flow-box" style="margin-top:20px">
-      <h3>Phase gate logic (one line each)</h3>
-<pre>Seed      → dir + git + skills-closure ✓ + draft project
-Concept   → CONTEXT ≥ 5 terms ∧ 0 contradictions
-Arch      → frontier empty ∨ user force-advance (recorded)
-UX        → ≥1 variant selected ∧ ADR written
-Plan      → spec seams approved ∧ ≥1 story/seam
-Handoff   → 7 docs present ∧ handoff.md populated
-Grill²    → openQuestions = 0 ∨ all deferred-with-owner
-Board     → ≥1 Todo task ∧ all deps resolve to existing tasks
-Execute   → ready-frontier ≠ ∅ ∧ driver healthy</pre>
-    </div>
-  </section>
 </main>
-
 <script>
-  const tabs=document.getElementById('tabs');const screens=[...document.querySelectorAll('.screen')];
-  tabs.addEventListener('click',e=>{const b=e.target.closest('button[data-tab]');if(!b)return;
-    tabs.querySelectorAll('button').forEach(x=>x.classList.toggle('active',x===b));
-    screens.forEach(s=>s.classList.toggle('active',s.id===b.dataset.tab));window.scrollTo({top:0,behavior:'smooth'});});
+const tabs=document.getElementById('tabs');const screens=[...document.querySelectorAll('.screen')];
+tabs.addEventListener('click',e=>{const b=e.target.closest('button[data-tab]');if(!b)return;
+tabs.querySelectorAll('button').forEach(x=>x.classList.toggle('active',x===b));
+screens.forEach(s=>s.classList.toggle('active',s.id===b.dataset.tab));window.scrollTo({top:0,behavior:'smooth'});});
 </script>
 </body>
 </html>
