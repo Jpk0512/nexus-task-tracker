@@ -87,3 +87,8 @@ CLAUDE.pre-nexus.md.*
 .memory/subagent-returns/
 .claude/agent-memory/
 .cursor/
+
+# dashboard OS reference recordings (local only)
+docs/design/dashboard-os/ref/*.mov
+docs/design/dashboard-os/ref/rec-*.mov
+docs/design/dashboard-os/ref/source.mov

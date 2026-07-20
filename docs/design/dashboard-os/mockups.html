@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Nexus Dashboard OS — Mockups</title>
+<style>
+:root{
+  --bg:#08090a; --s1:#0f1011; --s2:#141516; --s3:#18191a; --s4:#1c1d1f;
+  --hair:#23252a; --hair2:#34343a;
+  --ink:#f7f8f8; --muted:#8a8f98; --subtle:#62666d;
+  --pri:#5e6ad2; --pri-h:#828fff;
+  --ok:#27a644; --warn:#d4a017; --danger:#eb5757;
+  --teal:#26b5ce; --green:#4cb782; --violet:#9b8afb; --orange:#f2c94c; --pink:#f2994a; --blue:#5e6ad2; --red:#eb5757;
+  --font:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Inter,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  --r:10px;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13px;line-height:1.45}
+/* chrome */
+.topnav{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid var(--hair);background:rgba(8,9,10,.94);backdrop-filter:blur(10px);flex-wrap:wrap}
+.logo{width:18px;height:18px;border-radius:5px;background:linear-gradient(135deg,var(--pri),#8b5cf6)}
+.topnav h1{font-size:12px;font-weight:600;margin:0;letter-spacing:-.2px}
+.topnav .sub{font-size:10.5px;color:var(--muted)}
+.tabs{display:flex;gap:4px;margin-left:auto;flex-wrap:wrap;max-width:78vw}
+.tabs button{background:transparent;border:1px solid var(--hair);color:var(--muted);border-radius:999px;padding:4px 9px;font-size:10.5px;cursor:pointer}
+.tabs button:hover{color:var(--ink);border-color:var(--hair2)}
+.tabs button.on{background:var(--pri);border-color:var(--pri);color:#fff}
+main{max-width:1400px;margin:0 auto;padding:16px 14px 90px}
+.screen{display:none}.screen.on{display:block}
+.cap{font-size:11.5px;color:var(--muted);padding:8px 11px;border:1px dashed var(--hair2);border-radius:8px;background:var(--s1);margin:0 0 12px}
+.cap b{color:var(--ink)}.cap code{color:var(--pri-h);font-size:11px}
+.opts{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px}
+.opts button{border:1px solid var(--hair2);background:var(--s2);color:var(--muted);border-radius:8px;padding:5px 10px;font-size:11px;cursor:pointer}
+.opts button.on{border-color:var(--pri);color:var(--ink);background:rgba(94,106,210,.15)}
+.frame{border:1px solid var(--hair);border-radius:12px;overflow:hidden;background:var(--s1);box-shadow:0 20px 60px rgba(0,0,0,.4);margin-bottom:14px}
+.frame-h{display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid var(--hair);background:var(--s2);font-size:11px;color:var(--muted)}
+.dots{display:flex;gap:5px}.dots i{width:8px;height:8px;border-radius:50%;background:var(--hair2);display:block}
+
+/* soft icon */
+.si{display:inline-flex;align-items:center;justify-content:center;border-radius:10px;flex-shrink:0}
+.si svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
+.si-sm{width:28px;height:28px;border-radius:8px}.si-sm svg{width:14px;height:14px}
+.si-md{width:36px;height:36px}.si-lg{width:44px;height:44px;border-radius:12px}.si-lg svg{width:20px;height:20px}
+.si-teal{color:var(--teal);background:rgba(38,181,206,.14);box-shadow:inset 0 0 0 1px rgba(38,181,206,.22)}
+.si-green{color:var(--green);background:rgba(76,183,130,.14);box-shadow:inset 0 0 0 1px rgba(76,183,130,.22)}
+.si-violet{color:var(--violet);background:rgba(155,138,251,.14);box-shadow:inset 0 0 0 1px rgba(155,138,251,.25)}
+.si-orange{color:#f2a65a;background:rgba(242,166,90,.14);box-shadow:inset 0 0 0 1px rgba(242,166,90,.25)}
+.si-blue{color:var(--blue);background:rgba(94,106,210,.16);box-shadow:inset 0 0 0 1px rgba(94,106,210,.28)}
+.si-pink{color:#e879a9;background:rgba(232,121,169,.14);box-shadow:inset 0 0 0 1px rgba(232,121,169,.22)}
+.si-red{color:var(--danger);background:rgba(235,87,87,.14);box-shadow:inset 0 0 0 1px rgba(235,87,87,.25)}
+.si-yellow{color:#e6c35c;background:rgba(230,195,92,.14);box-shadow:inset 0 0 0 1px rgba(230,195,92,.25)}
+.si-gray{color:var(--muted);background:rgba(138,143,152,.12);box-shadow:inset 0 0 0 1px rgba(138,143,152,.2)}
+
+/* app shell */
+.app{display:grid;grid-template-columns:232px 1fr;min-height:620px;background:var(--bg)}
+.sb{border-right:1px solid var(--hair);background:#0c0d0e;padding:12px 10px;display:flex;flex-direction:column;gap:2px}
+.sb .brand{display:flex;align-items:center;gap:8px;padding:4px 8px 12px;font-weight:600;font-size:13px}
+.sb .sec{font-size:10px;color:var(--subtle);text-transform:uppercase;letter-spacing:.06em;padding:12px 8px 4px}
+.sb a{display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:8px;color:var(--muted);text-decoration:none;font-size:12.5px;border:1px solid transparent}
+.sb a:hover{background:var(--s2);color:var(--ink)}
+.sb a.on{background:rgba(94,106,210,.12);border-color:rgba(94,106,210,.28);color:var(--ink)}
+.sb a .lbl{flex:1}
+.sb a .badge{font-size:10px;color:var(--muted);background:var(--s3);padding:1px 6px;border-radius:999px}
+.sb .cta{margin-top:auto;margin-bottom:8px;border:0;border-radius:10px;padding:10px 12px;font-weight:600;font-size:13px;color:#fff;cursor:pointer;background:linear-gradient(90deg,#f5a623,#e85d4c);width:100%;text-align:left}
+.sb .acct{display:flex;align-items:center;gap:8px;padding:8px;border-top:1px solid var(--hair);margin-top:4px;font-size:11.5px;color:var(--muted)}
+.sb .acct .av{width:24px;height:24px;border-radius:50%;background:var(--s3);display:grid;place-items:center;font-size:11px;color:var(--ink)}
+.main{display:flex;flex-direction:column;min-width:0;min-height:620px}
+.mbar{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--hair)}
+.mbar h2{margin:0;font-size:18px;font-weight:600;letter-spacing:-.3px}
+.mbar .sub{color:var(--muted);font-size:12px}
+.mbar .sp{flex:1}
+.btn{border:1px solid var(--hair2);background:var(--s3);color:var(--ink);border-radius:8px;padding:6px 11px;font-size:12px;cursor:pointer}
+.btn.pri{background:#fff;color:#111;border-color:#fff;font-weight:500}
+.btn.ghost{background:transparent;color:var(--muted)}
+.btn.sm{padding:4px 8px;font-size:11px}
+.body{padding:16px;flex:1}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.grid41{display:grid;grid-template-columns:1.4fr 320px;gap:12px}
+.card{background:var(--s1);border:1px solid var(--hair);border-radius:12px;padding:14px}
+.card h3{margin:0 0 4px;font-size:13px;font-weight:600}
+.card p{margin:0;color:var(--muted);font-size:12px}
+.card.hero{min-height:280px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:8px;position:relative;overflow:hidden}
+.card.hero .illus{width:72px;height:56px;border-radius:10px;border:1px solid var(--hair2);background:var(--s2);margin-bottom:8px;position:relative}
+.card.hero .illus::after{content:"";position:absolute;inset:-12px;border:1px dashed var(--hair2);border-radius:50%;opacity:.5}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.tile{display:flex;align-items:center;gap:10px;padding:12px;border:1px solid var(--hair);border-radius:12px;background:var(--s1)}
+.tile b{display:block;font-size:12.5px;font-weight:500}.tile span{font-size:11px;color:var(--muted)}
+.rail .card{margin-bottom:10px}
+.rail h4{margin:0 0 10px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px}
+.stat{display:flex;justify-content:space-between;padding:6px 0;font-size:12px;color:var(--muted);border-bottom:1px solid var(--hair)}
+.stat:last-child{border:0}.stat b{color:var(--ink);font-weight:500}
+.chip{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:999px;font-size:10.5px;border:1px solid var(--hair2);color:var(--muted);background:var(--s2)}
+.chip.g{color:var(--green);border-color:rgba(76,183,130,.35)}.chip.v{color:var(--violet);border-color:rgba(155,138,251,.35)}
+.chip.t{color:var(--teal);border-color:rgba(38,181,206,.35)}.chip.o{color:#f2a65a;border-color:rgba(242,166,90,.35)}
+.chip.r{color:var(--danger);border-color:rgba(235,87,87,.35)}
+
+/* lists */
+.lrow{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;border:1px solid transparent}
+.lrow:hover{background:var(--s2)}
+.lrow .id{font-size:11px;color:var(--subtle);font-family:var(--mono);min-width:52px}
+.lrow .title{flex:1;font-size:13px}
+.lrow .meta{font-size:11px;color:var(--muted)}
+.dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.prog{height:4px;border-radius:2px;background:var(--hair2);overflow:hidden;margin-top:6px}
+.prog i{display:block;height:100%;background:var(--pri);border-radius:2px}
+
+/* kanban */
+.kb{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.kc{background:transparent;min-height:360px}
+.kc h4{font-size:11px;color:var(--muted);font-weight:500;margin:0 4px 8px;display:flex;gap:6px;align-items:center}
+.kcard{background:var(--s2);border:1px solid var(--hair);border-radius:10px;padding:10px;margin-bottom:8px}
+.kcard .t{font-size:12.5px;font-weight:500;margin-bottom:8px}
+.kcard .m{display:flex;gap:4px;flex-wrap:wrap;align-items:center}
+
+/* notes tree */
+.notes{display:grid;grid-template-columns:220px 1fr 240px;min-height:520px}
+.tree{border-right:1px solid var(--hair);padding:10px;background:#0c0d0e;font-size:12px}
+.tree .n{padding:5px 8px;border-radius:6px;color:var(--muted);display:flex;gap:6px;align-items:center}
+.tree .n.on{background:var(--s3);color:var(--ink)}
+.tree .n.pad{padding-left:22px}
+.tree .n.pad2{padding-left:34px}
+.ed{padding:16px 20px}
+.ed h2{margin:0 0 4px;font-size:22px;font-weight:600;letter-spacing:-.4px}
+.ed .bc{font-size:11px;color:var(--muted);margin-bottom:14px}
+.ed .bodyp{color:var(--muted);font-size:13.5px;line-height:1.65;max-width:640px}
+.ctx{border-left:1px solid var(--hair);padding:12px;background:var(--s1)}
+.ctx h4{margin:0 0 8px;font-size:11px;color:var(--subtle);text-transform:uppercase;letter-spacing:.05em}
+
+/* outline */
+.ol{font-size:13.5px}
+.ol .item{display:flex;gap:8px;padding:4px 0;align-items:flex-start}
+.ol .b{width:6px;height:6px;border-radius:50%;background:var(--muted);margin-top:7px;flex-shrink:0}
+.ol .c{flex:1}
+.ol .nest{padding-left:18px}
+.ol .zoom{font-size:11px;color:var(--pri-h);margin-left:8px}
+
+/* initiative */
+.composer{border:1px solid var(--hair2);border-radius:12px;background:var(--s2);padding:12px;margin-bottom:14px}
+.composer textarea{width:100%;border:0;background:transparent;color:var(--ink);font:inherit;resize:vertical;min-height:56px}
+.composer textarea:focus{outline:0}
+.timeline .ev{display:grid;grid-template-columns:28px 1fr;gap:10px;padding:12px 0;border-bottom:1px solid var(--hair)}
+.timeline .ev:last-child{border:0}
+.timeline .when{font-size:11px;color:var(--subtle);margin-top:4px}
+
+/* compare */
+.compare{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.compare .lab{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--subtle);margin-bottom:6px}
+.tag{display:inline-block;font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(94,106,210,.2);color:var(--pri-h);margin-left:6px}
+.pill{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:999px;border:1px solid var(--hair2);font-size:10.5px;color:var(--muted)}
+.search{display:flex;align-items:center;gap:8px;background:var(--s2);border:1px solid var(--hair);border-radius:10px;padding:8px 12px;color:var(--muted);margin-bottom:12px}
+.search input{border:0;background:transparent;color:var(--ink);font:inherit;flex:1}
+.search input:focus{outline:0}
+.seg{display:inline-flex;background:var(--s2);border:1px solid var(--hair);border-radius:8px;padding:2px}
+.seg button{border:0;background:transparent;color:var(--muted);padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer}
+.seg button.on{background:var(--s3);color:var(--ink)}
+.muted{color:var(--muted)}.subtle{color:var(--subtle)}
+.grid-tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px}
+.proj-card{border:1px solid var(--hair);border-radius:12px;padding:12px;background:var(--s1)}
+.proj-card .top{display:flex;gap:10px;align-items:center;margin-bottom:8px}
+.pulse{border:1px solid var(--hair);border-radius:10px;padding:10px 12px;background:var(--s1);margin-bottom:8px}
+.pulse .h{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.opt-panel{display:none}.opt-panel.on{display:block}
+.icon-row{display:flex;gap:10px;flex-wrap:wrap;padding:8px 0}
+.note{font-size:11px;color:var(--subtle);margin-top:8px}
+hr.sep{border:0;border-top:1px solid var(--hair);margin:16px 0}
+</style>
+</head>
+<body>
+<header class="topnav">
+  <div class="logo"></div>
+  <div>
+    <h1>Dashboard OS — interactive mockups</h1>
+    <div class="sub">Multiple options · soft icons · IA · Home · Focus · Notes · Skills · Projects · Ops</div>
+  </div>
+  <div class="tabs" id="tabs">
+    <button data-t="overview" class="on">Overview</button>
+    <button data-t="icons">Soft icons</button>
+    <button data-t="ia">Sidebar IA</button>
+    <button data-t="home">Home</button>
+    <button data-t="focus">Focus</button>
+    <button data-t="capture">Capture</button>
+    <button data-t="notes">Notes</button>
+    <button data-t="skills">Skills</button>
+    <button data-t="project">Project</button>
+    <button data-t="ops">MCPs · Secrets</button>
+    <button data-t="meetings">Meetings</button>
+  </div>
+</header>
+<main>
+
+<!-- OVERVIEW -->
+<section class="screen on" id="overview">
+  <p class="cap"><b>How to use.</b> Each tab has <b>2–3 options</b> — click the option chips to compare feel. Prefer the one that feels calmer and more “pro,” not louder. Full write-up: <code>docs/design/DASHBOARD-OS.md</code>.</p>
+  <div class="grid3">
+    <div class="card"><h3>OpenShip cues</h3><p>Soft tinted icons, quiet empty states, home hero + right rail, gradient + New, thin sidebar.</p></div>
+    <div class="card"><h3>Linear cues</h3><p>Issue density, initiative updates as conversation, chips, professional kanban cards.</p></div>
+    <div class="card"><h3>Your goals</h3><p>One brain (Notes/ZenNotes), Focus not three task apps, Capture→promote, MCPs + Secrets + Meetings, ADHD-friendly.</p></div>
+  </div>
+  <hr class="sep">
+  <div class="card">
+    <h3>Recommended defaults (starting point)</h3>
+    <p style="margin-top:8px" class="muted">Sidebar <b>Option B (Brain / Ops)</b> · Home <b>Option B (Do now + pulse)</b> · Focus <b>Option A (Lens segments)</b> · Notes <b>Option A (project notebooks)</b> · Project updates <b>Option A (initiative composer)</b>. Flip options in each tab and tell me what to lock.</p>
+  </div>
+</section>
+
+<!-- ICONS -->
+<section class="screen" id="icons">
+  <p class="cap"><b>Soft icon system</b> — the OpenShip detail you liked: colored glyph on a light tinted square with a faint ring.</p>
+  <div class="opts" data-group="icons">
+    <button class="on" data-opt="a">A · Soft tiles (recommended)</button>
+    <button data-opt="b">B · Soft + stronger glow</button>
+    <button data-opt="c">C · Current flat (baseline)</button>
+  </div>
+  <div class="opt-panel on" data-panel="icons-a">
+    <div class="frame"><div class="frame-h"><div class="dots"><i></i><i></i><i></i></div> SoftIcon · sm / md / lg</div>
+      <div class="body">
+        <div class="icon-row">
+          <span class="si si-md si-blue"><svg viewBox="0 0 24 24"><path d="M3 12h18M12 3v18"/></svg></span>
+          <span class="si si-md si-green"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></span>
+          <span class="si si-md si-violet"><svg viewBox="0 0 24 24"><path d="M12 2a7 7 0 017 7c0 5-7 13-7 13S5 14 5 9a7 7 0 017-7z"/></svg></span>
+          <span class="si si-md si-teal"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg></span>
+          <span class="si si-md si-orange"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></span>
+          <span class="si si-md si-pink"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>
+          <span class="si si-md si-yellow"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></span>
+          <span class="si si-md si-red"><svg viewBox="0 0 24 24"><path d="M12 22c5.5 0 10-4.5 10-10S17.5 2 12 2 2 6.5 2 12s4.5 10 10 10z"/><path d="M12 8v4M12 16h.01"/></svg></span>
+        </div>
+        <div class="grid-tiles" style="margin-top:16px">
+          <div class="tile"><span class="si si-md si-blue"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg></span><div><b>Home</b><span>Command center</span></div></div>
+          <div class="tile"><span class="si si-md si-orange"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2"/></svg></span><div><b>Focus</b><span>Today &amp; attention</span></div></div>
+          <div class="tile"><span class="si si-md si-green"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span><div><b>Capture</b><span>Inbox · todos · outline</span></div></div>
+          <div class="tile"><span class="si si-md si-violet"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg></span><div><b>Notes</b><span>ZenNotes vault</span></div></div>
+        </div>
+        <p class="note">Token: icon color = brand; bg = color @ 14%; inset ring = color @ 22–28%.</p>
+      </div>
+    </div>
+  </div>
+  <div class="opt-panel" data-panel="icons-b">
+    <div class="frame"><div class="frame-h">Stronger glow variant</div>
+      <div class="body icon-row">
+        <span class="si si-lg si-blue" style="box-shadow:0 0 24px rgba(94,106,210,.35), inset 0 0 0 1px rgba(94,106,210,.35)"><svg viewBox="0 0 24 24"><path d="M3 12h18M12 3v18"/></svg></span>
+        <span class="si si-lg si-green" style="box-shadow:0 0 24px rgba(76,183,130,.35), inset 0 0 0 1px rgba(76,183,130,.35)"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/></svg></span>
+        <span class="si si-lg si-violet" style="box-shadow:0 0 24px rgba(155,138,251,.4), inset 0 0 0 1px rgba(155,138,251,.4)"><svg viewBox="0 0 24 24"><path d="M12 2a7 7 0 017 7c0 5-7 13-7 13S5 14 5 9a7 7 0 017-7z"/></svg></span>
+      </div>
+      <p class="note" style="padding:0 16px 16px">More “product marketing.” Risk: noisy in a dense sidebar. Better for empty states / marketing tiles only.</p>
+    </div>
+  </div>
+  <div class="opt-panel" data-panel="icons-c">
+    <div class="frame"><div class="frame-h">Baseline · flat lucide (today)</div>
+      <div class="body" style="display:flex;gap:18px;color:var(--muted);padding:20px">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+      </div>
+      <p class="note" style="padding:0 16px 16px">Harder to scan; everything same weight. This is the “cheaper” feel.</p>
+    </div>
+  </div>
+</section>
+
+<!-- IA -->
+<section class="screen" id="ia">
+  <p class="cap"><b>Sidebar information architecture</b> — biggest navigation fix. Compare three structures.</p>
+  <div class="opts" data-group="ia">
+    <button class="on" data-opt="a">A · Flat clusters (closer to today)</button>
+    <button data-opt="b">B · Brain / Ops (recommended)</button>
+    <button data-opt="c">C · Ultra-minimal (5 items)</button>
+  </div>
+
+  <div class="opt-panel on" data-panel="ia-a">
+    <div class="frame"><div class="frame-h">Option A · regroup only</div>
+      <div class="app">
+        <aside class="sb">
+          <div class="brand"><span class="si si-sm si-blue"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg></span> Local Dev</div>
+          <div class="sec">Focus</div>
+          <a class="on"><span class="si si-sm si-blue"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg></span><span class="lbl">Home</span></a>
+          <a><span class="si si-sm si-orange"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/></svg></span><span class="lbl">My Tasks</span></a>
+          <a><span class="si si-sm si-yellow"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/></svg></span><span class="lbl">Lens</span></a>
+          <a><span class="si si-sm si-green"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/></svg></span><span class="lbl">To-do</span></a>
+          <a><span class="si si-sm si-violet"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span><span class="lbl">Inbox</span><span class="badge">4</span></a>
+          <div class="sec">Projects</div>
+          <a><span class="si si-sm si-green"><svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></span><span class="lbl">Voice Agent Studio</span></a>
+          <a><span class="si si-sm si-violet"><svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></span><span class="lbl">AI Interaction Dash</span></a>
+          <div class="sec">Knowledge</div>
+          <a><span class="lbl" style="padding-left:36px">Documents</span></a>
+          <a><span class="lbl" style="padding-left:36px">Library</span></a>
+          <a><span class="lbl" style="padding-left:36px">Knowledge</span></a>
+          <a><span class="lbl" style="padding-left:36px">Prompts</span></a>
+          <button class="cta">+ New</button>
+          <div class="acct"><div class="av">J</div> John Keeney</div>
+        </aside>
+        <div class="main"><div class="body muted">Still many peers. Soft icons help, but Knowledge remains a pile of four names. Lowest change cost.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="opt-panel" data-panel="ia-b">
+    <div class="frame"><div class="frame-h">Option B · Brain / Ops <span class="tag">recommended</span></div>
+      <div class="app">
+        <aside class="sb">
+          <div class="brand"><span class="si si-sm si-blue"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg></span> Local Dev</div>
+          <div class="sec">Workspace</div>
+          <a class="on"><span class="si si-sm si-blue"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg></span><span class="lbl">Home</span></a>
+          <a><span class="si si-sm si-orange"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/></svg></span><span class="lbl">Focus</span></a>
+          <a><span class="si si-sm si-green"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span><span class="lbl">Capture</span><span class="badge">4</span></a>
+          <a><span class="si si-sm si-teal"><svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></span><span class="lbl">Projects</span></a>
+          <div class="sec">Favorites</div>
+          <a><span class="si si-sm si-green"><svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></span><span class="lbl">Voice Agent Studio</span></a>
+          <div class="sec">Brain</div>
+          <a><span class="si si-sm si-violet"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg></span><span class="lbl">Notes</span></a>
+          <a><span class="si si-sm si-teal"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/></svg></span><span class="lbl">Skills</span></a>
+          <a><span class="si si-sm si-pink"><svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4"/></svg></span><span class="lbl">Meetings</span></a>
+          <a><span class="si si-sm si-yellow"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></span><span class="lbl">Prompts</span></a>
+          <div class="sec">Ops</div>
+          <a><span class="si si-sm si-blue"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2"/></svg></span><span class="lbl">MCPs</span></a>
+          <a><span class="si si-sm si-red"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg></span><span class="lbl">Secrets</span></a>
+          <a><span class="si si-sm si-gray"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2"/></svg></span><span class="lbl">Settings</span></a>
+          <button class="cta">+ New</button>
+          <div class="acct"><div class="av">J</div> John Keeney</div>
+        </aside>
+        <div class="main"><div class="body muted">Clear jobs: <b>Focus</b> = work, <b>Capture</b> = dump, <b>Brain</b> = memory, <b>Ops</b> = infrastructure. Knowledge renamed Notes; Library → Skills; MCPs/Secrets elevated.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="opt-panel" data-panel="ia-c">
+    <div class="frame"><div class="frame-h">Option C · five items only</div>
+      <div class="app">
+        <aside class="sb">
+          <div class="brand"><span class="si si-sm si-blue"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg></span> Nexus</div>
+          <a class="on"><span class="si si-sm si-blue"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg></span><span class="lbl">Home</span></a>
+          <a><span class="si si-sm si-orange"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/></svg></span><span class="lbl">Work</span></a>
+          <a><span class="si si-sm si-violet"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/></svg></span><span class="lbl">Brain</span></a>
+          <a><span class="si si-sm si-teal"><svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></span><span class="lbl">Projects</span></a>
+          <a><span class="si si-sm si-gray"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/></svg></span><span class="lbl">System</span></a>
+          <button class="cta">+ New</button>
+          <div class="acct"><div class="av">J</div> John</div>
+        </aside>
+        <div class="main"><div class="body muted">Maximum calm. Sub-nav lives <i>inside</i> each section (tabs). Best if sidebar anxiety is the main pain; costs an extra click for MCPs/Meetings.</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOME -->
+<section class="screen" id="home">
+  <p class="cap"><b>Home</b> — today is sparse (your screenshot). Options rebuild composition.</p>
+  <div class="opts" data-group="home">
+    <button class="on" data-opt="a">A · OpenShip-like hero</button>
+    <button data-opt="b">B · Do now + project pulse (recommended)</button>
+    <button data-opt="c">C · Dense command center</button>
+  </div>
+
+  <div class="opt-panel on" data-panel="home-a">
+    <div class="frame"><div class="frame-h">Home A · OpenShip composition</div>
+      <div class="app">
+        <aside class="sb">
+          <div class="brand"><span class="si si-sm si-blue"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg></span> Local Dev</div>
+          <a class="on"><span class="si si-sm si-blue"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg></span><span class="lbl">Home</span></a>
+          <a><span class="si si-sm si-orange"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/></svg></span><span class="lbl">Focus</span></a>
+          <a><span class="si si-sm si-green"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span><span class="lbl">Capture</span></a>
+          <a><span class="si si-sm si-teal"><svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></span><span class="lbl">Projects</span></a>
+          <button class="cta">+ New</button>
+          <div class="acct"><div class="av">J</div> John</div>
+        </aside>
+        <div class="main">
+          <div class="body">
+            <h2 style="margin:0 0 2px;font-size:22px;font-weight:600;letter-spacing:-.4px">Good evening, John</h2>
+            <p class="muted" style="margin:0 0 14px">Here's what's happening across your workspace</p>
+            <div class="grid41">
+              <div class="card hero">
+                <div class="illus"></div>
+                <h3 style="font-size:16px">Launch your next slice</h3>
+                <p style="max-width:360px">Capture a thought, open Focus, or drop a project update — one place to start.</p>
+                <div class="row" style="margin-top:8px;justify-content:center">
+                  <button class="btn pri">+ Capture</button>
+                  <button class="btn">Open Focus</button>
+                </div>
+                <p class="subtle" style="font-size:11px;margin-top:10px">Tip: press <span class="pill">⌘K</span> to jump anywhere</p>
+              </div>
+              <div class="rail">
+                <div class="card"><h4><span class="si si-sm si-blue"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span> Activity</h4>
+                  <div class="stat"><span>Inbox</span><b>4</b></div>
+                  <div class="stat"><span>Overdue</span><b style="color:var(--danger)">1</b></div>
+                  <div class="stat"><span>MCPs up</span><b>6/6</b></div>
+                </div>
+                <div class="card"><h4>Quick tip</h4><p>Promote inbox items before noon — keep Capture empty.</p><p style="margin-top:8px"><a style="color:var(--pri-h)">Process inbox →</a></p></div>
+                <div class="card"><h4>Recent</h4><p class="subtle">Your activity will appear here</p></div>
+              </div>
+            </div>
+            <div class="grid-tiles">
+              <div class="tile"><span class="si si-md si-violet"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/></svg></span><div><b>Notes</b><span>Open vault</span></div></div>
+              <div class="tile"><span class="si si-md si-teal"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/></svg></span><div><b>Skills</b><span>Browse catalog</span></div></div>
+              <div class="tile"><span class="si si-md si-red"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/></svg></span><div><b>Secrets</b><span>Infisical</span></div></div>
+              <div class="tile"><span class="si si-md si-blue"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/></svg></span><div><b>MCPs</b><span>All servers</span></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="opt-panel" data-panel="home-b">
+    <div class="frame"><div class="frame-h">Home B · Do now + pulse <span class="tag">recommended</span></div>
+      <div class="app">
+        <aside class="sb">
+          <div class="brand"><span class="si si-sm si-blue"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg></span> Local Dev</div>
+          <a class="on"><span class="si si-sm si-blue"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg></span><span class="lbl">Home</span></a>
+          <a><span class="si si-sm si-orange"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/></svg></span><span class="lbl">Focus</span></a>
+          <a><span class="si si-sm si-green"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span><span class="lbl">Capture</span><span class="badge">4</span></a>
+          <button class="cta">+ New</button>
+          <div class="acct"><div class="av">J</div> John</div>
+        </aside>
+        <div class="main">
+          <div class="body">
+            <div class="search"><span>✦</span><input value="What's on your mind?  @project #label !urgent :tomorrow" /><button class="btn sm">Task</button><button class="btn sm">Note</button><button class="btn sm pri">Add</button></div>
+            <h2 style="margin:0 0 2px;font-size:20px;font-weight:600">Good evening, Sun Jul 19</h2>
+            <p class="muted" style="margin:0 0 14px">Welcome back. 1 overdue · 4 in inbox · 2 projects active</p>
+            <div class="grid41">
+              <div>
+                <div class="card" style="margin-bottom:12px">
+                  <div class="row" style="justify-content:space-between;margin-bottom:8px"><h3>Do now</h3><span class="muted">max 5</span></div>
+                  <div class="lrow"><span class="dot" style="background:var(--danger)"></span><span class="id">DEV-69</span><span class="title">End-to-end smoke test</span><span class="chip r">overdue</span></div>
+                  <div class="lrow"><span class="dot" style="background:var(--orange)"></span><span class="id">VAS-12</span><span class="title">Wire transcript export</span><span class="chip o">today</span></div>
+                  <div class="lrow"><span class="dot" style="background:var(--pri)"></span><span class="id">note</span><span class="title">File 3 Capture inbox items</span><span class="chip">capture</span></div>
+                </div>
+                <div class="card">
+                  <div class="row" style="justify-content:space-between;margin-bottom:8px"><h3>Project pulse</h3><span class="muted">last updates</span></div>
+                  <div class="pulse">
+                    <div class="h"><span class="row"><span class="si si-sm si-green"><svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></span><b>Voice Agent Studio</b></span><span class="chip g">on track</span></div>
+                    <p class="muted" style="font-size:12px">“Shipped prompt eval harness — next is transcript → tasks.” · 2d ago</p>
+                  </div>
+                  <div class="pulse">
+                    <div class="h"><span class="row"><span class="si si-sm si-violet"><svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></span><b>AI Interaction Dashboard</b></span><span class="chip o">at risk</span></div>
+                    <p class="muted" style="font-size:12px">“Waiting on embedding provider decision (LM Studio vs cloud).” · 5d ago</p>
+                  </div>
+                </div>
+              </div>
+              <div class="rail">
+                <div class="card"><h4>Inbox</h4><div class="stat"><span>Unprocessed</span><b>4</b></div><button class="btn sm" style="margin-top:8px;width:100%">Process</button></div>
+                <div class="card"><h4>Continue starter</h4><p>Acme Ops Desk · Concept 34%</p><button class="btn sm pri" style="margin-top:8px">Resume</button></div>
+                <div class="card"><h4>Ops</h4><div class="stat"><span>MCPs</span><b>all up</b></div><div class="stat"><span>Infisical</span><b>connected</b></div><div class="stat"><span>LM Studio</span><b class="subtle">offline</b></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="opt-panel" data-panel="home-c">
+    <div class="frame"><div class="frame-h">Home C · dense (more modules)</div>
+      <div class="body">
+        <div class="grid3">
+          <div class="card"><h3>Do now</h3><p class="muted">3 items…</p></div>
+          <div class="card"><h3>Agenda</h3><p class="muted">calendar…</p></div>
+          <div class="card"><h3>Up next</h3><p class="muted">in progress…</p></div>
+          <div class="card"><h3>Notes recent</h3><p class="muted">5 notes…</p></div>
+          <div class="card"><h3>Meetings</h3><p class="muted">this week…</p></div>
+          <div class="card"><h3>Skills pinned</h3><p class="muted">3 skills…</p></div>
+        </div>
+        <p class="note">Power-user dense. Risk for ADHD: too many simultaneous modules. Prefer B + optional widgets in settings.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOCUS -->
+<section class="screen" id="focus">
+  <p class="cap"><b>Focus</b> merges My Tasks + Lens + Triage. Compare segment styles and density.</p>
+  <div class="opts" data-group="focus">
+    <button class="on" data-opt="a">A · Things segments (recommended)</button>
+    <button data-opt="b">B · Now / Next / Later</button>
+    <button data-opt="c">C · Linear list density</button>
+  </div>
+  <div class="opt-panel on" data-panel="focus-a">
+    <div class="frame"><div class="frame-h">Focus A</div>
+      <div class="app" style="grid-template-columns:200px 1fr">
+        <aside class="sb" style="padding-top:16px">
+          <div class="sec">Focus</div>
+          <a class="on"><span class="lbl">☀ Today</span><span class="badge">3</span></a>
+          <a><span class="lbl">Upcoming</span></a>
+          <a><span class="lbl">Anytime</span></a>
+          <a><span class="lbl">Someday</span></a>
+          <a><span class="lbl">Logbook</span></a>
+        </aside>
+        <div class="main">
+          <div class="mbar"><h2>Today</h2><span class="sub">Sun Jul 19</span><div class="sp"></div><div class="seg"><button class="on">List</button><button>Board</button></div></div>
+          <div class="body">
+            <div class="lrow"><span class="dot" style="background:var(--danger)"></span><span class="id">DEV-69</span><span class="title">End-to-end smoke test</span><span class="chip r">overdue</span><span class="chip g">Voice Agent</span></div>
+            <div class="lrow"><span class="dot" style="background:var(--orange)"></span><span class="id">VAS-12</span><span class="title">Wire transcript export</span><span class="chip o">today</span><span class="chip v">has note</span></div>
+            <div class="lrow"><span class="dot" style="background:var(--pri)"></span><span class="id">AID-4</span><span class="title">Embedding provider decision</span><span class="chip">waiting</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="opt-panel" data-panel="focus-b">
+    <div class="frame"><div class="frame-h">Focus B · N/N/L columns</div>
+      <div class="body"><div class="kb">
+        <div class="kc"><h4>● Now · 2</h4><div class="kcard"><div class="t">Smoke test</div><div class="m"><span class="chip r">overdue</span></div></div></div>
+        <div class="kc"><h4>● Next · 4</h4><div class="kcard"><div class="t">Transcript export</div><div class="m"><span class="chip g">VAS</span></div></div></div>
+        <div class="kc"><h4>● Later · 8</h4><div class="kcard"><div class="t">Docs cleanup</div></div></div>
+        <div class="kc"><h4>● Done</h4></div>
+      </div><p class="note">Familiar if you already think N/N/L. Maps cleanly to Today/Upcoming/Someday behind the scenes.</p></div>
+    </div>
+  </div>
+  <div class="opt-panel" data-panel="focus-c">
+    <div class="frame"><div class="frame-h">Focus C · Linear density board</div>
+      <div class="body"><div class="kb">
+        <div class="kc"><h4>○ Todo 4</h4>
+          <div class="kcard"><div class="t">create pro serve demo for thursday</div><div class="m"><span class="id">TODO-20</span><span class="chip g">Voice Agent</span><span class="chip">Jul 16</span></div></div>
+          <div class="kcard"><div class="t">Create dashboard for ai feedback</div><div class="m"><span class="id">TODO-16</span><span class="chip t">Agentic Chat</span></div></div>
+        </div>
+        <div class="kc"><h4>◐ In Progress 4</h4>
+          <div class="kcard"><div class="t">Updating Workflow</div><div class="m"><span class="chip o">!</span><span class="chip g">Voice Agent</span></div></div>
+        </div>
+        <div class="kc"><h4>⊘ Blocked 0</h4></div>
+        <div class="kc"><h4>◑ On hold 3</h4>
+          <div class="kcard"><div class="t">Create browser overlay…</div><div class="m"><span class="chip v">Feature</span></div></div>
+        </div>
+      </div></div>
+    </div>
+  </div>
+</section>
+
+<!-- CAPTURE -->
+<section class="screen" id="capture">
+  <p class="cap"><b>Capture</b> — inbox + todos + WorkFlowy-style outline. Promote, don’t pre-sort.</p>
+  <div class="opts" data-group="capture">
+    <button class="on" data-opt="a">A · Tabs: Inbox / Todos / Outline</button>
+    <button data-opt="b">B · Outline-first (WorkFlowy)</button>
+  </div>
+  <div class="opt-panel on" data-panel="capture-a">
+    <div class="frame"><div class="frame-h">Capture A</div>
+      <div class="mbar"><h2>Capture</h2><div class="seg" style="margin-left:12px"><button class="on">Inbox 4</button><button>Todos</button><button>Outline</button></div><div class="sp"></div><button class="btn sm">Process all</button></div>
+      <div class="body">
+        <div class="lrow"><span class="b" style="width:8px;height:8px;border-radius:50%;background:var(--muted)"></span><span class="title">idea: vault ask with lm studio</span><div class="sp"></div><button class="btn sm">→ Todo</button><button class="btn sm">→ Task</button><button class="btn sm">→ Note</button></div>
+        <div class="lrow"><span class="title">call dentist</span><div class="sp"></div><button class="btn sm">→ Todo</button></div>
+        <div class="lrow"><span class="title">VAS: remember eval harness path</span><div class="sp"></div><button class="btn sm">→ Note</button></div>
+      </div>
+    </div>
+  </div>
+  <div class="opt-panel" data-panel="capture-b">
+    <div class="frame"><div class="frame-h">Capture B · outline-first</div>
+      <div class="body ol">
+        <div class="item"><div class="b"></div><div class="c">Life<span class="zoom">zoom</span>
+          <div class="nest">
+            <div class="item"><div class="b"></div><div class="c">ADHD systems
+              <div class="nest">
+                <div class="item"><div class="b"></div><div class="c">One capture only</div></div>
+                <div class="item"><div class="b"></div><div class="c">Promote nightly</div></div>
+              </div>
+            </div></div>
+            <div class="item"><div class="b"></div><div class="c">Work
+              <div class="nest">
+                <div class="item"><div class="b"></div><div class="c">Voice Agent — transcript export <span class="chip g">→ task</span></div></div>
+              </div>
+            </div></div>
+          </div>
+        </div></div>
+        <p class="note">Every node: collapse, zoom, convert to Note/Task, tag project. This is the Dotflowy/WorkFlowy itch.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- NOTES -->
+<section class="screen" id="notes">
+  <p class="cap"><b>Notes</b> (was Knowledge) — Notion project notebooks + ZenNotes + Ask vault.</p>
+  <div class="opts" data-group="notes">
+    <button class="on" data-opt="a">A · Project notebooks (recommended)</button>
+    <button data-opt="b">B · Hub list (current-ish, polished)</button>
+    <button data-opt="c">C · ZenNotes-mirror tree</div>
+  </div>
+  <div class="opt-panel on" data-panel="notes-a">
+    <div class="frame"><div class="frame-h">Notes A · project top-level</div>
+      <div class="mbar"><h2>Notes</h2><span class="sub">vault · ZenNotes</span><div class="sp"></div>
+        <button class="btn sm">Ask vault</button>
+        <button class="btn sm pri">Open in ZenNotes</button>
+        <button class="btn sm">+ New</button>
+      </div>
+      <div class="notes">
+        <div class="tree">
+          <div class="n"><span class="si si-sm si-orange"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span> Inbox <span class="badge" style="margin-left:auto">3</span></div>
+          <div class="n" style="margin-top:8px;color:var(--subtle);font-size:10px;text-transform:uppercase">Projects</div>
+          <div class="n on"><span class="si si-sm si-green"><svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></span> Voice Agent Studio</div>
+          <div class="n pad">_index</div>
+          <div class="n pad2">decisions/</div>
+          <div class="n pad2">meetings/</div>
+          <div class="n pad2">notes/</div>
+          <div class="n"><span class="si si-sm si-violet"><svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></span> AI Interaction Dash</div>
+          <div class="n" style="margin-top:8px;color:var(--subtle);font-size:10px;text-transform:uppercase">Areas</div>
+          <div class="n pad">ADHD systems</div>
+          <div class="n pad">Career</div>
+          <div class="n" style="margin-top:8px">Resources</div>
+          <div class="n">Archive</div>
+        </div>
+        <div class="ed">
+          <div class="bc">Projects / Voice Agent Studio / _index</div>
+          <h2>Voice Agent Studio</h2>
+          <p class="bodyp">Project home note. Goals, links, current focus. Child notes live underneath like Notion pages — not a flat agent dump of daily/iter12/references.</p>
+          <p class="bodyp" style="margin-top:12px">## Goals<br>…<br>## Active decisions<br>…</p>
+        </div>
+        <div class="ctx">
+          <h4>Context</h4>
+          <p class="muted" style="font-size:12px;margin-bottom:10px">Linked tasks</p>
+          <div class="chip g" style="margin-bottom:6px">VAS-12 transcript export</div>
+          <p class="muted" style="font-size:12px;margin:12px 0 6px">Backlinks</p>
+          <div class="chip">Meeting Jul 18</div>
+          <button class="btn sm" style="width:100%;margin-top:16px">Open in ZenNotes ↗</button>
+          <button class="btn sm" style="width:100%;margin-top:6px">Ask this notebook</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="opt-panel" data-panel="notes-b">
+    <div class="frame"><div class="frame-h">Notes B · polished hub (list + inspector)</div>
+      <div class="body">
+        <div class="search">Search notes…</div>
+        <div class="grid41">
+          <div class="card">
+            <div class="lrow"><span class="title">knowledge-section-redesign</span><span class="chip">projects/nexus</span></div>
+            <div class="lrow"><span class="title">vault-command-center</span><span class="chip o">ideas</span></div>
+            <div class="lrow"><span class="title">2026-06-23</span><span class="chip">daily</span></div>
+          </div>
+          <div class="card"><h3>Inspector</h3><p class="muted">Preview + wiki-links + Open ZenNotes. Same as today, prettier.</p></div>
+        </div>
+        <p class="note">Lower reorg cost but keeps agent-ish folders visible. Weaker “Notion project notebook” feel.</p>
+      </div>
+    </div>
+  </div>
+  <div class="opt-panel" data-panel="notes-c">
+    <div class="frame"><div class="frame-h">Notes C · pure ZenNotes mirror</div>
+      <div class="body"><p class="muted">Sidebar tree = exact disk tree of the ZenNotes vault with zero Nexus semantics. Best fidelity to ZenNotes; worst project integration unless folders already match projects/.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- SKILLS -->
+<section class="screen" id="skills">
+  <p class="cap"><b>Skills</b> — Library elevated to a human catalog with soft icons.</p>
+  <div class="opts" data-group="skills">
+    <button class="on" data-opt="a">A · Card grid</button>
+    <button data-opt="b">B · Table + preview</button>
+  </div>
+  <div class="opt-panel on" data-panel="skills-a">
+    <div class="frame"><div class="frame-h">Skills A</div>
+      <div class="mbar"><h2>Skills</h2><div class="seg" style="margin-left:10px"><button class="on">All</button><button>Skills</button><button>Agents</button><button>Orch</button></div><div class="sp"></div><button class="btn sm">Re-scan</button></div>
+      <div class="body grid3">
+        <div class="tile" style="flex-direction:column;align-items:flex-start;gap:8px">
+          <span class="si si-md si-teal"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/></svg></span>
+          <b>grill-with-docs</b>
+          <span class="muted">Interview + CONTEXT/ADRs</span>
+          <div class="row"><span class="chip t">skill</span><span class="chip">global</span></div>
+        </div>
+        <div class="tile" style="flex-direction:column;align-items:flex-start;gap:8px">
+          <span class="si si-md si-violet"><svg viewBox="0 0 24 24"><path d="M12 2a7 7 0 017 7c0 5-7 13-7 13S5 14 5 9a7 7 0 017-7z"/></svg></span>
+          <b>wayfinder</b>
+          <span class="muted">Decision map for big efforts</span>
+          <div class="row"><span class="chip v">skill</span><span class="chip g">pinned VAS</span></div>
+        </div>
+        <div class="tile" style="flex-direction:column;align-items:flex-start;gap:8px">
+          <span class="si si-md si-green"><svg viewBox="0 0 24 24"><path d="M12 2a5 5 0 015 5v3H7V7a5 5 0 015-5z"/><path d="M5 10h14v10H5z"/></svg></span>
+          <b>forge-ui</b>
+          <span class="muted">UI implementer persona</span>
+          <div class="row"><span class="chip g">agent</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="opt-panel" data-panel="skills-b">
+    <div class="frame"><div class="frame-h">Skills B · table</div>
+      <div class="body">
+        <div class="lrow"><span class="si si-sm si-teal"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/></svg></span><span class="title">grill-with-docs</span><span class="chip t">skill</span><span class="meta">~/.claude/skills</span></div>
+        <div class="lrow"><span class="si si-sm si-violet"><svg viewBox="0 0 24 24"><path d="M12 2a7 7 0 017 7c0 5-7 13-7 13S5 14 5 9a7 7 0 017-7z"/></svg></span><span class="title">wayfinder</span><span class="chip v">skill</span></div>
+        <p class="note">Better for 200+ entries; less delightful browsing.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PROJECT -->
+<section class="screen" id="project">
+  <p class="cap"><b>Project</b> — makeover + Linear-style initiative updates.</p>
+  <div class="opts" data-group="project">
+    <button class="on" data-opt="a">A · Initiative composer (recommended)</button>
+    <button data-opt="b">B · Overview dashboard</button>
+  </div>
+  <div class="opt-panel on" data-panel="project-a">
+    <div class="frame"><div class="frame-h">Project · Updates tab</div>
+      <div class="mbar">
+        <span class="si si-md si-green"><svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></span>
+        <h2>Voice Agent Studio</h2>
+        <span class="chip g">on track</span>
+        <div class="sp"></div>
+        <div class="seg"><button>Overview</button><button>Board</button><button>Notes</button><button class="on">Updates</button><button>Skills</button></div>
+      </div>
+      <div class="body" style="max-width:720px">
+        <div class="composer">
+          <textarea placeholder="Drop an update… what moved, what's stuck, what needs eyes"></textarea>
+          <div class="row" style="justify-content:space-between">
+            <div class="row">
+              <span class="chip g">● on track</span><span class="chip o">● at risk</span><span class="chip r">● off track</span>
+            </div>
+            <button class="btn pri sm">Post update</button>
+          </div>
+        </div>
+        <div class="timeline">
+          <div class="ev">
+            <span class="si si-sm si-green"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg></span>
+            <div>
+              <div class="row"><b>John</b><span class="chip g">on track</span></div>
+              <p style="margin:6px 0 0">Shipped prompt eval harness. Next is transcript → tasks. Blocked on MCP auth refresh for 10m.</p>
+              <div class="when">2 days ago · 3 comments</div>
+            </div>
+          </div>
+          <div class="ev">
+            <span class="si si-sm si-orange"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg></span>
+            <div>
+              <div class="row"><b>John</b><span class="chip o">at risk</span></div>
+              <p style="margin:6px 0 0">Scope crept on overlay capture — splitting into two tickets.</p>
+              <div class="when">last week</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="opt-panel" data-panel="project-b">
+    <div class="frame"><div class="frame-h">Project · Overview makeover</div>
+      <div class="body">
+        <div class="row" style="margin-bottom:14px">
+          <span class="si si-lg si-green"><svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></span>
+          <div><h2 style="margin:0">Voice Agent Studio</h2><p class="muted">70 open · 0% complete · on track</p></div>
+        </div>
+        <div class="grid3">
+          <div class="tile"><span class="si si-md si-violet"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/></svg></span><div><b>12 notes</b><span>Open notebook</span></div></div>
+          <div class="tile"><span class="si si-md si-teal"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/></svg></span><div><b>4 skills</b><span>Pinned</span></div></div>
+          <div class="tile"><span class="si si-md si-red"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/></svg></span><div><b>3 secrets</b><span>Infisical</span></div></div>
+          <div class="tile"><span class="si si-md si-blue"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/></svg></span><div><b>2 MCPs</b><span>Healthy</span></div></div>
+          <div class="tile"><span class="si si-md si-pink"><svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/></svg></span><div><b>5 meetings</b><span>This month</span></div></div>
+          <div class="tile"><span class="si si-md si-orange"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/></svg></span><div><b>Board</b><span>70 open</span></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- OPS -->
+<section class="screen" id="ops">
+  <p class="cap"><b>MCPs &amp; Secrets</b> — ops surfaces, not buried settings.</p>
+  <div class="opts" data-group="ops">
+    <button class="on" data-opt="a">A · MCP catalog cards</button>
+    <button data-opt="b">B · Secrets + Infisical</button>
+  </div>
+  <div class="opt-panel on" data-panel="ops-a">
+    <div class="frame"><div class="frame-h">MCPs</div>
+      <div class="mbar"><h2>MCPs</h2><span class="sub">6 servers · all probed</span><div class="sp"></div><button class="btn sm pri">+ Add</button></div>
+      <div class="body grid3">
+        <div class="card">
+          <div class="row" style="margin-bottom:8px"><span class="si si-md si-blue"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/></svg></span><div><b>nexus</b><div class="muted">tasks · notes · todos</div></div><span class="chip g">up</span></div>
+          <p class="muted" style="font-size:11px">Used by Claude · Codex · Chat · 11 tools</p>
+        </div>
+        <div class="card">
+          <div class="row" style="margin-bottom:8px"><span class="si si-md si-violet"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/></svg></span><div><b>zennotes</b><div class="muted">vault read/write</div></div><span class="chip g">up</span></div>
+          <p class="muted" style="font-size:11px">Used by Claude · 8 tools</p>
+        </div>
+        <div class="card">
+          <div class="row" style="margin-bottom:8px"><span class="si si-md si-orange"><svg viewBox="0 0 24 24"><path d="M2 12h20M12 2v20"/></svg></span><div><b>browser</b><div class="muted">agent-browser</div></div><span class="chip o">idle</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="opt-panel" data-panel="ops-b">
+    <div class="frame"><div class="frame-h">Secrets · Infisical local</div>
+      <div class="mbar"><h2>Secrets</h2><span class="chip g">Infisical connected</span><div class="sp"></div><button class="btn sm">Import selected</button></div>
+      <div class="body">
+        <div class="lrow"><span class="si si-sm si-red"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/></svg></span><span class="title">OPENAI_API_KEY</span><span class="chip">••••••4f2a</span><span class="chip v">VAS</span><button class="btn sm">Copy</button></div>
+        <div class="lrow"><span class="si si-sm si-red"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/></svg></span><span class="title">ANTHROPIC_API_KEY</span><span class="chip">••••••91bc</span><span class="chip">global</span></div>
+        <div class="lrow"><span class="si si-sm si-red"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/></svg></span><span class="title">DATABASE_URL</span><span class="chip">••••••</span><span class="chip t">inject → nexus-mcp</span></div>
+        <p class="note">Masked by default. Import from Infisical Docker; inject into MCP env without pasting into chat.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- MEETINGS -->
+<section class="screen" id="meetings">
+  <p class="cap"><b>Meetings</b> — transcripts → summary → tasks → project notes.</p>
+  <div class="opts" data-group="meetings">
+    <button class="on" data-opt="a">A · List + detail</button>
+    <button data-opt="b">B · Drop zone first</button>
+  </div>
+  <div class="opt-panel on" data-panel="meetings-a">
+    <div class="frame"><div class="frame-h">Meetings A</div>
+      <div class="mbar"><h2>Meetings</h2><div class="sp"></div><button class="btn sm">Paste transcript</button><button class="btn sm pri">Upload</button></div>
+      <div class="body grid41">
+        <div>
+          <div class="lrow"><span class="si si-sm si-pink"><svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/></svg></span><span class="title">VAS weekly</span><span class="meta">Jul 18 · 42m</span></div>
+          <div class="lrow"><span class="title">Embedding design sync</span><span class="meta">Jul 12</span></div>
+        </div>
+        <div class="card">
+          <h3>VAS weekly · Jul 18</h3>
+          <p class="muted" style="margin:8px 0">Summary (LM Studio): Agreed to ship transcript→tasks path; John owns MCP auth refresh.</p>
+          <p class="muted">Action items</p>
+          <div class="lrow"><span class="title">Wire transcript export</span><button class="btn sm">→ Task</button></div>
+          <div class="lrow"><span class="title">Refresh MCP auth docs</span><button class="btn sm">→ Task</button></div>
+          <button class="btn sm" style="margin-top:10px">Save notes to project notebook</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="opt-panel" data-panel="meetings-b">
+    <div class="frame"><div class="frame-h">Meetings B · empty / drop</div>
+      <div class="body"><div class="card hero" style="min-height:320px">
+        <div class="illus"></div>
+        <h3 style="font-size:16px">Drop a transcript</h3>
+        <p>Paste, upload, or connect a source. We’ll summarize locally and extract actions.</p>
+        <div class="row"><button class="btn pri">Upload file</button><button class="btn">Paste text</button></div>
+      </div></div>
+    </div>
+  </div>
+</section>
+
+</main>
+<script>
+const tabs=document.getElementById('tabs');
+const screens=[...document.querySelectorAll('.screen')];
+tabs.addEventListener('click',e=>{
+  const b=e.target.closest('button[data-t]'); if(!b) return;
+  tabs.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
+  screens.forEach(s=>s.classList.toggle('on',s.id===b.dataset.t));
+  window.scrollTo({top:0,behavior:'smooth'});
+});
+document.querySelectorAll('.opts').forEach(group=>{
+  group.addEventListener('click',e=>{
+    const b=e.target.closest('button[data-opt]'); if(!b) return;
+    const g=group.dataset.group;
+    group.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
+    document.querySelectorAll(`[data-panel^="${g}-"]`).forEach(p=>{
+      p.classList.toggle('on', p.dataset.panel===`${g}-${b.dataset.opt}`);
+    });
+  });
+});
+</script>
+</body>
+</html>
