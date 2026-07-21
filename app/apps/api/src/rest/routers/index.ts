@@ -7,6 +7,7 @@ import { githubRouter } from "./github";
 import { importsRouter } from "./imports";
 import { integrationsRouter } from "./integrations";
 import { mcpServerAuthRouter } from "./mcp-server-auth";
+import { projectStarterRouter } from "./project-starter";
 import { realtimeRouter } from "./realtime";
 import { slackRouter } from "./slack";
 import { transcriptionRouter } from "./transcription";
@@ -26,6 +27,7 @@ routers.route("/slack", slackRouter);
 routers.route("/transcription", transcriptionRouter);
 routers.route("/users", usersRouter);
 routers.route("/realtime", realtimeRouter);
+routers.route("/project-starter", projectStarterRouter);
 routers.route("/mcp-server-auth", mcpServerAuthRouter);
 
 export { routers };

@@ -1,66 +1,79 @@
 "use client";
 
+import { useMutation } from "@tanstack/react-query";
 import { Button } from "@ui/components/ui/button";
 import { Input } from "@ui/components/ui/input";
+import { Label } from "@ui/components/ui/label";
 import { Textarea } from "@ui/components/ui/textarea";
 import { cn } from "@ui/lib/utils";
 import {
 	ArrowRightIcon,
 	CheckIcon,
-	CompassIcon,
 	FileTextIcon,
 	FolderKanbanIcon,
 	LightbulbIcon,
-	MapIcon,
-	PaletteIcon,
+	MessageSquareIcon,
 	RocketIcon,
+	SparklesIcon,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
+import {
+	StarterInterview,
+	type StarterSeed,
+} from "@/components/starter/starter-interview";
 import { SoftIcon } from "@/components/ui/soft-icon";
 import { useUser } from "@/components/user-provider";
+import { queryClient, trpc } from "@/utils/trpc";
 
 const PHASES = [
 	{ id: "seed", label: "Seed", icon: LightbulbIcon, tone: "yellow" as const },
-	{ id: "concept", label: "Concept", icon: FileTextIcon, tone: "blue" as const },
 	{
-		id: "architecture",
-		label: "Architecture",
-		icon: MapIcon,
-		tone: "teal" as const,
+		id: "interview",
+		label: "Interview",
+		icon: MessageSquareIcon,
+		tone: "blue" as const,
 	},
-	{ id: "ux", label: "UX", icon: PaletteIcon, tone: "pink" as const },
-	{
-		id: "handoff",
-		label: "Handoff",
-		icon: CompassIcon,
-		tone: "violet" as const,
-	},
-	{
-		id: "board",
-		label: "Board",
-		icon: FolderKanbanIcon,
-		tone: "green" as const,
-	},
+	{ id: "prd", label: "PRD", icon: FileTextIcon, tone: "violet" as const },
 ] as const;
 
+const PROJECT_COLORS = [
+	"#5e6ad2",
+	"#d4a373",
+	"#e07a5f",
+	"#81b29a",
+	"#f2cc8f",
+	"#6a994e",
+	"#c75c5c",
+	"#3b82f6",
+];
+
 /**
- * Project Starter thin workshop — seed step interactive now;
- * later phases are progressive disclosure shells (FEAT-003).
+ * Project Starter workshop — in-app realization of FEAT-003.
+ *
+ * Seed (name/idea/drivers) → guided AI interview (one question at a time) →
+ * finalized PRD review → create the project + a linked PRD document in the
+ * dashboard. No host runtime required; the interview runs on the app's AI
+ * layer.
  */
 export default function StarterWorkshopPage() {
 	const user = useUser();
+	const router = useRouter();
 	const base = user.basePath;
+
 	const [phaseIdx, setPhaseIdx] = useState(0);
 	const [name, setName] = useState("");
 	const [idea, setIdea] = useState("");
 	const [drivers, setDrivers] = useState("");
-	const [seeded, setSeeded] = useState(false);
+	const [color, setColor] = useState<string>(PROJECT_COLORS[0]!);
+	const [prd, setPrd] = useState("");
 
 	const phase = PHASES[phaseIdx]!;
 	const canAdvanceSeed = name.trim().length >= 2 && idea.trim().length >= 8;
 
-	const seedSummary = useMemo(
+	const seed: StarterSeed = useMemo(
 		() => ({
 			name: name.trim(),
 			idea: idea.trim(),
@@ -77,13 +90,50 @@ export default function StarterWorkshopPage() {
 		try {
 			localStorage.setItem(
 				"nexus.starter.seed",
-				JSON.stringify({ ...seedSummary, at: new Date().toISOString() }),
+				JSON.stringify({ ...seed, color, at: new Date().toISOString() }),
 			);
 		} catch {
 			/* ignore */
 		}
-		setSeeded(true);
 		setPhaseIdx(1);
+	};
+
+	const createProject = useMutation(
+		trpc.projects.create.mutationOptions({
+			onMutate: () =>
+				toast.loading("Creating project…", { id: "starter-create" }),
+			onError: () =>
+				toast.error("Failed to create project", { id: "starter-create" }),
+		}),
+	);
+	const createDoc = useMutation(
+		trpc.documents.create.mutationOptions({
+			onError: () =>
+				toast.error("Project created, but the PRD document failed to save."),
+		}),
+	);
+
+	const onCreate = async () => {
+		if (!prd.trim() || !name.trim()) return;
+		const project = await createProject.mutateAsync({
+			name: name.trim(),
+			// Short summary only — the full PRD lives in the linked document.
+			description: idea.trim().slice(0, 300) || null,
+			color,
+			visibility: "team",
+		});
+		try {
+			await createDoc.mutateAsync({
+				name: "PRD",
+				content: prd.trim(),
+				projectId: project.id,
+			});
+		} catch {
+			/* project still created; surfaced by createDoc onError toast */
+		}
+		await queryClient.invalidateQueries({ queryKey: [["projects"]] });
+		toast.success("Project created", { id: "starter-create" });
+		router.push(`${base}/projects/${project.id}/overview`);
 	};
 
 	return (
@@ -94,8 +144,8 @@ export default function StarterWorkshopPage() {
 						Project Starter
 					</h1>
 					<p className="mt-1 max-w-xl text-[13px] text-muted-foreground">
-						Idea → sealed handoff → board coding agents can execute. Host agent
-						runtime (Claude / Codex OAuth) wires in after seed.
+						Walk an idea through a guided interview, finalize a full PRD, then
+						create the project with the PRD attached.
 					</p>
 				</div>
 				<Button asChild variant="outline" size="sm">
@@ -106,25 +156,24 @@ export default function StarterWorkshopPage() {
 			{/* Phase rail */}
 			<ol className="flex flex-wrap gap-2">
 				{PHASES.map((p, i) => {
-					const done = i < phaseIdx || (i === 0 && seeded);
+					const done = i < phaseIdx;
 					const active = i === phaseIdx;
 					return (
 						<li key={p.id}>
 							<button
 								type="button"
+								disabled={i > phaseIdx}
 								onClick={() => setPhaseIdx(i)}
 								className={cn(
 									"inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[12px] transition-colors",
 									active && "border-primary/40 bg-primary/10 text-foreground",
-									!active &&
-										done &&
-										"border-border/60 text-muted-foreground",
+									!active && done && "border-border/60 text-muted-foreground",
 									!active &&
 										!done &&
 										"border-border/40 text-muted-foreground/70",
 								)}
 							>
-								{done && !active ? (
+								{done ? (
 									<CheckIcon className="size-3 text-green-400" />
 								) : (
 									<span className="font-[510] text-[11px] tabular-nums">
@@ -145,53 +194,72 @@ export default function StarterWorkshopPage() {
 						<h2 className="font-[510] text-[15px]">{phase.label}</h2>
 						<p className="text-[12px] text-muted-foreground">
 							{phase.id === "seed" && "Name the work and capture the spark."}
-							{phase.id === "concept" &&
-								"Grill-with-docs — CONTEXT.md + ADRs (agent-backed next)."}
-							{phase.id === "architecture" &&
-								"Wayfinder decisions → architecture map."}
-							{phase.id === "ux" && "Prototype gallery + flow locks."}
-							{phase.id === "handoff" &&
-								"Seal a handoff pack agents can resume."}
-							{phase.id === "board" &&
-								"Materialize vertical-slice tasks on a kanban board."}
+							{phase.id === "interview" &&
+								"Answer one question at a time — the agent locks decisions toward a PRD."}
+							{phase.id === "prd" &&
+								"Review the generated PRD, then create the project."}
 						</p>
 					</div>
 				</div>
 
+				{/* Seed */}
 				{phase.id === "seed" ? (
 					<div className="space-y-4">
-						<label className="block space-y-1.5">
-							<span className="text-[12px] font-[510]">Project name</span>
+						<div className="space-y-1.5">
+							<Label htmlFor="starter-name">Project name</Label>
 							<Input
+								id="starter-name"
 								value={name}
 								onChange={(e) => setName(e.target.value)}
 								placeholder="e.g. Voice Agent Studio"
 								className="max-w-md"
 							/>
-						</label>
-						<label className="block space-y-1.5">
-							<span className="text-[12px] font-[510]">Idea in one breath</span>
+						</div>
+						<div className="space-y-1.5">
+							<Label htmlFor="starter-idea">Idea in one breath</Label>
 							<Textarea
+								id="starter-idea"
 								value={idea}
 								onChange={(e) => setIdea(e.target.value)}
 								placeholder="What are we building, for whom, and why now?"
 								className="min-h-[100px]"
 							/>
-						</label>
-						<label className="block space-y-1.5">
-							<span className="text-[12px] font-[510]">
+						</div>
+						<div className="space-y-1.5">
+							<Label htmlFor="starter-drivers">
 								Drivers (one per line, optional)
-							</span>
+							</Label>
 							<Textarea
+								id="starter-drivers"
 								value={drivers}
 								onChange={(e) => setDrivers(e.target.value)}
 								placeholder={"Ship MVP in 2 weeks\nReuse existing MCP stack"}
 								className="min-h-[72px]"
 							/>
-						</label>
+						</div>
+						<div className="space-y-1.5">
+							<span className="font-[510] text-[12px]">Project color</span>
+							<div className="flex flex-wrap gap-2">
+								{PROJECT_COLORS.map((c) => (
+									<button
+										key={c}
+										type="button"
+										aria-label={`Color ${c}`}
+										onClick={() => setColor(c)}
+										className={cn(
+											"size-6 rounded-full border transition-transform",
+											color === c
+												? "scale-110 border-foreground/40 ring-2 ring-foreground/20"
+												: "border-border/60 hover:scale-105",
+										)}
+										style={{ backgroundColor: c }}
+									/>
+								))}
+							</div>
+						</div>
 						<div className="flex flex-wrap gap-2 pt-1">
 							<Button disabled={!canAdvanceSeed} onClick={sealSeed}>
-								Seal seed
+								Start interview
 								<ArrowRightIcon className="ml-1.5 size-3.5" />
 							</Button>
 							<Button asChild variant="ghost">
@@ -201,60 +269,92 @@ export default function StarterWorkshopPage() {
 							</Button>
 						</div>
 					</div>
-				) : (
-					<div className="space-y-3 text-[13px] text-muted-foreground">
-						{seeded ? (
-							<div className="rounded-lg border border-border/50 bg-background/40 p-3 text-foreground">
-								<p className="font-[510] text-[12px] text-muted-foreground">
-									Seed locked
-								</p>
-								<p className="mt-1 font-[510]">{seedSummary.name || "—"}</p>
-								<p className="mt-0.5 text-[12.5px] text-muted-foreground">
-									{seedSummary.idea || "—"}
-								</p>
+				) : null}
+
+				{/* Interview */}
+				{phase.id === "interview" ? (
+					<StarterInterview
+						seed={seed}
+						onPrd={(p) => {
+							setPrd(p);
+							setPhaseIdx(2);
+						}}
+						onBack={() => setPhaseIdx(0)}
+					/>
+				) : null}
+
+				{/* PRD review + create */}
+				{phase.id === "prd" ? (
+					<div className="space-y-4">
+						<div className="flex flex-wrap items-end gap-4">
+							<div className="space-y-1.5">
+								<Label htmlFor="starter-prd-name">Project name</Label>
+								<Input
+									id="starter-prd-name"
+									value={name}
+									onChange={(e) => setName(e.target.value)}
+									className="max-w-xs"
+								/>
 							</div>
-						) : (
-							<p>
-								Seal a seed first so later phases have a named idea to grill.
-							</p>
-						)}
-						<p>
-							Full agent workshop (Claude Agent SDK streaming + Codex resume)
-							connects here next — host OAuth, no API keys in the Starter path.
-						</p>
-						<div className="flex flex-wrap gap-2 pt-2">
-							{phaseIdx > 0 ? (
-								<Button
-									variant="outline"
-									size="sm"
-									onClick={() => setPhaseIdx((i) => Math.max(0, i - 1))}
-								>
-									Back
-								</Button>
-							) : null}
-							{phaseIdx < PHASES.length - 1 ? (
-								<Button
-									size="sm"
-									disabled={!seeded}
-									onClick={() =>
-										setPhaseIdx((i) => Math.min(PHASES.length - 1, i + 1))
-									}
-								>
-									Continue
-									<ArrowRightIcon className="ml-1.5 size-3.5" />
-								</Button>
-							) : (
-								<Button asChild size="sm" disabled={!seeded}>
-									<Link href={`${base}/projects?createProject=true`}>
-										<RocketIcon className="mr-1.5 size-3.5" />
-										Open board create
-									</Link>
-								</Button>
-							)}
+							<div className="space-y-1.5">
+								<span className="font-[510] text-[12px]">Color</span>
+								<div className="flex flex-wrap gap-2">
+									{PROJECT_COLORS.map((c) => (
+										<button
+											key={c}
+											type="button"
+											aria-label={`Color ${c}`}
+											onClick={() => setColor(c)}
+											className={cn(
+												"size-6 rounded-full border transition-transform",
+												color === c
+													? "scale-110 border-foreground/40 ring-2 ring-foreground/20"
+													: "border-border/60 hover:scale-105",
+											)}
+											style={{ backgroundColor: c }}
+										/>
+									))}
+								</div>
+							</div>
+						</div>
+						<div className="space-y-1.5">
+							<Label htmlFor="starter-prd">
+								Product Requirements Document (editable)
+							</Label>
+							<Textarea
+								id="starter-prd"
+								value={prd}
+								onChange={(e) => setPrd(e.target.value)}
+								className="min-h-[360px] font-mono text-[12.5px] leading-relaxed"
+							/>
+						</div>
+						<div className="flex flex-wrap items-center gap-2 pt-1">
+							<Button
+								onClick={onCreate}
+								disabled={
+									!prd.trim() || !name.trim() || createProject.isPending
+								}
+							>
+								<RocketIcon className="mr-1.5 size-3.5" />
+								{createProject.isPending ? "Creating…" : "Create project"}
+							</Button>
+							<Button variant="outline" onClick={() => setPhaseIdx(1)}>
+								Back to interview
+							</Button>
+							<span className="inline-flex items-center gap-1.5 text-[11.5px] text-muted-foreground">
+								<SparklesIcon className="size-3" />
+								The full PRD is saved as a document on the new project.
+							</span>
 						</div>
 					</div>
-				)}
+				) : null}
 			</div>
+
+			<p className="flex items-center gap-1.5 text-[11.5px] text-muted-foreground">
+				<FolderKanbanIcon className="size-3" />
+				On create, the project opens on its board — the PM agent may plan
+				milestones from the idea.
+			</p>
 		</div>
 	);
 }

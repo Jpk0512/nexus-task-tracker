@@ -19,6 +19,7 @@ export const createDocumentSchema = z.object({
 	icon: z.string().nullable().optional(),
 	content: z.string().optional(),
 	parentId: z.string().optional(),
+	projectId: z.string().optional(),
 	labels: z.array(z.string()).optional(),
 });
 

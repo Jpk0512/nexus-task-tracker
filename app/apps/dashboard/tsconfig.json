@@ -5,6 +5,7 @@
 		"paths": {
 			"@/*": ["./src/*"],
 			"@api/*": ["../api/src/*"],
+			"@nexus-app/trpc": ["../../packages/trpc/src/index.ts"],
 			"@ui/*": ["../../packages/ui/src/*"],
 			"@integration/*": ["../../packages/integration/src/*"],
 			"@notifications/*": ["../../packages/notifications/src/*"],
