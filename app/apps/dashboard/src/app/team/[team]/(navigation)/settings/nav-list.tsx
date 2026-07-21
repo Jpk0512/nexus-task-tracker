@@ -7,9 +7,11 @@ import {
 	CableIcon,
 	CircleDashedIcon,
 	CloudUploadIcon,
+	FocusIcon,
 	FolderIcon,
 	GithubIcon,
 	KeyRoundIcon,
+	LibraryIcon,
 	MailIcon,
 	MessageSquareIcon,
 	ServerIcon,
@@ -103,6 +105,11 @@ export const getSettingsGroups = (basePath: string): SettingsGroup[] => [
 				to: `${basePath}/settings/api-keys`,
 				label: "API Keys",
 			},
+			{
+				icon: FocusIcon,
+				to: `${basePath}/settings/zen`,
+				label: "Zen / Focus guard",
+			},
 		],
 	},
 	{
@@ -171,6 +178,11 @@ export const getSettingsGroups = (basePath: string): SettingsGroup[] => [
 				icon: BrainIcon,
 				to: `${basePath}/settings/knowledge`,
 				label: "Knowledge",
+			},
+			{
+				icon: LibraryIcon,
+				to: `${basePath}/settings/library`,
+				label: "Library sources",
 			},
 			{
 				icon: CloudUploadIcon,

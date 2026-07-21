@@ -11,7 +11,8 @@ import { ShortcutsOverlay } from "./shortcuts-overlay";
  *
  *   c          → open the centered create-task dialog
  *   ?          → toggle the keyboard-shortcuts cheatsheet overlay
- *   Cmd/Ctrl+J → open the project switcher
+ *   Cmd/Ctrl+Shift+P → open the project switcher
+ *   Cmd/Ctrl+J      → open the brain-dump modal
  *
  * Ignores keystrokes when the focus is inside an input, textarea, select,
  * contenteditable surface, or while a modifier key is held (except for the
@@ -40,13 +41,13 @@ export const GlobalShortcuts = () => {
 		};
 
 		const handler = (e: KeyboardEvent) => {
-			// Cmd/Ctrl+J — project switcher. Allowed even while typing in an
-			// input (it's an explicit chord, not a stray keystroke).
+			// Cmd/Ctrl+Shift+P — project switcher (matches registry action
+			// `project.switch`). Allowed even while typing (explicit chord).
 			if (
 				(e.metaKey || e.ctrlKey) &&
+				e.shiftKey &&
 				!e.altKey &&
-				!e.shiftKey &&
-				(e.key === "j" || e.key === "J")
+				(e.key === "p" || e.key === "P")
 			) {
 				e.preventDefault();
 				setProjectSwitcherOpen((prev) => !prev);

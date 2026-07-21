@@ -14,8 +14,10 @@ import {
 	BrainIcon,
 	FileTextIcon,
 	HeartPulseIcon,
+	MessageCircleIcon,
 	MessageSquareTextIcon,
 	MicIcon,
+	Settings2Icon,
 	SettingsIcon,
 	ShieldCheckIcon,
 	SparklesIcon,
@@ -35,6 +37,12 @@ export function SidebarWorkspace() {
 	const base = user.basePath;
 
 	const brain = [
+		{
+			href: `${base}/chat`,
+			label: "Chat",
+			icon: MessageCircleIcon,
+			active: pathname.startsWith(`${base}/chat`),
+		},
 		{
 			href: `${base}/notes`,
 			label: "Notes",
@@ -66,9 +74,15 @@ export function SidebarWorkspace() {
 		},
 		{
 			href: `${base}/documents`,
-			label: "Documents",
+			label: "Site Docs",
 			icon: FileTextIcon,
 			active: pathname.startsWith(`${base}/documents`),
+		},
+		{
+			href: `${base}/agent-config`,
+			label: "Agent Config",
+			icon: Settings2Icon,
+			active: pathname.startsWith(`${base}/agent-config`),
 		},
 	] as const;
 

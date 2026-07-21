@@ -91,6 +91,13 @@ export const SHORTCUTS: ShortcutSpec[] = [
 		action: "project.switch",
 	},
 	{
+		keys: "mod+j",
+		label: "Brain dump",
+		scope: "global",
+		action: "dump.open",
+		description: "Open the global brain-dump modal from anywhere.",
+	},
+	{
 		keys: "?",
 		label: "Shortcuts help",
 		scope: "global",

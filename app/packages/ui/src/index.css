@@ -16,7 +16,7 @@
    real "pro vs cheap" detail. */
 * {
 	scrollbar-width: thin;
-	scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+	scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
 }
 *::-webkit-scrollbar {
 	width: 10px;
@@ -26,13 +26,47 @@
 	background: transparent;
 }
 *::-webkit-scrollbar-thumb {
-	background-color: rgba(255, 255, 255, 0.1);
+	background-color: rgba(255, 255, 255, 0.12);
 	border-radius: 9999px;
 	border: 3px solid transparent;
 	background-clip: content-box;
 }
 *::-webkit-scrollbar-thumb:hover {
-	background-color: rgba(255, 255, 255, 0.18);
+	background-color: rgba(255, 255, 255, 0.2);
+}
+
+/*
+ * Menus, nav, and dropdowns never show a scrollbar — pro polish that reads
+ * as a real app, not a scrollable web list. Applies everywhere (Electron
+ * especially). Content still scrolls, the chrome just vanishes.
+ */
+[data-sidebar] *::-webkit-scrollbar,
+[data-sidebar="content"] *::-webkit-scrollbar,
+[role="menu"] *::-webkit-scrollbar,
+[role="menu"],
+[data-radix-collection-item] *::-webkit-scrollbar,
+.cmdk-list *::-webkit-scrollbar,
+[data-slot="select-content"] *::-webkit-scrollbar,
+[data-slot="command"] *::-webkit-scrollbar {
+	display: none;
+}
+[data-sidebar] *,
+[data-sidebar="content"] *,
+[role="menu"] *,
+[role="menubar"] *,
+.cmdk-list *,
+[data-slot="select-content"] *,
+[data-slot="command"] * {
+	scrollbar-width: none;
+	-ms-overflow-style: none;
+}
+/* When running inside the Nexus Electron shell, hide scrollbars app-wide
+   for the cleanest native feel. The preload sets window.nexusDesktop. */
+html.nexus-desktop *::-webkit-scrollbar {
+	display: none;
+}
+html.nexus-desktop * {
+	scrollbar-width: none;
 }
 
 @theme {
@@ -82,12 +116,10 @@ body {
 	--card-foreground: #010102;
 	--popover: #ffffff;
 	--popover-foreground: #010102;
-	--primary: #5e6ad2;
+	/* Skills teal — product accent (was lavender #26b5ce). */
+	--primary: #26b5ce;
 	--primary-foreground: #ffffff;
-	/* --brand is the lavender accent token used for scarce, high-signal
-	   highlights (active nav, key callouts). DESIGN.md mandates lavender
-	   stays scarce so it always reads as a primary signal. */
-	--brand: #5e6ad2;
+	--brand: #26b5ce;
 	--brand-foreground: #ffffff;
 	--secondary: #f3f4f5;
 	--secondary-foreground: #010102;
@@ -98,9 +130,9 @@ body {
 	--destructive: #c8312b;
 	--border: #e6e6e6;
 	--input: #d0d6e0;
-	--ring: #5e6ad2;
+	--ring: #26b5ce;
 
-	--chart-1: #5e6ad2;
+	--chart-1: #26b5ce;
 	--chart-2: #27a644;
 	--chart-3: #e9c46a;
 	--chart-4: #f4a261;
@@ -108,80 +140,81 @@ body {
 
 	--sidebar: #ffffff;
 	--sidebar-foreground: #010102;
-	--sidebar-primary: #5e6ad2;
+	--sidebar-primary: #26b5ce;
 	--sidebar-primary-foreground: #ffffff;
 	--sidebar-accent: #f5f6f7;
 	--sidebar-accent-foreground: #010102;
 	--sidebar-border: #e6e6e6;
-	--sidebar-ring: #5e6ad2;
+	--sidebar-ring: #26b5ce;
 }
 
 .dark {
-	/* Professional dark — matte, deep, layered with restraint.
-	   References: Claude / Finder / Linear. Body text is a soft off-white;
-	   pure white is reserved for emphasis & active states. Borders are
-	   translucent hairlines, not solid gray boxes. */
+	/* Claude-adjacent dark — muted warm charcoal. Cards sit close to the
+	   canvas (blend, don't clash); separation comes from a soft light glow
+	   rim, not a darker fill or black drop-shadow. */
 
-	/* Canvas — matte near-black (NOT pure #000, NOT shiny). */
-	--background: #09090b;
-	/* Body text — dull off-white. Pure white is reserved for emphasis. */
-	--foreground: #e1e1e4;
+	/* Canvas — muted charcoal (Claude ~#1f1f1e). */
+	--background: #1c1c1b;
+	--foreground: #e4e4e1;
 
-	/* surface-1 — feature cards, panels (subtle lift off canvas). */
-	--card: #0e0e11;
-	--card-foreground: #e1e1e4;
+	/* surface-1 — barely above canvas so panels blend. */
+	--card: #1f1f1e;
+	--card-foreground: #e4e4e1;
 
-	/* surface-2 — dropdowns, popovers, modal content. */
-	--popover: #151518;
-	--popover-foreground: #ebebee;
+	/* surface-2 — menus / modals still need a clear float. */
+	--popover: #252524;
+	--popover-foreground: #ecece9;
 
-	/* Lavender accent — the only chromatic color in the system. */
-	--primary: #5e6ad2;
-	--primary-foreground: #ffffff;
-	/* --brand mirrors --primary in dark mode so `bg-brand`, `text-brand`,
-	   and `border-brand` resolve to the canonical lavender hex. */
-	--brand: #5e6ad2;
-	--brand-foreground: #ffffff;
+	--primary: #26b5ce;
+	--primary-foreground: #0a0a0c;
+	--brand: #26b5ce;
+	--brand-foreground: #0a0a0c;
 
-	/* surface-1 for buttons that aren't primary. */
-	--secondary: #0e0e11;
-	--secondary-foreground: #e1e1e4;
+	--secondary: #1f1f1e;
+	--secondary-foreground: #e4e4e1;
 
-	/* surface-2 for muted backgrounds; ink-subtle for muted text. */
-	--muted: #131316;
-	--muted-foreground: #8b8f96;
+	--muted: #1e1e1d;
+	--muted-foreground: #8f8f8a;
 
-	/* Hover/selected surface lift (translucent feel). */
-	--accent: #1a1a1f;
-	/* Bright white when highlighted/active — the "dull → bright" swap. */
-	--accent-foreground: #fafafa;
+	--accent: #272726;
+	--accent-foreground: #f5f5f2;
 
 	--destructive: #eb5757;
 
-	/* Hairline borders — translucent white, not solid gray. Reads as a
-	   faint edge, not a box outline (the key pro-vs-cheap difference). */
-	--border: rgba(255, 255, 255, 0.07);
-	--input: rgba(255, 255, 255, 0.1);
+	/* Soft hairline — edge reads from glow more than a hard stroke. */
+	--border: rgba(255, 255, 255, 0.055);
+	--input: rgba(255, 255, 255, 0.09);
 
-	/* Focus ring — slightly tinted lavender at half opacity (applied via /50 in components). */
-	--ring: #5e69d1;
+	--ring: #26b5ce;
 
-	--chart-1: #5e6ad2;
+	--chart-1: #26b5ce;
 	--chart-2: #27a644;
 	--chart-3: #e9c46a;
 	--chart-4: #f4a261;
 	--chart-5: #e76f51;
 
-	/* Sidebar sits on canvas — same #09090b — so it visually fuses with the
-	   page edge, exactly like Linear. */
-	--sidebar: #09090b;
-	--sidebar-foreground: #8b8f96;
-	--sidebar-primary: #5e6ad2;
-	--sidebar-primary-foreground: #ffffff;
-	--sidebar-accent: #1a1a1f;
-	--sidebar-accent-foreground: #fafafa;
-	--sidebar-border: rgba(255, 255, 255, 0.05);
-	--sidebar-ring: #5e69d1;
+	/* Sidebar matches canvas — no darker rail that clashes with content. */
+	--sidebar: #1c1c1b;
+	--sidebar-foreground: #8f8f8a;
+	--sidebar-primary: #26b5ce;
+	--sidebar-primary-foreground: #0a0a0c;
+	--sidebar-accent: #252524;
+	--sidebar-accent-foreground: #f5f5f2;
+	--sidebar-border: rgba(255, 255, 255, 0.045);
+	--sidebar-ring: #26b5ce;
+
+	/* Float: quiet light rim + soft dark lift. Glow is for edge presence;
+	   the under-shadow is what sells elevation on charcoal. */
+	--shadow-elevated:
+		inset 0 1px 0 0 rgba(255, 255, 255, 0.035),
+		0 0 0 1px rgba(255, 255, 255, 0.035),
+		0 6px 18px rgba(0, 0, 0, 0.32),
+		0 0 16px rgba(255, 255, 255, 0.012);
+	--shadow-elevated-lg:
+		inset 0 1px 0 0 rgba(255, 255, 255, 0.04),
+		0 0 0 1px rgba(255, 255, 255, 0.045),
+		0 10px 28px rgba(0, 0, 0, 0.38),
+		0 0 22px rgba(255, 255, 255, 0.016);
 }
 
 @theme inline {
@@ -238,36 +271,63 @@ body {
 		@apply border-border outline-ring/50;
 	}
 	body {
-		@apply bg-background text-foreground;
+		@apply text-foreground;
 		font-family: var(--font-sans);
+		/* Explicit color + soft ambient — avoid @apply bg-* wiping the gradient. */
+		background-color: var(--background);
+		background-image: radial-gradient(
+			ellipse 110% 55% at 50% -10%,
+			rgba(255, 255, 255, 0.025),
+			transparent 55%
+		);
+		background-attachment: fixed;
 	}
 
 	/* Heading hierarchy: headings read brighter/purer than body text so the
 	   "dull body → bright emphasis" contrast the design calls for emerges
 	   naturally. */
 	h1 {
-		color: #f6f6f8;
+		color: #f4f4f1;
 		letter-spacing: -0.03em;
 		font-weight: 590;
 	}
 	h2 {
-		color: #f2f2f4;
+		color: #f0f0ed;
 		letter-spacing: -0.022em;
 		font-weight: 560;
 	}
 	h3 {
-		color: #ececee;
+		color: #eaeae7;
 		letter-spacing: -0.012em;
 		font-weight: 540;
 	}
 
-	/* Subtle premium depth: an imperceptible top-edge highlight on elevated
-	   surfaces (cards, popovers, dialogs) so they lift gently off the
-	   matte canvas instead of sitting in a hard gray box. */
+	/* Elevated surfaces — whisper shadow + top-edge highlight so panels
+	   lift gently off the muted charcoal canvas. Keep this subtle; do not
+	   stack large multi-layer drop shadows. */
 	[data-slot="card"],
 	[data-slot="popover-content"],
-	[data-slot="dialog-content"] {
-		box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.04);
+	[data-slot="dialog-content"],
+	[data-slot="dropdown-menu-content"],
+	[data-slot="select-content"],
+	[data-slot="tooltip-content"] {
+		box-shadow: var(--shadow-elevated);
+	}
+
+	[data-slot="dialog-content"],
+	[data-slot="popover-content"] {
+		box-shadow: var(--shadow-elevated-lg);
+	}
+
+	/* Feature panels using solid or translucent card fills.
+	   Skip tiny icon chips (size-*). */
+	.bg-card:not([class*="size-"]),
+	[class*="bg-card/"]:not([class*="size-"]) {
+		box-shadow: var(--shadow-elevated);
+	}
+
+	[data-slot="card"]:where(.bg-transparent) {
+		box-shadow: none;
 	}
 }
 
