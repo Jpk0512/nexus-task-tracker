@@ -1,0 +1,13 @@
+# serializer version: 1
+# name: test_run_worker_double_decodes_envelope[inner_payload]
+  dict({
+    'reason': 'ok',
+    'score': 4,
+  })
+# ---
+# name: test_run_worker_strips_markdown_fence_on_inner_payload[inner_payload]
+  dict({
+    'reason': 'ok',
+    'score': 4,
+  })
+# ---

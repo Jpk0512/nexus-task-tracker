@@ -1383,6 +1383,11 @@ export const projects = pgTable(
 
 		status: projectStatusEnum("status").default("planning").notNull(),
 
+		// Site Docs — on-disk project root + docs folder (absolute paths under
+		// LIBRARY_ALLOWED_ROOT /host/…). Null = not yet linked as a Site.
+		rootPath: text("root_path"),
+		docsPath: text("docs_path"),
+
 		createdAt: timestamp("created_at", {
 			withTimezone: true,
 			mode: "string",
@@ -2700,3 +2705,92 @@ export const documentSubscriptions = pgTable(
 // library_entries, library_sources, …) otherwise the buildGlobalSearchView()
 // call hits a "Cannot access 'X' before initialization" TDZ error.
 export const globalSearchView = buildGlobalSearchView();
+
+export const siteMapKindEnum = pgEnum("site_map_kind", [
+	"architecture",
+	"flow",
+	"graph",
+]);
+
+/** Nexus-owned how-it-works maps for Site Docs (not written into site /docs). */
+export const siteMaps = pgTable(
+	"site_maps",
+	{
+		id: text("id")
+			.$defaultFn(() => randomUUID())
+			.primaryKey()
+			.notNull(),
+		projectId: text("project_id").notNull(),
+		teamId: text("team_id").notNull(),
+		kind: siteMapKindEnum("kind").notNull(),
+		title: text("title").notNull(),
+		content: text("content").notNull().default(""),
+		stale: boolean("stale").default(false).notNull(),
+		createdAt: timestamp("created_at", {
+			withTimezone: true,
+			mode: "string",
+		}).defaultNow(),
+		updatedAt: timestamp("updated_at", {
+			withTimezone: true,
+			mode: "string",
+		}).defaultNow(),
+	},
+	(table) => [
+		index("site_maps_project_id_index").using("btree", table.projectId),
+		index("site_maps_team_id_index").using("btree", table.teamId),
+		foreignKey({
+			columns: [table.projectId],
+			foreignColumns: [projects.id],
+			name: "site_maps_project_id_fkey",
+		}).onDelete("cascade"),
+		foreignKey({
+			columns: [table.teamId],
+			foreignColumns: [teams.id],
+			name: "site_maps_team_id_fkey",
+		}).onDelete("cascade"),
+	],
+);
+
+/** Agent Config — registered disk roots tagged by agent (Option B). */
+export const agentConfigAgentEnum = pgEnum("agent_config_agent", [
+	"claude",
+	"codex",
+	"cursor",
+	"pi",
+	"oh",
+	"custom",
+]);
+
+export const agentConfigRoots = pgTable(
+	"agent_config_roots",
+	{
+		id: text("id")
+			.$defaultFn(() => randomUUID())
+			.primaryKey()
+			.notNull(),
+		teamId: text("team_id").notNull(),
+		agent: agentConfigAgentEnum("agent").notNull(),
+		label: text("label").notNull(),
+		path: text("path").notNull(),
+		enabled: boolean("enabled").default(true).notNull(),
+		sortOrder: integer("sort_order").default(0).notNull(),
+		createdAt: timestamp("created_at", {
+			withTimezone: true,
+			mode: "string",
+		}).defaultNow(),
+		updatedAt: timestamp("updated_at", {
+			withTimezone: true,
+			mode: "string",
+		}).defaultNow(),
+	},
+	(table) => [
+		index("agent_config_roots_team_id_index").using("btree", table.teamId),
+		index("agent_config_roots_agent_index").using("btree", table.agent),
+		foreignKey({
+			columns: [table.teamId],
+			foreignColumns: [teams.id],
+			name: "agent_config_roots_team_id_fkey",
+		}).onDelete("cascade"),
+	],
+);
+

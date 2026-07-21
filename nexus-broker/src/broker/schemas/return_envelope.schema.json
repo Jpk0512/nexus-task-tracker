@@ -1,0 +1,287 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nexus.local/schemas/return_envelope.schema.json",
+  "title": "Nexus sub-agent return envelope",
+  "description": "Typed, versioned structure for a dispatched persona's return (docs/agents/CONTRACT.md 'Required Output'). F1-06 (nexus-foundation/plans/wave-1.md track c): this schema is the FUTURE load-bearing routing signal that supersedes by-eye parsing of the '## NEXUS:*' marker string. ADDITIVE ONLY in wave-1 — no live gate reads it yet (that is F1-07's dual-parse shadow); it exists so F1-07 hooks and the broker can both validate against one artifact. TWO TIERS (CONTRACT.md line 64-66, DEC-039): the LEAN tier (T0/T1) returns ONLY completion_marker + files_changed + verification_result and carries NO `status` field; the FULL tier (T2 / error-fix / risky) carries `status` plus the marker-class-specific fields. Presence of `status` is therefore the tier discriminator — a status-less envelope is validated as LEAN (verification_result required), a status-bearing envelope as FULL (marker-consistency + per-class requirements enforced via allOf). Only `completion_marker` and `files_changed` are universally required — the two fields CONTRACT.md's LEAN and FULL Required Output both mandate; `completion_marker` is the routing signal in BOTH tiers (CONTRACT.md line 66). Every OTHER field is grounded in either CONTRACT.md 'Required Output' or a key that .claude/hooks/return-validator.py / gate_runner.py actually extract; a field with no such grounding (e.g. a free 'summary') is NEVER required here.",
+  "type": "object",
+  "required": [
+    "completion_marker",
+    "files_changed"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "description": "OPTIONAL envelope schema version. When present it MUST be const 1 for this shape (an unrecognized version — e.g. 2 — is REJECTED, never best-effort parsed); a future field-shape change bumps this and ships a sibling vN schema file, mirroring the node-contract schema_version convention (CONTRACT.md Node-Contract Schema v2). ABSENCE is legal and additive: a pre-versioning envelope (every current CONTRACT.md Required Output example omits this field) and every LEAN-tier return validate without it — requiring it would reject today's conformant envelopes, violating F1-06's ADDITIVE-ONLY mandate. F1-08 may promote it to required at cutover.",
+      "const": 1
+    },
+    "status": {
+      "description": "The typed routing signal. Enum covers the FULL current completion-marker vocabulary (CONTRACT.md 'Completion Markers'). This is the field F1-08 makes authoritative in place of regex-matching completion_marker.",
+      "type": "string",
+      "enum": [
+        "DONE",
+        "BLOCKED",
+        "NEEDS-DECISION",
+        "CHECKPOINT",
+        "REVISE",
+        "DEFER-REQUEST"
+      ]
+    },
+    "completion_marker": {
+      "description": "The literal H2 marker string CONTRACT.md mandates ('## NEXUS:DONE' etc.), kept during the shadow/cutover transition so the typed status can be cross-checked against the human-readable marker. Consistency with `status` is enforced by the allOf branches below (a mismatch is a CONTRACT VIOLATION per CONTRACT.md).",
+      "type": "string",
+      "enum": [
+        "## NEXUS:DONE",
+        "## NEXUS:BLOCKED",
+        "## NEXUS:NEEDS-DECISION",
+        "## NEXUS:CHECKPOINT",
+        "## NEXUS:REVISE",
+        "## NEXUS:DEFER-REQUEST"
+      ]
+    },
+    "files_changed": {
+      "description": "Paths the agent wrote this dispatch (CONTRACT.md Required Output). Array of non-empty path strings; empty array is legal for a read-only/no-write return (e.g. NEEDS-DECISION).",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "summary": {
+      "description": "OPTIONAL one-paragraph human-readable outcome summary. NOT a CONTRACT.md Required Output field and NOT extracted by return-validator.py / gate_runner.py (gate_runner's internal 'summary' variables are unrelated review-adapter locals) — it is permitted because some harness StructuredOutput returns include it, but it is NEVER required: a return following CONTRACT.md's canonical Required Output template (which has no 'summary') MUST validate. Grounding an earlier required-summary claim in CONTRACT.md was incorrect (F1-06 REVISE finding #1).",
+      "type": "string",
+      "minLength": 1
+    },
+    "skills_loaded": {
+      "description": "Skills actually invoked this dispatch (CONTRACT.md field notes; ADVISORY/shadow cross-check by lens-fast against skill_load_events).",
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "verification_result": {
+      "description": "The load-bearing completion evidence (CONTRACT.md Rule 3). Normally the VERBATIM terminal output of every verification_required command (string). May instead be an object for the visual-evidence case (screenshot_before / screenshot_after / visual_skip_reason, CONTRACT.md Rule 13). return-validator.py treats presence of this key as proof the agent attempted verification; the schema is stricter — an EMPTY string is not evidence. `minLength` constrains ONLY the string branch of the union (JSON Schema minLength ignores non-strings), so the object/visual-evidence case is unaffected; a substance check on the object branch is deferred to F1-07's dual-parse (F1-06 REVISE finding: the DONE evidence-gate must reject empty-but-present, not just absent).",
+      "type": ["string", "object"],
+      "minLength": 1
+    },
+    "acceptance_met": {
+      "description": "Per-criterion pass/fail with evidence (CONTRACT.md Required Output; return-validator.py ACCEPTANCE_KEY). Each item pairs the criterion text with a boolean and the line-numbers/output that prove it.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["criterion", "met", "evidence"],
+        "additionalProperties": false,
+        "properties": {
+          "criterion": { "type": "string", "minLength": 1 },
+          "met": { "type": "boolean" },
+          "evidence": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "blockers": {
+      "description": "Blocker descriptions (CONTRACT.md; required for status BLOCKED). Each a non-empty description string.",
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "decisions_needed": {
+      "description": "Design choices surfaced mid-task (CONTRACT.md; required for status NEEDS-DECISION). Each carries the question, the options, and the agent's recommendation.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["question", "options", "recommendation"],
+        "additionalProperties": false,
+        "properties": {
+          "question": { "type": "string", "minLength": 1 },
+          "options": {
+            "type": "array",
+            "minItems": 2,
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "recommendation": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "revise_issues": {
+      "description": "The actionable-issue list a '## NEXUS:REVISE' MUST carry (CONTRACT.md 'REVISE issue schema'). Each issue names WHERE (file:line), WHAT (verbatim error), and FIX (concrete change). `line` accepts an integer or a range string ('38-45') or a gate-name string.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["file", "line", "issue", "fix"],
+        "additionalProperties": false,
+        "properties": {
+          "file": { "type": "string", "minLength": 1 },
+          "line": { "type": ["integer", "string"] },
+          "issue": { "type": "string", "minLength": 1 },
+          "fix": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "defer_request": {
+      "description": "The DEFER-REQUEST body (CONTRACT.md 'NEXUS:DEFER-REQUEST'): what out-of-scope error was found, why it is out of scope, and the inline-vs-defer effort estimate. Required for status DEFER-REQUEST.",
+      "type": "object",
+      "required": ["error_description", "why_out_of_scope", "effort_estimate"],
+      "additionalProperties": false,
+      "properties": {
+        "error_description": { "type": "string", "minLength": 1 },
+        "why_out_of_scope": { "type": "string", "minLength": 1 },
+        "effort_estimate": { "type": "string", "minLength": 1 }
+      }
+    },
+    "db_log_cmds": {
+      "description": "Commands the orchestrator (not the agent) runs to update the memory DB on completion (CONTRACT.md Rule 6).",
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "notepad_written": {
+      "description": "The agent-notepad insight written as the LAST action, OR an explicit skip (CONTRACT.md Rule 17). Omitting this field entirely is a CONTRACT VIOLATION.",
+      "type": "object",
+      "oneOf": [
+        {
+          "required": ["topic", "agent", "kind", "note"],
+          "additionalProperties": false,
+          "properties": {
+            "topic": { "type": "string", "minLength": 1 },
+            "agent": { "type": "string", "minLength": 1 },
+            "kind": {
+              "type": "string",
+              "enum": ["fyi", "nuance", "reminder", "gotcha", "next-agent-action"]
+            },
+            "note": { "type": "string", "minLength": 1, "maxLength": 500 }
+          }
+        },
+        {
+          "required": ["skipped"],
+          "additionalProperties": false,
+          "properties": {
+            "skipped": { "type": "string", "minLength": 1 }
+          }
+        }
+      ]
+    },
+    "notes": {
+      "description": "Anything the orchestrator must know; for status CHECKPOINT this carries the remaining work at the safe resume point.",
+      "type": "string"
+    },
+    "root_cause_analysis": {
+      "description": "REQUIRED for any error-fix / bug-investigation task (CONTRACT.md Rule 11). The why_chain traces symptom -> genuine root; as many steps as the cause needs, no minimum, no padding.",
+      "type": "object",
+      "required": ["symptom", "why_chain", "pattern_fix"],
+      "additionalProperties": false,
+      "properties": {
+        "symptom": { "type": "string", "minLength": 1 },
+        "why_chain": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "pattern_fix": { "type": "string", "minLength": 1 }
+      }
+    },
+    "deploy_step": {
+      "description": "REQUIRED for any delivery touching app/ ingestion/ design/ or docker-compose*.yml (CONTRACT.md Rule 14). Documents the restart action and the command that confirms the new code is running.",
+      "type": "object",
+      "required": ["restart_action", "verification"],
+      "additionalProperties": false,
+      "properties": {
+        "restart_action": { "type": "string", "minLength": 1 },
+        "verification": { "type": "string", "minLength": 1 }
+      }
+    },
+    "evidence": {
+      "description": "StructuredOutput-schema equivalent evidence key that return-validator.py accepts as substantive completion proof (_EXTRA_EVIDENCE_KEYS).",
+      "type": ["string", "object", "array"]
+    },
+    "deterministic_evidence": {
+      "description": "StructuredOutput-schema equivalent evidence key that return-validator.py accepts as substantive completion proof (_EXTRA_EVIDENCE_KEYS).",
+      "type": ["string", "object", "array"]
+    },
+    "checks": {
+      "description": "StructuredOutput deterministic-verification array; return-validator.py counts a non-empty checks[] whose items carry evidence/notes/result/status as structured proof (_CHECKS_KEY).",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "criterion": { "type": "string" },
+          "evidence": { "type": "string" },
+          "notes": { "type": "string" },
+          "result": { "type": "string" },
+          "status": { "type": "string" }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "$comment": "LEAN tier (CONTRACT.md line 64, DEC-039): a status-less envelope is a LEAN (T0/T1) return and MUST still carry verification_result — completion_marker + files_changed are already universally required, so this branch completes LEAN's three-field contract. `if: not required status` is the tier discriminator: it fires ONLY when `status` is absent, so it never constrains a FULL-tier (status-bearing) return.",
+      "if": { "not": { "required": ["status"] } },
+      "then": { "required": ["verification_result"] }
+    },
+    {
+      "$comment": "status <-> completion_marker consistency (CONTRACT.md 'status <-> completion_marker mapping'; the marker is the human-readable twin of the typed status during transition). Each branch carries `required: [status]` so it fires ONLY for a FULL-tier (status-bearing) return; without that guard a status-less LEAN envelope would trivially match `properties.status` in EVERY branch (properties constrains only present keys) and be forced to satisfy six mutually exclusive completion_marker consts at once — an unsatisfiable contradiction that would wrongly reject every LEAN return (F1-06 REVISE finding #2).",
+      "if": { "properties": { "status": { "const": "DONE" } }, "required": ["status"] },
+      "then": { "properties": { "completion_marker": { "const": "## NEXUS:DONE" } } }
+    },
+    {
+      "if": { "properties": { "status": { "const": "BLOCKED" } }, "required": ["status"] },
+      "then": { "properties": { "completion_marker": { "const": "## NEXUS:BLOCKED" } } }
+    },
+    {
+      "if": { "properties": { "status": { "const": "NEEDS-DECISION" } }, "required": ["status"] },
+      "then": { "properties": { "completion_marker": { "const": "## NEXUS:NEEDS-DECISION" } } }
+    },
+    {
+      "if": { "properties": { "status": { "const": "CHECKPOINT" } }, "required": ["status"] },
+      "then": { "properties": { "completion_marker": { "const": "## NEXUS:CHECKPOINT" } } }
+    },
+    {
+      "if": { "properties": { "status": { "const": "REVISE" } }, "required": ["status"] },
+      "then": { "properties": { "completion_marker": { "const": "## NEXUS:REVISE" } } }
+    },
+    {
+      "if": { "properties": { "status": { "const": "DEFER-REQUEST" } }, "required": ["status"] },
+      "then": { "properties": { "completion_marker": { "const": "## NEXUS:DEFER-REQUEST" } } }
+    },
+    {
+      "$comment": "DONE requires the load-bearing verification evidence + per-criterion acceptance (CONTRACT.md Rule 3 + Required Output). Presence alone is insufficient: acceptance_met MUST carry >=1 criterion (mirroring BLOCKED's blockers minItems), and verification_result's own top-level minLength:1 rejects an empty-string green — together they close the empty-but-present evidence bypass (F1-06 REVISE finding).",
+      "if": { "properties": { "status": { "const": "DONE" } }, "required": ["status"] },
+      "then": {
+        "required": ["verification_result", "acceptance_met"],
+        "properties": { "acceptance_met": { "minItems": 1 } }
+      }
+    },
+    {
+      "$comment": "BLOCKED requires a non-empty blockers list (CONTRACT.md).",
+      "if": { "properties": { "status": { "const": "BLOCKED" } }, "required": ["status"] },
+      "then": {
+        "required": ["blockers"],
+        "properties": { "blockers": { "minItems": 1 } }
+      }
+    },
+    {
+      "$comment": "NEEDS-DECISION requires a populated decisions_needed (CONTRACT.md).",
+      "if": { "properties": { "status": { "const": "NEEDS-DECISION" } }, "required": ["status"] },
+      "then": {
+        "required": ["decisions_needed"],
+        "properties": { "decisions_needed": { "minItems": 1 } }
+      }
+    },
+    {
+      "$comment": "REVISE requires the actionable issue list (CONTRACT.md anti-stall mandate).",
+      "if": { "properties": { "status": { "const": "REVISE" } }, "required": ["status"] },
+      "then": {
+        "required": ["revise_issues"],
+        "properties": { "revise_issues": { "minItems": 1 } }
+      }
+    },
+    {
+      "$comment": "DEFER-REQUEST requires the defer_request body (CONTRACT.md).",
+      "if": { "properties": { "status": { "const": "DEFER-REQUEST" } }, "required": ["status"] },
+      "then": { "required": ["defer_request"] }
+    },
+    {
+      "$comment": "CHECKPOINT requires remaining-work notes at the safe resume point (CONTRACT.md).",
+      "if": { "properties": { "status": { "const": "CHECKPOINT" } }, "required": ["status"] },
+      "then": {
+        "required": ["notes"],
+        "properties": { "notes": { "minLength": 1 } }
+      }
+    }
+  ]
+}

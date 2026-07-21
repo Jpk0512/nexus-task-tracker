@@ -20,6 +20,7 @@ import time
 from pathlib import Path
 
 import pytest
+from syrupy.assertion import SnapshotAssertion
 
 from broker.daemon import session_digest
 
@@ -114,15 +115,16 @@ def isolated_sockets(monkeypatch):
     shutil.rmtree(sock_dir, ignore_errors=True)
 
 
-def test_query_session_digest_direct_missing_db_returns_empty(tmp_path):
+def test_query_session_digest_direct_missing_db_returns_empty(tmp_path, snapshot: SnapshotAssertion):
     result = session_digest.query_session_digest_direct(tmp_path / "no-such.db")
-    assert result == {"session": None, "context_log": []}
+    # envelope fixture: the empty-digest RPC response shape, reviewed via snapshot (F3-04).
+    assert result == snapshot(name="empty_digest_envelope")
 
 
-def test_query_session_digest_direct_no_sessions_returns_empty(project):
+def test_query_session_digest_direct_no_sessions_returns_empty(project, snapshot: SnapshotAssertion):
     db_path = project / ".memory" / "project.db"
     result = session_digest.query_session_digest_direct(db_path)
-    assert result == {"session": None, "context_log": []}
+    assert result == snapshot(name="empty_digest_envelope")
 
 
 def test_query_session_digest_direct_returns_latest_session_with_context_log(project):
@@ -285,10 +287,12 @@ def test_get_session_digest_daemon_down_falls_back_to_direct_read(project, isola
     assert result["context_log"] == direct["context_log"]
 
 
-def test_get_session_digest_daemon_down_empty_project_still_answers(project, isolated_sockets):
+def test_get_session_digest_daemon_down_empty_project_still_answers(
+    project, isolated_sockets, snapshot: SnapshotAssertion
+):
     """No daemon AND no session rows yet — must return an empty digest, not
     raise, so a cold SessionStart on a brand-new project never breaks.
     """
     result = session_digest.get_session_digest(project, allow_spawn=False)
 
-    assert result == {"session": None, "context_log": [], "source": "direct-fallback"}
+    assert result == snapshot(name="empty_digest_fallback_envelope")

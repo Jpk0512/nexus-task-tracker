@@ -1,0 +1,23 @@
+# serializer version: 1
+# name: test_get_session_digest_daemon_down_empty_project_still_answers[empty_digest_fallback_envelope]
+  dict({
+    'context_log': list([
+    ]),
+    'session': None,
+    'source': 'direct-fallback',
+  })
+# ---
+# name: test_query_session_digest_direct_missing_db_returns_empty[empty_digest_envelope]
+  dict({
+    'context_log': list([
+    ]),
+    'session': None,
+  })
+# ---
+# name: test_query_session_digest_direct_no_sessions_returns_empty[empty_digest_envelope]
+  dict({
+    'context_log': list([
+    ]),
+    'session': None,
+  })
+# ---

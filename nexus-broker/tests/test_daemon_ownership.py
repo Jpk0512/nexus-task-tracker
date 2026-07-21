@@ -15,6 +15,7 @@ from __future__ import annotations
 import threading
 
 import pytest
+from syrupy.assertion import SnapshotAssertion
 
 from broker.daemon.ownership import (
     OwnershipRegistry,
@@ -190,29 +191,33 @@ class TestSnapshot:
 
 
 class TestOwnershipRequestDispatch:
-    def test_register_touch_owners_of_round_trip_via_dispatch(self) -> None:
+    def test_register_touch_owners_of_round_trip_via_dispatch(
+        self, snapshot: SnapshotAssertion
+    ) -> None:
         registry = OwnershipRegistry()
         r1 = handle_ownership_request(registry, "ownership_register", {"workflow_id": "wf1"})
-        assert r1 == {"registered": True}
+        # envelope fixtures: each ownership-registry RPC response shape,
+        # reviewed via snapshot (F3-04).
+        assert r1 == snapshot(name="register_envelope")
 
         r2 = handle_ownership_request(
             registry, "ownership_record_touch", {"workflow_id": "wf1", "file_path": "src/a.py"}
         )
-        assert r2 == {"recorded": True}
+        assert r2 == snapshot(name="record_touch_envelope")
 
         r3 = handle_ownership_request(registry, "ownership_owners_of", {"file_path": "src/a.py"})
-        assert r3 == {"owners": ["wf1"]}
+        assert r3 == snapshot(name="owners_of_envelope")
 
-    def test_complete_via_dispatch_releases_files(self) -> None:
+    def test_complete_via_dispatch_releases_files(self, snapshot: SnapshotAssertion) -> None:
         registry = OwnershipRegistry()
         handle_ownership_request(registry, "ownership_register", {"workflow_id": "wf1"})
         handle_ownership_request(
             registry, "ownership_record_touch", {"workflow_id": "wf1", "file_path": "src/a.py"}
         )
         result = handle_ownership_request(registry, "ownership_complete", {"workflow_id": "wf1"})
-        assert result == {"released": 1}
+        assert result == snapshot(name="complete_envelope")
         after = handle_ownership_request(registry, "ownership_owners_of", {"file_path": "src/a.py"})
-        assert after == {"owners": []}
+        assert after == snapshot(name="owners_of_after_release_envelope")
 
     def test_snapshot_via_dispatch(self) -> None:
         registry = OwnershipRegistry()

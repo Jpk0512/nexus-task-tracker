@@ -1,0 +1,11 @@
+# serializer version: 1
+# name: test_dispatch_node_routes_claude_through_pool[claude_payload]
+  dict({
+    'a': 1,
+  })
+# ---
+# name: test_dispatch_node_routes_codex_through_exec_subprocess[codex_payload]
+  dict({
+    'greeting': 'hi',
+  })
+# ---

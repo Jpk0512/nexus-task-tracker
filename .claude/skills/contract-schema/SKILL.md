@@ -11,7 +11,7 @@ Canonical source: `docs/agents/CONTRACT.md`. This skill is a JIT-loaded referenc
 
 ```json
 {
-  "agent_persona": "scout|forge-ui|forge-ui-pro|forge-wire|forge-wire-pro|pipeline-data|pipeline-data-pro|pipeline-async|pipeline-async-pro|atlas|hermes|palette|lens|lens-fast|quill-ts|quill-py",
+  "agent_persona": "scout|forge-ui|forge-wire|pipeline-data|pipeline-async|atlas|hermes|palette|lens|lens-fast|quill-ts|quill-py",
   "goal": "<precise, single-sentence statement>",
   "context_files": ["<path>", "<path>"],
   "acceptance_criteria": [
@@ -56,8 +56,16 @@ Canonical source: `docs/agents/CONTRACT.md`. This skill is a JIT-loaded referenc
 | `## NEXUS:NEEDS-DECISION` | AskUserQuestion with options from `decisions_needed`. Log decision_add. Re-spawn. |
 | `## NEXUS:CHECKPOINT` | Write checkpoint summary to `.memory/`. Pause and resume next session. |
 | `## NEXUS:REVISE` | Revision loop: re-spawn implementer with Lens issues YAML. Cap 3 iterations. Stall-detect (issue_count non-decreasing → escalate). |
+| `## NEXUS:DEFER-REQUEST` | Agent found an out-of-scope error; approve defer, instruct inline fix, or escalate. |
 
-## 9 Universal Rules
+**Full detail** — the `status`↔`completion_marker` mapping, the mermaid state machine, the
+REVISE actionable-issue schema, the DEFER-REQUEST body requirements, and the 3-rung
+Fallback Output Ladder for grading a DONE's evidence: `references/completion-marker-state-machine.md`.
+**The parallel-fan-out gotcha** (`.filter(Boolean)` silently drops a crashed teammate's
+return with no signal) lives in the same file — read it before authoring any
+`parallel([...])` synthesis step.
+
+## 9 Universal Rules (condensed — full 19-rule text: `references/universal-rules-full.md`)
 
 1. **Read before edit** — always Read a file before Edit. Re-read after any other tool changes it.
 2. **SocratiCode first — programmatically enforced** by `.claude/hooks/socraticode-gate.sh`. grep/rg/find/ack/ag/fgrep/egrep are denied at command position unless `codebase_search` (or other SocratiCode discovery tool) has fired earlier in the session.
@@ -92,3 +100,17 @@ Canonical source: `docs/agents/CONTRACT.md`. This skill is a JIT-loaded referenc
   "db_context": "<from context dump>"
 }
 ```
+
+## References
+
+- `references/completion-marker-state-machine.md` — the `status`↔`completion_marker`
+  mapping, the mermaid routing state machine, the REVISE actionable-detail mandate,
+  DEFER-REQUEST body requirements, and the Fallback Output Ladder.
+- `references/universal-rules-full.md` — the full 19-rule text (this file's body only
+  carries the 9-rule condensed summary).
+- `examples/full-dispatch-round-trip.md` — a worked DONE round trip with a real
+  verification-evidence JSON payload, and a worked REVISE round trip showing the
+  actionable-issue re-dispatch.
+
+Canonical source for everything above remains `docs/agents/CONTRACT.md` — this skill
+surfaces the parts needed at delegation time; it does not fork the contract.

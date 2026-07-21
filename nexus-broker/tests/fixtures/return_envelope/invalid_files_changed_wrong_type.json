@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "status": "DONE",
+  "completion_marker": "## NEXUS:DONE",
+  "files_changed": "nexus-broker/src/broker/schemas/return_envelope.schema.json",
+  "summary": "`files_changed` is a bare string, not an array of path strings.",
+  "verification_result": "$ uv run pytest -q\n1 passed",
+  "acceptance_met": [
+    {"criterion": "x", "met": true, "evidence": "y"}
+  ]
+}

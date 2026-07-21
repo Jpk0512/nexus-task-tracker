@@ -25,9 +25,10 @@ const TONE: Record<
 	{ color: string; bg: string; ring: string }
 > = {
 	blue: {
-		color: "#5e6ad2",
-		bg: "rgba(94,106,210,0.16)",
-		ring: "rgba(94,106,210,0.28)",
+		/* Skills teal — product accent */
+		color: "#26b5ce",
+		bg: "rgba(38,181,206,0.16)",
+		ring: "rgba(38,181,206,0.28)",
 	},
 	green: {
 		color: "#4cb782",
@@ -35,9 +36,10 @@ const TONE: Record<
 		ring: "rgba(76,183,130,0.22)",
 	},
 	violet: {
-		color: "#9b8afb",
-		bg: "rgba(155,138,251,0.14)",
-		ring: "rgba(155,138,251,0.25)",
+		/* Aligned to skills teal (no lavender product accents). */
+		color: "#26b5ce",
+		bg: "rgba(38,181,206,0.14)",
+		ring: "rgba(38,181,206,0.25)",
 	},
 	orange: {
 		color: "#f2a65a",

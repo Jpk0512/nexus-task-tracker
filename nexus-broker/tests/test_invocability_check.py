@@ -19,7 +19,13 @@ from broker.plan_validation.checks.invocability import check_invocability
 from broker.plan_validation.score import score_plan
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-REAL_PLAN = REPO_ROOT / "nexus-redesign" / "plans" / "09-r3-plan-dag.md"
+# The R3 plan DAG moved to the redesign archive at NATIVE-11-5 (docs/archive/
+# nexus-redesign/). It is a real production-shaped plan the scorer must not
+# choke on — repointed here (TASK-111b) from the pre-archive nexus-redesign/
+# path so the live-only smokes below actually RUN in the meta-repo again
+# (previously they skipped on EVERY tree, live path included). The archive dir
+# is meta-repo-only, so the package snapshot still skips — genuinely live-only.
+REAL_PLAN = REPO_ROOT / "docs" / "archive" / "nexus-redesign" / "plans" / "09-r3-plan-dag.md"
 
 
 def _node(node_id: str, **overrides: Any) -> dict[str, Any]:
@@ -195,7 +201,7 @@ def test_default_score_plan_unaffected_when_no_node_declares_a_primitive() -> No
 
 @pytest.mark.skipif(
     not REAL_PLAN.exists(),
-    reason="live-only: nexus-redesign/ is deliberately not shipped in the package snapshot",
+    reason="live-only: docs/archive/nexus-redesign/ is deliberately not shipped in the package snapshot",
 )
 def test_real_r3_plan_invocability_check_runs_without_error() -> None:
     """End-to-end: the real plan DAG scores without a crash through the wired-in check."""
@@ -234,7 +240,7 @@ def test_no_network_or_model_client_imported() -> None:
 
 @pytest.mark.skipif(
     not REAL_PLAN.exists(),
-    reason="live-only: nexus-redesign/ is deliberately not shipped in the package snapshot",
+    reason="live-only: docs/archive/nexus-redesign/ is deliberately not shipped in the package snapshot",
 )
 def test_cli_score_json_includes_invocability_key() -> None:
     proc = subprocess.run(

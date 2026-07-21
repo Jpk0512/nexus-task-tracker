@@ -473,10 +473,10 @@ function SidebarMenuItem({ className, ...props }: React.ComponentProps<"li">) {
 }
 
 // Linear sidebar entries: 13px Inter weight 510, ink-subtle text default,
-// ink-tertiary icons at 14px, subtle surface-3 lift on hover/active, ink on
-// active for emphasis (no font-weight bump — Linear doesn't bold the active row).
+// ink-tertiary icons at 16px / stroke 1.5 (thin+sharp), subtle surface-3 lift
+// on hover/active, ink on active for emphasis (no font-weight bump).
 const sidebarMenuButtonVariants = cva(
-	"peer/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md px-2 py-1 text-left font-[510] text-[13px] tracking-[-0.005em] outline-hidden ring-sidebar-ring transition-colors hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground focus-visible:ring-2 disabled:pointer-events-none disabled:opacity-50 group-has-data-[sidebar=menu-action]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground data-[state=open]:hover:bg-sidebar-accent data-[state=open]:hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:size-7! group-data-[collapsible=icon]:p-1.5! [&>span:last-child]:truncate [&>svg]:size-3.5 [&>svg]:shrink-0 [&>svg]:text-muted-foreground hover:[&>svg]:text-foreground data-[active=true]:[&>svg]:text-foreground",
+	"peer/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md px-2 py-1 text-left font-[510] text-[13px] tracking-[-0.005em] outline-hidden ring-sidebar-ring transition-colors hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground focus-visible:ring-2 disabled:pointer-events-none disabled:opacity-50 group-has-data-[sidebar=menu-action]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground data-[state=open]:hover:bg-sidebar-accent data-[state=open]:hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:size-7! group-data-[collapsible=icon]:p-1.5! [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:stroke-[1.5] [&>svg]:text-muted-foreground hover:[&>svg]:text-foreground data-[active=true]:[&>svg]:text-foreground",
 	{
 		variants: {
 			variant: {
@@ -688,7 +688,7 @@ function SidebarMenuSubButton({
 			data-size={size}
 			data-active={isActive}
 			className={cn(
-				"-translate-x-px flex h-7 min-w-0 items-center gap-2 overflow-hidden rounded-sm px-2 text-sidebar-foreground outline-hidden ring-sidebar-ring hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-sidebar-accent-foreground",
+				"-translate-x-px flex h-7 min-w-0 items-center gap-2 overflow-hidden rounded-sm px-2 text-sidebar-foreground outline-hidden ring-sidebar-ring hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:stroke-[1.5] [&>svg]:text-sidebar-accent-foreground",
 				"data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground",
 				size === "sm" && "text-xs",
 				size === "md" && "text-sm",

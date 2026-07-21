@@ -7,6 +7,12 @@ This file is GENERATED from launchd/http.plist.template by bin/install-launchd.s
 (sed-substitutes __HOME__, __UV_PATH__, __PROJECT__). Do not edit the generated
 copy — edit the template and re-run install-launchd.sh.
 
+--no-sync below: a sync-mode `uv run` takes an exclusive lock on
+nexus-broker/.venv/.lock that every other `uv run` boot (session MCP, health
+probe, the other launchd agents) queues behind; KeepAlive respawns this
+daemon on crash, so a stalled sync would wedge it repeatedly. The venv is
+prebuilt by install, so this daemon never needs to resolve/sync.
+
 User-controlled activation (we never auto-load):
     launchctl load   ~/Library/LaunchAgents/com.nexus.vault.http.plist
     launchctl unload ~/Library/LaunchAgents/com.nexus.vault.http.plist
@@ -21,6 +27,7 @@ User-controlled activation (we never auto-load):
     <array>
       <string>__UV_PATH__</string>
       <string>run</string>
+      <string>--no-sync</string>
       <string>--project</string>
       <string>__PROJECT__</string>
       <string>python</string>

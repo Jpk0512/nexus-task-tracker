@@ -19,6 +19,9 @@ export const createProjectSchema = z.object({
 	leadId: z.string().optional().nullable(),
 	visibility: projectVisibilitySchema.optional().nullable(),
 	memberIds: z.array(z.string()).optional().nullable(),
+	rootPath: z.string().max(1024).optional().nullable(),
+	docsPath: z.string().max(1024).optional().nullable(),
+	prefix: z.string().max(8).optional().nullable(),
 });
 
 export const updateProjectSchema = z.object({
@@ -33,6 +36,8 @@ export const updateProjectSchema = z.object({
 	status: z.enum(projectStatusEnum.enumValues).optional().nullable(),
 	visibility: projectVisibilitySchema.optional().nullable(),
 	memberIds: z.array(z.string()).optional().nullable(),
+	rootPath: z.string().max(1024).optional().nullable(),
+	docsPath: z.string().max(1024).optional().nullable(),
 });
 
 export const addProjectMemberSchema = z.object({

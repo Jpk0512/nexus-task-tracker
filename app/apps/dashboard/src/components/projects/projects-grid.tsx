@@ -35,7 +35,7 @@ import {
 	BugIcon,
 	ChevronDownIcon,
 	ChevronRightIcon,
-	FolderIcon,
+	type LucideIcon,
 	PinIcon,
 	PinOffIcon,
 	SparklesIcon,
@@ -44,6 +44,7 @@ import {
 import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { ProjectIcon } from "@/components/project-icon";
 import { useUser } from "@/components/user-provider";
 import { usePinnedProjects } from "@/hooks/use-pinned-projects";
 import { useProjectParams } from "@/hooks/use-project-params";
@@ -223,9 +224,9 @@ function ProjectCard({
 				>
 					<div className="flex items-start justify-between gap-2">
 						<div className="flex min-w-0 items-center gap-2">
-							<FolderIcon
+							<ProjectIcon
 								className="size-4 shrink-0"
-								style={{ color: accent }}
+								color={accent}
 							/>
 							<h3 className="truncate font-semibold text-[16px] text-foreground leading-tight">
 								{project.name}
@@ -292,7 +293,7 @@ interface StarterTemplate {
 	id: string;
 	name: string;
 	description: string;
-	icon: typeof FolderIcon;
+	icon: LucideIcon;
 	color: string;
 }
 
@@ -302,7 +303,7 @@ const STARTER_TEMPLATES: StarterTemplate[] = [
 		name: "Internal tool",
 		description: "Ship an internal tool with milestones + a kanban board.",
 		icon: WrenchIcon,
-		color: "#5e6ad2",
+		color: "#26b5ce",
 	},
 	{
 		id: "bug-bash",
@@ -517,6 +518,9 @@ export function ProjectsGrid({
 								))}
 							</SelectContent>
 						</Select>
+						<Button asChild size="sm" className="h-8">
+							<Link href={`${basePath}/create-project`}>New project</Link>
+						</Button>
 					</div>
 				</div>
 			)}
@@ -590,13 +594,16 @@ export function ProjectsGrid({
 						Pick a starting point — you can edit everything afterwards.
 					</p>
 					<StarterTemplates onCreate={onTemplateCreate} />
-					<div className="mt-6">
-						<Button
-							variant="outline"
-							size="sm"
-							onClick={() => setParams({ createProject: true })}
-						>
-							Or create a blank project
+					<div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+						<Button asChild size="sm">
+							<Link href={`${basePath}/create-project`}>
+								Open Project Starter
+							</Link>
+						</Button>
+						<Button asChild variant="outline" size="sm">
+							<Link href={`${basePath}/projects?createProject=true`}>
+								Or create a blank project
+							</Link>
 						</Button>
 					</div>
 				</div>

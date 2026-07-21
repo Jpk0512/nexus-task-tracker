@@ -82,8 +82,8 @@ def _load_code_writing_personas() -> frozenset:
     is absent or malformed so the gate is never silently disabled.
     """
     _FALLBACK = frozenset({
-        "forge-ui", "forge-ui-pro", "forge-wire", "forge-wire-pro",
-        "pipeline-data", "pipeline-data-pro", "pipeline-async", "pipeline-async-pro",
+        "forge-ui", "forge-wire",
+        "pipeline-data", "pipeline-async",
         "atlas", "hermes", "quill-ts", "quill-py",
     })
     try:
@@ -542,16 +542,43 @@ def main() -> int:
         work_type: str = brief.get("work_type", "").lower().strip()
         skill_map = _load_skill_map()
 
-        # Find matching row(s) — try exact match, then persona-only
+        # Find matching row(s) — exact match first.
         mandatory: list[str] = []
         if work_type:
             mandatory = skill_map.get((subagent_type, work_type), [])
-        if not mandatory:
-            # Collect all mandatory skills for this persona across all work_types
-            mandatory = []
-            for (p, _wt), skills in skill_map.items():
-                if p == subagent_type:
-                    mandatory.extend(skills)
+            if not mandatory:
+                # work_type given but matches no row: fall back to every row
+                # for this persona (foundational convention skill enforced).
+                for (p, _wt), skills in skill_map.items():
+                    if p == subagent_type:
+                        mandatory.extend(skills)
+        else:
+            # Doc-only/empty work_type: the persona's '*' minimum row ONLY —
+            # never accumulate rows from multiple work_types. Accumulating
+            # here previously surfaced integration-specific rows (tableau,
+            # claude-api, ...) and duplicate entries on a generic dispatch
+            # that has no work_type to disambiguate against.
+            mandatory = skill_map.get((subagent_type, "*"), [])
+
+        # Dedup, preserving first-seen order — accumulation above can repeat
+        # a skill across multiple rows (e.g. a foundational skill mandated by
+        # both a '*' row and a specific-work_type row).
+        seen: set = set()
+        deduped: list[str] = []
+        for s in mandatory:
+            key = s.lower()
+            if key not in seen:
+                seen.add(key)
+                deduped.append(s)
+        mandatory = deduped
+
+        # Existence-filter: never advise a skill absent from the actual
+        # installed roster — this hook runs installed (target project or this
+        # meta-repo), and a demanded skill with no matching dir is never
+        # loadable regardless of how the map got it.
+        skills_dir = REPO_ROOT / ".claude" / "skills"
+        if skills_dir.is_dir():
+            mandatory = [s for s in mandatory if (skills_dir / s).is_dir()]
 
         missing = [s for s in mandatory if s.lower() not in skills_required_set]
         if missing:

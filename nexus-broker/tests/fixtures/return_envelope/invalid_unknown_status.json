@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "status": "FINISHED",
+  "completion_marker": "## NEXUS:DONE",
+  "files_changed": ["nexus-broker/src/broker/schemas/return_envelope.schema.json"],
+  "summary": "`status` is outside the enum — FINISHED is not a marker-vocabulary value.",
+  "verification_result": "$ uv run pytest -q\n1 passed",
+  "acceptance_met": [
+    {"criterion": "x", "met": true, "evidence": "y"}
+  ]
+}

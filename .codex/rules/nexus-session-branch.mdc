@@ -1,0 +1,26 @@
+---
+description: Session-branch VCS model, commit-as-checkpoint, and deploy-step human handoff
+alwaysApply: true
+---
+
+# Session branch + deploy handoff (Constitution Art. XIV)
+
+## Where work lands
+- Work **directly on the branch the session started from**. Detect it at runtime: `git branch --show-current`. It MAY be `main` or any other branch — **never hardcode the branch name**.
+- **NO** new per-task feature branches. **NO** pull-request-for-merge ceremony. A registered DEC-008 worktree per leg is the DEFAULT isolation for parallel multi-part work (RDEC-018 Option 3) — a single indivisible task stays directly on the session branch with no worktree.
+
+## Commit-as-checkpoint
+- **ONE focused commit per completed task.** That commit IS the checkpoint and the rollback unit — to undo a task, revert its commit.
+- **You commit. The USER pushes/releases.** Do not push the session branch yourself unless the user explicitly authorizes it.
+
+## Deploy-step human handoff (release gate)
+- **STOP before any deploy/release step and hand off to a human.** Never deploy, publish, or release autonomously (Constitution Art. XII).
+- Any change touching deployable code (`app/`, `ingestion/`, `design/`, `docker-compose*.yml`, etc.) MUST end your response with a **`## Deploy step`** block naming the restart action + the exact verification command, e.g.:
+
+  ```
+  ## Deploy step
+  Restart: docker compose up -d --build ingestion
+  Verify:  curl -s localhost:3000/api/health | jq .status
+  ```
+
+  It targets the current session-branch HEAD (no branch line) and is the artifact the human uses to approve and rebuild.

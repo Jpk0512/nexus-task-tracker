@@ -25,21 +25,31 @@ SCRIPT = HOOKS_DIR / "auto-parallel-nudge.sh"
 NUDGE_TAG = "[auto-parallel-nudge]"
 
 
-def run_hook(prompt_payload: str) -> tuple[int, str, str]:
-    """Invoke the hook via /bin/bash with the given raw stdin string."""
+def run_hook(prompt_payload: str, env: dict | None = None) -> tuple[int, str, str]:
+    """Invoke the hook via /bin/bash with the given raw stdin string.
+
+    Post-F2-03 auto-parallel-nudge.sh is `exec _ping_shim.py prompt.submitted
+    auto-parallel-nudge`; the delegation-work classifier runs daemon-resident
+    (handle_auto_parallel_nudge). `env` carries the DEFAULT `resident_daemon.env`
+    seams so the shim reaches a live daemon. This package twin is a NON-meta
+    (installed) tenant, so the handler emits `_NUDGE_TEXT_INSTALLED` — the same
+    `[auto-parallel-nudge]` tag WITHOUT the meta-only DEC-017 citation."""
+    merged = {**os.environ}
+    if env:
+        merged.update(env)
     result = subprocess.run(
         ["/bin/bash", str(SCRIPT)],
         input=prompt_payload,
         capture_output=True,
         text=True,
-        env={**os.environ},
+        env=merged,
         timeout=15,
     )
     return result.returncode, result.stdout, result.stderr
 
 
-def run_prompt(prompt: str) -> tuple[int, str, str]:
-    return run_hook(json.dumps({"prompt": prompt}))
+def run_prompt(prompt: str, env: dict | None = None) -> tuple[int, str, str]:
+    return run_hook(json.dumps({"prompt": prompt}), env=env)
 
 
 def _nudge_context(out: str) -> str:
@@ -53,8 +63,8 @@ def _nudge_context(out: str) -> str:
     return parsed.get("hookSpecificOutput", {}).get("additionalContext", "")
 
 
-def assert_nudges(prompt: str) -> None:
-    code, out, err = run_prompt(prompt)
+def assert_nudges(prompt: str, env: dict | None = None) -> None:
+    code, out, err = run_prompt(prompt, env=env)
     assert code == 0, f"hook must always exit 0, got {code}; stderr={err!r}"
     ctx = _nudge_context(out)
     assert NUDGE_TAG in ctx, f"expected a nudge for {prompt!r}, got stdout={out!r}"
@@ -70,36 +80,47 @@ def assert_silent(prompt: str) -> None:
 
 
 class TestNudgesOnDelegationWork:
-    def test_imperative_implement_and_fix(self) -> None:
+    def test_imperative_implement_and_fix(self, resident_daemon) -> None:
         assert_nudges(
-            "Please implement the new caching layer and fix the flaky test in module X"
+            "Please implement the new caching layer and fix the flaky test in module X",
+            env=dict(resident_daemon.env),
         )
 
-    def test_build_request(self) -> None:
+    def test_build_request(self, resident_daemon) -> None:
         assert_nudges(
-            "Build a health dashboard endpoint and wire it into the router pipeline"
+            "Build a health dashboard endpoint and wire it into the router pipeline",
+            env=dict(resident_daemon.env),
         )
 
-    def test_enumerated_dash_list(self) -> None:
-        assert_nudges("Do these:\n- add logging\n- write tests\n- update the docs")
-
-    def test_numbered_list(self) -> None:
+    def test_enumerated_dash_list(self, resident_daemon) -> None:
         assert_nudges(
-            "Tasks:\n1. refactor the parser\n2. add a regression test\n3. update CHANGELOG"
+            "Do these:\n- add logging\n- write tests\n- update the docs",
+            env=dict(resident_daemon.env),
         )
 
-    def test_lettered_subtasks(self) -> None:
+    def test_numbered_list(self, resident_daemon) -> None:
         assert_nudges(
-            "Work items:\n(a) migrate the schema\n(b) backfill rows\n(c) verify counts"
+            "Tasks:\n1. refactor the parser\n2. add a regression test\n3. update CHANGELOG",
+            env=dict(resident_daemon.env),
         )
 
-    def test_single_substantive_imperative(self) -> None:
+    def test_lettered_subtasks(self, resident_daemon) -> None:
+        assert_nudges(
+            "Work items:\n(a) migrate the schema\n(b) backfill rows\n(c) verify counts",
+            env=dict(resident_daemon.env),
+        )
+
+    def test_single_substantive_imperative(self, resident_daemon) -> None:
         # A nudge is valuable even for a SINGLE task.
-        assert_nudges("Refactor the broker state module to use a dataclass instead")
-
-    def test_investigate_and_diagnose(self) -> None:
         assert_nudges(
-            "Investigate why the lens gate is rejecting valid briefs and diagnose the cause"
+            "Refactor the broker state module to use a dataclass instead",
+            env=dict(resident_daemon.env),
+        )
+
+    def test_investigate_and_diagnose(self, resident_daemon) -> None:
+        assert_nudges(
+            "Investigate why the lens gate is rejecting valid briefs and diagnose the cause",
+            env=dict(resident_daemon.env),
         )
 
 
@@ -157,18 +178,20 @@ class TestRobustness:
         assert code == 0
         assert out.strip() == ""
 
-    def test_never_emits_permission_decision(self) -> None:
+    def test_never_emits_permission_decision(self, resident_daemon) -> None:
         # Advisory only: it must never carry a blocking permissionDecision.
         _code, out, _err = run_prompt(
-            "implement the feature, add tests, and update the docs"
+            "implement the feature, add tests, and update the docs",
+            env=dict(resident_daemon.env),
         )
         assert "permissionDecision" not in out
         ctx = _nudge_context(out)
         assert NUDGE_TAG in ctx
 
-    def test_emitted_json_is_well_formed_userpromptsubmit(self) -> None:
+    def test_emitted_json_is_well_formed_userpromptsubmit(self, resident_daemon) -> None:
         _code, out, _err = run_prompt(
-            "build the new endpoint and write integration tests for it"
+            "build the new endpoint and write integration tests for it",
+            env=dict(resident_daemon.env),
         )
         parsed = json.loads(out.strip())
         hso = parsed["hookSpecificOutput"]

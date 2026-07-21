@@ -1,31 +1,31 @@
 "use client";
 
 import { Button } from "@ui/components/ui/button";
-import { FileTextIcon, FolderPlusIcon, SparklesIcon } from "lucide-react";
+import { FileTextIcon, FolderPlusIcon, HardDriveIcon, SparklesIcon } from "lucide-react";
 import Link from "next/link";
 import { SoftIcon } from "@/components/ui/soft-icon";
 import { useUser } from "@/components/user-provider";
 
 /**
- * Dedicated Create Project tab — entry to blank project + Project Starter (FEAT-003).
+ * Create Project — blank · from idea · existing folder on disk.
  */
 export default function CreateProjectPage() {
 	const user = useUser();
 	const base = user.basePath;
 
 	return (
-		<div className="mx-auto flex max-w-3xl flex-col gap-8 px-6 py-10">
+		<div className="mx-auto flex max-w-4xl flex-col gap-8 px-6 py-10">
 			<div>
 				<h1 className="font-[510] text-[22px] tracking-[-0.02em]">
 					Create a project
 				</h1>
 				<p className="mt-1 text-[13px] text-muted-foreground">
-					Start blank, or walk an idea through concept → architecture → handoff
-					→ board.
+					Start blank, walk an idea through Starter, or link an existing site
+					folder on disk for Site Docs.
 				</p>
 			</div>
 
-			<div className="grid gap-4 sm:grid-cols-2">
+			<div className="grid gap-4 sm:grid-cols-3">
 				<div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card/40 p-5">
 					<SoftIcon icon={FolderPlusIcon} tone="green" size="lg" />
 					<div>
@@ -47,7 +47,7 @@ export default function CreateProjectPage() {
 						<h2 className="font-[510] text-[15px]">Start from an idea</h2>
 						<p className="mt-1 text-[12.5px] text-muted-foreground">
 							Project Starter: grill, wayfind, mock UX, seal a handoff, then
-							materialize a kanban board coding agents can execute.
+							materialize a kanban board.
 						</p>
 					</div>
 					<Button asChild className="mt-auto w-fit">
@@ -56,17 +56,33 @@ export default function CreateProjectPage() {
 						</Link>
 					</Button>
 				</div>
+
+				<div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card/40 p-5">
+					<SoftIcon icon={HardDriveIcon} tone="orange" size="lg" />
+					<div>
+						<h2 className="font-[510] text-[15px]">Existing on disk</h2>
+						<p className="mt-1 text-[12.5px] text-muted-foreground">
+							Point at a site folder, name it, pick which folder Site Docs
+							mirrors (usually{" "}
+							<code className="text-[11px]">docs/</code>).
+						</p>
+					</div>
+					<Button asChild className="mt-auto w-fit" variant="outline">
+						<Link href={`${base}/create-project/existing`}>
+							Link existing site
+						</Link>
+					</Button>
+				</div>
 			</div>
 
 			<div className="rounded-xl border border-border/60 bg-card/30 p-4 text-[12.5px] text-muted-foreground">
 				<span className="inline-flex items-center gap-2 font-[510] text-foreground">
-					<FileTextIcon className="size-3.5" /> What you get from Starter
+					<FileTextIcon className="size-3.5" /> Site Docs
 				</span>
 				<ul className="mt-2 list-inside list-disc space-y-1">
-					<li>CONTEXT.md + ADRs from grill-with-docs</li>
-					<li>Architecture map (wayfinder decisions)</li>
-					<li>Handoff pack + board of vertical-slice tasks</li>
-					<li>Project notebook scaffold under Notes</li>
+					<li>Docs live on disk — edits in Nexus write through</li>
+					<li>Nexus Maps (architecture / flow / graph) stay in the app</li>
+					<li>Open Site Docs from Brain to review any linked site</li>
 				</ul>
 			</div>
 		</div>

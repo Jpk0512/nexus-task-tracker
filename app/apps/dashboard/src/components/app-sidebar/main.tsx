@@ -26,10 +26,10 @@ export function AppSidebar() {
 
 	return (
 		<Sidebar collapsible="icon" className="">
-			<SidebarHeader className="h-[44px] border-sidebar-border border-b">
+			<SidebarHeader className="h-12 border-sidebar-border border-b p-0">
 				<div
 					className={cn(
-						"group/header relative flex h-full items-center justify-between",
+						"group/header relative flex h-full items-center justify-between px-2",
 						{
 							"justify-center": !open,
 						},

@@ -49,11 +49,11 @@ export const StatusChangedChip = ({
 		<span
 			title={`Status changed ${label} ago`}
 			className={cn(
-				"inline-flex h-[18px] shrink-0 items-center gap-1 rounded-sm border border-violet-400/30 bg-violet-400/[0.08] px-1.5 font-[510] text-[10.5px] text-violet-300 tabular-nums tracking-[0.005em]",
+				"inline-flex h-[18px] shrink-0 items-center gap-1 rounded-sm border border-cyan-400/30 bg-cyan-400/[0.08] px-1.5 font-[510] text-[10.5px] text-cyan-300 tabular-nums tracking-[0.005em]",
 				className,
 			)}
 		>
-			<span aria-hidden="true" className="size-1 rounded-full bg-violet-400" />
+			<span aria-hidden="true" className="size-1 rounded-full bg-cyan-400" />
 			moved {label} ago
 		</span>
 	);

@@ -191,7 +191,7 @@ async function main() {
 			name: "Local Dev",
 			email: EMAIL,
 			emailVerified: true,
-			image: null,
+			image: "/avatars/profile-avatar.png",
 			locale: "en-US",
 			teamId: TEAM_ID,
 			teamSlug: TEAM_SLUG,
@@ -206,7 +206,12 @@ async function main() {
 
 	await db
 		.update(users)
-		.set({ teamId: TEAM_ID, teamSlug: TEAM_SLUG, updatedAt: now })
+		.set({
+			teamId: TEAM_ID,
+			teamSlug: TEAM_SLUG,
+			image: "/avatars/profile-avatar.png",
+			updatedAt: now,
+		})
 		.where(eq(users.id, USER_ID));
 
 	console.log("[seed-local-dev] membership…");
@@ -342,6 +347,22 @@ async function main() {
 	await db
 		.update(projects)
 		.set({ prefix: "EL" })
+		.where(eq(projects.id, PROJECT_EL));
+
+	// Site Docs paths (container mounts — see docker-compose.local.yaml)
+	await db
+		.update(projects)
+		.set({
+			rootPath: "/host/sites/ai-interaction-dash",
+			docsPath: "/host/sites/ai-interaction-dash/docs",
+		})
+		.where(eq(projects.id, PROJECT_AI));
+	await db
+		.update(projects)
+		.set({
+			rootPath: "/host/sites/elevenlabs-eval-dash",
+			docsPath: "/host/sites/elevenlabs-eval-dash/docs",
+		})
 		.where(eq(projects.id, PROJECT_EL));
 
 	console.log("[seed-local-dev] tasks…");

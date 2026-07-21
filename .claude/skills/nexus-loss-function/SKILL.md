@@ -69,6 +69,17 @@ exist as first-class primitives — REUSE them, don't reinvent:
   and signs off, exactly as in the standard verify phase. Holdout acceptance is
   a Lens responsibility, blinded from the optimizer. This is the LFD
   separate-judge principle = the existing Lens validation gate.
+- **Signal-Separation Invariant (named).** The signal an agent optimizes against
+  and self-reports (its own tests, its own claimed-green) MUST be structurally
+  separate from — and never equal to — the signal that decides survival (Lens's
+  independent re-derivation, or a held-out gate the agent never sees). If those
+  two signals ever collapse into one, that is a **loss-function bug, not an
+  agent bug**. Empirically: a bi-level self-improvement loop built on exactly
+  this public/private score split produced anti-reward-hacking with **no
+  explicit instruction** (AIDE²,
+  `research/35-ai-techniques/aide2-recursive-self-improvement.md`, §2.3) —
+  variations that gamed the visible signal simply did not survive selection.
+  Enforceable hard-rule clause: `docs/agents/CONTRACT.md` Rule 3.
 - **Iteration log = the lessons table + the feedback system.** LFD's `LOG.md`
   (hypothesis / expected-failure-mode / diagnostic / result, written *before* the
   change) is what survives context compaction. In Nexus that durable log is the
@@ -189,6 +200,10 @@ many problems already sit in public artifacts:
 
 ## Phase 4 — Design the loss function
 
+Every deciding signal you design here must satisfy the **Signal-Separation
+Invariant** (above, under "The Nexus mappings") — never wire "the agent says
+green" into the accept function.
+
 **Target.**
 - Mechanically computable by a script, at the right resolution for the claim. An
   LLM judge that "compares two screenshots" approves 12px spacing errors; a
@@ -274,6 +289,10 @@ found — especially the standard verification gates.
    WITHOUT naming it, then remove the plant.
 
 ## Phase 7 — Red-team your own draft
+
+Check the draft against the **Signal-Separation Invariant**: does any deciding
+signal read from something the agent authored, self-reported, or can edit? If
+yes, that is a fence gap, not a passing draft.
 
 Before emitting, simulate the laziest possible agent against your draft `goal.md`:
 what is the five-minute win? Common ones: seed data mirroring the eval, mining

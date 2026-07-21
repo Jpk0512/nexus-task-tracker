@@ -1,9 +1,9 @@
-import { DocumentsIndexView } from "@/components/documents/documents-index-view";
+import { SiteDocsView } from "@/components/site-docs/site-docs-view";
 
-export default function DocumentsPage() {
+export default function SiteDocsPage() {
 	return (
 		<div className="h-full animate-blur-in">
-			<DocumentsIndexView />
+			<SiteDocsView />
 		</div>
 	);
 }

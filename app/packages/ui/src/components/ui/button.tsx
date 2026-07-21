@@ -13,7 +13,7 @@ const buttonVariants = cva(
 			variant: {
 				// Lavender CTA — primary action only (scarce by spec).
 				default:
-					"bg-primary text-primary-foreground hover:bg-[#828fff] active:bg-[#5e69d1]",
+					"bg-primary text-primary-foreground hover:bg-[#3ec4db] active:bg-[#1fa3ba]",
 				destructive:
 					"border border-destructive/30 bg-destructive/15 text-destructive hover:bg-destructive/25",
 				// Linear ghost button: barely-visible translucent white surface

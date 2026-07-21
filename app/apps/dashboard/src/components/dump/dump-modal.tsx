@@ -217,7 +217,7 @@ function DumpDialog({
 			<DialogContent className="max-w-xl gap-0 p-0">
 				<div className="flex items-center justify-between border-b border-border/60 px-4 py-3">
 					<div className="flex items-center gap-2">
-						<NotebookPenIcon className="size-4 text-violet-500" />
+						<NotebookPenIcon className="size-4 text-cyan-500" />
 						<DialogTitle className="font-[510] text-[15px]">
 							Dump anything
 						</DialogTitle>
@@ -336,7 +336,7 @@ export function DumpTrigger() {
 				"inline-flex h-7 items-center gap-2 rounded-md border border-border bg-white/[0.02] px-2 text-start text-[12px] text-muted-foreground transition-colors hover:bg-white/[0.04] hover:text-foreground",
 			)}
 		>
-			<NotebookPenIcon className="size-3 shrink-0 text-violet-500" />
+			<NotebookPenIcon className="size-3 shrink-0 text-cyan-500" />
 			<span className="truncate">Dump…</span>
 			<Kbd className="ml-1 text-[10px]">
 				<KbdGroup>

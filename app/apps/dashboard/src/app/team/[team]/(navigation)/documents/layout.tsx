@@ -1,6 +1,6 @@
 import { BreadcrumbSetter } from "@/components/breadcrumbs";
 
-export default function DocumentsLayout({
+export default function SiteDocsLayout({
 	children,
 }: {
 	children: React.ReactNode;
@@ -10,7 +10,7 @@ export default function DocumentsLayout({
 			<BreadcrumbSetter
 				crumbs={[
 					{
-						label: "Documents",
+						label: "Site Docs",
 						segments: ["documents"],
 					},
 				]}

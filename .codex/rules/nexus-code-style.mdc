@@ -1,0 +1,18 @@
+---
+description: Code-style and senior-perfectionist bar for source files
+globs: **/*.ts,**/*.tsx,**/*.js,**/*.jsx,**/*.py
+alwaysApply: false
+---
+
+# Code style
+
+- **No comments** unless the WHY is non-obvious. Do not narrate what the code already says.
+- **No backwards-compat shims** for code you removed. Delete the old path; do not leave a dead bridge.
+- **No error handling for impossible paths.** Guard real failure modes only — no defensive `try/except` around code that cannot throw.
+- **Senior-perfectionist bar:** do not just patch the symptom. If the architecture is flawed, state is duplicated, or a pattern is inconsistent, fix the structure — what an experienced reviewer would reject in review, fix it now (within the task's scope; if it grows, open a tracked task per `nexus-quality-gates.mdc`).
+
+## Python specifics
+- Full type hints on every function.
+- No bare `except`.
+- Prefer `os.environ[...]` over `os.getenv(...)` unless a default is semantically correct.
+- `ruff format` before done.

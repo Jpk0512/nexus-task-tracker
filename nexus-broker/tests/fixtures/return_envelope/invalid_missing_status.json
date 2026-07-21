@@ -1,0 +1,4 @@
+{
+  "completion_marker": "## NEXUS:DONE",
+  "files_changed": ["nexus-broker/src/broker/schemas/return_envelope.schema.json"]
+}

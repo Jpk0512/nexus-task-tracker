@@ -1,0 +1,29 @@
+# serializer version: 1
+# name: TestOwnershipRequestDispatch.test_complete_via_dispatch_releases_files[complete_envelope]
+  dict({
+    'released': 1,
+  })
+# ---
+# name: TestOwnershipRequestDispatch.test_complete_via_dispatch_releases_files[owners_of_after_release_envelope]
+  dict({
+    'owners': list([
+    ]),
+  })
+# ---
+# name: TestOwnershipRequestDispatch.test_register_touch_owners_of_round_trip_via_dispatch[owners_of_envelope]
+  dict({
+    'owners': list([
+      'wf1',
+    ]),
+  })
+# ---
+# name: TestOwnershipRequestDispatch.test_register_touch_owners_of_round_trip_via_dispatch[record_touch_envelope]
+  dict({
+    'recorded': True,
+  })
+# ---
+# name: TestOwnershipRequestDispatch.test_register_touch_owners_of_round_trip_via_dispatch[register_envelope]
+  dict({
+    'registered': True,
+  })
+# ---

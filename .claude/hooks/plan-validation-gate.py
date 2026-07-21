@@ -1,25 +1,24 @@
 #!/usr/bin/env python3
-"""plan-validation-gate.py — SubagentStop hook (R3-T04 / node N10).
+"""plan-validation-gate.py — SubagentStop hook.
 
-Thin shim over N08's CLI (`python -m broker.plan_validation score <file> --json`,
-nexus-broker/src/broker/plan_validation/score.py) — the plan-validation gate's
-deterministic core, which already folds in N11's invocability check
-(`broker.plan_validation.checks.invocability`) AND N09's opt-in probes
+Thin shim over the plan-validation CLI (`python -m broker.plan_validation score
+<file> --json`, nexus-broker/src/broker/plan_validation/score.py) — the gate's
+deterministic core, which already folds in the invocability check
+(`broker.plan_validation.checks.invocability`) AND the opt-in probes
 (`broker.plan_validation.probes.gate.run_probes`, wired into `score_plan`
 itself — self-gated, a no-op on a T0/T1 non-irreversible plan). This shim
 NEVER reimplements DAG / skills / write-scope / invocability / probe logic
 itself — it only decides WHICH file(s) to score and what to do with the
 CLI's own pass/fail verdict.
 
-FIX-5 (nexus-redesign/plans/03-r2e2-design-APPROVED.md §1, §5 D4): a live
-`planner` persona must never exist without this gate on its return path — never
-even transiently. This file and the registry/deliverables/SKILL_MAP
-registration that makes `planner` dispatchable land in exactly ONE commit (N10)
-so that invariant is never violated, not even between two commits.
+A live `planner` persona must never exist without this gate on its return
+path — never even transiently. This file and the dispatch-shape-guard /
+deliverables / SKILL_MAP registration that makes `planner` dispatchable land
+together so that invariant is never violated, not even between two commits.
 
 WHO IT FIRES FOR: the SubagentStop payload itself does NOT reliably carry the
-persona (see return-validator.py's NATIVE-4 note — SubagentStop payloads here
-often omit agent_persona/subagent_type/tool_input.subagent_type). This gate
+persona (see return-validator.py's note — SubagentStop payloads here often
+omit agent_persona/subagent_type/tool_input.subagent_type). This gate
 instead reads `.memory/files/broker_state.json`'s top-level `persona` field —
 written by broker-gate.py at PreToolUse approval time — mirroring
 do-not-touch-guard.sh's own state-file-over-payload precedent. A missing/
@@ -27,8 +26,8 @@ malformed state file, or a persona other than "planner", is a silent ALLOW
 (this gate is a no-op for every other returning persona).
 
 WHAT IT SCORES: every `.md` file the planner's turn actually changed under its
-own write surface (`nexus-redesign/plans/**`, `.memory/plans/**`) — tracked diff
-vs HEAD plus untracked files, exactly do-not-touch-guard.sh's `_changed_paths`
+own write surface (`docs/plans/**`, `.memory/plans/**`) — tracked diff vs HEAD
+plus untracked files, exactly do-not-touch-guard.sh's `_changed_paths`
 approach. No changed plan file -> nothing to validate -> ALLOW (a planner that
 legitimately returned BLOCKED/NEEDS-DECISION before writing anything is not
 penalized here).
@@ -36,19 +35,25 @@ penalized here).
 FAIL-CLOSED (unlike most advisory hooks in this tree, which fail OPEN on an
 internal error): once this gate has confirmed the turn IS a planner return
 with at least one plan file to score, ANY failure — the scorer CLI exits
-non-{0,1}, `uv` is missing, the JSON verdict cannot be parsed, a subprocess
-timeout — is treated exactly like a failing verdict and DENIES. A crash must
-never look like a pass.
+non-{0,1}, the interpreter is missing, the JSON verdict cannot be parsed, a
+subprocess timeout — is treated exactly like a failing verdict and DENIES. A
+crash must never look like a pass.
 
 Env overrides (test isolation, mirroring do-not-touch-guard.sh / broker-gate.py):
   _HOOK_REPO_ROOT                 — repo root (resolves state path + runs git here)
   NEXUS_BROKER_STATE_PATH         — explicit path to broker_state.json
-  NEXUS_PLAN_VALIDATION_BROKER_DIR — cwd for the `uv run` scorer invocation
+  NEXUS_PLAN_VALIDATION_BROKER_DIR — cwd + venv root for the scorer invocation
                                       (default: <repo_root>/nexus-broker) — lets
                                       tests point the scorer at the real broker
                                       install while diffing a throwaway git tree
   NEXUS_PLAN_VALIDATION_TIMEOUT   — seconds before the scorer subprocess is
                                      killed and treated as a gate error (default 60)
+
+The scorer subprocess invokes the broker venv's OWN interpreter directly
+(`<broker_dir>/.venv/bin/python3`), never `uv run` — `uv run` silently queues
+behind ANY other concurrent `uv` process touching the same project's env-lock,
+which is a confirmed source of flaky TimeoutExpired failures under concurrent
+test/gate runs.
 
 NOTE: kept 3.9-import-safe (no `datetime.UTC`, no def-time `X | None`, no
 `match`/`case`) like every other hook module in this tree — the package twin
@@ -65,7 +70,7 @@ import sys
 from pathlib import Path
 
 EVENT = "SubagentStop"
-_PLAN_GLOB_PREFIXES = ("nexus-redesign/plans/", ".memory/plans/")
+_PLAN_GLOB_PREFIXES = ("docs/plans/", ".memory/plans/")
 _DEFAULT_TIMEOUT_S = 60.0
 
 
@@ -165,21 +170,29 @@ def _plan_files(repo_root: Path) -> tuple:
     return sorted(result), ok
 
 
+def _venv_python(broker_dir: Path) -> Path:
+    """The broker venv's own interpreter — see the module docstring note:
+    never `uv run` here, it silently queues behind any concurrent `uv`
+    process on the same project's env-lock."""
+    return broker_dir / ".venv" / "bin" / "python3"
+
+
 def _score(repo_root: Path, rel_path: str) -> tuple:
-    """Run N08's CLI on one plan file. Returns (status, detail):
+    """Run the plan-validation CLI on one plan file. Returns (status, detail):
     status is "pass" | "fail" | "error"; detail is a short human string.
 
     NEVER reimplements score_plan's own checks — this only shells out to the
-    CLI N08 already exposes for exactly this purpose and interprets its exit
+    CLI already exposed for exactly this purpose and interprets its exit
     code (`0` = overall_pass, `1` = a real, deterministic fail — see
     broker.plan_validation.score._cli_score) and JSON verdict.
     """
     broker_dir = _broker_dir(repo_root)
     abs_path = str(repo_root / rel_path)
     timeout = float(os.environ.get("NEXUS_PLAN_VALIDATION_TIMEOUT", _DEFAULT_TIMEOUT_S))
+    py = _venv_python(broker_dir)
     try:
         proc = subprocess.run(
-            ["uv", "run", "python", "-m", "broker.plan_validation", "score", abs_path, "--json"],
+            [str(py), "-m", "broker.plan_validation", "score", abs_path, "--json"],
             cwd=str(broker_dir), capture_output=True, text=True, timeout=timeout,
         )
     except subprocess.TimeoutExpired:

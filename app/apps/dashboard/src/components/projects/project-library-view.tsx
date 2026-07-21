@@ -32,7 +32,7 @@ const KIND_ICON: Record<Kind, typeof BookOpenIcon> = {
 };
 
 const KIND_COLOR: Record<Kind, string> = {
-	skill: "bg-violet-500/10 text-violet-600 dark:text-violet-300",
+	skill: "bg-cyan-500/10 text-cyan-600 dark:text-cyan-300",
 	agent: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-300",
 	orchestration: "bg-amber-500/10 text-amber-600 dark:text-amber-300",
 };

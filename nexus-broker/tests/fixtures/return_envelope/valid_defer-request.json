@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "status": "DEFER-REQUEST",
+  "completion_marker": "## NEXUS:DEFER-REQUEST",
+  "files_changed": [
+    "nexus-broker/src/broker/schemas/return_envelope.schema.json"
+  ],
+  "summary": "Discovered an out-of-scope typing debt in an unrelated schema while placing the new schemas/ dir; requesting permission to defer.",
+  "skills_loaded": ["agent-protocol", "atlas-schema-patterns"],
+  "defer_request": {
+    "error_description": "nexus-broker/src/broker/vault/policy.py has 4 mypy errors from a dynamic YAML load (already tracked as OPT-067 follow-up in pyproject.toml).",
+    "why_out_of_scope": "F1-06 write partition is schemas/** and tests/** only; policy.py is do_not_touch and owned by a separate follow-up.",
+    "effort_estimate": "Inline fix ~30min (narrow the dict[Any,Any] type); defer cost is zero (already gated out via tool.mypy.overrides)."
+  },
+  "notepad_written": {
+    "skipped": "out-of-scope item already tracked as OPT-067; nothing new to record"
+  }
+}

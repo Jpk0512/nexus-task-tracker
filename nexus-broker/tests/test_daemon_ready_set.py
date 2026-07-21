@@ -17,6 +17,7 @@ import threading
 from pathlib import Path
 
 import pytest
+from syrupy.assertion import SnapshotAssertion
 
 from broker.conductor.ready_set_client import ReadySetClient
 from broker.daemon.ready_set import (
@@ -181,15 +182,17 @@ def test_registry_invalidate_drops_the_run() -> None:
     assert registry.invalidate("run-1") is False  # already gone
 
 
-def test_handle_ready_set_request_full_cycle() -> None:
+def test_handle_ready_set_request_full_cycle(snapshot: SnapshotAssertion) -> None:
     registry = ReadySetRegistry()
     reg_result = handle_ready_set_request(
         registry, "ready_set_register", {"run_id": "run-1", "nodes": _diamond_nodes()}
     )
-    assert reg_result == {"registered": True, "node_count": 4}
+    # envelope fixtures: each ready-set RPC response shape, reviewed via
+    # snapshot (F3-04).
+    assert reg_result == snapshot(name="register_envelope")
 
     pulled = handle_ready_set_request(registry, "ready_set_pull", {"run_id": "run-1"})
-    assert pulled == {"node_id": "root"}
+    assert pulled == snapshot(name="pull_envelope")
 
     completed = handle_ready_set_request(
         registry, "ready_set_complete", {"run_id": "run-1", "node_id": "root"}
@@ -201,7 +204,7 @@ def test_handle_ready_set_request_full_cycle() -> None:
     assert sorted(snap["ready"]) == ["A", "B"]
 
     invalidated = handle_ready_set_request(registry, "ready_set_invalidate", {"run_id": "run-1"})
-    assert invalidated == {"invalidated": True}
+    assert invalidated == snapshot(name="invalidate_envelope")
 
 
 def test_handle_ready_set_request_rejects_unknown_method() -> None:

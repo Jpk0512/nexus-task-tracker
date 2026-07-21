@@ -32,7 +32,9 @@ from typing import Any
 
 import pytest
 
+import broker.capability_token as token_mod
 import broker.server as srv
+from broker.capability_token import VerifyResult, verify_token
 from broker.registry import ALLOWED_PERSONAS, RETIRED_BASE_PERSONAS
 
 # NATIVE-25 (v): load the LIVE skills-required-guard hook so we can assert its
@@ -82,6 +84,15 @@ def _well_formed_brief(**overrides: Any) -> dict[str, Any]:
     }
     brief.update(overrides)
     return brief
+
+
+@pytest.fixture(autouse=True)
+def _isolated_token_paths(tmp_path: Path, monkeypatch) -> None:
+    """F1-04: every approved validate call now mints a capability token, so isolate
+    the signing key + deny-list into tmp_path (the test_capability_token.py pattern)
+    for EVERY test in this file — never the real repo's `.memory/files/*`."""
+    monkeypatch.setattr(token_mod, "KEY_PATH", tmp_path / "broker_token_key.json")
+    monkeypatch.setattr(token_mod, "DENYLIST_PATH", tmp_path / "token_denylist.jsonl")
 
 
 @pytest.fixture
@@ -202,6 +213,104 @@ async def test_approved_brief_defaults_when_brief_omits_gate_fields(captured_sta
     assert persisted["work_type"] == ""
     assert persisted["intent"] == "investigate"
     assert persisted["skills_required"] == []
+
+
+async def test_approved_brief_and_token_carry_explicit_task_id(captured_state) -> None:
+    """NATIVE-14 Option A: a brief carrying task_id threads it into both
+    approved_brief and the minted capability token's task_id claim, instead
+    of the turn_id used previously — so lens-gate's task-hash never needs
+    the dispatch:{agent}:{session_id} fallback for briefs that carry one.
+    """
+    brief = _well_formed_brief(task_id="NATIVE-14")
+    result = await _validate(brief, persona="scout", intent="investigate", turn_id="turn-native14")
+    assert result["approved"] is True, result["errors"]
+
+    written = captured_state["written"]
+    assert written["approved_brief"]["task_id"] == "NATIVE-14"
+    assert written["capability_token"]["task_id"] == "NATIVE-14"
+
+
+async def test_approved_brief_and_token_fall_back_to_turn_id_without_task_id(
+    captured_state,
+) -> None:
+    """No task_id on the brief: approved_brief.task_id and the token claim
+    both fall back to turn_id, byte-identical to pre-NATIVE-14 behavior
+    (which hardcoded task_id=turn_id).
+    """
+    brief = _well_formed_brief()  # no task_id field
+    result = await _validate(brief, persona="scout", intent="investigate", turn_id="turn-fallback")
+    assert result["approved"] is True, result["errors"]
+
+    written = captured_state["written"]
+    assert written["approved_brief"]["task_id"] == "turn-fallback"
+    assert written["capability_token"]["task_id"] == "turn-fallback"
+
+
+# ── DEC-096: workflow_roster → the wave token's closed allowed_personas set ──
+
+
+async def test_workflow_roster_mints_closed_allowed_personas_set(captured_state) -> None:
+    brief = _well_formed_brief(
+        workflow_roster=["forge-wire", "pipeline-async", "quill-py"],
+    )
+    result = await _validate(brief, persona="scout", intent="investigate", turn_id="turn-wave")
+    assert result["approved"] is True, result["errors"]
+    token = captured_state["written"]["capability_token"]
+    assert token["allowed_personas"] == ["forge-wire", "pipeline-async", "quill-py"]
+
+
+async def test_absent_roster_mints_degenerate_single_persona_set(captured_state) -> None:
+    result = await _validate(
+        _well_formed_brief(), persona="scout", intent="investigate", turn_id="turn-single",
+    )
+    assert result["approved"] is True, result["errors"]
+    token = captured_state["written"]["capability_token"]
+    assert token["allowed_personas"] == ["scout"]
+
+
+async def test_empty_roster_is_rejected(captured_state) -> None:
+    result = await _validate(
+        _well_formed_brief(workflow_roster=[]),
+        persona="scout", intent="investigate", turn_id="turn-empty",
+    )
+    assert result["approved"] is False
+    assert any("non-empty" in e for e in result["errors"])
+    assert captured_state["written"] is None
+
+
+async def test_wildcard_roster_is_rejected(captured_state) -> None:
+    result = await _validate(
+        _well_formed_brief(workflow_roster=["forge-wire", "all"]),
+        persona="scout", intent="investigate", turn_id="turn-wild",
+    )
+    assert result["approved"] is False
+    assert any("wildcard" in e for e in result["errors"])
+
+
+async def test_unknown_persona_in_roster_is_rejected(captured_state) -> None:
+    result = await _validate(
+        _well_formed_brief(workflow_roster=["forge-wire", "not-a-persona"]),
+        persona="scout", intent="investigate", turn_id="turn-unknown",
+    )
+    assert result["approved"] is False
+    assert any("not a known dispatchable persona" in e for e in result["errors"])
+
+
+async def test_approved_brief_and_token_treat_null_task_id_as_absent(
+    captured_state,
+) -> None:
+    """NATIVE-17: a JSON brief with task_id: null must fall back to turn_id,
+    not coerce via str(None) into the truthy literal string 'None' (which
+    previously bypassed the turn_id fallback and leaked into approved_brief
+    and the minted token's task_id claim).
+    """
+    brief = _well_formed_brief(task_id=None)
+    result = await _validate(brief, persona="scout", intent="investigate", turn_id="turn-null-task-id")
+    assert result["approved"] is True, result["errors"]
+
+    written = captured_state["written"]
+    assert written["approved_brief"]["task_id"] == "turn-null-task-id"
+    assert written["capability_token"]["task_id"] == "turn-null-task-id"
 
 
 async def test_rejection_does_not_write_state(captured_state) -> None:
@@ -865,6 +974,83 @@ async def test_standard_chore_does_not_require_planning_gate(captured_state) -> 
     assert not any("PLANNING-GATE ADVISORY" in w for w in result["warnings"])
 
 
+# ── (h) doc-shaped brief defaults missing task_tier to 'simple' (fleet FB-3) ───
+
+async def test_doc_shaped_work_type_defaults_missing_tier_to_simple(captured_state) -> None:
+    """work_type='docs' + no task_tier -> 'simple' (not 'standard') + warns."""
+    brief = _well_formed_brief(work_type="docs")
+    del brief["task_tier"]
+    result = await _validate(brief)
+    assert result["approved"] is True, result["errors"]
+    assert result["approved_brief"]["task_tier"] == "simple"
+    assert any(
+        "normalized" in w and "task_tier" in w and "simple" in w for w in result["warnings"]
+    ), result["warnings"]
+
+
+async def test_all_md_context_files_defaults_missing_tier_to_simple(captured_state) -> None:
+    """Every extensioned path in context_files is .md -> doc-shaped -> 'simple'."""
+    brief = _well_formed_brief(
+        context_files=["docs/features/FEAT-004-ai-reviewers/design.md", "docs/CONSTITUTION.md"],
+    )
+    del brief["task_tier"]
+    result = await _validate(brief)
+    assert result["approved"] is True, result["errors"]
+    assert result["approved_brief"]["task_tier"] == "simple"
+
+
+async def test_mixed_extension_context_files_keeps_standard_default(captured_state) -> None:
+    """A .py file among context_files is NOT doc-shaped -> the 'standard' default holds."""
+    brief = _well_formed_brief(
+        context_files=["docs/CONSTITUTION.md", "src/broker/server.py"],
+    )
+    del brief["task_tier"]
+    result = await _validate(brief)
+    assert result["approved"] is True, result["errors"]
+    assert result["approved_brief"]["task_tier"] == "standard"
+
+
+# ── (i) persona tool-ceiling advisory (fleet FB-3 / gemini-gateway #21) ────────
+
+async def test_atlas_bash_gated_verification_yields_tool_ceiling_warning(captured_state) -> None:
+    """atlas has no Bash: a pytest verification_required warns but still approves."""
+    brief = _well_formed_brief(
+        skills_required=["atlas-conventions"],
+        verification_required=["cd nexus-broker && uv run pytest tests -q"],
+    )
+    result = await _validate(
+        brief, persona="atlas", intent="implement_schema", turn_id="t-tool-ceiling",
+    )
+    assert result["approved"] is True, result["errors"]
+    assert any("TOOL-CEILING ADVISORY" in w and "atlas" in w for w in result["warnings"]), result["warnings"]
+
+
+async def test_atlas_non_shell_verification_yields_no_tool_ceiling_warning(captured_state) -> None:
+    """A verification_required with no shell-command hints does not trip the advisory."""
+    brief = _well_formed_brief(
+        skills_required=["atlas-conventions"],
+        verification_required=["confirm the CREATE TABLE statement matches the spec"],
+    )
+    result = await _validate(
+        brief, persona="atlas", intent="implement_schema", turn_id="t-tool-ceiling-2",
+    )
+    assert result["approved"] is True, result["errors"]
+    assert not any("TOOL-CEILING ADVISORY" in w for w in result["warnings"]), result["warnings"]
+
+
+async def test_bash_capable_persona_gets_no_tool_ceiling_warning(captured_state) -> None:
+    """A pytest-heavy verification_required is fine for a persona that HAS Bash."""
+    brief = _well_formed_brief(
+        skills_required=["quill-py-conventions"],
+        verification_required=["cd nexus-broker && uv run pytest tests -q"],
+    )
+    result = await _validate(
+        brief, persona="quill-py", intent="test", turn_id="t-tool-ceiling-3",
+    )
+    assert result["approved"] is True, result["errors"]
+    assert not any("TOOL-CEILING ADVISORY" in w for w in result["warnings"]), result["warnings"]
+
+
 # ── NATIVE-25 (v): skills-required-guard free-text detection ──────────────────
 
 
@@ -930,3 +1116,105 @@ def test_guard_freetext_does_not_override_json_skills() -> None:
     }
     brief = guard._extract_brief(tool_input)
     assert brief.get("skills_required") == ["from-json"]
+
+
+# ── F1-04: capability-token mint on the validate PASS path ────────────────────
+#
+# TASKS.md F1-04 (leg A / broker mint): on approved=True, mint ONE signed
+# capability token into `new_state["capability_token"]` — the exact field
+# `_token_shadow.extract_token` reads off broker_state.json — as a pure
+# PASS side-effect. REJECT mints nothing. Zero change to approved PASS/FAIL
+# semantics: every assertion below drives the REAL validator, never a stub.
+
+
+async def test_approval_mints_exactly_one_capability_token(captured_state) -> None:
+    result = await _validate(
+        _well_formed_brief(skills_required=["tdd-patterns"]),
+        persona="quill-py", intent="test", turn_id="turn-mint-1",
+    )
+    assert result["approved"] is True, result["errors"]
+
+    written = captured_state["written"]
+    assert written is not None
+    token = written.get("capability_token")
+    assert isinstance(token, dict), f"capability_token must be minted on PASS: {written!r}"
+    assert token["persona"] == "quill-py"
+    assert token["plan_id"] == "turn-mint-1"
+    assert token["task_id"] == "turn-mint-1"
+
+
+async def test_rejection_mints_no_capability_token(captured_state) -> None:
+    """A rejected validation must not mint — no token backing a denied dispatch."""
+    result = await _validate(_well_formed_brief(), persona="totally-made-up")
+
+    assert result["approved"] is False
+    assert captured_state["written"] is None, "rejected validation wrote state"
+
+
+async def test_minted_token_verifies_via_capability_token_semantics(captured_state) -> None:
+    result = await _validate(
+        _well_formed_brief(skills_required=["tdd-patterns"]),
+        persona="quill-py", intent="test", turn_id="turn-mint-2",
+    )
+    assert result["approved"] is True, result["errors"]
+
+    token = captured_state["written"]["capability_token"]
+    assert verify_token(token) == VerifyResult(True, "ok")
+
+
+async def test_minted_token_fails_closed_on_tamper(captured_state) -> None:
+    result = await _validate(
+        _well_formed_brief(skills_required=["tdd-patterns"]),
+        persona="quill-py", intent="test", turn_id="turn-mint-3",
+    )
+    assert result["approved"] is True, result["errors"]
+
+    token = dict(captured_state["written"]["capability_token"])
+    token["persona"] = "atlas"  # widened after mint — sig no longer matches
+
+    tampered_result = verify_token(token)
+    assert tampered_result.ok is False
+    assert tampered_result.reason == "tampered"
+
+
+async def test_minted_token_fails_closed_on_expiry(captured_state, monkeypatch) -> None:
+    monkeypatch.setenv("NEXUS_TOKEN_TTL_SECONDS", "1")
+    result = await _validate(
+        _well_formed_brief(skills_required=["tdd-patterns"]),
+        persona="quill-py", intent="test", turn_id="turn-mint-4",
+    )
+    assert result["approved"] is True, result["errors"]
+
+    token = captured_state["written"]["capability_token"]
+    future = datetime.datetime.now(tz=datetime.UTC) + datetime.timedelta(hours=1)
+
+    expired_result = verify_token(token, now=future)
+    assert expired_result.ok is False
+    assert expired_result.reason == "expired"
+
+
+async def test_validate_pass_fail_semantics_unchanged_by_minting(
+    captured_state, monkeypatch
+) -> None:
+    """Minting is additive and ordered strictly after approval: this test pins
+    that `mint_token` is called exactly once, with the already-decided persona,
+    from the PASS write side-effect — never from the approval computation itself.
+    (A call-tracking stand-in is used, not a raising one: mint_token has no
+    try/except around its call site, so a raise there propagates as an exception
+    rather than yielding a `result` dict — out of scope for this leg per the
+    brief's "approval logic untouched" boundary.)
+    """
+    calls: list[dict] = []
+
+    def _tracking_mint(**kwargs):
+        calls.append(kwargs)
+        return token_mod.mint_token(**kwargs)
+
+    monkeypatch.setattr(srv, "mint_token", _tracking_mint)
+    result = await _validate(
+        _well_formed_brief(skills_required=["tdd-patterns"]),
+        persona="quill-py", intent="test", turn_id="turn-mint-5",
+    )
+    assert result["approved"] is True, result["errors"]
+    assert len(calls) == 1
+    assert calls[0]["persona"] == "quill-py"

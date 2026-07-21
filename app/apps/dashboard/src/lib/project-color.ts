@@ -1,6 +1,6 @@
 const TAG_PALETTE = [
 	"#9b8afb",
-	"#5e6ad2",
+	"#26b5ce",
 	"#26b5ce",
 	"#4cb782",
 	"#f2c94c",

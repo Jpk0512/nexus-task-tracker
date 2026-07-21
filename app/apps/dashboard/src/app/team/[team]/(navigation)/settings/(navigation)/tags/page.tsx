@@ -42,7 +42,7 @@ const SOURCE_META: Record<
 	labels: {
 		label: "Labels",
 		icon: TagIcon,
-		tint: "bg-violet-500/10 text-violet-600 dark:text-violet-300",
+		tint: "bg-cyan-500/10 text-cyan-600 dark:text-cyan-300",
 	},
 	todos: {
 		label: "Todos",
@@ -92,7 +92,7 @@ export default function TagsSettingsPage() {
 				<div className="flex items-start justify-between gap-4">
 					<div>
 						<CardTitle className="flex items-center gap-2">
-							<TagsIcon className="size-4 text-violet-500" />
+							<TagsIcon className="size-4 text-cyan-500" />
 							Tags
 						</CardTitle>
 						<CardDescription>

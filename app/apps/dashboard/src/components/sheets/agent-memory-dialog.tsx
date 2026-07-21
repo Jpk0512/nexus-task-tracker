@@ -24,7 +24,7 @@ const CATEGORY_LABELS: Record<string, { label: string; color: string }> = {
 	lesson: { label: "Lesson", color: "bg-blue-500/10 text-blue-500" },
 	preference: {
 		label: "Preference",
-		color: "bg-purple-500/10 text-purple-500",
+		color: "bg-cyan-500/10 text-cyan-500",
 	},
 	fact: { label: "Fact", color: "bg-green-500/10 text-green-500" },
 	procedure: { label: "Procedure", color: "bg-orange-500/10 text-orange-500" },

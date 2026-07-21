@@ -75,22 +75,30 @@ production.
 ### What the broker-gate does
 
 `broker-gate.py` is a PreToolUse hook that fires on every `Task` dispatch. It
-reads `.memory/files/broker_state.json` and enforces:
+reads `.memory/files/broker_state.json` and, by default (F1-04
+token-authoritative), enforces:
 
 - The file exists and parses as JSON.
-- `approved` is `True`.
-- `called_at` is within the last 120 seconds (per-turn freshness; relaxed for
-  team-scoped teammate spawns whose `team_name` matches the approved brief).
-- The dispatched persona matches `state["persona"]` (non-team dispatches).
-- `notepad_logged_at` is present and within 300 seconds — the notepad read
-  ritual must have been run this turn (Standard/Complex dispatches only;
-  P2-07).
+- `state["capability_token"]` (minted by `nexus_validate_brief` on plan-gate
+  PASS) verifies fail-closed — schema/alg/HMAC-signature/kid/jti-denylist/
+  expiry (TTL default 4h, `NEXUS_TOKEN_TTL_SECONDS`).
+- The dispatched persona matches the token's own `persona` claim.
 - A recent ACCEPTED planning-gate row must exist in `project.db` within the
   last 4 hours for Standard/Complex code-writing feature dispatches (P2-09;
-  skipped for meta work and non-code-writing personas).
+  skipped for meta work and non-code-writing personas; unchanged from before
+  F1-04).
 
-The gate **fails closed** (exit 2 / DENY) on any failure unless
-`NEXUS_BROKER_ALLOW_DEGRADED=1` is set.
+**Rollback flag `NEXUS_RITUAL_AUTHORITY=1`** (kept 1 release) restores the
+pre-F1-04 predicate verbatim instead: `approved` is `True`; `called_at` is
+within the last 300 seconds (DEC-068, per-turn freshness; relaxed for
+team-scoped teammate spawns whose `team_name` matches the approved brief); the
+dispatched persona matches `state["persona"]` (non-team dispatches);
+`notepad_logged_at` is present and within 900 seconds (DEC-068) for
+Standard/Complex dispatches. Set this flag if the broker server process has
+not yet been restarted / MCP-reconnected to mint tokens.
+
+The gate **fails closed** (exit 2 / DENY) on any failure, in either mode,
+unless `NEXUS_BROKER_ALLOW_DEGRADED=1` is set.
 
 ### Symptoms and what they mean
 
@@ -103,29 +111,39 @@ running.
 The file exists but is not valid JSON — a partial write or a corrupted file.
 Delete it and re-call `nexus_validate_brief`.
 
-**`broker rejected dispatch to '<persona>' — not allowed`**
+**`no valid capability token for this dispatch (reason=<absent|tampered|expired|unknown-kid|...>)`** (token mode)
+`nexus_validate_brief` was not called for this task/plan, or the token
+expired/was tampered with. Re-call `nexus_validate_brief` to mint a fresh
+token, or set `NEXUS_RITUAL_AUTHORITY=1` to fall back to the ritual.
+
+**`capability token was minted for persona 'X' but this dispatch targets 'Y' (persona-mismatch)`** (token mode)
+The orchestrator validated for persona X but dispatched to persona Y.
+Re-validate with the correct persona.
+
+**`broker rejected dispatch to '<persona>' — not allowed`** (ritual mode)
 `approved` is `False` in the state file. The brief was validated but rejected
 by the broker. Fix the brief and re-validate.
 
-**`broker_state.json is stale (Ns old, max 120s) — call nexus_validate_brief again for this turn.`**
-The validation was done more than 120 seconds ago. Re-call `nexus_validate_brief`
+**`broker_state.json is stale (Ns old, max 300s) — call nexus_validate_brief again for this turn.`** (ritual mode)
+The validation was done more than 300 seconds ago. Re-call `nexus_validate_brief`
 in this turn.
 
-**`broker approved persona 'X' but dispatch targets 'Y'`**
+**`broker approved persona 'X' but dispatch targets 'Y'`** (ritual mode)
 The orchestrator called `nexus_validate_brief` for persona X but dispatched to
 persona Y. Re-validate with the correct persona.
 
-**`notepad_logged_at is absent — run 'python3 .memory/log.py notepad list --topic <scope>' and call nexus_notepad_ping before dispatching.`**
+**`notepad_logged_at is absent — run 'python3 .memory/log.py notepad list --topic <scope>' and call nexus_notepad_ping before dispatching.`** (ritual mode only)
 The broker state has no record of the notepad read ritual being performed this
 turn. Run the notepad list command for the current topic scope, then call
-`nexus_notepad_ping`, before dispatching a Standard or Complex task.
+`nexus_notepad_ping`, before dispatching a Standard or Complex task. Not
+checked in the default token mode.
 
-**`notepad_logged_at is stale (Ns old, max 300s) — re-run the notepad ritual and nexus_notepad_ping for this turn.`**
-The notepad was read more than 300 seconds ago. Re-run
+**`notepad_logged_at is stale (Ns old, max 900s) — re-run the notepad ritual and nexus_notepad_ping for this turn.`** (ritual mode only)
+The notepad was read more than 900 seconds ago. Re-run
 `python3 .memory/log.py notepad list --topic <scope>` and call
 `nexus_notepad_ping` again in this turn.
 
-**`no ACCEPTED planning-gate row in the last 4h for this <tier> code-writing dispatch to '<persona>'`**
+**`no ACCEPTED planning-gate row in the last 4h for this <tier> code-writing dispatch to '<persona>'`** (both modes, unchanged)
 A Standard or Complex code-writing feature dispatch requires a prior planning
 gate submission that was ACCEPTED. Run
 `python3 .memory/log.py planning-gate submit --feat <id> --json ...` and have

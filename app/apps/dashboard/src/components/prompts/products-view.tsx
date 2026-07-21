@@ -290,7 +290,7 @@ export function PromptProductsView() {
 										setInlineForProductId(p.id);
 										setInlinePromptName("");
 									}}
-									className="absolute top-2 right-2 z-10 inline-flex size-6 items-center justify-center rounded-md text-muted-foreground opacity-0 transition hover:bg-accent hover:text-foreground focus-visible:bg-accent focus-visible:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/60 group-hover:opacity-100"
+									className="absolute top-2 right-2 z-10 inline-flex size-6 items-center justify-center rounded-md text-muted-foreground opacity-0 transition hover:bg-accent hover:text-foreground focus-visible:bg-accent focus-visible:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/60 group-hover:opacity-100"
 								>
 									<PlusIcon className="size-3.5" />
 								</button>

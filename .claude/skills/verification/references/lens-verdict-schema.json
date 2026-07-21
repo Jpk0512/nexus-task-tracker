@@ -1,0 +1,117 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://nexus/.claude/skills/verification/references/lens-verdict-schema.json",
+  "title": "Lens verdict output (canonical)",
+  "description": "Canonical two-phase (deterministic then semantic) verdict shape every Lens / lens-fast validation returns. Deterministic must be fully populated and passing before any semantic finding lands. See ../SKILL.md for the phase ordering and evidence rules this schema encodes.",
+  "type": "object",
+  "required": ["verdict", "deterministic"],
+  "additionalProperties": false,
+  "properties": {
+    "verdict": {
+      "type": "string",
+      "enum": ["PASS", "PARTIAL", "FAIL"],
+      "description": "Even one FAIL in deterministic or semantic collapses the whole verdict to FAIL."
+    },
+    "lens_tier": {
+      "type": "string",
+      "enum": ["T0", "T1", "T2"],
+      "description": "Depth classification this dispatch ran at (see SKILL.md 3-tier table). T0 dispatches typically omit a row entirely rather than emitting this schema."
+    },
+    "deterministic": {
+      "type": "object",
+      "description": "REQUIRED before any semantic finding lands. If any entry's exit_code != 0, verdict is FAIL and the response returns immediately — no semantic review on a failing build.",
+      "properties": {
+        "tsc": { "$ref": "#/$defs/gateResult" },
+        "lint": {
+          "allOf": [
+            { "$ref": "#/$defs/gateResult" },
+            {
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "enum": ["pass", "not_configured"],
+                  "description": "not_configured is reported explicitly (never silently skipped) and does NOT degrade the verdict to FAIL by itself."
+                }
+              }
+            }
+          ]
+        },
+        "tests": { "$ref": "#/$defs/gateResult" },
+        "custom": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/gateResult" }
+        }
+      },
+      "additionalProperties": { "$ref": "#/$defs/gateResult" }
+    },
+    "semantic": {
+      "type": "object",
+      "description": "Only populated if every deterministic gate passed. Rotate SECURITY / NEW-HIRE / OPS perspectives.",
+      "properties": {
+        "security": { "type": "array", "items": { "$ref": "#/$defs/finding" } },
+        "new_hire": { "type": "array", "items": { "$ref": "#/$defs/finding" } },
+        "ops": { "type": "array", "items": { "$ref": "#/$defs/finding" } }
+      }
+    },
+    "conflicts": {
+      "type": "array",
+      "description": "Spec-vs-implementation disagreements. The orchestrator decides which side to update — Lens must never silently pick the implementation side.",
+      "items": {
+        "type": "object",
+        "required": ["between", "resolution_required"],
+        "properties": {
+          "between": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "e.g. [\"spec\", \"implementation\"] or explicit artifact locations."
+          },
+          "spec_says": { "type": "string" },
+          "impl_does": { "type": "string" },
+          "resolution_required": { "type": "boolean" }
+        }
+      }
+    },
+    "criteria_results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["criterion", "result", "evidence"],
+        "properties": {
+          "criterion": { "type": "string", "description": "Verbatim from the spec/brief." },
+          "result": { "type": "string", "enum": ["PASS", "FAIL", "PARTIAL"] },
+          "evidence": {
+            "type": "string",
+            "description": "file:line, test name, OR verbatim command output the orchestrator can verify itself. Paraphrase ('I checked X') is not evidence."
+          }
+        }
+      }
+    },
+    "open_questions": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Theoretical worst-cases that are not data-loss/security/contract violations land here, not as a FAIL."
+    }
+  },
+  "$defs": {
+    "gateResult": {
+      "type": "object",
+      "required": ["command", "exit_code"],
+      "properties": {
+        "command": { "type": "string", "description": "Exact command run, verbatim." },
+        "exit_code": { "type": "integer" },
+        "stdout": { "type": "string", "description": "Verbatim captured output. Unexpected warnings/deprecations/flaky retries count as FAIL — never paper over them." }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "required": ["severity", "where", "what", "why"],
+      "properties": {
+        "severity": { "type": "string", "enum": ["CRITICAL", "MAJOR", "MINOR"] },
+        "where": { "type": "string", "description": "file:line." },
+        "what": { "type": "string" },
+        "why": { "type": "string" },
+        "fix_hint": { "type": "string", "description": "Optional. A hint, never code — Lens cannot write code (disallowedTools: Edit, Write, NotebookEdit)." }
+      }
+    }
+  }
+}

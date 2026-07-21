@@ -459,7 +459,11 @@ def _parse_yaml_frontmatter(text: str) -> dict | None:
         if not line.strip() or line.strip().startswith("#"):
             continue
         if line.startswith(("  - ", "- ")):
-            item = line.strip().lstrip("- ").strip().strip('"').strip("'")
+            item = line.strip().lstrip("- ").strip()
+            # Strip inline YAML comments before quote-stripping (mirrors the
+            # key:val handling below) — e.g. "socraticode:codebase-exploration
+            # # comment" must parse as the skill id, not swallow the comment.
+            item = re.sub(r"\s+#.*$", "", item).strip().strip('"').strip("'")
             if current_list is not None:
                 current_list.append(item)
             continue
@@ -605,7 +609,19 @@ def check_agents_skill_declarations(project_path: str) -> list[CheckResult]:
         if not isinstance(skills, list):
             skills = [skills] if skills else []
         for skill in skills:
-            skill_path = skills_dir / str(skill)
+            skill_name = str(skill)
+            if ":" in skill_name:
+                # Colon-namespaced plugin skill (e.g. "anthropic-skills:pptx",
+                # "codex:rescue") — provided by an installed plugin, never a
+                # local .claude/skills/<name>/ dir. Satisfiable without a
+                # local-dir check; asserting one here would false-FAIL every
+                # install that legitimately relies on a plugin skill.
+                results.append(CheckResult(
+                    "agents.skill_declarations", "PASS",
+                    f"{agent_file.name}: skill '{skill_name}' is plugin-namespaced (satisfied without local dir)",
+                ))
+                continue
+            skill_path = skills_dir / skill_name
             if not skill_path.exists():
                 results.append(CheckResult(
                     "agents.skill_declarations", "FAIL",
@@ -734,6 +750,128 @@ def check_mcp_config_valid(project_path: str) -> list[CheckResult]:
         results.append(CheckResult(
             "mcp.config_valid", "PASS",
             ".mcp.json valid, no placeholders, all paths present",
+        ))
+    return results
+
+
+def check_codex_surface(project_path: str) -> list[CheckResult]:
+    """Validate the Codex-native install surface (.codex/) if present (TASK-109).
+
+    Codex integration (DEC-102) ships a project-local .codex/ tree. This check is
+    ADVISORY-tolerant: an install predating TASK-109 has no .codex/ and returns a
+    single INFO (not a FAIL). When present, it validates the pieces Codex actually
+    depends on:
+      - config.toml exists, has no unresolved __TOKEN__ residue, and declares both
+        [mcp_servers.nexus-broker] + [mcp_servers.nexus-vault] (self-contained MCP);
+      - mcp.json parses, has no placeholder residue, and its nexus server
+        --directory paths exist on disk;
+      - hooks/codex-adapter.sh exists and is executable (Codex invokes it directly);
+      - AGENTS.md (orchestrator identity carrier) is present.
+    3.9-safe.
+    """
+    codex_dir = Path(project_path) / ".codex"
+    if not codex_dir.is_dir():
+        return [CheckResult(
+            "codex.surface", "INFO",
+            "no .codex/ surface (Codex integration not installed for this project)",
+        )]
+
+    # A Nexus-managed .codex surface is identified by its advisory adapter. A
+    # .codex/ dir WITHOUT codex-adapter.sh is an unrelated / hand-maintained Codex
+    # config (e.g. the Plexus meta-repo's own dev config, or a pre-TASK-109
+    # install) — skip validation rather than FAIL on a surface Nexus does not own.
+    adapter = codex_dir / "hooks" / "codex-adapter.sh"
+    if not adapter.is_file():
+        return [CheckResult(
+            "codex.surface", "INFO",
+            ".codex/ present but not a Nexus-managed surface (no codex-adapter.sh) — skipping codex checks",
+        )]
+
+    results: list[CheckResult] = []
+
+    config = codex_dir / "config.toml"
+    if not config.is_file():
+        results.append(CheckResult(
+            "codex.surface", "FAIL",
+            ".codex/config.toml missing",
+            "Re-run install.sh or update to reship the .codex surface",
+        ))
+    else:
+        config_text = config.read_text(encoding="utf-8")
+        placeholders = re.findall(r"__[A-Z_]+__", config_text)
+        if placeholders:
+            results.append(CheckResult(
+                "codex.surface", "FAIL",
+                f"Unresolved placeholders in .codex/config.toml: {', '.join(sorted(set(placeholders)))}",
+                "Run the installer substitution pass (install.sh) for this project",
+            ))
+        for key in ("nexus-broker", "nexus-vault"):
+            if not re.search(r"^\[mcp_servers\." + re.escape(key) + r"\]", config_text, re.MULTILINE):
+                results.append(CheckResult(
+                    "codex.surface", "FAIL",
+                    f".codex/config.toml missing [mcp_servers.{key}] section",
+                    "Reship .codex/config.toml (self-contained MCP per DEC-102 DEC-3)",
+                ))
+
+    mcp = codex_dir / "mcp.json"
+    if not mcp.is_file():
+        results.append(CheckResult(
+            "codex.surface", "FAIL",
+            ".codex/mcp.json missing",
+            "Re-run install.sh or update to reship the .codex surface",
+        ))
+    else:
+        raw = mcp.read_text(encoding="utf-8")
+        placeholders = re.findall(r"__[A-Z_]+__", raw)
+        if placeholders:
+            results.append(CheckResult(
+                "codex.surface", "FAIL",
+                f"Unresolved placeholders in .codex/mcp.json: {', '.join(sorted(set(placeholders)))}",
+                "Run the installer substitution pass (install.sh) for this project",
+            ))
+        else:
+            try:
+                cfg = json.loads(raw)
+            except json.JSONDecodeError as exc:
+                cfg = None
+                results.append(CheckResult(
+                    "codex.surface", "FAIL",
+                    f".codex/mcp.json is invalid JSON: {exc}",
+                    "Fix the JSON syntax in .codex/mcp.json",
+                ))
+            if cfg is not None:
+                for server_name, server_cfg in cfg.get("mcpServers", {}).items():
+                    args = server_cfg.get("args", [])
+                    for i, arg in enumerate(args):
+                        if arg == "--directory" and i + 1 < len(args):
+                            dir_path = Path(args[i + 1])
+                            if not dir_path.exists():
+                                results.append(CheckResult(
+                                    "codex.surface", "FAIL",
+                                    f"Codex MCP server '{server_name}' --directory path missing: {args[i + 1]}",
+                                    f"Ensure {args[i + 1]} exists or re-run install.sh",
+                                ))
+
+    # adapter presence is the marker gate above; here we only assert its +x bit.
+    adapter_mode = adapter.stat().st_mode
+    if not (adapter_mode & (stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)):
+        results.append(CheckResult(
+            "codex.surface", "FAIL",
+            "Missing +x bit: .codex/hooks/codex-adapter.sh",
+            "Run: chmod +x .codex/hooks/codex-adapter.sh",
+        ))
+
+    if not (codex_dir / "AGENTS.md").is_file():
+        results.append(CheckResult(
+            "codex.surface", "FAIL",
+            ".codex/AGENTS.md missing (orchestrator identity carrier)",
+            "Re-run install.sh or update to reship the .codex surface",
+        ))
+
+    if not results:
+        results.append(CheckResult(
+            "codex.surface", "PASS",
+            ".codex surface valid: config/mcp resolved, adapter executable, AGENTS.md present",
         ))
     return results
 
@@ -1391,13 +1529,20 @@ def check_broker_mcp_boots(project_path: str) -> list[CheckResult]:
                 )]
         except OSError:
             pass
+    # --no-sync: install builds the .venv up front and the update flow runs an
+    # explicit `uv sync`, so this probe never needs to resolve/fetch — a bare
+    # `uv run` can stall for minutes on lock resolution when the network is
+    # slow/unreachable (observed twice against the same install: 5s timeout
+    # hit while `.venv/bin/python -c "import broker.server"` completed in
+    # 0.64s and `uv run --no-sync` in 1.4s). 15s budget (up from 5s) covers a
+    # cold-cache `--no-sync` boot without reopening the network-stall window.
     cmd = [
-        "uv", "run", "--quiet", "python", "-c",
+        "uv", "run", "--no-sync", "--quiet", "python", "-c",
         "from broker import server; print(server.mcp.name)",
     ]
     try:
         result = subprocess.run(
-            cmd, cwd=str(broker_dir), capture_output=True, text=True, timeout=5
+            cmd, cwd=str(broker_dir), capture_output=True, text=True, timeout=15
         )
         if result.returncode != 0:
             return [CheckResult(
@@ -1413,7 +1558,7 @@ def check_broker_mcp_boots(project_path: str) -> list[CheckResult]:
     except subprocess.TimeoutExpired:
         return [CheckResult(
             "broker.mcp_boots", "FAIL",
-            "Broker boot timed out after 5s",
+            "Broker boot timed out after 15s",
             "Check nexus-broker/ for import errors or blocking code",
         )]
     except FileNotFoundError:
@@ -1616,6 +1761,23 @@ def check_embeddings_endpoint_reachable(project_path: str) -> list[CheckResult]:
     return [result]
 
 
+# Default timeout (seconds) for the PRISM boot probe. Overridable via
+# NEXUS_HEALTH_BOOT_TIMEOUT for slower/loaded environments where a cold `uv run`
+# import routinely exceeds a few seconds.
+PRISM_BOOT_TIMEOUT_S: float = 15.0
+
+
+def _prism_boot_timeout() -> float:
+    """NEXUS_HEALTH_BOOT_TIMEOUT override (float/int seconds); invalid -> default."""
+    raw = os.getenv("NEXUS_HEALTH_BOOT_TIMEOUT", "")
+    if not raw.strip():
+        return PRISM_BOOT_TIMEOUT_S
+    try:
+        return float(raw)
+    except ValueError:
+        return PRISM_BOOT_TIMEOUT_S
+
+
 def check_prism_mcp_boots(project_path: str) -> list[CheckResult]:
     """Run a quick import test of the PRISM server if .prism/ exists."""
     prism_dir = Path(project_path) / "prism"
@@ -1628,9 +1790,10 @@ def check_prism_mcp_boots(project_path: str) -> list[CheckResult]:
         "uv", "run", "--quiet", "python", "-c",
         "from prism.synthesis.mcp_server import mcp; print(mcp.name)",
     ]
+    timeout_s = _prism_boot_timeout()
     try:
         result = subprocess.run(
-            cmd, cwd=str(prism_dir), capture_output=True, text=True, timeout=5
+            cmd, cwd=str(prism_dir), capture_output=True, text=True, timeout=timeout_s
         )
         if result.returncode != 0:
             return [CheckResult(
@@ -1646,7 +1809,7 @@ def check_prism_mcp_boots(project_path: str) -> list[CheckResult]:
     except subprocess.TimeoutExpired:
         return [CheckResult(
             "prism.mcp_boots", "FAIL",
-            "PRISM boot timed out after 5s",
+            f"PRISM boot timed out after {timeout_s:g}s",
         )]
     except FileNotFoundError:
         return [CheckResult(
@@ -1869,6 +2032,122 @@ def check_heartbeat_recent(project_path: str) -> list[CheckResult]:
             "heartbeat.recent", "INFO",
             f"Could not parse heartbeat file: {exc}",
         )]
+
+
+def check_daemon_liveness(project_path: str) -> list[CheckResult]:
+    """TASK-105 fail-out-loud daemon health.
+
+    daemon.liveness — if .claude/daemon.enabled is present and the daemon
+    socket does not answer a health ping, that is a FAIL (never a WARN): the
+    silent-no-spawn / socketless-zombie incident class must surface at the
+    very next health run, not accumulate 13k RPC misses in the dark.
+
+    daemon.rpc_misses — >50 "no-socket" misses in daemon_rpc_misses.jsonl in
+    the last 10 minutes is a WARN even when the socket answers now (a daemon
+    that only just came up after a long dark window).
+    """
+    # 3.9-safe local imports; the socket-path derivation is hand-inlined
+    # (mirrors broker.daemon.paths.socket_path_for — health.py must stay
+    # importable without the nexus-broker venv, same convention as
+    # .claude/hooks/_daemon_rpc.py).
+    import hashlib
+    import socket as socket_mod
+    from datetime import datetime, timedelta, timezone
+
+    results: list[CheckResult] = []
+    root = Path(project_path)
+    flag = root / ".claude" / "daemon.enabled"
+    override = os.environ.get("NEXUS_DAEMON_SOCKET_DIR")
+    sock_dir = Path(override) if override else Path.home() / ".nexus" / "daemon"
+    digest = hashlib.sha256(str(root.resolve()).encode("utf-8")).hexdigest()[:16]
+    sock_path = sock_dir / f"{digest}.sock"
+
+    if not flag.exists():
+        results.append(CheckResult(
+            "daemon.liveness", "INFO",
+            "daemon not enabled (.claude/daemon.enabled absent)",
+        ))
+    else:
+        ok = False
+        detail = f"no socket at {sock_path}"
+        if sock_path.exists():
+            sock = socket_mod.socket(socket_mod.AF_UNIX, socket_mod.SOCK_STREAM)
+            sock.settimeout(1.0)
+            try:
+                sock.connect(str(sock_path))
+                sock.sendall(b'{"id": 1, "method": "health", "params": {}}\n')
+                buf = b""
+                while not buf.endswith(b"\n"):
+                    chunk = sock.recv(65536)
+                    if not chunk:
+                        break
+                    buf += chunk
+                payload = json.loads(buf.decode("utf-8")) if buf else {}
+                result = payload.get("result") if isinstance(payload, dict) else None
+                if isinstance(result, dict) and result.get("status") == "ok":
+                    ok = True
+                    detail = (
+                        f"pid {result.get('pid')}, "
+                        f"resident_version {result.get('resident_version', '?')}"
+                    )
+                else:
+                    detail = f"socket answered but not healthy: {payload!r:.200}"
+            except (OSError, ValueError) as exc:
+                detail = f"{type(exc).__name__}: {exc}"
+            finally:
+                try:
+                    sock.close()
+                except OSError:
+                    pass
+        if ok:
+            results.append(CheckResult(
+                "daemon.liveness", "PASS",
+                f"daemon answers health ping ({detail})",
+            ))
+        else:
+            results.append(CheckResult(
+                "daemon.liveness", "FAIL",
+                f"daemon.enabled is set but the daemon is NOT answering ({detail})",
+                "Run: uv run --directory nexus-broker python -m broker.daemon ensure "
+                "--project-path . — or install auto-start: tools/install_daemon_launchd.sh",
+            ))
+
+    misses_path = root / ".memory" / "files" / "daemon_rpc_misses.jsonl"
+    if misses_path.exists():
+        try:
+            cutoff = datetime.now(timezone.utc) - timedelta(minutes=10)
+            recent = 0
+            lines = misses_path.read_text(encoding="utf-8").splitlines()
+            for ln in reversed(lines):
+                if not ln.strip():
+                    continue
+                try:
+                    row = json.loads(ln)
+                    ts = datetime.fromisoformat(str(row.get("ts", "")).replace("Z", "+00:00"))
+                except (ValueError, TypeError):
+                    continue
+                if ts < cutoff:
+                    break
+                if row.get("reason") == "no-socket":
+                    recent += 1
+            if recent > 50:
+                results.append(CheckResult(
+                    "daemon.rpc_misses", "WARN",
+                    f"{recent} no-socket daemon RPC misses in the last 10m (>50)",
+                    "Hooks are falling back inline — check daemon liveness / ensure-daemon.sh "
+                    "failures in .memory/files/daemon-ensure-failures.log",
+                ))
+            else:
+                results.append(CheckResult(
+                    "daemon.rpc_misses", "PASS",
+                    f"{recent} no-socket daemon RPC misses in the last 10m",
+                ))
+        except OSError as exc:
+            results.append(CheckResult(
+                "daemon.rpc_misses", "INFO",
+                f"could not read daemon_rpc_misses.jsonl: {exc}",
+            ))
+    return results
 
 
 def check_router_recent_decisions(project_path: str) -> list[CheckResult]:
@@ -2493,6 +2772,7 @@ def run_checks(
         check_hooks_settings_resolves,
         check_hooks_executable,
         check_mcp_config_valid,
+        check_codex_surface,
         check_version_matches_registry,
         check_ledger_present_and_consistent,
         check_schema_vec_dim_aligned,
@@ -2520,6 +2800,7 @@ def run_checks(
 
     session_checks: list[Callable[[str], list[CheckResult]]] = [
         check_heartbeat_recent,
+        check_daemon_liveness,
         check_router_recent_decisions,
         check_session_has_open,
         check_dispatch_telemetry_kpi,

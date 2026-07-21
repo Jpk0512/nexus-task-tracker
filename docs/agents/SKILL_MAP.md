@@ -16,22 +16,37 @@ The `skills-required-guard.sh` hook reads this file to enforce CONTRACT R19.
 > 1. **Gate 1 (deny):** a code-writing persona dispatched with an absent/empty
 >    `skills_required` is blocked at dispatch (`permissionDecision:"deny"`, exit 2) —
 >    independent of this map. The block-rule persona set is:
->    `forge-ui`, `forge-ui-pro`, `forge-wire`, `forge-wire-pro`,
->    `pipeline-data`, `pipeline-data-pro`, `pipeline-async`, `pipeline-async-pro`,
->    `atlas`, `hermes`, `quill-ts`, `quill-py`.
->    (`atlas-pro` and `hermes-pro` are not yet registered in `deliverables.json`
->    and are therefore absent from Gate 1 — add their agent files and
->    `deliverables.json` entries to include them.) Read-only personas (`scout`,
+>    `forge-ui`, `forge-wire`, `pipeline-data`, `pipeline-async`,
+>    `atlas`, `hermes`, `quill-ts`, `quill-py`, `planner` (DEC-074: planner writes
+>    `docs/plans/**`/`.memory/plans/**`, so it carries a real `deliverables.json`
+>    write-lane and is derived into this set the same way as any other non-tombstone
+>    entry).
+>    (`forge-ui-pro`, `forge-wire-pro`, `pipeline-data-pro`, `pipeline-async-pro` are
+>    RETIRED dispatch names — no agent file exists for any of them; escalation is a
+>    dispatch-time `model: opus, effort: xhigh` override on the base persona, never a
+>    separate target. Their `deliverables.json` rows exist only as a boundary compat
+>    shim so a stray `-pro`-tagged dispatch is still caught by other gates — they are
+>    excluded from THIS gate's roster.) Read-only personas (`scout`,
 >    `lens`, `lens-fast`, `palette`) are excluded from Gate 1 — the guard does NOT
 >    block them on an absent `skills_required`. The roster is derived from
 >    `deliverables.json`; Gate 1 fires for every entry that has no
->    `must_not_modify: ["**/*"]` and is not a tombstone.
+>    `must_not_modify: ["**/*"]` and is not a tombstone (a compat-shim `_note`
+>    containing the word "Tombstone" — including "NOT a Tombstone" — excludes it too,
+>    which is how the `-pro` compat-shim rows above end up excluded from Gate 1).
 > 2. **Gate 2 (advise):** when `skills_required` is non-empty, the guard looks up the
->    `(persona, work_type)` row. If the brief's `work_type` matches no row, it falls
->    back to **every** row for that persona (so the persona's foundational
->    convention skill is always enforced). Missing mandatory skills surface a
->    non-blocking `additionalContext` advisory (exit 0). The map is **fail-open**:
->    if this file is absent, Gate 2 is disabled with a stderr WARN and Gate 1 still fires.
+>    `(persona, work_type)` row (`skills-required-guard.sh` ~L541-561). Two distinct
+>    fallback paths, split on whether `work_type` is present at all: if `work_type`
+>    is **non-empty but matches no row**, the guard accumulates **every** row for
+>    that persona (~L549-554 — so the persona's foundational convention skill is
+>    always enforced, even when several specific-work_type rows exist). If
+>    `work_type` is **empty/absent** (a doc-only or otherwise generic dispatch),
+>    the guard falls back to the persona's **`*` row ONLY** (~L555-561) — it never
+>    accumulates across work_types on a dispatch with nothing to disambiguate
+>    against (accumulating there previously surfaced integration-specific rows,
+>    e.g. tableau/claude-api, on a generic dispatch — fixed under FLEET-FB-4).
+>    Missing mandatory skills surface a non-blocking `additionalContext` advisory
+>    (exit 0). The map is **fail-open**: if this file is absent, Gate 2 is disabled
+>    with a stderr WARN and Gate 1 still fires.
 >
 > **`work_type` vocabulary.** Free-text scope key carried in the brief. The rows below
 > use each persona's natural sub-domains. The broker intent (`implement_ui`,
@@ -55,8 +70,8 @@ The `skills-required-guard.sh` hook reads this file to enforce CONTRACT R19.
 | persona | work_type | skills |
 |---|---|---|
 | forge-ui | * | forge-ui-conventions |
-| forge-ui | component | forge-ui-conventions, tremor-patterns, tailwind-design-tokens |
-| forge-ui | chart | forge-ui-conventions, tremor-patterns |
+| forge-ui | component | forge-ui-conventions, tailwind-design-tokens |
+| forge-ui | chart | forge-ui-conventions |
 | forge-ui | rsc-page | forge-ui-conventions, rsc-boundary-rules |
 | forge-ui | theme | forge-ui-conventions, tailwind-design-tokens, palette-design-patterns |
 | forge-ui | implement_ui | forge-ui-conventions |
@@ -64,15 +79,11 @@ The `skills-required-guard.sh` hook reads this file to enforce CONTRACT R19.
 | forge-wire | server-action | forge-wire-conventions, server-action-contract |
 | forge-wire | api-route | forge-wire-conventions, server-action-contract |
 | forge-wire | ai-sdk | forge-wire-conventions, ai-sdk-patterns |
-| forge-wire | duckdb-read | forge-wire-conventions, duckdb-read-patterns |
+| forge-wire | duckdb-read | forge-wire-conventions |
 | forge-wire | implement_api | forge-wire-conventions |
-| pipeline-data | * | pipeline-data-conventions |
-| pipeline-data | transform | pipeline-data-conventions, polars-duckdb-mapping |
-| pipeline-data | writer | pipeline-data-conventions, polars-duckdb-mapping |
-| pipeline-data | embedding | pipeline-data-conventions, embedding-patterns |
-| pipeline-data | implement_ingestion | pipeline-data-conventions |
+| pipeline-data | embedding | embedding-patterns |
 | pipeline-async | * | pipeline-async-conventions |
-| pipeline-async | worker | pipeline-async-conventions, dramatiq-patterns |
+| pipeline-async | worker | pipeline-async-conventions |
 | pipeline-async | client | pipeline-async-conventions, tableau-client-patterns |
 | pipeline-async | tableau | pipeline-async-conventions, tableau-client-patterns, hermes-auth-patterns |
 | pipeline-async | implement_ingestion | pipeline-async-conventions |
@@ -87,42 +98,40 @@ The `skills-required-guard.sh` hook reads this file to enforce CONTRACT R19.
 | hermes | mcp-wiring | hermes-auth-patterns |
 | hermes | implement_wiring | hermes-auth-patterns |
 | hermes | implement_api | hermes-auth-patterns |
-| quill-ts | * | tdd-patterns |
-| quill-ts | vitest | tdd-patterns, vitest-rtl-idioms |
-| quill-ts | test | tdd-patterns |
-| quill-py | * | tdd-patterns |
-| quill-py | pytest | tdd-patterns, pytest-idioms |
-| quill-py | test | tdd-patterns |
+| quill-ts | * | tdd-core |
+| quill-ts | vitest | tdd-core, vitest-rtl-idioms |
+| quill-ts | test | tdd-core |
+| quill-py | * | tdd-core |
+| quill-py | pytest | tdd-core, pytest-idioms |
+| quill-py | test | tdd-core |
+| planner | * | agent-protocol, node-contract |
 
-## -pro escalation variants
+**pipeline-data has no `*`/fallback row.** `pipeline-data-conventions` was
+retired 2026-07-13 (native #4 owner sweep — a stack-conditional skill installed
+in zero fleet projects) with no successor; the persona still ships and writes
+code (Gate 1's block-rule roster is unaffected — it derives from
+`deliverables.json`, not this map), it simply has no bespoke convention skill
+left to mandate via Gate 2. Only the `embedding` row survives, re-pointed to
+`embedding-patterns` (unaffected by the retirement).
 
-The registered `-pro` variants (`forge-ui-pro`, `forge-wire-pro`,
-`pipeline-data-pro`, `pipeline-async-pro`) share the **same scope** as their base
-persona, so they share the same required skills. The guard's Gate 2 fallback keys
-on the exact persona string; if a `-pro` brief carries a `work_type` with no
-explicit row, add the rows below mirroring the base persona, or normalise the
-persona to its base before lookup. The mandatory foundational skill is identical:
+## -pro escalation (dispatch-time override, not a persona)
 
-| persona | work_type | skills |
-|---|---|---|
-| forge-ui-pro | * | forge-ui-conventions |
-| forge-wire-pro | * | forge-wire-conventions |
-| pipeline-data-pro | * | pipeline-data-conventions |
-| pipeline-async-pro | * | pipeline-async-conventions |
-
-`atlas-pro` and `hermes-pro` are **not yet registered** — no agent file exists in
-`.claude/agents/` and neither appears in `deliverables.json`, so `_load_code_writing_personas()`
-does not include them. Add their agent files and `deliverables.json` entries before
-adding rows here.
+`-pro` is **not a separate persona and never a separate agent file** — it is a
+dispatch-time `model: opus, effort: xhigh` override on the base persona (same
+agent file, same intents). A `-pro`-tagged dispatch therefore requires the
+**same skills** as its base persona; there is no separate row to maintain here.
+`forge-ui-pro`, `forge-wire-pro`, `pipeline-data-pro`, and `pipeline-async-pro`
+carry no rows in this table for that reason — normalise the persona string to
+its base (`forge-ui`, `forge-wire`, `pipeline-data`, `pipeline-async`) before
+lookup if a brief happens to carry the retired `-pro` string.
 
 ## Guard behaviour
 
 - **Block** (exit 2): `skills_required` is absent or empty AND persona is a
   code-writing persona (registered set: `forge-ui`, `forge-wire`, `pipeline-data`,
-  `pipeline-async`, `atlas`, `hermes`, `quill-ts`, `quill-py`, plus the registered
-  `-pro` variants `forge-ui-pro`, `forge-wire-pro`, `pipeline-data-pro`,
-  `pipeline-async-pro`). `atlas-pro` and `hermes-pro` are not yet registered and
-  are therefore not blocked. Read-only personas (`scout`, `lens`, `lens-fast`,
+  `pipeline-async`, `atlas`, `hermes`, `quill-ts`, `quill-py`, `planner`). The retired
+  `-pro` names are NOT in this set (no agent file; see the scope note above) —
+  Read-only personas (`scout`, `lens`, `lens-fast`,
   `palette`) are excluded — the guard does NOT block them on an absent
   `skills_required`.
 - **Warn** (exit 0 + message): `skills_required` is non-empty but missing one or more

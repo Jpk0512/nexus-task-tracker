@@ -2,6 +2,7 @@ import type { inferRouterInputs, inferRouterOutputs } from "@trpc/server";
 import { protectedProcedure, publicProcedure, router } from "../init";
 import { activitiesRouter } from "./activities";
 import { activitiesReactionsRouter } from "./activities-reactions";
+import { agentConfigRouter } from "./agent-config";
 import { agentsRouter } from "./agents";
 import { apiKeysRouter } from "./api-keys";
 import { autopilotSettingsRouter } from "./autopilot-settings";
@@ -28,6 +29,7 @@ import { projectsRouter } from "./projects";
 import { promptsRouter } from "./prompts";
 import { referencesRouter } from "./references";
 import { shareableRouter } from "./shareable";
+import { siteDocsRouter } from "./site-docs";
 import { statusesRouter } from "./statuses";
 import { tagsRouter } from "./tags";
 import { taskDependenciesRouter } from "./task-dependencies";
@@ -72,6 +74,8 @@ export const appRouter = router({
 	imports: importsRouter,
 	inbox: inboxRouter,
 	knowledge: knowledgeRouter,
+	siteDocs: siteDocsRouter,
+	agentConfig: agentConfigRouter,
 	intakes: intakesRouter,
 	notificationSettings: notificationSettingsRouter,
 	autopilotSettings: autopilotSettingsRouter,

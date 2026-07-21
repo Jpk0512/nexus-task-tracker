@@ -914,7 +914,7 @@ function NoteRow({
 			type="button"
 			onClick={() => onSelect(note.id)}
 			className={cn(
-				"flex w-full flex-col gap-0.5 rounded-md border border-transparent px-2.5 py-2 text-left transition-colors hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/40",
+				"flex w-full flex-col gap-0.5 rounded-md border border-transparent px-2.5 py-2 text-left transition-colors hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40",
 				selected && "border-primary/40 bg-primary/10",
 			)}
 		>
@@ -1279,7 +1279,7 @@ function CtaCard({
 			onClick={onClick}
 			className="flex flex-col items-start gap-2 rounded-md border border-border bg-card p-4 text-left transition-colors hover:border-border/80 hover:bg-accent/40"
 		>
-			<Icon className="size-4 text-violet-500" />
+			<Icon className="size-4 text-cyan-500" />
 			<div className="font-[510] text-[13px] tracking-[-0.005em]">{title}</div>
 			<div className="text-[12px] text-muted-foreground">{hint}</div>
 		</button>

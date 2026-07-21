@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "status": "REVISE",
+  "completion_marker": "## NEXUS:REVISE",
+  "files_changed": [],
+  "summary": "Returning work for revision: the schema's DONE branch does not require the load-bearing evidence field.",
+  "skills_loaded": ["agent-protocol"],
+  "revise_issues": [
+    {
+      "file": "nexus-broker/src/broker/schemas/return_envelope.schema.json",
+      "line": "310-320",
+      "issue": "DONE conditional requires only files_changed; a DONE with no verification_result validates, contradicting CONTRACT.md Rule 3.",
+      "fix": "Add verification_result (and acceptance_met) to the `then.required` of the DONE if/then branch."
+    },
+    {
+      "file": "nexus-broker/tests/fixtures/return_envelope/valid_done.json",
+      "line": 12,
+      "issue": "verification_result is a narrative 'all checks passed' with no command echo.",
+      "fix": "Replace with verbatim `$ uv run pytest ...` output including the pass count."
+    }
+  ],
+  "notepad_written": {
+    "skipped": "REVISE detail is in revise_issues; nothing additional durable"
+  }
+}

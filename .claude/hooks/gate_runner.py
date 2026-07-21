@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """gate_runner.py — consolidated per-hook-event gate runner (R3-T10 / N15).
 
-THE orchestrator-speed leaf (nexus-redesign/plans/09-r3-plan-dag.md N15 /
+THE orchestrator-speed leaf (docs/archive/nexus-redesign/plans/09-r3-plan-dag.md N15 /
 plans/11-gate-enforcement-audit.md). Executes N12's verdict table: instead of
 the harness spawning ONE process per settings.json hook-array entry (6-8
 entries on the busiest matchers), it spawns exactly ONE process per hook
@@ -69,6 +69,17 @@ from one process invocation.
 stays 3.9-import-safe like every other hook module in this tree (no
 `datetime.UTC`, no def-time `X | None`, no `match`/`case`) since the
 package twin is unshimmed under ambient python3.
+
+F1-08 CUTOVER (nexus-foundation/plans/wave-1.md track (c)): the review-panel
+SubagentStop check's completion-marker resolution is schema-first now —
+`_envelope_shadow.resolve_marker()` treats a valid typed return envelope
+(return_envelope.schema.json) as AUTHORITATIVE, falling back to the single
+legacy marker-regex branch (`_LEGACY_DONE_PATTERN`) only when no valid
+envelope is present. Rollback flag (kept 1 release): env
+`NEXUS_REGEX_AUTHORITY=1` restores the pre-cutover F1-07 ordering (regex
+authoritative) exactly. Every resolution — either mode — logs one row to
+`.memory/return_parse_shadow.jsonl` via `log_shadow_event`, so observability
+survives the cutover.
 """
 from __future__ import annotations
 
@@ -117,11 +128,14 @@ def _review_panel_enabled() -> bool:
     return REVIEW_PANEL_FLAG.exists()
 
 
-# Canonical completion-marker vocabulary (mirrors return-validator.py /
-# feedback-capture.py): only a genuine DONE return is an "accept" moment —
-# a BLOCKED/REVISE/NEEDS-DECISION return carries its own evidence rules
-# enforced by other gates and is never a panel-qualifying completion.
-_REVIEW_PANEL_DONE_MARKER_RE = re.compile(r"^\s*##\s+NEXUS:DONE\b", re.IGNORECASE | re.MULTILINE)
+# F1-08 CUTOVER: schema-parse via _envelope_shadow.resolve_marker() is now
+# AUTHORITATIVE for the review-panel "qualifying DONE" decision below (mirrors
+# return-validator.py / feedback-capture.py's marker vocabulary) — this
+# compiled pattern is demoted to the SINGLE legacy marker-regex (MARKER_RE)
+# fallback branch gate_runner.py retains, used only when no valid typed
+# envelope is found in the return. Rollback (kept 1 release): env
+# NEXUS_REGEX_AUTHORITY=1 restores regex-first ordering exactly.
+_LEGACY_DONE_PATTERN = re.compile(r"^\s*##\s+NEXUS:DONE\b", re.IGNORECASE | re.MULTILINE)
 
 REVIEW_PANEL_DECISIONS_LOG = HOOKS_DIR.parent.parent / ".memory" / "files" / "review_panel_decisions.jsonl"
 
@@ -237,7 +251,12 @@ def route_panel_decision(payload: dict, *, state_path: str = None, journal_path:
             or payload.get("tool_response", {}).get("text")
             or ""
         )
-        if not _REVIEW_PANEL_DONE_MARKER_RE.search(text):
+        # F1-08: schema-parse first (AUTHORITATIVE); _LEGACY_DONE_PATTERN is
+        # the single legacy fallback, used only when no valid envelope is
+        # found (see _resolve_marker / _envelope_shadow.resolve_marker).
+        legacy_marker = "DONE" if _LEGACY_DONE_PATTERN.search(text) else None
+        marker = _resolve_marker("gate_runner.review_panel", text, legacy_marker)
+        if marker != "DONE":
             return {
                 "panel_required": False, "end_only": False, "per_leg": False,
                 "reasons": [], "qualifying_completion": False,
@@ -296,7 +315,24 @@ EVENT_CHAINS: dict[str, list[tuple[str, str, str, bool]]] = {
         ("lm-studio-triage", "lm-studio-triage-gate.py", "triage", False),
     ],
     "subagentstop": [
-        # 4.4ms avg (row 5) — cheapest deny-capable check, first.
+        # Finding #6 (2026-07-12, drift-analysis): MOVED to the FRONT of the
+        # chain, ahead of every deny-capable check. run_event()'s short-
+        # circuit (`if rc == 2 and deny_capable: return 2`) means anything
+        # placed AFTER no-deferral-gate/lens-gate/plan-validation-gate never
+        # runs at all when one of those denies (forcing a REVISE) — which was
+        # the confirmed root cause of dispatch_telemetry's near-total harness-
+        # side gap (0/69 non-conductor rows): completion-capture.py sat in
+        # the advisory tail, so any denied SubagentStop skipped it entirely,
+        # and it never wrote dispatch_telemetry at all even when reached.
+        # completion-capture.py has NO ordering dependency on any deny-
+        # capable check (confirmed by grep: none of them read
+        # completion_events.jsonl/activity_open.jsonl/anything it writes),
+        # so moving it first is safe and also closes the identical pre-
+        # existing gap for completion_events.jsonl's own completeness
+        # (a denied dispatch previously left NO ledger row at all).
+        ("completion-capture", "completion-capture.py", "inprocess", False),
+        # 4.4ms avg (row 5) — cheapest deny-capable check, first among the
+        # deny-capable set.
         ("no-deferral-gate", "no-deferral-gate.sh", "python", True),
         # 20.7ms avg (row 6) — the Lens structural backstop. Byte-for-byte
         # subprocess of the UNCHANGED file only — never reimplemented.
@@ -318,7 +354,6 @@ EVENT_CHAINS: dict[str, list[tuple[str, str, str, bool]]] = {
         # heartbeat call (return-validator.py never had one), not dead code.
         ("return-validator", "return-validator.py", "inprocess", False),
         ("return-summarizer", "return-summarizer.sh", "inprocess", False),
-        ("completion-capture", "completion-capture.py", "inprocess", False),
         ("feedback-capture", "feedback-capture.py", "inprocess", False),
         ("do-not-touch-guard", "do-not-touch-guard.sh", "inprocess", False),
         ("skills-required-guard", "skills-required-guard.sh", "python", False),
@@ -343,6 +378,28 @@ def _load_module(unique_name: str, filename: str):
 def _heartbeat_module():
     """Import the shared heartbeat helper (same sink/schema every gate uses)."""
     return _load_module("_gate_runner_heartbeat", "_heartbeat.py")
+
+
+def _envelope_shadow_module():
+    """Import the F1-07 dual-parse SHADOW helper (same module every gate
+    uses — see _envelope_shadow.py's own docstring)."""
+    return _load_module("_gate_runner_envelope_shadow", "_envelope_shadow.py")
+
+
+def _resolve_marker(hook: str, text: str, legacy_marker: str | None) -> str | None:
+    """F1-08 AUTHORITATIVE marker resolution — see _envelope_shadow.py's
+    resolve_marker() docstring (schema-first, legacy_marker demoted to the
+    single legacy-fallback branch; NEXUS_REGEX_AUTHORITY=1 rolls back to
+    regex-first for 1 release). Fails open to `legacy_marker` on any shadow-
+    module import/call error, mirroring the prior _shadow_compare's fail-open
+    discipline — this call must never prevent gate_runner.py from reaching a
+    decision, whichever source ultimately wins."""
+    try:
+        return _envelope_shadow_module().resolve_marker(
+            hook=hook, raw_text=text, legacy_regex_marker=legacy_marker
+        )
+    except Exception:
+        return legacy_marker
 
 
 def _emit_heartbeat(hook: str, event: str, decision: str, latency_ms: int) -> None:

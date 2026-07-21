@@ -1,0 +1,35 @@
+---
+description: Codex enforcement-class downgrade — the Nexus gates run ADVISORY (F3), not fail-closed (F1); the orchestrator is the enforcement of last resort (Codex)
+alwaysApply: true
+---
+
+# Enforcement on Codex is ADVISORY (class-F3), not fail-closed (DEC-102)
+
+Under **Claude Code**, Nexus enforces its discipline with **fail-closed PreToolUse hooks** (class-F1): a gate that denies **hard-blocks** the tool call — a malformed brief, an unsafe push, a `git worktree add`, a retired persona name, or a search-before-index simply **cannot proceed**. Under **Cursor**, the block-capable events (`beforeShellExecution`, `subagentStart`) keep a `failClosed:true` hard block.
+
+**Codex has NO fail-closed hook contract.** Codex's JSON hook events (`beforeShellExecution`, `subagentStart`, `beforeSubmitPrompt`, …) can run a hook and read its output, but there is no documented, reliable channel for a hook to **veto** the action the way Claude's `exit 2` or Cursor's `failClosed:true` does. Rather than pretend otherwise, DEC-102 ships the Codex surface with an **honest downgrade**:
+
+> `.codex/hooks/codex-adapter.sh` runs the SAME Nexus gate logic and **LOGS every verdict**, but it **NEVER blocks** — it always emits an allow envelope and exits 0. Enforcement class on Codex is **F3 (advisory)**, not **F1 (fail-closed)**.
+
+## What this means in practice
+
+The gate logic still runs and is auditable. What changes is **who enforces the verdict**:
+
+| Gate | Claude Code (F1) | Codex (F3, this surface) |
+|---|---|---|
+| `broker-gate.py` (brief validated before dispatch) | hard-blocks an unvalidated/malformed dispatch | logs the verdict; **you** must validate before dispatching |
+| `worktree-guard.sh` (unregistered `git worktree add`) | hard-blocks | logs the verdict; **you** must not run an unregistered worktree add |
+| `no-direct-push-to-session-branch.sh` (sub-agent push) | hard-blocks | logs the verdict; **you** must not push from a sub-agent |
+| `persona-alias-resolver.sh` (retired base name) | hard-blocks | logs the verdict; **you** must dispatch the split persona (`forge-ui`, not `forge`) |
+| `skills-required-guard.sh` (missing `skills_required`) | blocks a code persona with no skills | logs the verdict; **you** must state `skills_required` |
+| `lens-gate.sh` / Lens verdict | forces REVISE loop | logs; **you** must honor a Lens REVISE and re-dispatch |
+
+**You are the enforcement of last resort.** When the adapter LOGS a DENY verdict — visible on stderr and in `.memory/files/codex-adapter.log`, prefixed `[codex-adapter] ADVISORY (class-F3):` — treat it as if it were a hard block: **STOP and correct the action**. A logged deny is not permission to proceed; it is the same signal Claude Code would have used to block you, delivered without the block.
+
+## Why not full F1 parity?
+
+DEC-102 DEC-2 rejected full fail-closed parity for now: it would require reverse-engineering a Codex hard-deny envelope for each event type, which is brittle to Codex hook-schema changes across versions. The advisory bridge ships fast, keeps every verdict auditable, and can be upgraded to F1 later if Codex gains a stable fail-closed contract. Until then, the discipline holds by **instruction** (this rule + the `alwaysApply` operating-model rule + the persona bodies), not by a hard gate.
+
+## Do not weaken this
+
+Do not "fix" `.codex/hooks/codex-adapter.sh` to exit non-zero to block — the advisory-only contract is intentional and is asserted by `.codex/hooks/tests/test_codex_adapter.py`. The honest downgrade is the point: a silently-non-enforcing gate that *looked* fail-closed would be worse than an advisory one that is documented as advisory.

@@ -255,12 +255,12 @@ def test_emits_prefill_above_threshold(tmp_path: Path) -> None:
         "persona": "forge-ui",
         "difficulty": "standard",
         "confidence": 90,
-        "required_skills": ["forge-ui-conventions", "tremor-patterns"],
+        "required_skills": ["forge-ui-conventions", "tailwind-design-tokens"],
         "tdd_required": True,
     })
 
     code, out, err = _run_router(
-        "add a Tremor card showing active workbook count to the dashboard",
+        "add a styled card showing active workbook count to the dashboard",
         extra_env={"_MOCK_ROUTER_RESPONSE": mock_router_response},
         files_dir=files_dir,
     )
@@ -413,7 +413,7 @@ def test_decision_log_appended(tmp_path: Path) -> None:
         "persona": "pipeline-data",
         "difficulty": "standard",
         "confidence": 89,
-        "required_skills": ["pipeline-data-conventions", "polars-duckdb-mapping"],
+        "required_skills": ["embedding-patterns"],
         "tdd_required": True,
     })
 

@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "status": "DONE",
+  "completion_marker": "## NEXUS:DONE",
+  "files_changed": ["nexus-broker/src/broker/schemas/return_envelope.schema.json"],
+  "summary": "A DONE with no verification_result / acceptance_met — the evidence-less DONE CONTRACT.md Rule 3 forbids.",
+  "notepad_written": {"skipped": "n/a"}
+}

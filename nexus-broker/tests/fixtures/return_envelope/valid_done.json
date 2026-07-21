@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "status": "DONE",
+  "completion_marker": "## NEXUS:DONE",
+  "files_changed": [
+    "nexus-broker/src/broker/schemas/return_envelope.schema.json",
+    "nexus-broker/tests/test_return_envelope_schema.py"
+  ],
+  "summary": "Added the versioned return-envelope JSON Schema and its golden-fixture test suite.",
+  "skills_loaded": ["agent-protocol", "atlas-schema-patterns"],
+  "verification_result": "$ uv run pytest tests/test_return_envelope_schema.py -q\n........\n8 passed in 0.42s",
+  "acceptance_met": [
+    {
+      "criterion": "JSON schema covers today's full marker vocabulary",
+      "met": true,
+      "evidence": "status enum has 6 values; test_all_marker_classes_have_a_valid_fixture passed"
+    },
+    {
+      "criterion": "golden fixtures for each marker class validate",
+      "met": true,
+      "evidence": "6 valid fixtures loaded and validated, 0 errors"
+    }
+  ],
+  "db_log_cmds": [
+    "python3 .memory/log.py task update --id F1-06 --status done"
+  ],
+  "notepad_written": {
+    "topic": "F1-06",
+    "agent": "atlas",
+    "kind": "gotcha",
+    "note": "return-validator.py treats mere PRESENCE of a verification_result key as evidence; the schema requires it non-empty for DONE, which is stricter than the live gate. F1-07 must not regress that gate to the schema's strictness without a shadow window."
+  },
+  "notes": "Additive only; no live gate reads this schema yet (F1-07 wires the dual-parse shadow)."
+}

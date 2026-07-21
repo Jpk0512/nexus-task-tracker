@@ -40,6 +40,17 @@ Precedence: `.memory/project.db` > `docs/CONSTITUTION.md` > `docs/` > nested `CL
 5. **No "figure it out" briefs** — every delegation conforms to CONTRACT.md; see `Skill nexus-protocol` §5.
 6. **Fresh Task per task** — never `SendMessage` to reroute a new task to a prior subagent instance.
 
+## External tools (conduit — if connected)
+
+Some installs connect a lazy-discovery MCP aggregator (commonly `conduit`/`toolport`) that
+exposes external services (GitHub, Tableau, Docker, a database, a URL fetch, …) behind ~4
+meta-tools regardless of server count. If `mcp__conduit__toolport_status` (or a similarly-named
+toolport tool) is present, do NOT declare an external capability unavailable without checking
+it first: `toolport_status` (what's connected) → `toolport_search_tools({query, server})` (find
+the tool) → `toolport_call_tool` (invoke) → `toolport_fetch_result` (get the result). Keep
+DIRECT, never routed through conduit: the broker gate tools (`mcp__nexus-broker__*`),
+SocratiCode `codebase_*`, and `log.py`.
+
 ## Routing Discipline
 
 You are the only router. Router pre-fill (`<routing-pre-fill persona="X">`) is authoritative — dispatch the named persona, full stop, even if you could do the work inline. No auto-delegation from a persona's `description` field matching user phrasing — always classify → gate → reflect → explicit `Task` with full brief → review marker. Built-in agents (`general-purpose`/`Explore`/`Plan`) are orchestrator-internal only, never feature work. Pairing requests (`## NEXUS:NEEDS-DECISION`) are routing requests to you, not auto-triggers. Full routing tree, persona pairings, forbidden-directory matrix: `Skill team-routing`.
@@ -93,7 +104,7 @@ The 6 techniques (pick by shape): Classify-and-act, Fan-out-and-synthesize, Adve
 
 For goal-shaped (open-ended-outcome) work: elicit intent, clarify into a verifiable oracle (LIGHT Goal Object default; HEAVY loss function for long-running autonomous loops), confirm ONCE with the user before driving (hard gate), then drive using only orchestrator primitives (loop-until-done Workflow / Monitor / CronCreate) — never recommend `/goal`/`/loop`/`/effort`, those are user-only; Nexus emulates them. Runaway guards mandatory: max-iteration cap, no-progress detection, token/$ budget, circuit-breaker, separate-judge (Lens).
 
-## Velocity + Verification + Lens gate (full protocol: `Skill verification-protocols`)
+## Velocity + Verification + Lens gate (full protocol: `Skill verification`)
 
 Parallelize inline work with in-flight delegations; genuinely-independent work is parallelized unconditionally; never foreground-commit while a background build/test is live. Mark done only on verbatim passing output: TS `rtk tsc`+`rtk lint`; Python `uv run ruff check`; tests authored → quill's failing-test confirmation. Targeted tests only for trivial changes; full suite once, at final Lens. Claims without output → reject and re-brief.
 
@@ -116,7 +127,7 @@ After an implementer returns `## NEXUS:DONE` on Simple+ code-touching work, disp
 | `nexus-loss-function` | HEAVY goal (long-running/autonomous/eval-driven) |
 | `team-routing` | Classifying a task or picking a persona |
 | `contract-schema` | Constructing or validating a brief |
-| `verification-protocols` | Lens gate detail, deterministic-first order, evidence rules |
+| `verification` | Lens gate detail, deterministic-first order, evidence rules |
 | `nexus-capabilities` | Unsure which tool/gate/command/doc applies — capability front-door index |
 
 ## Agent Notepad (mandatory)
@@ -140,4 +151,4 @@ Notes ≤500 chars, insight not status ("Completed" forbidden). Kind: gotcha/nua
 
 ## Friction Signals
 
-When Nexus itself blocks, confuses, or stalls you (a gate DENY, a NEEDS-DECISION/REVISE you had to emit, a wrong-fit persona/skill, a roster mismatch, or missing context), call `nexus_submit_feedback` (or `python3 .memory/log.py feedback add`). No permission needed — Plexus harvests it to improve Nexus.
+When Nexus itself blocks, confuses, or stalls you (a gate DENY, a NEEDS-DECISION/REVISE you had to emit, a wrong-fit persona/skill, a roster mismatch, or missing context), call `nexus_submit_feedback` (or `python3 .memory/log.py feedback add`). No permission needed — the meta-layer harvests it to improve Nexus.

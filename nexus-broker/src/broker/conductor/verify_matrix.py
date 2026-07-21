@@ -52,6 +52,11 @@ _MIN_BASELINE_RUNS = 20
 
 
 _GATE_TIMEOUT_S = 30.0
+# P1 retry (RCA `.memory/scout-reports/1783912955/conductor-rca.md`): failed
+# run `25182409948f4da1b473025fb8eb2f44` was exactly this — 1 of 3 synthetic
+# gates hit a transient rc!=0/timeout and the whole tenant run recorded
+# "failed" with no chance to shake off the blip. One bounded retry per gate.
+_GATE_MAX_RETRIES = 1
 _probe_cwd_cache: str | None = None
 
 
@@ -127,6 +132,7 @@ def _build_gate_tasks(cwd: str) -> list[WorkerTask]:
             prompt=_gate_prompt(gate),
             cwd=probe_cwd,
             timeout_s=_GATE_TIMEOUT_S,
+            max_retries=_GATE_MAX_RETRIES,
         )
         for gate in _GATES
     ]
@@ -159,7 +165,7 @@ def run_verify_matrix_tenant(
 
     gates = [
         {"gate_id": gate["gate_id"], "scope": gate["scope"],
-         "ok": r.ok, "duration_ms": r.duration_ms}
+         "ok": r.ok, "duration_ms": r.duration_ms, "error": r.error, "attempts": r.attempts}
         for gate, r in zip(_GATES, results, strict=True)
     ]
     passed = all(g["ok"] for g in gates)

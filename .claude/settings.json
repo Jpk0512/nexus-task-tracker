@@ -142,6 +142,15 @@
         ]
       },
       {
+        "matcher": "Task|TeamCreate",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/Users/john.keeney/nexus-task-tracker/.claude/hooks/_py.sh\" \"/Users/john.keeney/nexus-task-tracker/.claude/hooks/routing-target-validator.py\""
+          }
+        ]
+      },
+      {
         "matcher": "Write|Edit|MultiEdit|NotebookEdit",
         "hooks": [
           {
@@ -184,6 +193,10 @@
           {
             "type": "command",
             "command": "\"/Users/john.keeney/nexus-task-tracker/.claude/hooks/reflection-capture.sh\" 2>/dev/null || true"
+          },
+          {
+            "type": "command",
+            "command": "\"/Users/john.keeney/nexus-task-tracker/.claude/hooks/_py.sh\" \"/Users/john.keeney/nexus-task-tracker/.claude/hooks/doc-write-capture.py\" || true"
           }
         ]
       },

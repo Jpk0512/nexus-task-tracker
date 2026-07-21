@@ -59,4 +59,4 @@ economy only restrains work that truly depends on another agent's output.
   checkpoint, resume, stop, Monitor, Cron).
 - **`Skill nexus-loss-function`**, **`Skill team-routing`** — as named above.
 
-Full detail: Constitution **Article XIII.d**, `Skill plexus-protocol` §8.
+Full detail: Constitution **Article XIII.d**, `Skill nexus-protocol` §10.

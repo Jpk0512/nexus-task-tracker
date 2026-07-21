@@ -239,24 +239,34 @@ class TestSessionTaskReconcile:
 
     def _add_task(self, root: str, **kw: str) -> None:
         args = [_venv_python(), str(Path(root) / ".memory" / "log.py"), "task", "add"]
+        kw.setdefault("domain", "nexus")
         for k, v in kw.items():
             args += [f"--{k.replace('_', '-')}", v]
         subprocess.run(args, capture_output=True, text=True, timeout=20, check=True)
 
-    def _run(self, root: str) -> tuple[int, str, str]:
+    def _run(self, root: str, env: dict | None = None) -> tuple[int, str, str]:
+        # Post-F2-03 session-task-reconcile.sh is `exec _ping_shim.py
+        # session.start session-task-reconcile`; the open-task banner now runs
+        # daemon-resident against the daemon's OWN project_path. `env` carries a
+        # `resident_daemon.for_project(root)` handle's seams so the shim reaches
+        # the daemon spawned FOR this seeded repo (which reads root's project.db).
+        merged = {**os.environ, "REPO_ROOT": root}
+        if env:
+            merged.update(env)
         result = subprocess.run(
             ["/bin/bash", str(HOOKS_DIR / self.SCRIPT)],
             input="{}",
             capture_output=True,
             text=True,
-            env={**os.environ, "REPO_ROOT": root},
+            env=merged,
             timeout=30,
         )
         return result.returncode, result.stdout, result.stderr
 
-    def test_open_tasks_print_loud_banner(self) -> None:
+    def test_open_tasks_print_loud_banner(self, resident_daemon) -> None:
         root = self._make_repo()
         try:
+            daemon = resident_daemon.for_project(root)
             self._add_task(
                 root,
                 id="TASK-900",
@@ -272,7 +282,7 @@ class TestSessionTaskReconcile:
                 status="todo",
                 priority="medium",
             )
-            code, _out, err = self._run(root)
+            code, _out, err = self._run(root, env=daemon.env)
             assert code == 0, "SessionStart must never block"
             # The banner goes to stderr (advisory surface, like memory-errors-banner).
             assert "OPEN TASKS AT SESSION START" in err, (
@@ -290,10 +300,11 @@ class TestSessionTaskReconcile:
         finally:
             shutil.rmtree(root, ignore_errors=True)
 
-    def test_no_open_tasks_prints_clean_line_not_banner(self) -> None:
+    def test_no_open_tasks_prints_clean_line_not_banner(self, resident_daemon) -> None:
         root = self._make_repo()
         try:
-            code, _out, err = self._run(root)
+            daemon = resident_daemon.for_project(root)
+            code, _out, err = self._run(root, env=daemon.env)
             assert code == 0
             # An empty (initialized) DB: a short reassurance line, NOT the banner,
             # NOT a silent no-op (so the user knows the panel is legitimately empty).
@@ -302,13 +313,14 @@ class TestSessionTaskReconcile:
         finally:
             shutil.rmtree(root, ignore_errors=True)
 
-    def test_done_tasks_are_excluded(self) -> None:
+    def test_done_tasks_are_excluded(self, resident_daemon) -> None:
         root = self._make_repo()
         try:
+            daemon = resident_daemon.for_project(root)
             self._add_task(
                 root, id="TASK-902", title="Already finished", status="done"
             )
-            code, _out, err = self._run(root)
+            code, _out, err = self._run(root, env=daemon.env)
             assert code == 0
             # A done task is not "open" — it must not appear and must not trip
             # the banner.
@@ -317,12 +329,15 @@ class TestSessionTaskReconcile:
         finally:
             shutil.rmtree(root, ignore_errors=True)
 
-    def test_missing_log_py_fails_loud_not_silent(self) -> None:
-        # Point REPO_ROOT at a dir with no .memory/log.py: the hook must say so on
-        # stderr and still exit 0 (advisory), never wedge SessionStart.
+    def test_missing_log_py_fails_loud_not_silent(self, resident_daemon) -> None:
+        # Point the daemon's project_path at a dir with no .memory/log.py: the
+        # handler must say so on stderr and still exit 0 (advisory), never wedge
+        # SessionStart. for_project() seeds .memory/ (state + empty project.db)
+        # but NOT log.py, so the handler's missing-log.py branch fires.
         root = tempfile.mkdtemp(prefix="p5-reconcile-empty-")
         try:
-            code, _out, err = self._run(root)
+            daemon = resident_daemon.for_project(root)
+            code, _out, err = self._run(root, env=daemon.env)
             assert code == 0
             assert "ERROR" in err and "log.py" in err, (
                 f"A broken install must fail LOUD on stderr, got: {err!r}"

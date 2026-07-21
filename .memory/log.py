@@ -477,6 +477,60 @@ def _migrate_dispatch_telemetry_columns(conn: sqlite3.Connection) -> None:
             conn.execute(f"ALTER TABLE dispatch_telemetry ADD COLUMN {col} {decl}")
 
 
+def _migrate_sessions_telemetry_columns(conn: sqlite3.Connection) -> None:
+    """Idempotent: add tokens_total + duration_ms to sessions (drift-analysis
+    Finding #6, 2026-07-12 — per-session cost rollup).
+
+    Two additive columns (both nullable — no NOT NULL, no backfill required):
+      tokens_total  INTEGER — SUM(dispatch_telemetry.tokens) across every
+                    dispatch_telemetry row for this session_id. Populated at
+                    `session end` time; NULL = pre-migration session or a
+                    session with zero captured dispatches.
+      duration_ms   INTEGER — SUM(dispatch_telemetry.duration_ms) across the
+                    same row set, same populate/NULL rules.
+
+    Safe to re-run on a live project.db — ALTER TABLE branches are guarded by
+    PRAGMA table_info so a second run is a clean no-op. Mirrors
+    _migrate_dispatch_telemetry_columns exactly (same pattern, same file).
+    """
+    if not conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='sessions'"
+    ).fetchone():
+        return  # table not yet created — cmd_init will create it fresh
+    existing = {r[1] for r in conn.execute("PRAGMA table_info(sessions)")}
+    additive: list[tuple[str, str]] = [
+        ("tokens_total", "INTEGER"),
+        ("duration_ms", "INTEGER"),
+    ]
+    for col, decl in additive:
+        if col not in existing:
+            conn.execute(f"ALTER TABLE sessions ADD COLUMN {col} {decl}")
+
+
+TASK_DOMAINS = ("nexus", "plexus", "kb", "ops", "other")
+_DOMAIN_CHECK_SQL = (
+    "TEXT CHECK(domain IN ('nexus','plexus','kb','ops','other'))"
+)
+
+
+def _migrate_task_domain_columns(conn: sqlite3.Connection) -> None:
+    """Idempotent (DEC-098): add nullable `domain` to tasks + nexus_feedback.
+
+    NULL-allowed so every grandfathered row passes the CHECK (NULL IN (...)
+    evaluates NULL, which SQLite treats as pass). ALTERs are guarded by
+    PRAGMA table_info so a second run is a clean no-op; safe on a live DB.
+    """
+    for table in ("tasks", "nexus_feedback"):
+        if not conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+            (table,),
+        ).fetchone():
+            continue
+        existing = {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}
+        if "domain" not in existing:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN domain {_DOMAIN_CHECK_SQL}")
+
+
 def _migrate_semantic_facts_drop_global_unique(conn: sqlite3.Connection) -> None:
     """OPT-054 / TASK-036: drop the old column-level UNIQUE on semantic_facts.key.
 
@@ -1065,6 +1119,12 @@ def cmd_init(_args: argparse.Namespace) -> None:
         # R2-T15 — two nullable Art. XIII.d decompose-cue columns on
         # dispatch_telemetry. Idempotent, re-runnable, no data loss.
         _migrate_dispatch_telemetry_columns(conn)
+        # Finding #6 (2026-07-12) — two nullable per-session cost-rollup
+        # columns on sessions. Idempotent, re-runnable, no data loss.
+        _migrate_sessions_telemetry_columns(conn)
+        # DEC-098 — nullable domain column on tasks + nexus_feedback.
+        # Idempotent, re-runnable, no data loss.
+        _migrate_task_domain_columns(conn)
     # Apply M-001 vec_memory via extension-loaded conn. When sqlite-vec is
     # unavailable (degraded bootstrap / NEXUS_DISABLE_VEC / no extension support),
     # SKIP the vec0 virtual table and continue — core tables are already created
@@ -1146,11 +1206,27 @@ def cmd_session_end(args: argparse.Namespace) -> None:
             print("No open session found.", file=sys.stderr)
             sys.exit(1)
         sid = row["id"]
+        # Finding #6 (2026-07-12): per-session cost rollup — sum this
+        # session's captured dispatch_telemetry rows. SUM() over zero rows
+        # returns NULL (not 0), which is exactly the "no dispatches
+        # captured this session" NULL the migration's docstring promises —
+        # no COALESCE needed, no fabricated zero.
+        totals = conn.execute(
+            "SELECT SUM(tokens) AS tokens_total, SUM(duration_ms) AS duration_ms "
+            "FROM dispatch_telemetry WHERE session_id=?",
+            (sid,),
+        ).fetchone()
+        tokens_total = totals["tokens_total"] if totals else None
+        duration_ms_total = totals["duration_ms"] if totals else None
         conn.execute(
-            "UPDATE sessions SET ended_at=?, summary=?, next_step=?, context_json=? WHERE id=?",
-            (now, args.summary, args.next_step, context_json, sid),
+            "UPDATE sessions SET ended_at=?, summary=?, next_step=?, context_json=?, "
+            "tokens_total=?, duration_ms=? WHERE id=?",
+            (now, args.summary, args.next_step, context_json, tokens_total, duration_ms_total, sid),
         )
-    out = {"session_id": sid, "ended_at": now, "summary": args.summary}
+    out = {
+        "session_id": sid, "ended_at": now, "summary": args.summary,
+        "tokens_total": tokens_total, "duration_ms": duration_ms_total,
+    }
     if handoff is not None:
         out["handoff"] = handoff
     print(json.dumps(out))
@@ -1346,15 +1422,28 @@ def cmd_session_recall(args: argparse.Namespace) -> None:
 # task
 # ---------------------------------------------------------------------------
 
+# DEC-098: new tasks mint per-domain sequential ids. Grandfathered TASK-/NATIVE-
+# ids are untouched — _next_id only matches the exact ^<PREFIX>-<n>$ pattern, so
+# each domain counter is independent of the legacy namespaces.
+DOMAIN_ID_PREFIX = {
+    "nexus": "NEX",
+    "plexus": "PLX",
+    "kb": "KB",
+    "ops": "OPS",
+    "other": "OTH",
+}
+
+
 def cmd_task_add(args: argparse.Namespace) -> None:
     now = _now()
     with _conn() as conn:
-        tid = args.id or _next_id(conn, "tasks", "TASK")
+        _migrate_task_domain_columns(conn)
+        tid = args.id or _next_id(conn, "tasks", DOMAIN_ID_PREFIX[args.domain])
         conn.execute(
             """INSERT OR REPLACE INTO tasks
                (id, feature_id, title, description, status, priority, assigned_to,
-                acceptance_criteria, created_at, updated_at, notes)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+                acceptance_criteria, created_at, updated_at, notes, domain)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 tid,
                 args.feature_id,
@@ -1367,9 +1456,12 @@ def cmd_task_add(args: argparse.Namespace) -> None:
                 now,
                 now,
                 args.notes,
+                args.domain,
             ),
         )
-    print(json.dumps({"task_id": tid, "status": args.status or "todo"}))
+    print(json.dumps(
+        {"task_id": tid, "status": args.status or "todo", "domain": args.domain}
+    ))
 
 
 def cmd_task_update(args: argparse.Namespace) -> None:
@@ -1412,6 +1504,306 @@ def cmd_task_list(args: argparse.Namespace) -> None:
 
 
 # ---------------------------------------------------------------------------
+# task migrate-domains — DEC-098 owner-ruled bulk triage migration
+# ---------------------------------------------------------------------------
+# Applies the 2026-07-18 owner disposition policy over the triage verdict file
+# (.memory/files/task-triage-verdicts-20260718.json). Default is a dry run that
+# prints per-disposition counts and writes NOTHING; --apply backs up the DB
+# first, then executes in ONE transaction. Idempotent: rows already in their
+# target state are skipped, so a rerun after success is a no-op.
+
+_TRIAGE_JUNK_IDS = frozenset(
+    f"NATIVE-12-{n}" for n in range(4, 11)  # NATIVE-12-4 … NATIVE-12-10
+)
+_TRIAGE_KEEP_IDS = frozenset({
+    "NATIVE-9", "NATIVE-9-4", "NATIVE-10-5",
+    "TASK-099", "TASK-100", "TASK-103", "TASK-104", "TASK-105",
+    "TASK-106", "TASK-107", "TASK-108", "TASK-109", "TASK-110",
+})
+# Owner ruling: TASK-054 belongs to the kb park bucket even though the verdict
+# file classifies its domain as plexus ("incl TASK-082 + TASK-054").
+_TRIAGE_KB_EXTRA_IDS = frozenset({"TASK-054"})
+# INCLUSIVE date cutoff: every unresolved row captured on or before this DATE
+# is in triage scope (resolved unless named in still_valuable). The keep-list
+# triage explicitly ruled on 07-17 rows, so same-date rows must not slip out
+# of scope on a lexical `captured_at < date` comparison.
+_TRIAGE_FEEDBACK_CUTOFF = "2026-07-17"
+_TRIAGE_REVIEWER = "triage-wf_1866137c"
+
+# Matches the explicit feedback ids cited in .feedback.still_valuable entries:
+# "id 318", "ids 295, 296, 297", "ids 301/308", "ids 287-289".
+_FEEDBACK_IDS_RE = re.compile(
+    r"\bids?\s+(\d+(?:\s*-\s*\d+)?(?:\s*[,/]\s*\d+(?:\s*-\s*\d+)?)*)"
+)
+
+
+def _still_valuable_feedback_ids(entries) -> set:
+    """Extract the integer nexus_feedback ids named in still_valuable entries.
+
+    Conservative by construction: only numbers explicitly introduced by an
+    "id"/"ids" token are matched, so prose numerics (dates, counts) never
+    widen the keep-set — and anything matched is kept UNRESOLVED.
+    """
+    ids: set = set()
+    for entry in entries or []:
+        if not isinstance(entry, str):
+            continue
+        for m in _FEEDBACK_IDS_RE.finditer(entry):
+            for chunk in re.split(r"[,/]", m.group(1)):
+                chunk = chunk.strip()
+                if "-" in chunk:
+                    lo_s, hi_s = chunk.split("-", 1)
+                    lo, hi = int(lo_s), int(hi_s)
+                    if lo <= hi <= lo + 50:
+                        ids.update(range(lo, hi + 1))
+                elif chunk:
+                    ids.add(int(chunk))
+    return ids
+
+
+def _triage_disposition(c: dict):
+    """Map one verdict-file classification to (disposition, note, new_description).
+
+    disposition in: delete | keep | completed | archived | archived_kb
+    | pending_review | unhandled. Precedence mirrors the owner policy: junk
+    deletion and the active keep-list outrank everything; TASK-001 and the kb
+    park bucket outrank verdict-based rules; verdict rules run last.
+    """
+    tid = c.get("id")
+    verdict = c.get("verdict")
+    domain = c.get("domain")
+    reason = (c.get("reason") or "").strip()
+    if tid in _TRIAGE_JUNK_IDS:
+        return ("delete", None, None)
+    if tid in _TRIAGE_KEEP_IDS:
+        new_desc = None
+        if tid == "NATIVE-9-4" and "GAP-09" in reason:
+            new_desc = reason[reason.find("GAP-09"):]
+        return ("keep", None, new_desc)
+    if tid == "TASK-001":
+        return ("archived", "[triage: owner fresh-start ruling]", None)
+    if domain == "kb" or tid in _TRIAGE_KB_EXTRA_IDS:
+        return ("archived_kb", "parked for Zen Notes; " + reason, None)
+    if verdict == "ALREADY-FIXED":
+        return ("completed", f"[triage: {reason}]", None)
+    if verdict in ("OBSOLETE-REDESIGN", "DUPLICATE"):
+        return ("archived", reason, None)
+    if verdict == "NON-NEXUS":
+        return ("archived", f"[triage: non-nexus — {reason}]", None)
+    if verdict == "STILL-APPLIES":
+        return ("pending_review", None, None)
+    return ("unhandled", None, None)
+
+
+def _append_note(existing, note):
+    """Append `note` to notes unless it is already present (idempotency)."""
+    if not note:
+        return existing, False
+    current = existing or ""
+    if note in current:
+        return existing, False
+    return (current + " " + note).strip() if current else note, True
+
+
+def cmd_task_migrate_domains(args: argparse.Namespace) -> None:
+    verdict_path = Path(args.verdicts)
+    try:
+        verdicts = json.loads(verdict_path.read_text())
+    except (OSError, ValueError) as exc:
+        print(f"Cannot read verdict file {verdict_path}: {exc}", file=sys.stderr)
+        sys.exit(1)
+    classifications = verdicts.get("classifications") or []
+    keep_feedback_ids = _still_valuable_feedback_ids(
+        (verdicts.get("feedback") or {}).get("still_valuable")
+    )
+    now = _now()
+
+    with _conn() as conn:
+        if args.apply:
+            _migrate_task_domain_columns(conn)
+            conn.commit()
+        has_domain = _table_has_column(conn, "tasks", "domain")
+        db_rows = {
+            r["id"]: dict(r)
+            for r in conn.execute(
+                "SELECT id, status, notes, description"
+                + (", domain" if has_domain else "")
+                + " FROM tasks"
+            )
+        }
+
+        status_target = {
+            "completed": "completed",
+            "archived": "archived",
+            "archived_kb": "archived",
+            "pending_review": "pending_review",
+        }
+        counts: dict = {
+            "delete": 0, "keep": 0, "completed": 0, "archived": 0,
+            "archived_kb": 0, "pending_review": 0, "unhandled": 0,
+            "missing_from_db": 0, "already_applied": 0,
+        }
+        deletes: list = []
+        updates: list = []  # (tid, new_status, domain, new_notes, new_desc, completed_at)
+        for c in classifications:
+            tid = c.get("id")
+            row = db_rows.get(tid)
+            disp, note, new_desc = _triage_disposition(c)
+            if disp == "delete":
+                counts["delete"] += 1
+                if row is not None:
+                    deletes.append(tid)
+                else:
+                    counts["already_applied"] += 1
+                continue
+            if row is None:
+                counts["missing_from_db"] += 1
+                continue
+            counts[disp] += 1
+            target = status_target.get(disp)
+            domain = c.get("domain") if c.get("domain") in TASK_DOMAINS else None
+            new_status = target if (target and row["status"] != target) else None
+            new_domain = domain if domain and row.get("domain") != domain else None
+            new_notes, notes_changed = _append_note(row.get("notes"), note)
+            desc_changed = bool(new_desc) and (row.get("description") or "") != new_desc
+            if not (new_status or new_domain or notes_changed or desc_changed):
+                counts["already_applied"] += 1
+                continue
+            completed_at = now if target == "completed" else None
+            updates.append((
+                tid,
+                new_status,
+                new_domain,
+                new_notes if notes_changed else None,
+                new_desc if desc_changed else None,
+                completed_at,
+            ))
+
+        keep_marks = ",".join("?" * len(keep_feedback_ids))
+        feedback_where = (
+            "substr(captured_at, 1, 10) <= ? AND resolved_at IS NULL"
+            + (f" AND id NOT IN ({keep_marks})" if keep_feedback_ids else "")
+        )
+        feedback_params = [_TRIAGE_FEEDBACK_CUTOFF, *sorted(keep_feedback_ids)]
+        feedback_to_resolve = 0
+        if conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='nexus_feedback'"
+        ).fetchone():
+            feedback_to_resolve = conn.execute(
+                f"SELECT count(*) AS c FROM nexus_feedback WHERE {feedback_where}",
+                feedback_params,
+            ).fetchone()["c"]
+
+        def _status_domain_counts() -> dict:
+            has_dom = _table_has_column(conn, "tasks", "domain")
+            return {
+                "status": {
+                    r["status"]: r["c"]
+                    for r in conn.execute(
+                        "SELECT status, count(*) AS c FROM tasks GROUP BY status ORDER BY status"
+                    )
+                },
+                "domain": {
+                    (r["domain"] or "unclassified"): r["c"]
+                    for r in conn.execute(
+                        "SELECT domain, count(*) AS c FROM tasks GROUP BY domain ORDER BY domain"
+                    )
+                } if has_dom else {"unclassified": conn.execute(
+                    "SELECT count(*) AS c FROM tasks").fetchone()["c"]},
+            }
+
+        before = _status_domain_counts()
+        backup_path = None
+
+        if args.apply:
+            backup_dir = DB_PATH.parent / "backups"
+            backup_dir.mkdir(parents=True, exist_ok=True)
+            backup_path = backup_dir / f"pre-migration-{now[:10].replace('-', '')}.db"
+            # First --apply run owns the true pre-state; a rerun must never
+            # clobber it with an already-migrated copy.
+            if not backup_path.exists():
+                bconn = sqlite3.connect(backup_path)
+                try:
+                    conn.backup(bconn)
+                finally:
+                    bconn.close()
+            if not conn.in_transaction:
+                conn.execute("BEGIN IMMEDIATE")
+            for tid in deletes:
+                conn.execute("DELETE FROM tasks WHERE id=?", (tid,))
+            for tid, new_status, new_domain, new_notes, new_desc, completed_at in updates:
+                sets = ["updated_at=?"]
+                vals: list = [now]
+                if new_status:
+                    sets.append("status=?")
+                    vals.append(new_status)
+                if new_domain:
+                    sets.append("domain=?")
+                    vals.append(new_domain)
+                if new_notes is not None:
+                    sets.append("notes=?")
+                    vals.append(new_notes)
+                if new_desc is not None:
+                    sets.append("description=?")
+                    vals.append(new_desc)
+                if completed_at:
+                    sets.append("completed_at=COALESCE(completed_at, ?)")
+                    vals.append(completed_at)
+                vals.append(tid)
+                conn.execute(f"UPDATE tasks SET {', '.join(sets)} WHERE id=?", vals)
+            if feedback_to_resolve:
+                conn.execute(
+                    f"UPDATE nexus_feedback SET resolved_at=?, reviewed_by=? WHERE {feedback_where}",
+                    [now, _TRIAGE_REVIEWER, *feedback_params],
+                )
+            conn.commit()
+            after = _status_domain_counts()
+        else:
+            # Project the after-state without writing anything.
+            after = json.loads(json.dumps(before))
+            for tid in deletes:
+                st = db_rows[tid]["status"]
+                after["status"][st] = after["status"].get(st, 0) - 1
+                if after["status"][st] <= 0:
+                    del after["status"][st]
+                dom = (db_rows[tid].get("domain") or "unclassified")
+                after["domain"][dom] = after["domain"].get(dom, 0) - 1
+                if after["domain"][dom] <= 0:
+                    del after["domain"][dom]
+            for tid, new_status, new_domain, _n, _d, _c in updates:
+                if new_status:
+                    st = db_rows[tid]["status"]
+                    after["status"][st] = after["status"].get(st, 0) - 1
+                    if after["status"][st] <= 0:
+                        del after["status"][st]
+                    after["status"][new_status] = after["status"].get(new_status, 0) + 1
+                if new_domain:
+                    dom = (db_rows[tid].get("domain") or "unclassified")
+                    after["domain"][dom] = after["domain"].get(dom, 0) - 1
+                    if after["domain"][dom] <= 0:
+                        del after["domain"][dom]
+                    after["domain"][new_domain] = after["domain"].get(new_domain, 0) + 1
+
+    out = {
+        "dry_run": not args.apply,
+        "classified_rows": len(classifications),
+        "dispositions": counts,
+        "rows_to_delete": sorted(deletes),
+        "rows_to_update": len(updates),
+        "tasks_before": before,
+        "tasks_after": after,
+        "feedback": {
+            "resolved" if args.apply else "resolve_planned": feedback_to_resolve,
+            "kept_open_ids": sorted(keep_feedback_ids),
+            "cutoff": _TRIAGE_FEEDBACK_CUTOFF,
+            "reviewed_by": _TRIAGE_REVIEWER,
+        },
+        "backup": str(backup_path) if backup_path else None,
+    }
+    print(json.dumps(out, indent=2))
+
+
+# ---------------------------------------------------------------------------
 # native-task mirror (#24 — durable cross-session task mirror)
 # ---------------------------------------------------------------------------
 # The *native* Claude Code task tools (TaskCreate / TaskUpdate) own a
@@ -1450,6 +1842,24 @@ def native_task_db_id(native_id: str) -> str:
     while re.match(r"(?i)^native-", raw):
         raw = re.sub(r"(?i)^native-", "", raw)
     return f"NATIVE-{raw}"
+
+
+def _native_mirror_marker_present(notes: str | None, native_id: str) -> bool:
+    """True iff `notes` carries THIS native_id's own "mirrored from native task
+    #<N>" marker (NATIVE-13 / NATIVE-16).
+
+    Mirrors `_foreign_collision()` in `.claude/hooks/_task_mirror.py:73` — kept
+    in sync by convention, same as `native_task_db_id`'s own hook-side twin
+    (`_native_task_db_id`). The hook's copy is a READ-ONLY pre-check that runs
+    BEFORE either write path is attempted; this copy guards `_upsert_native_task`
+    itself so a caller reaching the update branch directly (a bypassed hook, a
+    diverged daemon handler, or `task mirror-native --op update` invoked by
+    hand) still cannot blind-patch a hand-authored row.
+    """
+    notes = notes or ""
+    escaped_id = re.escape(str(native_id).strip())
+    marker = re.compile(rf"mirrored from native task #{escaped_id}(?!\d)")
+    return marker.search(notes) is not None
 
 
 def _next_surrogate_id(conn: sqlite3.Connection, base_db_id: str) -> str:
@@ -1508,7 +1918,7 @@ def _upsert_native_task(
     db_status = NATIVE_STATUS_MAP.get((status or "").strip())
 
     existing = conn.execute(
-        "SELECT id, title, status, created_at FROM tasks WHERE id=?", (db_id,)
+        "SELECT id, title, status, created_at, notes FROM tasks WHERE id=?", (db_id,)
     ).fetchone()
 
     if existing is None:
@@ -1585,6 +1995,29 @@ def _upsert_native_task(
             "action": "inserted_surrogate",
             "status": db_status or "todo",
             "collision_with": db_id,
+        }
+
+    # --- Foreign-row (non-mirror) ownership guard (NATIVE-16) ---
+    # A row at this id that was never itself created by the mirror (no "mirrored
+    # from native task #<N>" marker in its notes) is a hand-authored task — e.g.
+    # the NATIVE-1..15 redesign family — that this UPDATE path must never
+    # blind-patch. `.claude/hooks/_task_mirror.py`'s `_foreign_collision()`
+    # already refuses this BEFORE calling here, but that is a pre-check on one
+    # caller (task-db-mirror.sh); this guard closes the same hole for any path
+    # that reaches `_upsert_native_task` directly (a bare `task mirror-native
+    # --op update`, or a diverged daemon handler) — no-op + a structured refusal
+    # result, never a silent overwrite.
+    if not _native_mirror_marker_present(existing["notes"], native_id):
+        sys.stderr.write(
+            f"[task-mirror] REFUSED NATIVE-16: existing row {db_id} was not "
+            f"created by the mirror (no marker for native #{native_id}); "
+            f"refusing to patch it via task mirror-native --op {op}\n"
+        )
+        return {
+            "task_id": db_id,
+            "native_id": str(native_id),
+            "action": "refused_foreign_row",
+            "status": existing["status"],
         }
 
     # Existing row — patch only the columns we were given.
@@ -3901,6 +4334,11 @@ def cmd_context_snapshot(args: argparse.Namespace) -> None:
     print(json.dumps({"session_id": sid, "logged_at": now}))
 
 
+_CONTEXT_DUMP_TODO_CAP = 8
+_PRIORITY_RANK = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+_DOMAIN_ORDER = ("nexus", "plexus", "kb", "ops", "other", "unclassified")
+
+
 def cmd_context_dump(args: argparse.Namespace) -> None:
     tasks_filter = getattr(args, "tasks", "all") or "all"
     dec_limit = getattr(args, "decisions", 5)
@@ -3908,17 +4346,25 @@ def cmd_context_dump(args: argparse.Namespace) -> None:
         session = conn.execute(
             "SELECT * FROM sessions ORDER BY started_at DESC LIMIT 1"
         ).fetchone()
-        # 'archived' (N56 TTL reap) is excluded here alongside done/cancelled: an
-        # archived row is a terminal, non-actionable state, not open work — it
-        # must NOT reinflate the SessionStart open-task summary. Counted
-        # separately below (archived_task_count) so archived rows stay VISIBLE
-        # (DEC-005: queryable, never silently dropped) without looking "open".
+        has_domain = _table_has_column(conn, "tasks", "domain")
+        # 'archived' (N56 TTL reap), 'pending_review' + 'completed' (DEC-098)
+        # are excluded here alongside done/cancelled: terminal or parked-for-
+        # review states are not open work — they must NOT reinflate the
+        # SessionStart open-task summary. Counted separately below so those
+        # rows stay VISIBLE (DEC-005: queryable, never silently dropped)
+        # without looking "open".
         open_rows = conn.execute(
-            "SELECT id, title, status, priority, assigned_to FROM tasks "
-            "WHERE status NOT IN ('done','cancelled','archived') ORDER BY id"
+            "SELECT id, title, status, priority, assigned_to"
+            + (", domain" if has_domain else "")
+            + " FROM tasks WHERE status NOT IN "
+            "('done','completed','cancelled','archived','pending_review') "
+            "ORDER BY id"
         ).fetchall()
         archived_task_count = conn.execute(
             "SELECT count(*) AS c FROM tasks WHERE status='archived'"
+        ).fetchone()["c"]
+        pending_review_task_count = conn.execute(
+            "SELECT count(*) AS c FROM tasks WHERE status='pending_review'"
         ).fetchone()["c"]
         recent_decisions = conn.execute(
             "SELECT id, title, status, decided_at FROM decisions ORDER BY decided_at DESC LIMIT ?",
@@ -3931,11 +4377,35 @@ def cmd_context_dump(args: argparse.Namespace) -> None:
         open_tasks = [dict(r) for r in open_rows if r["status"] == "in_progress"]
     else:
         open_tasks = [dict(r) for r in open_rows]
+    # DEC-098 grouped view — additive alongside the legacy keys so
+    # /project-context and hooks keep parsing open_tasks unchanged. Per domain:
+    # in_progress first, then blocked, then todo (todo capped at the top
+    # _CONTEXT_DUMP_TODO_CAP by priority, remainder surfaced as todo_more).
+    tasks_by_domain: dict = {}
+    for dom in _DOMAIN_ORDER:
+        rows_d = [
+            dict(r) for r in open_rows
+            if ((r["domain"] if has_domain else None) or "unclassified") == dom
+        ]
+        if not rows_d:
+            continue
+        todo = sorted(
+            (r for r in rows_d if r["status"] == "todo"),
+            key=lambda r: (_PRIORITY_RANK.get(r.get("priority"), 9), r["id"]),
+        )
+        tasks_by_domain[dom] = {
+            "in_progress": [r for r in rows_d if r["status"] == "in_progress"],
+            "blocked": [r for r in rows_d if r["status"] == "blocked"],
+            "todo": todo[:_CONTEXT_DUMP_TODO_CAP],
+            "todo_more": max(0, len(todo) - _CONTEXT_DUMP_TODO_CAP),
+        }
     out = {
         "last_session": dict(session) if session else None,
         "open_tasks": open_tasks,
         "task_status_counts": status_counts,
         "archived_task_count": archived_task_count,
+        "pending_review_task_count": pending_review_task_count,
+        "tasks_by_domain": tasks_by_domain,
         "recent_decisions": [dict(r) for r in recent_decisions],
     }
     print(json.dumps(out, indent=2))
@@ -4077,19 +4547,28 @@ def _profile_aware_test_globs(
 def cmd_planning_gate_check(args: argparse.Namespace) -> None:
     feat_id = args.feat  # e.g. "FEAT-001"
     docs_root = Path(__file__).resolve().parent.parent / "docs"
-    spec_glob = list(docs_root.glob(f"features/{feat_id}-*.md"))
+    spec_file_glob = sorted(docs_root.glob(f"features/{feat_id}-*.md"))
+    spec_dir_glob = sorted(p for p in docs_root.glob(f"features/{feat_id}-*") if p.is_dir())
+    spec_glob = spec_file_glob + spec_dir_glob
 
     results: list[dict] = []
 
     def check(item: int, title: str, passed: bool, detail: str = "") -> None:
         results.append({"item": item, "title": title, "passed": passed, "detail": detail})
 
-    # Item 1 — spec file exists
+    # Item 1 — spec file exists (flat docs/features/{feat}-*.md, or a directory-style spec
+    # docs/features/{feat}-*/ whose *.md files are concatenated below).
     spec_path = spec_glob[0] if spec_glob else None
     check(1, "Spec file exists", spec_path is not None,
-          str(spec_path) if spec_path else f"docs/features/{feat_id}-*.md not found")
+          str(spec_path) if spec_path else
+          f"docs/features/{feat_id}-*.md (flat) or docs/features/{feat_id}-*/ (directory of *.md files) not found")
 
-    spec_text = spec_path.read_text() if spec_path else ""
+    if spec_path is None:
+        spec_text = ""
+    elif spec_path.is_dir():
+        spec_text = "\n".join(p.read_text() for p in sorted(spec_path.rglob("*.md")))
+    else:
+        spec_text = spec_path.read_text()
 
     # Item 2 — GWT acceptance criteria present
     gwt_present = bool(re.search(r"\b(Given|When|Then)\b", spec_text))
@@ -4119,10 +4598,12 @@ def cmd_planning_gate_check(args: argparse.Namespace) -> None:
     tests_root = Path(__file__).resolve().parent.parent
     feat_num = feat_id.replace("FEAT-", "").lstrip("0") or "0"
     feat_num_padded = feat_id.replace("FEAT-", "")
-    # Derive the feature slug from the spec filename (e.g. FEAT-006-worksheet-level-search.md → worksheet-level-search)
+    # Derive the feature slug from the spec name — flat file (FEAT-006-worksheet-level-search.md
+    # → worksheet-level-search) or directory-style spec (FEAT-004-ai-reviewers/ → ai-reviewers).
     spec_slug = ""
     if spec_path is not None:
-        m = re.match(rf"{re.escape(feat_id)}-(.+)\.md$", spec_path.name)
+        name_pattern = rf"{re.escape(feat_id)}-(.+)$" if spec_path.is_dir() else rf"{re.escape(feat_id)}-(.+)\.md$"
+        m = re.match(name_pattern, spec_path.name)
         if m:
             spec_slug = m.group(1)
     num_keys = {feat_num, feat_num_padded}
@@ -4373,7 +4854,7 @@ def _is_status_restatement(note: str) -> bool:
 # results, so Lens could record PASS over a report whose criteria_results[] were
 # full of FAILs. This moves verdict aggregation OUT of the model: when a
 # structured Lens report is supplied, code computes the verdict from the
-# evidence (verification-protocols cardinal rule #2: "even one FAIL → verdict =
+# evidence (verification cardinal rule #2: "even one FAIL → verdict =
 # FAIL") and refuses to store a PASS that the evidence contradicts.
 
 _VALID_VERDICTS = ("PASS", "PARTIAL", "FAIL")
@@ -4382,7 +4863,7 @@ _VALID_VERDICTS = ("PASS", "PARTIAL", "FAIL")
 def _extract_report_signals(report: dict) -> tuple[int, int, int, list[str]]:
     """Scan a canonical Lens report for FAIL / PARTIAL evidence.
 
-    Reads the two structured evidence channels of the verification-protocols
+    Reads the two structured evidence channels of the verification
     output schema:
       * ``criteria_results[]`` — each ``{criterion, result}`` where ``result`` is
         one of PASS|FAIL|PARTIAL.
@@ -5951,6 +6432,126 @@ def cmd_dispatch_record(args):  # type: ignore[no-untyped-def]
 
 
 # ---------------------------------------------------------------------------
+# Workflow-leg journal ingestion — drift-analysis Finding #6 item 3
+# ---------------------------------------------------------------------------
+# Workflow-internal `agent()` legs never fire a main-session SubagentStop
+# event (BUG #1, documented in .claude/hooks/completion-capture.py's module
+# docstring: Workflow-internal teammate spawns are confined to the Workflow's
+# interior message stream). No hook can ever reach them. The Workflow script
+# primitive `log(...)` (.claude/skills/dispatch/references/
+# operating-the-primitive.md: "append to journal.jsonl; survives compaction")
+# is therefore the only durable on-disk trace of a leg's usage IF the script
+# author chooses to log it — this function is the READ/ingest half of that
+# path: it feeds any journal.jsonl rows matching the `agent_complete`
+# convention below through record_dispatch(), the EXACT SAME write path
+# completion-capture.py uses for direct harness dispatches ("the same path"
+# per the Finding #6 brief).
+#
+# NOTE — the PRODUCE side (a Workflow script actually calling
+# `log({"event": "agent_complete", ...})` after each agent() leg) is not
+# wired by this change: that is a convention adopted in *dynamically
+# authored* Workflow scripts, not a fixed file this ingestion function can
+# reach into, and updating the `dispatch` skill's documented `log()`
+# convention is outside this dispatch's write surface (.claude/skills/**).
+# This function builds the durable, tested, idempotent ingestion substrate;
+# adoption by future workflow-authoring is a tracked follow-up.
+
+
+def ingest_workflow_journal(journal_path, *, conn=None):  # type: ignore[no-untyped-def]
+    """Parse a Workflow's journal.jsonl for `agent_complete` rows and feed
+    each through record_dispatch().
+
+    Expected per-line shape (append-only JSONL, one JSON object per line;
+    lines that are not valid JSON, not a dict, or lack
+    ``"event": "agent_complete"`` are silently skipped — never raise on a
+    shape mismatch, same fail-soft discipline as every hook in this repo):
+
+        {"event": "agent_complete", "persona": "...", "dispatch_id": "...",
+         "tokens": N, "token_source": "exact"|"approx", "tool_uses": N,
+         "duration_ms": N, "marker": "...", "model": "...",
+         "task_id": "...", "session_id": "..."}
+
+    ``persona`` and an integer ``tokens`` are the only required fields;
+    every other field is optional and passed through as-is (None when
+    absent).
+
+    IDEMPOTENT: a line carrying a non-empty ``dispatch_id`` that ALREADY has
+    a matching dispatch_telemetry row is skipped — re-running ingestion on
+    the same journal (e.g. after a Workflow resume re-reads its own
+    journal.jsonl from the top) never double-counts. Lines with no
+    dispatch_id are always ingested (no identity key to dedupe on) — callers
+    adopting this convention SHOULD always emit dispatch_id.
+
+    Returns the number of NEW dispatch_telemetry rows written.
+    """
+    path = Path(journal_path)
+    if not path.is_file():
+        return 0
+    owns_conn = conn is None
+    if owns_conn:
+        conn = _conn()
+    written = 0
+    try:
+        try:
+            lines = path.read_text(encoding="utf-8", errors="ignore").splitlines()
+        except Exception:
+            return 0
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rec = json.loads(line)
+            except Exception:
+                continue
+            if not isinstance(rec, dict) or rec.get("event") != "agent_complete":
+                continue
+            persona = rec.get("persona")
+            if not isinstance(persona, str) or not persona.strip():
+                continue
+            tokens = rec.get("tokens")
+            if not isinstance(tokens, int):
+                continue
+            dispatch_id = rec.get("dispatch_id")
+            if dispatch_id:
+                existing = conn.execute(
+                    "SELECT 1 FROM dispatch_telemetry WHERE dispatch_id=? LIMIT 1",
+                    (dispatch_id,),
+                ).fetchone()
+                if existing:
+                    continue
+            duration_ms = rec.get("duration_ms")
+            tool_uses = rec.get("tool_uses")
+            record_dispatch(
+                persona.strip(),
+                tokens,
+                duration_ms if isinstance(duration_ms, int) else None,
+                model=rec.get("model"),
+                task_id=rec.get("task_id"),
+                marker=rec.get("marker"),
+                token_source=rec.get("token_source") or "approx",
+                tool_uses=tool_uses if isinstance(tool_uses, int) else None,
+                dispatch_id=dispatch_id,
+                session_id=rec.get("session_id"),
+                conn=conn,
+            )
+            written += 1
+        if owns_conn:
+            conn.commit()
+        return written
+    finally:
+        if owns_conn:
+            conn.close()
+
+
+def cmd_dispatch_ingest_journal(args):  # type: ignore[no-untyped-def]
+    """CLI entry point for `dispatch ingest-journal`. Prints a JSON summary."""
+    with _conn() as conn:
+        written = ingest_workflow_journal(args.path, conn=conn)
+    print(json.dumps({"journal_path": args.path, "rows_written": written}))
+
+
+# ---------------------------------------------------------------------------
 # skill load events — R2-T15 / spec §7 (FIX-2 corrected design)
 # Event-sourced evidence that a persona actually invoked the Skill tool during
 # a dispatch, as observed by the harness (a Skill-tool-observing hook) — NOT
@@ -6281,7 +6882,9 @@ def main() -> None:
     tp = sub.add_parser("task")
     tsp = tp.add_subparsers(dest="subcommand", required=True)
     ta = tsp.add_parser("add")
-    ta.add_argument("--id")
+    ta.add_argument("--id", help="Explicit id override (skips per-domain minting)")
+    ta.add_argument("--domain", required=True, choices=list(TASK_DOMAINS),
+                    help="DEC-098 task domain; mints NEX-/PLX-/KB-/OPS-/OTH- ids")
     ta.add_argument("--feature-id", dest="feature_id")
     ta.add_argument("--title", required=True)
     ta.add_argument("--description")
@@ -6301,6 +6904,14 @@ def main() -> None:
     tl = tsp.add_parser("list")
     tl.add_argument("--status")
     tl.add_argument("--feature-id", dest="feature_id")
+    tmg = tsp.add_parser(
+        "migrate-domains",
+        help="DEC-098: apply the owner triage-verdict dispositions (dry-run by default)",
+    )
+    tmg.add_argument("--verdicts", required=True,
+                     help="Path to the triage verdict JSON file")
+    tmg.add_argument("--apply", action="store_true",
+                     help="Back up the DB, then execute in one transaction (default: dry-run)")
     ti = tsp.add_parser("stall", help="Atomically increment stall_count (compare-and-swap)")
     ti.add_argument("--task-id", dest="task_id", required=True, help="TASK-NNN or memory task id")
     ti.add_argument("--persona", required=True, help="Persona name that produced the stall marker")
@@ -6810,8 +7421,10 @@ def main() -> None:
                              "fallback for synchronous dispatches); default 'exact'")
     disp_r.add_argument("--tool-uses", dest="tool_uses", default=None, type=int,
                         help="Tool-use count from the completion notification (optional)")
-    disp_r.add_argument("--duration-ms", dest="duration_ms", required=True, type=int,
-                        help="Exact wall-clock duration in milliseconds")
+    disp_r.add_argument("--duration-ms", dest="duration_ms", required=False, default=None, type=int,
+                        help="Exact wall-clock duration in milliseconds (optional — "
+                             "nullable when the caller has no start-time reference, e.g. "
+                             "a dispatch whose PreToolUse activity-open row is missing)")
     disp_r.add_argument("--dispatch-id", dest="dispatch_id", default=None,
                         help="Harness agent/dispatch id (optional)")
     disp_r.add_argument("--session-id", dest="session_id", default=None,
@@ -6828,6 +7441,13 @@ def main() -> None:
                         help="0/1 — whether a Workflow/fan-out decomposition was "
                              "explicitly evaluated before this dispatch (DEC-029; "
                              "optional, R2-T15)")
+
+    disp_ij = disp_sub.add_parser(
+        "ingest-journal",
+        help="Ingest agent_complete rows from a Workflow journal.jsonl into "
+             "dispatch_telemetry (Finding #6 item 3 — Workflow-leg capture)",
+    )
+    disp_ij.add_argument("--path", required=True, help="Path to the journal.jsonl file")
 
     # skill — R2-T15 / spec §7: harness-observed Skill-tool invocation events
     skillp = sub.add_parser("skill", help="Skill-load event recording (harness-observed)")
@@ -6917,6 +7537,7 @@ def main() -> None:
         ("task",    "add"):      cmd_task_add,
         ("task",    "update"):   cmd_task_update,
         ("task",    "list"):     cmd_task_list,
+        ("task",    "migrate-domains"): cmd_task_migrate_domains,
         ("task",    "stall"):    cmd_stall_increment,
         ("task",    "mirror-native"):   cmd_task_mirror_native,
         ("task",    "backfill-native"): cmd_task_backfill_native,
@@ -6971,6 +7592,7 @@ def main() -> None:
         ("activity", "update"):         cmd_activity_update,
         ("activity", "end"):            cmd_activity_end,
         ("dispatch", "record"):         cmd_dispatch_record,
+        ("dispatch", "ingest-journal"): cmd_dispatch_ingest_journal,
         ("skill",    "record-load"):    cmd_skill_record_load,
         ("gate",     "stats"):          cmd_gate_stats,
     }

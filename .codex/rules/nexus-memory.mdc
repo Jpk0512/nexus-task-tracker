@@ -1,0 +1,31 @@
+---
+description: Memory logging to .memory/project.db across the session lifecycle
+alwaysApply: true
+---
+
+# Memory logging
+
+`.memory/project.db` is the **live source of truth** (highest precedence). Keep it current — it is how state survives across sessions.
+
+## Session start
+```bash
+python3 .memory/log.py session start
+python3 .memory/log.py context dump      # surface open tasks + last next_step
+```
+
+## During the session
+```bash
+# record a non-trivial decision (alternatives + consequences matter)
+python3 .memory/log.py decision add --title "..." --context "..." \
+  --decision "..." --rationale "..." --alternatives "..." --consequences "..."
+
+# track task status as you move
+python3 .memory/log.py task update --id TASK-XXX --status in_progress|done
+```
+
+## Session end
+```bash
+python3 .memory/log.py session end --summary "..." --next_step "..."
+```
+
+Log a decision whenever you make a real design choice, and update task status when you start or finish a unit of work — don't leave the DB behind the actual state.

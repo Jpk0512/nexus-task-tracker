@@ -37,6 +37,7 @@ from pathlib import Path
 from typing import Any
 
 from broker import node_contract
+from broker.conductor import checkpoint as checkpoint_mod
 from broker.conductor import governance, pool
 from broker.state import REPO_ROOT
 
@@ -94,6 +95,26 @@ class NodeResult:
 class DagRunResult:
     results: dict[str, NodeResult]
     order: list[str]  # completion order actually observed (interleaved across workers)
+
+
+def _node_result_from_checkpoint(record: dict[str, Any]) -> NodeResult:
+    """Reconstruct a same-run cache-hit `NodeResult` from a checkpoint
+    journal record (`checkpoint.load_checkpoint`) — never re-dispatched.
+    The record already carries whatever the ORIGINAL dispatch (governance
+    lens-gate included) decided; a cache hit does not re-run governance."""
+    telemetry = DispatchTelemetry(
+        node_id=record["node_id"], executor=record.get("executor", "claude"),
+        ok=record["ok"], duration_ms=record.get("duration_ms") or 0,
+        worker_id=record.get("worker_id", "resumed"),
+        total_cost_usd=record.get("total_cost_usd") or 0.0,
+        input_tokens=record.get("input_tokens"), output_tokens=record.get("output_tokens"),
+        error=record.get("error"),
+    )
+    return NodeResult(
+        node_id=record["node_id"], executor=record.get("executor", "claude"),
+        ok=record["ok"], worker_id=record.get("worker_id", "resumed"),
+        telemetry=telemetry, payload=record.get("payload"), error=record.get("error"),
+    )
 
 
 def _in_degree_and_dependents(
@@ -328,6 +349,9 @@ def run_dag(
     dispatch_claude_fn: Callable[..., NodeResult] = dispatch_claude,
     dispatch_codex_fn: Callable[..., NodeResult] = dispatch_codex,
     telemetry_sink: Callable[[dict[str, Any], DispatchTelemetry], None] | None = None,
+    run_id: str | None = None,
+    checkpoint_journal_path: str | Path | None = None,
+    resume: bool = False,
 ) -> DagRunResult:
     """Topologically schedule + work-steal a schema_version-2 node-contract
     DAG over `max_workers` threads pulling off ONE shared ready-queue — an
@@ -349,6 +373,17 @@ def run_dag(
     (`ok=False`) `NodeResult` (payload dropped, not merged) even though the
     underlying dispatch itself succeeded. `validation_db_path` defaults to
     the real repo's `.memory/project.db`; tests point it at a scratch DB.
+
+    CHECKPOINT/RESUME (crash-resilience fix): when `checkpoint_journal_path`
+    and `run_id` are both given, EVERY node's final result is durably
+    journaled (`checkpoint.append_node_checkpoint`) the moment it completes
+    — a crash loses at most the in-flight node, never a completed one. When
+    `resume=True` too, the journal for `run_id` is read FIRST
+    (`checkpoint.load_checkpoint`); any node_id already present there is a
+    same-run cache hit — its cached `NodeResult` is reused and it is NEVER
+    re-dispatched — and only node_ids with no journal line are scheduled.
+    Both params default to `None`/`False`: a caller that passes neither gets
+    byte-identical behavior to before this fix (no checkpointing at all).
     """
     errors = node_contract.validate_dag(doc, codex_lane_flag_path=codex_lane_flag_path)
     if errors:
@@ -358,15 +393,30 @@ def run_dag(
     in_degree, dependents = _in_degree_and_dependents(nodes)
     templates = build_worker_templates(nodes, cwd_root=cwd_root, model=claude_model)
 
+    results: dict[str, NodeResult] = {}
+    order: list[str] = []
+    checkpointed_node_ids: set[str] = set()
+    if resume and checkpoint_journal_path is not None and run_id is not None:
+        cached = checkpoint_mod.load_checkpoint(checkpoint_journal_path, run_id)
+        for node_id, record in cached.items():
+            if node_id not in nodes:
+                continue  # stale/foreign record — ignore, never fabricate a node not in THIS doc
+            results[node_id] = _node_result_from_checkpoint(record)
+            order.append(node_id)
+            checkpointed_node_ids.add(node_id)
+        for nid in checkpointed_node_ids:
+            for dep_nid in dependents.get(nid, []):
+                in_degree[dep_nid] -= 1
+
     ready: queue.Queue[str] = queue.Queue()
     for nid, deg in in_degree.items():
+        if nid in checkpointed_node_ids:
+            continue
         if deg == 0:
             ready.put(nid)
 
-    results: dict[str, NodeResult] = {}
-    order: list[str] = []
     lock = threading.Lock()
-    remaining = len(nodes)
+    remaining = len(nodes) - len(checkpointed_node_ids)
 
     def worker_loop(worker_id: str) -> None:
         nonlocal remaining
@@ -398,6 +448,12 @@ def run_dag(
                     result = dataclasses.replace(result, ok=False, payload=None, error=error, telemetry=telemetry)
             if telemetry_sink is not None:
                 telemetry_sink(node, result.telemetry)
+            if checkpoint_journal_path is not None and run_id is not None:
+                # Durable checkpoint BEFORE merging into in-memory results —
+                # a crash between this write and the lock below still loses
+                # nothing (the line is already flushed+fsynced to disk).
+                record = checkpoint_mod.checkpoint_record(run_id, result)
+                checkpoint_mod.append_node_checkpoint(checkpoint_journal_path, record)
             with lock:
                 results[nid] = result
                 order.append(nid)

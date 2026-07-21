@@ -158,7 +158,7 @@ export function ProjectKnowledgeView({ projectId, team }: Props) {
 								href={`/team/${team}/knowledge?note=${n.id}`}
 								className="group flex items-start gap-3 rounded-md border border-transparent px-3 py-2 transition hover:border-border hover:bg-accent/40"
 							>
-								<div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded bg-violet-500/10 text-violet-600 dark:text-violet-300">
+								<div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded bg-cyan-500/10 text-cyan-600 dark:text-cyan-300">
 									<BookOpenIcon className="size-3.5" />
 								</div>
 								<div className="min-w-0 grow">

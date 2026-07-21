@@ -38,13 +38,26 @@ DISPATCH_CAPTURE = HOOKS_DIR / "dispatch-capture.py"
 # ─── Guard #3 — identical-command poll-loop ──────────────────────────────────
 
 
-def _run_paralysis(payload: dict, tmpdir: Path) -> subprocess.CompletedProcess[str]:
+def _run_paralysis(
+    payload: dict, tmpdir: Path, daemon_env: dict | None = None
+) -> subprocess.CompletedProcess[str]:
+    # Post-F2-03 analysis-paralysis-guard.sh is `exec _ping_shim.py read.completed
+    # analysis-paralysis-guard`; the poll-loop + read-class counters run
+    # daemon-resident and persist their per-(session_id, command) state under the
+    # DAEMON's OWN $TMPDIR (the handler reads os.environ["TMPDIR"], NOT the
+    # forwarded env — so the passed `tmpdir` no longer drives state). daemon_env
+    # routes every call in a test to the SAME resident daemon, so counts
+    # accumulate; each test uses a unique session_id, so their state files never
+    # collide in that shared daemon tmpdir.
+    env = {"PATH": "/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin", "TMPDIR": str(tmpdir)}
+    if daemon_env:
+        env.update(daemon_env)
     return subprocess.run(
         ["/bin/bash", str(PARALYSIS)],
         input=json.dumps(payload),
         capture_output=True,
         text=True,
-        env={"PATH": "/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin", "TMPDIR": str(tmpdir)},
+        env=env,
         timeout=15,
     )
 
@@ -70,17 +83,17 @@ def _advisory_ctx(out: str) -> str:
 
 class TestPollLoopGuard:
     def test_fourth_identical_command_emits_advisory_and_never_blocks(
-        self, tmp_path: Path
+        self, tmp_path: Path, resident_daemon
     ) -> None:
         sid = "poll-fire-01"
         # Runs 1-3 are silent and accumulate.
         for i in range(1, 4):
-            res = _run_paralysis(_bash_payload(sid, "docker exec api curl :8080/health"), tmp_path)
+            res = _run_paralysis(_bash_payload(sid, "docker exec api curl :8080/health"), tmp_path, daemon_env=dict(resident_daemon.env))
             assert res.returncode == 0, f"call {i} must exit 0, got {res.returncode}"
             assert res.stdout.strip() == "", f"call {i} must be silent, got: {res.stdout!r}"
 
         # The 4th identical command trips the advisory.
-        res = _run_paralysis(_bash_payload(sid, "docker exec api curl :8080/health"), tmp_path)
+        res = _run_paralysis(_bash_payload(sid, "docker exec api curl :8080/health"), tmp_path, daemon_env=dict(resident_daemon.env))
         assert res.returncode == 0, "advisory path must NEVER block (exit 0)"
         ctx = _advisory_ctx(res.stdout)
         assert "analysis-paralysis-guard" in ctx, f"expected poll advisory, got: {res.stdout!r}"
@@ -88,54 +101,54 @@ class TestPollLoopGuard:
         # Pure advisory — no deny shape anywhere.
         assert "permissionDecision" not in res.stdout
 
-    def test_emit_once_then_reset(self, tmp_path: Path) -> None:
+    def test_emit_once_then_reset(self, tmp_path: Path, resident_daemon) -> None:
         sid = "poll-once-01"
         cmd = "kubectl get pods"
         emits = []
         for _ in range(6):
-            res = _run_paralysis(_bash_payload(sid, cmd), tmp_path)
+            res = _run_paralysis(_bash_payload(sid, cmd), tmp_path, daemon_env=dict(resident_daemon.env))
             emits.append(bool(_advisory_ctx(res.stdout)))
         # Fires on the 4th call, resets, then needs 4 more to fire again — so a
         # 6-call run emits exactly once (no per-turn spam).
         assert emits == [False, False, False, True, False, False], emits
 
-    def test_distinct_commands_never_fire(self, tmp_path: Path) -> None:
+    def test_distinct_commands_never_fire(self, tmp_path: Path, resident_daemon) -> None:
         sid = "poll-distinct-01"
         for cmd in ("ls", "pwd", "whoami", "date", "uname", "id"):
-            res = _run_paralysis(_bash_payload(sid, cmd), tmp_path)
+            res = _run_paralysis(_bash_payload(sid, cmd), tmp_path, daemon_env=dict(resident_daemon.env))
             assert res.returncode == 0
             assert _advisory_ctx(res.stdout) == "", f"distinct cmd {cmd!r} must not fire"
 
-    def test_whitespace_only_difference_still_counts_as_same(self, tmp_path: Path) -> None:
+    def test_whitespace_only_difference_still_counts_as_same(self, tmp_path: Path, resident_daemon) -> None:
         sid = "poll-trim-01"
         # Leading/trailing whitespace is trimmed, so these are the same run.
         variants = ["docker ps", "  docker ps", "docker ps  ", "\tdocker ps\n"]
         fired = False
         for cmd in variants:
-            res = _run_paralysis(_bash_payload(sid, cmd), tmp_path)
+            res = _run_paralysis(_bash_payload(sid, cmd), tmp_path, daemon_env=dict(resident_daemon.env))
             assert res.returncode == 0
             if _advisory_ctx(res.stdout):
                 fired = True
         assert fired, "trimmed-identical commands must accumulate to the >=4 advisory"
 
-    def test_read_class_counter_is_independent(self, tmp_path: Path) -> None:
+    def test_read_class_counter_is_independent(self, tmp_path: Path, resident_daemon) -> None:
         """The existing read-class counter behaviour is unchanged: 5 consecutive
         reads still trip the original advisory, untouched by the poll path."""
         sid = "poll-readclass-01"
         for i in range(1, 5):
-            res = _run_paralysis({"session_id": sid, "tool_name": "Read"}, tmp_path)
+            res = _run_paralysis({"session_id": sid, "tool_name": "Read"}, tmp_path, daemon_env=dict(resident_daemon.env))
             assert res.returncode == 0
             assert res.stdout.strip() == "", f"read {i} must be silent"
-        res = _run_paralysis({"session_id": sid, "tool_name": "Read"}, tmp_path)
+        res = _run_paralysis({"session_id": sid, "tool_name": "Read"}, tmp_path, daemon_env=dict(resident_daemon.env))
         ctx = _advisory_ctx(res.stdout)
         assert "5 consecutive" in ctx, f"read-class advisory regressed: {res.stdout!r}"
 
-    def test_bash_does_not_emit_read_class_advisory(self, tmp_path: Path) -> None:
+    def test_bash_does_not_emit_read_class_advisory(self, tmp_path: Path, resident_daemon) -> None:
         """A Bash poll run must never produce the read-class '5 consecutive'
         message — the two counters stay separate."""
         sid = "poll-no-crosstalk-01"
         for _ in range(8):
-            res = _run_paralysis(_bash_payload(sid, "tail -f log"), tmp_path)
+            res = _run_paralysis(_bash_payload(sid, "tail -f log"), tmp_path, daemon_env=dict(resident_daemon.env))
             assert "5 consecutive" not in res.stdout
 
 

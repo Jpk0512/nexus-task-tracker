@@ -35,6 +35,13 @@ ALLOWED_TABLES: dict[str, tuple[str, ...]] = {
         "tool_uses",
         "duration_ms",
         "run_context",
+        # F3-03 dual-write (DEC-097 Option B): allow-listed so a caller-supplied
+        # `recorded_at` flows through VERBATIM instead of defaulting to
+        # CURRENT_TIMESTAMP — the dual-write stamps this row and the event log
+        # from ONE timestamp so the parity clock's (dispatch_id, session_id,
+        # recorded_at) key lines up across both stores (event-store-design §5.2).
+        # The column already exists on `.memory/schema.sql`'s dispatch_telemetry.
+        "recorded_at",
     ),
     "skill_load_events": ("dispatch_id", "skill_id", "ts", "byte_len"),
     "agent_activity": (

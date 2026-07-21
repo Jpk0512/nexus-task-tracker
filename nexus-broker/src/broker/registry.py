@@ -27,6 +27,47 @@ comment for the full accounting.
 """
 from __future__ import annotations
 
+import os
+from pathlib import Path
+
+
+def _default_codex_agents_dir() -> Path:
+    """Resolve the real repo's `.claude/agents/` dir: walk up from this file to
+    find the repo root (`.memory/` dir is the marker — same convention as
+    `broker.state._find_repo_root` / `broker.node_contract._default_codex_lane_flag_path`,
+    duplicated here rather than imported so this module stays import-independent
+    of those, matching the existing per-module pattern). `NEXUS_CODEX_AGENTS_DIR`
+    env-overrides the resolved path so a test can point detection at an empty
+    dir without touching the real `.claude/` tree.
+    """
+    override = os.environ.get("NEXUS_CODEX_AGENTS_DIR")
+    if override:
+        return Path(override)
+    here = Path(__file__).resolve()
+    for candidate in [here, *here.parents]:
+        if (candidate / ".memory").is_dir():
+            return candidate / ".claude" / "agents"
+    return Path.cwd() / ".claude" / "agents"
+
+
+def _codex_lane_agent_files_present(agents_dir: Path | None = None) -> bool:
+    """RDEC-011 decorrelated-judge lane is a this-machine contrib feature, not a
+    shipped package feature: only register codex-worker/codex-reviewer as legal
+    dispatch targets when their agent files actually exist. A package install
+    ships no `.claude/agents/codex-worker.md` / `codex-reviewer.md` (and no
+    matching `deliverables.json` contract), so leaving these unconditionally in
+    `PERSONA_INTENTS` there would make
+    `test_deliverables_persona_drift.py::test_every_dispatchable_persona_has_a_contract`
+    fail by construction. Conditional registration keeps the live tree (files
+    present) green and the package tree (files absent) green, without either
+    side special-casing the other.
+    """
+    directory = agents_dir if agents_dir is not None else _default_codex_agents_dir()
+    return (directory / "codex-worker.md").is_file() and (directory / "codex-reviewer.md").is_file()
+
+
+_CODEX_LANE_PRESENT: bool = _codex_lane_agent_files_present()
+
 PERSONA_INTENTS: dict[str, list[str]] = {
     "scout": ["investigate"],
     "forge-wire": ["implement_ui", "implement_api"],
@@ -62,6 +103,22 @@ PERSONA_INTENTS: dict[str, list[str]] = {
     # "planner" row for test_deliverables_persona_drift.py.
     "planner": ["plan"],
 }
+
+if _CODEX_LANE_PRESENT:
+    # RDEC-011 decorrelated-judge lane: out-of-family (OpenAI Codex) relay
+    # personas. codex-worker is a relay implementer (executes a brief on the
+    # Codex CLI and hands back its result byte-faithfully); codex-reviewer is
+    # the decorrelated review/judge seat (SOUND/REVISE/UNSOUND verdicts,
+    # never judging codex-worker's own output — cross-vendor rule). Both are
+    # orchestrator-dispatched only when the codex lane is enabled
+    # (bin/codex-lane status) — see .claude/agents/codex-worker.md and
+    # codex-reviewer.md. Registered ONLY when those agent files are present
+    # (see `_codex_lane_agent_files_present` above) — a this-machine contrib
+    # feature, not a shipped package feature, so a package install (no codex
+    # agent files, no deliverables.json contract for them) never has these
+    # names enter DISPATCHABLE_PERSONAS in the first place.
+    PERSONA_INTENTS["codex-worker"] = ["implement_relay"]
+    PERSONA_INTENTS["codex-reviewer"] = ["validate"]
 
 # Base persona names retired in favour of split variants. Kept as an explicit
 # constant so the agreement test and the drift guard can assert they are absent
@@ -122,7 +179,20 @@ DISPATCHABLE_PERSONAS: frozenset[str] = frozenset(PERSONA_INTENTS.keys())
 # of its own planning flow, never in response to a raw user utterance; keeping
 # it out of CLASSIFIER_PERSONAS also means no router_core.py mirror-list edit
 # is needed for it (see test_router_persona_roster.py's agreement tests).
-NON_CLASSIFIER_PERSONAS: frozenset[str] = frozenset({"lens-fast", "planner"})
+# `codex-worker` / `codex-reviewer` (RDEC-011 decorrelated-judge lane), when
+# present (see `_CODEX_LANE_PRESENT` above), are the same shape: both agent
+# files are explicitly "Nexus-dispatched only — NOT for direct user
+# invocation" — the orchestrator selects them via a node-contract
+# `executor: codex` leg or the Lens-adjacent judge seat, never via the
+# user-prompt classifier — so they belong here for the identical reason
+# `lens-fast` does, and for the identical practical benefit: router_core.py's
+# hardcoded CLASSIFIER_PERSONAS mirror (system-Python hook env, no broker
+# import) needs no edit to stay in agreement. Conditional so a package
+# install (codex agent files absent, `_CODEX_LANE_PRESENT` False) never adds
+# the names PERSONA_INTENTS never registered in the first place.
+NON_CLASSIFIER_PERSONAS: frozenset[str] = frozenset(
+    {"lens-fast", "planner"} | ({"codex-worker", "codex-reviewer"} if _CODEX_LANE_PRESENT else set())
+)
 
 # The persona enum the router classifier may emit (DISPATCHABLE minus the
 # orchestrator-only mechanism personas). router_core.build_persona_enum must

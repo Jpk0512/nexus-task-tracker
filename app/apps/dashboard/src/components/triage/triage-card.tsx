@@ -177,7 +177,7 @@ export function TriageCard({
 				"group rounded-md border bg-transparent transition",
 				"hover:border-border hover:bg-accent/40",
 				isFocused
-					? "border-violet-400/70 ring-2 ring-violet-400/40"
+					? "border-cyan-400/70 ring-2 ring-cyan-400/40"
 					: isSelected
 						? "border-primary/50 bg-primary/[0.04]"
 						: "border-transparent",

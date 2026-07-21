@@ -1,0 +1,32 @@
+---
+description: Per-domain conventions and stack pins by area (UI, server wire, ingestion, schema, integration, design, tests)
+globs: app/**,ingestion/**,docker-compose*.yml,design/**,docs/design/**
+alwaysApply: false
+---
+
+# Per-domain conventions
+
+These areas define **which persona owns which change** — they are the orchestrator's routing/ownership inputs, not single-agent self-conventions. When a task touches one of these areas, **delegate it to the owning persona** (named in each heading; see `nexus-operating-model.mdc` for the dispatch mechanism and pairings). Respect the cut between areas — never let one persona bleed UI concerns into ingestion, or write code into a presentation file, etc. The per-area stack pins and rules below are the contract each owning persona's brief must enforce.
+
+## `app/` — frontend UI (forge-ui conventions)
+- Next.js RSC pages, `app/components/**`, `app/(routes)/**`, Tremor charts, Tailwind, theme/motion, light+dark parity.
+- Mind the **RSC ↔ client boundary** and serialization constraints. Full type safety.
+- Visual work needs a **design spec first** (see `design/` below) and a visual check (Art. XII).
+
+## `app/api/**`, `app/actions/**` — server wire (forge-wire conventions)
+- Route handlers, `"use server"` actions, AI-SDK wiring, DuckDB **read-side** queries (read-only — Art. VI Single Writer).
+- The cut from UI is **the data shape returned at the server boundary**: producers of that shape live here; consumers live in `app/components`.
+
+## `ingestion/` — data pipeline (Python)
+- **`ingestion/src/transforms/**`, `ingestion/src/writers/**`** (pipeline-data): synchronous Polars transforms, DuckDB **writes**, Pydantic models, embeddings. Ingestion workers are the **sole DuckDB writer** (Art. VI). All pipeline ops are **idempotent** — `INSERT OR REPLACE`, no destructive-only steps (Art. IX).
+- **`ingestion/src/workers/**`, `ingestion/src/clients/**`** (pipeline-async): Dramatiq actors, Redis broker, async httpx clients, AI enrichment. Async/queued work only.
+- Tests in `ingestion/tests/` (pytest + Polars fixtures).
+
+## Schema / models (Atlas conventions)
+- DuckDB DDL + Malloy semantic models. Schema is documented in the FEAT spec **before** code (Art. IV). Vector indexes (HNSW) and dtype mapping live with the schema.
+
+## Integration / wiring (Hermes conventions)
+- External REST auth + endpoint plumbing, AI-provider config, MCP server registration, `docker-compose` service topology, env-var routing. Container changes need the build+smoke gate (Art. XII) and a `## Deploy step` block.
+
+## `design/`, `docs/design/` (Palette conventions)
+- Design tokens, component specs, interaction states, WCAG AA contrast, light+dark parity. The design spec is the binding contract that precedes UI implementation — do not copy mockup HTML directly.

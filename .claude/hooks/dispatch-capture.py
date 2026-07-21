@@ -42,20 +42,73 @@ opened for a fanout dispatch could never close and would rot as "active"
 forever; only direct single-Agent dispatches get a cockpit row. This mirrors
 feedback-capture.py's subprocess invocation pattern (argv list, never shell-
 interpolated, best-effort / never blocks).
+
+TASK-093 stage 2 (capture fix, dispatch_telemetry.task_id stamping): the
+cached activity_open.jsonl row also carries `task_id`, best-effort-recovered
+from the dispatched BRIEF JSON embedded in tool_input's `prompt`/`description`
+field (docs/agents/CONTRACT.md schema: `{"agent_persona": ..., "task_id":
+"TASK-093-capture", ...}`) via `_extract_task_id`. completion-capture.py reads
+it back off the SAME cached row (its existing (session_id, persona) join,
+no new join key) and stamps it onto the dispatch_telemetry row it writes —
+closing the "task_id always NULL" gap (dispatch_telemetry.task_id has been a
+writable column since NATIVE-42/R1-T01 but no capture hook has ever populated
+it). Absent/unparseable -> None, never a fabricated id.
+
+DAEMON SHIM (Tranche 2, nexus-redesign/audits/daemon-hook-plan-2026-07-12.md
+§C) — the router_dispatches.jsonl append (this hook's own pure "record"
+step) first tries a `record_event` RPC (sink="router_dispatches") against
+the resident daemon's Unix socket with a SHORT, env-tunable timeout
+(`NEXUS_DISPATCH_CAPTURE_DAEMON_TIMEOUT_S`, default 0.3s) via the shared
+`_daemon_rpc` shim (same-directory dynamic import). ANY daemon miss/
+timeout/error falls back INLINE to the exact `_append_jsonl` call below —
+no hook may ever fail or block because the daemon is down. The activity
+start/end log.py calls are unchanged by this tranche (out of scope — they
+return an activity_id this hook needs back and are not a plain append).
 """
 
 from __future__ import annotations
 
 import contextlib
 import hashlib
+import importlib.util
 import json
 import os
+import re
 import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
 HOOKS_DIR = Path(__file__).parent
+
+
+def _daemon_rpc_module():
+    """Same-directory dynamic import — mirrors broker-gate.py's _heartbeat load."""
+    spec = importlib.util.spec_from_file_location(
+        "_daemon_rpc", HOOKS_DIR / "_daemon_rpc.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)  # type: ignore[union-attr]
+    return module
+
+
+_DAEMON_TIMEOUT_S = float(os.environ.get("NEXUS_DISPATCH_CAPTURE_DAEMON_TIMEOUT_S", "0.3"))
+
+
+def _daemon_call_isolated() -> bool:
+    """True when a test-isolation override is active for this invocation.
+
+    NATIVE-18-3 class of bug (see nexus-broker/tests/test_dispatch_capture.py):
+    a RESIDENT daemon binds its socket to the REAL repo root at daemon-start
+    time, so it can never honor a per-call `_HOOK_MEMORY_FILES_DIR` /
+    `_HOOK_REPO_ROOT` override the way the inline fallback naturally does
+    (both are read fresh on every hook invocation). Skipping the daemon hop
+    entirely whenever either override is set is the only way to avoid a
+    real hook-test silently writing into THIS repo's live telemetry sinks
+    while its own assertions look at the (empty) isolated path instead —
+    mirrors _heartbeat.py's identical NEXUS_HEARTBEAT_PATH-skips-daemon rule.
+    """
+    return bool(os.environ.get("_HOOK_MEMORY_FILES_DIR") or os.environ.get("_HOOK_REPO_ROOT"))
 
 # --- Genuine-prompt filter (standalone copy — cannot import broker.*) ---
 # Mirrors broker.router_train.transcript.is_genuine_user_prompt.
@@ -99,6 +152,15 @@ _REDISPATCH_EXEMPT = frozenset({"scout", "lens", "lens-fast", "palette", "plexus
 # How many recent same-session dispatches to scan for a same (persona, brief_hash)
 # repeat before the current one.
 _REDISPATCH_LOOKBACK = 3
+
+# TASK-093 stage 2 — recovers `"task_id": "..."` out of the dispatched brief
+# JSON embedded in tool_input's prompt/description text. A simple key-value
+# regex scan rather than a full `json.loads` of the field: the brief JSON is
+# usually embedded inside a larger free-text prompt (persona instructions +
+# context wrapped around it), not a standalone parseable document, so a
+# whole-field JSON parse would fail on the common case; the regex finds the
+# key wherever it sits in the text.
+_TASK_ID_RE = re.compile(r'"task_id"\s*:\s*"([^"]+)"')
 
 
 def _files_dir() -> Path:
@@ -296,6 +358,26 @@ def _log_py(root: Path) -> Path:
     return root / ".memory" / "log.py"
 
 
+def _extract_task_id(tool_input: dict) -> str | None:
+    """Best-effort task_id recovered from the dispatched brief JSON embedded
+    in the Agent-tool prompt/description (see `_TASK_ID_RE`'s docstring
+    comment above for why this is a regex scan, not a JSON parse). Checks
+    "prompt" then "description" — mirrors `_dispatch_task_label`'s own field
+    preference order. Returns None when absent/unparseable — never a
+    fabricated id.
+    """
+    for key in ("prompt", "description"):
+        val = tool_input.get(key)
+        if not isinstance(val, str) or not val:
+            continue
+        m = _TASK_ID_RE.search(val)
+        if m:
+            candidate = m.group(1).strip()
+            if candidate:
+                return candidate
+    return None
+
+
 def _dispatch_task_label(tool_input: dict) -> str:
     """Short human-readable task label for the activity row.
 
@@ -342,19 +424,25 @@ def _start_activity(root: Path, persona: str, task: str, session_id: str) -> int
         return None
 
 
-def _cache_open_activity(files_dir: Path, session_id: str, persona: str, activity_id: int) -> None:
+def _cache_open_activity(
+    files_dir: Path, session_id: str, persona: str, activity_id: int, task_id: str | None = None
+) -> None:
     """Append the (session_id, persona) -> activity_id row completion-capture.py reads.
 
     A plain append-only JSONL: completion-capture.py scans for the LAST
     matching (session_id, persona) row, mirroring the join pattern already
     used for prompt_hash recovery elsewhere in this file. No mutation/locking
     needed — single-threaded hook execution, at-most-one writer at a time.
+
+    task_id (TASK-093 stage 2, additive field): the dispatched brief's own
+    task_id, when recoverable — see `_extract_task_id`. None when absent.
     """
     record = {
         "session_id": session_id,
         "persona": persona,
         "activity_id": activity_id,
         "ts": datetime.now(timezone.utc).isoformat(),  # noqa: UP017
+        "task_id": task_id,
     }
     _append_jsonl(files_dir / "activity_open.jsonl", record)
 
@@ -412,7 +500,19 @@ def main() -> None:
         "dispatch_kind": kind,
         "ts": datetime.now(timezone.utc).isoformat(),  # noqa: UP017
     }
-    _append_jsonl(files_dir / "router_dispatches.jsonl", record)
+    accepted = False
+    if not _daemon_call_isolated():
+        try:
+            accepted = (
+                _daemon_rpc_module().call(
+                    _repo_root(), "record_event", {"sink": "router_dispatches", "row": record}, _DAEMON_TIMEOUT_S
+                )
+                is not None
+            )
+        except Exception:
+            accepted = False
+    if not accepted:
+        _append_jsonl(files_dir / "router_dispatches.jsonl", record)
 
     # R1-T05: open a cockpit activity row for real single-Agent dispatches only.
     # "fanout" (Workflow/TeamCreate) is skipped — see module docstring BUG #1:
@@ -423,7 +523,9 @@ def main() -> None:
             _repo_root(), persona, _dispatch_task_label(tool_input), session_id
         )
         if activity_id is not None:
-            _cache_open_activity(files_dir, session_id, persona, activity_id)
+            _cache_open_activity(
+                files_dir, session_id, persona, activity_id, _extract_task_id(tool_input)
+            )
 
     sys.exit(0)
 

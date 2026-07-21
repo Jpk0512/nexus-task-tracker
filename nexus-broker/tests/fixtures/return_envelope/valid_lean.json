@@ -1,0 +1,7 @@
+{
+  "completion_marker": "## NEXUS:DONE",
+  "files_changed": [
+    "docs/agents/CONTRACT.md"
+  ],
+  "verification_result": "$ python3 tools/check_liveness.py --only r2-authoring-standard --gate\nOK: 1 target checked, 0 failures (rc=0)"
+}

@@ -18,7 +18,7 @@ const prReviewsStateIcons = {
 		<GitPullRequestDraft key="draft" className={cn("text-zinc-400", c)} />
 	),
 	merged: (c: string) => (
-		<GitPullRequestIcon key="merged" className={cn("text-purple-600", c)} />
+		<GitPullRequestIcon key="merged" className={cn("text-cyan-600", c)} />
 	),
 };
 

@@ -127,8 +127,11 @@ def test_is_notepad_fresh_naive_timestamp_reported_fresh() -> None:
 
 
 def test_is_notepad_fresh_stale_naive_timestamp_reported_stale() -> None:
-    """A tz-naive notepad_logged_at that is old must be reported STALE."""
-    old_naive = (datetime.now(tz=UTC).replace(tzinfo=None) - timedelta(seconds=400)).isoformat()
+    """A tz-naive notepad_logged_at that is old must be reported STALE.
+
+    DEC-068: window widened to 900s — fixture uses 1000s to stay beyond it.
+    """
+    old_naive = (datetime.now(tz=UTC).replace(tzinfo=None) - timedelta(seconds=1000)).isoformat()
     state: BrokerState = {"notepad_logged_at": old_naive}
     assert is_notepad_fresh(state) is False
 

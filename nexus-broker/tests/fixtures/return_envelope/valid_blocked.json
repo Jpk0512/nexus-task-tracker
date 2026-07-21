@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "status": "BLOCKED",
+  "completion_marker": "## NEXUS:BLOCKED",
+  "files_changed": [],
+  "summary": "Cannot proceed: the verification command is not installed in this environment.",
+  "skills_loaded": ["agent-protocol"],
+  "blockers": [
+    "`uv` not found on PATH (rc=127) — the required `uv run pytest` verification could not be performed."
+  ],
+  "notepad_written": {
+    "skipped": "no useful context to add beyond the blocker itself"
+  }
+}

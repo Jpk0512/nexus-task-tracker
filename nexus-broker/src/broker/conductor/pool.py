@@ -14,9 +14,18 @@ import dataclasses
 import json
 import subprocess
 import time
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 
 _RATE_LIMIT_SIGNALS = ("rate_limit", "rate limit", "429", "overloaded")
+
+# P1 retry (RCA `.memory/scout-reports/1783912955/conductor-rca.md`): a
+# TRANSIENT worker failure — the subprocess exited rc!=0 or timed out — is
+# eligible for a bounded retry before the node is recorded failed. A
+# non-JSON envelope is a STRUCTURAL failure (the binary ran and returned
+# rc=0 with garbage output) and is never retried (fail-loud, sdk-workflow).
+_TRANSIENT_ERROR_PREFIXES = ("timeout:", "rc=")
+_RETRY_BACKOFF_BASE_S = 1.0
 
 
 @dataclasses.dataclass
@@ -27,6 +36,7 @@ class WorkerTask:
     allowed_tools: list[str] = dataclasses.field(default_factory=list)
     model: str = "sonnet"
     timeout_s: float = 120.0
+    max_retries: int = 0  # 0 = no retry, fully backward-compatible default
 
 
 @dataclasses.dataclass
@@ -39,6 +49,7 @@ class WorkerResult:
     error: str | None = None
     rate_limited: bool = False
     total_cost_usd: float = 0.0
+    attempts: int = 1
 
 
 def _build_argv(task: WorkerTask) -> list[str]:
@@ -68,9 +79,40 @@ def _build_argv(task: WorkerTask) -> list[str]:
     return argv
 
 
-def run_worker(task: WorkerTask, *, claude_bin: str = "claude") -> WorkerResult:
-    """Run one headless claude -p leg. Fail-loud on rc!=0 or non-JSON stdout
-    (sdk-workflow) — never a silent retry or a salvage parse at this layer."""
+def _is_transient(result: WorkerResult) -> bool:
+    """Only rc!=0 subprocess failures and timeouts are transient/retryable
+    (pool.py P1 fix) — a non-JSON envelope is structural, never retried."""
+    if result.ok or result.error is None:
+        return False
+    return result.error.startswith(_TRANSIENT_ERROR_PREFIXES)
+
+
+def run_worker(
+    task: WorkerTask, *, claude_bin: str = "claude",
+    sleep_fn: Callable[[float], None] = time.sleep,
+) -> WorkerResult:
+    """Run one headless claude -p leg, retrying up to `task.max_retries`
+    times (exponential backoff, base 1s) on a TRANSIENT failure — rc!=0 or
+    timeout — before giving up (P1 fix: RCA `.memory/scout-reports/
+    1783912955/conductor-rca.md`, the exact rc!=0/timeout cascade that
+    failed run `25182409948f4da1b473025fb8eb2f44`). A non-JSON envelope
+    fails loud with NO retry (sdk-workflow: never a silent salvage parse).
+    `max_retries` defaults to 0 (no retry, fully backward-compatible)."""
+    max_attempts = task.max_retries + 1
+    result = _run_worker_once(task, claude_bin=claude_bin)
+    attempt = 1
+    while not result.ok and _is_transient(result) and attempt < max_attempts:
+        sleep_fn(_RETRY_BACKOFF_BASE_S * (2 ** (attempt - 1)))
+        attempt += 1
+        result = _run_worker_once(task, claude_bin=claude_bin)
+    result.attempts = attempt
+    return result
+
+
+def _run_worker_once(task: WorkerTask, *, claude_bin: str = "claude") -> WorkerResult:
+    """One dispatch attempt. Fail-loud on rc!=0 or non-JSON stdout
+    (sdk-workflow) — never a silent retry or a salvage parse at this layer;
+    retry policy lives one level up in `run_worker`."""
     argv = _build_argv(task)
     argv[0] = claude_bin
     start = time.monotonic()

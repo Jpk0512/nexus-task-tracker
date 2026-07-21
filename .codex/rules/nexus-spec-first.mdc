@@ -1,0 +1,30 @@
+---
+description: Apply before starting a NEW non-trivial feature — write a spec, GWT acceptance, and pass a planning gate first
+alwaysApply: false
+---
+
+# Spec-first for new features (Constitution Art. I, IV, VIII)
+
+Before implementing a **new, non-trivial feature**, do the planning work first — no production code until it passes.
+
+## Write a short spec at `docs/features/FEAT-XXX.md`
+1. **User stories with Given / When / Then acceptance criteria**, accepted before coding.
+2. **No `[NEEDS CLARIFICATION]` markers** left — resolve them with the user first.
+3. **Constitution check** — walk the 14 articles; justify in writing any marked not-applicable.
+4. **Schema lock** (Art. IV) — if the work touches DuckDB, the `CREATE TABLE` DDL goes in the spec **before** any ingestion/query code.
+5. **Test stubs first** (Art. II) — write the failing tests before production code.
+
+## Planning gate
+```bash
+python3 .memory/log.py planning-gate check --feat FEAT-XXX   # must return PASS
+```
+
+## Tier bypass rules
+
+There are two distinct bypass tiers below Standard — they are NOT interchangeable:
+
+**TRIVIAL** — ≤1 file, ≤5 LOC, no logic change, no design decision. Self-authored inline by the orchestrator; **NO Lens required**; logged via `context snapshot --action-type trivial-fix`. If any logic change is discovered, the tier **MUST** be promoted to Simple immediately and Lens dispatched.
+
+**SIMPLE** — ≤2 files, logic change small and well-understood. **Delegated** to the owning persona with a full brief; **Lens is REQUIRED** before marking done. The orchestrator does NOT self-author Simple changes.
+
+Both bypass tiers skip the formal spec file and planning gate. Standard and above always require spec-first. When in doubt, promote one tier up.

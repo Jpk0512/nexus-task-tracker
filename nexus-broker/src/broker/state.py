@@ -7,8 +7,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TypedDict
 
-NOTEPAD_STALE_SECONDS = 300
-TURN_STALE_SECONDS = 120
+NOTEPAD_STALE_SECONDS = 900  # DEC-068: widened 300->900 with broker-gate.py (kept in lockstep, test_drift_guard)
+TURN_STALE_SECONDS = 300  # DEC-068: widened 120->300 with broker-gate.py (kept in lockstep, test_drift_guard)
 
 
 def resolve_turn_stale_seconds() -> int:
@@ -62,6 +62,8 @@ class BrokerState(TypedDict, total=False):
     # full brief in every Agent prompt. broker-gate reads these FIRST and falls
     # back to prompt-JSON only when absent (back-compat).
     approved_brief: dict  # {task_tier, work_type, intent, skills_required}
+    capability_token: dict  # F1-04: minted by nexus_validate_brief on PASS, read by
+    # _token_shadow.extract_token; absent on a rejected validation.
 
 
 def read_state() -> BrokerState:

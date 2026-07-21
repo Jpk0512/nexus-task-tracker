@@ -13,11 +13,13 @@ outside pytest, per the N34 brief)."""
 from __future__ import annotations
 
 import json
+import threading
 from pathlib import Path
 
 import pytest
 
 import broker.conductor.__main__ as main_mod
+from broker.conductor import checkpoint as checkpoint_mod
 from broker.conductor import dag as dag_mod
 from broker.conductor import entry
 
@@ -167,6 +169,187 @@ def test_run_dag_entry_journals_failed_status_on_node_failure(tmp_path: Path) ->
 
 
 # ---------------------------------------------------------------------------
+# run_dag_entry — partial-success status (P1 fix): status is no longer
+# binary all-or-nothing. A multi-node DAG where SOME nodes fail (not all)
+# must record "partial", not "failed" or "ok".
+# ---------------------------------------------------------------------------
+
+
+def test_run_dag_entry_partial_status_when_some_nodes_fail(tmp_path: Path) -> None:
+    # node_contract's orphan-leaf rule requires exactly one terminal node —
+    # chain n-ok -> n-bad rather than two independent (double-terminal) nodes.
+    n_ok = _node("n-ok")
+    n_ok["downstream_consumers"] = ["n-bad"]
+    n_bad = _node("n-bad")
+    n_bad["depends_on"] = ["n-ok"]
+    doc = {
+        "schema_version": 2, "dag_id": "partial-dag",
+        "nodes": [n_ok, n_bad],
+    }
+    dag_path = _write_dag(tmp_path, doc)
+    journal_path = tmp_path / "conductor_runs.jsonl"
+
+    def fake(node, *, template, worker_id, claude_bin="claude"):
+        ok = node["node_id"] == "n-ok"
+        telemetry = dag_mod.DispatchTelemetry(node["node_id"], "claude", ok, 5, worker_id)
+        err = None if ok else "boom"
+        return dag_mod.NodeResult(node["node_id"], "claude", ok, worker_id, telemetry, error=err)
+
+    outcome = entry.run_dag_entry(
+        dag_path, journal_path=journal_path,
+        checkpoint_journal_path=tmp_path / "checkpoints.jsonl",
+        dispatch_claude_fn=fake, dispatch_codex_fn=_fail_if_called,
+    )
+    assert outcome["status"] == "partial"
+
+    lines = _read_journal_lines(journal_path)
+    assert lines[0]["status"] == "partial"
+    detail = lines[0]["detail"]
+    assert detail["total_nodes"] == 2
+    assert detail["completed_nodes"] == 2
+    assert detail["node_results"]["n-ok"]["ok"] is True
+    assert detail["node_results"]["n-bad"]["ok"] is False
+    assert detail["node_results"]["n-bad"]["error"] == "boom"
+
+
+# ---------------------------------------------------------------------------
+# CENTERPIECE: durable per-node checkpoint/resume (crash-resilience fix).
+#
+# RCA (`.memory/scout-reports/1783912955/conductor-rca.md`, run
+# `25182409948f4da1b473025fb8eb2f44`): a transient rc!=0/timeout on ONE
+# gate lost the whole run's evidence — binary all-or-nothing status, no
+# retry, NO PER-NODE DURABILITY. This test IS the spec for the fix: a real
+# "crash" is simulated by raising a BaseException (NOT Exception — the
+# scheduler's `except Exception` in dag.py deliberately does not catch it)
+# from inside `dispatch_claude_fn` after node K has already been
+# checkpointed to disk, killing the sole worker thread mid-run. A SECOND
+# call, resuming from the SAME run_id, must (a) never re-dispatch the
+# already-checkpointed nodes, (b) complete the run, (c) lose no node
+# result.
+# ---------------------------------------------------------------------------
+
+
+class _SimulatedCrash(BaseException):
+    """Deliberately NOT an Exception subclass — escapes dag.py's
+    `except Exception` handler exactly like a real process crash would,
+    killing the worker thread mid-dispatch."""
+
+
+def _four_node_dag(dag_id: str = "crash-resume-dag") -> dict:
+    """A LINEAR CHAIN n0 -> n1 -> n2 -> n3 — node_contract's orphan-leaf rule
+    requires exactly one terminal node, so 4 independent (all-terminal)
+    nodes would fail validation. A chain also gives `max_workers=1`
+    deterministic FIFO dispatch order for free (each node only becomes
+    ready once its single predecessor completes)."""
+    ids = [f"n{i}" for i in range(4)]
+    nodes = []
+    for i, nid in enumerate(ids):
+        node = _node(nid)
+        node["depends_on"] = [ids[i - 1]] if i > 0 else []
+        node["downstream_consumers"] = [ids[i + 1]] if i < len(ids) - 1 else []
+        nodes.append(node)
+    return {"schema_version": 2, "dag_id": dag_id, "nodes": nodes}
+
+
+def test_crash_mid_run_then_resume_loses_no_completed_node(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(threading, "excepthook", lambda args: None)  # silence the simulated crash's traceback
+
+    dag_path = _write_dag(tmp_path, _four_node_dag())
+    journal_path = tmp_path / "conductor_runs.jsonl"
+    checkpoint_path = tmp_path / "checkpoints.jsonl"
+
+    # --- run 1: crash after n0 and n1 checkpoint, before n2/n3 dispatch ---
+    completed_before_crash: list[str] = []
+
+    def crashing_dispatch(node, *, template, worker_id, claude_bin="claude"):
+        node_id = node["node_id"]
+        if len(completed_before_crash) >= 2:
+            raise _SimulatedCrash(f"simulated crash dispatching {node_id}")
+        completed_before_crash.append(node_id)
+        telemetry = dag_mod.DispatchTelemetry(node_id, "claude", True, 5, worker_id)
+        return dag_mod.NodeResult(node_id, "claude", True, worker_id, telemetry, payload={"ok": True})
+
+    outcome1 = entry.run_dag_entry(
+        dag_path, journal_path=journal_path, checkpoint_journal_path=checkpoint_path,
+        max_workers=1,  # deterministic FIFO dispatch order over the shared ready-queue
+        dispatch_claude_fn=crashing_dispatch, dispatch_codex_fn=_fail_if_called,
+    )
+    run_id = outcome1["run_id"]
+
+    # the "crash" did not stop the process (only the one worker thread died),
+    # so run_dag_entry returned — but with an INCOMPLETE result: only the 2
+    # nodes that finished before the crash are present.
+    assert set(outcome1["result"].results) == {"n0", "n1"}
+    assert outcome1["status"] == "partial"
+
+    # the durable checkpoint journal has exactly the 2 completed nodes ON
+    # DISK — this is the crash-resilience guarantee: nothing already
+    # completed is lost, even though the run object itself never finished.
+    checkpointed = checkpoint_mod.load_checkpoint(checkpoint_path, run_id)
+    assert set(checkpointed) == {"n0", "n1"}
+    assert all(rec["ok"] for rec in checkpointed.values())
+
+    # --- run 2: resume from the SAME run_id ---
+    resumed_calls: list[str] = []
+
+    def resume_dispatch(node, *, template, worker_id, claude_bin="claude"):
+        node_id = node["node_id"]
+        assert node_id not in ("n0", "n1"), (
+            f"{node_id} was already checkpointed in run {run_id} — must not be re-dispatched on resume"
+        )
+        resumed_calls.append(node_id)
+        telemetry = dag_mod.DispatchTelemetry(node_id, "claude", True, 5, worker_id)
+        return dag_mod.NodeResult(node_id, "claude", True, worker_id, telemetry, payload={"ok": True})
+
+    outcome2 = entry.run_dag_entry(
+        dag_path, journal_path=journal_path, checkpoint_journal_path=checkpoint_path,
+        max_workers=1, resume_run_id=run_id,
+        dispatch_claude_fn=resume_dispatch, dispatch_codex_fn=_fail_if_called,
+    )
+
+    # (a) already-completed nodes were never re-executed
+    assert set(resumed_calls) == {"n2", "n3"}
+    # (b) the run completes
+    assert outcome2["status"] == "ok"
+    assert outcome2["run_id"] == run_id
+    # (c) no node result is lost — all 4 nodes present, all ok
+    result2 = outcome2["result"]
+    assert set(result2.results) == {"n0", "n1", "n2", "n3"}
+    assert all(r.ok for r in result2.results.values())
+
+    # the checkpoint journal ends up with exactly ONE record per node_id for
+    # this run_id — the pre-crash nodes were not re-checkpointed either.
+    final_checkpoint = checkpoint_mod.load_checkpoint(checkpoint_path, run_id)
+    assert set(final_checkpoint) == {"n0", "n1", "n2", "n3"}
+    all_lines = [
+        json.loads(line) for line in checkpoint_path.read_text(encoding="utf-8").splitlines() if line.strip()
+    ]
+    node_ids_for_run = [rec["node_id"] for rec in all_lines if rec["run_id"] == run_id]
+    assert len(node_ids_for_run) == 4  # no duplicate checkpoint lines
+    assert sorted(node_ids_for_run) == ["n0", "n1", "n2", "n3"]
+
+
+def test_checkpoint_journal_written_incrementally_as_nodes_complete(tmp_path: Path) -> None:
+    """The journal must carry a line per node as it completes, not only a
+    final summary — checked here without any crash, on a normal full run."""
+    dag_path = _write_dag(tmp_path, _four_node_dag(dag_id="incremental-dag"))
+    checkpoint_path = tmp_path / "checkpoints.jsonl"
+
+    outcome = entry.run_dag_entry(
+        dag_path, journal_path=tmp_path / "conductor_runs.jsonl",
+        checkpoint_journal_path=checkpoint_path, max_workers=2,
+        dispatch_claude_fn=_fake_dispatch_claude_factory(ok=True), dispatch_codex_fn=_fail_if_called,
+    )
+    checkpointed = checkpoint_mod.load_checkpoint(checkpoint_path, outcome["run_id"])
+    assert set(checkpointed) == {"n0", "n1", "n2", "n3"}
+    assert all(rec["ok"] for rec in checkpointed.values())
+    for rec in checkpointed.values():
+        assert rec["timestamp"]
+
+
+# ---------------------------------------------------------------------------
 # append_run_record — append-only JSONL shape
 # ---------------------------------------------------------------------------
 
@@ -238,6 +421,39 @@ def test_run_verify_matrix_entry_journals_failed_on_gate_failure(
     outcome = entry.run_verify_matrix_entry(journal_path=journal_path)
     assert outcome["status"] == "failed"
     assert _read_journal_lines(journal_path)[0]["status"] == "failed"
+
+
+def test_run_verify_matrix_entry_partial_status_when_some_gates_pass(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """P1 fix: previously `passed` (hence journaled `status`) was strictly
+    `all(g["ok"] for g in gates)` — a lint+test pass with only contract
+    failing recorded identically to all 3 gates failing. Gate-level detail
+    (RCA "detective gap") must also land in the journal's `detail.gates`."""
+
+    def fake_tenant(*, cwd, claude_bin, run_label):
+        return {
+            "lane": "conductor", "passed": False, "duration_ms": 90,
+            "gates": [
+                {"gate_id": "lint", "scope": "x", "ok": True, "duration_ms": 10, "error": None},
+                {"gate_id": "test", "scope": "y", "ok": True, "duration_ms": 20, "error": None},
+                {"gate_id": "contract", "scope": "z", "ok": False, "duration_ms": 30, "error": "rc=1: boom"},
+            ],
+        }
+
+    monkeypatch.setattr(entry.verify_matrix, "run_verify_matrix_tenant", fake_tenant)
+    journal_path = tmp_path / "conductor_runs.jsonl"
+
+    outcome = entry.run_verify_matrix_entry(journal_path=journal_path)
+    assert outcome["status"] == "partial"
+
+    line = _read_journal_lines(journal_path)[0]
+    assert line["status"] == "partial"
+    gates = line["detail"]["gates"]
+    assert len(gates) == 3
+    failing = next(g for g in gates if g["gate_id"] == "contract")
+    assert failing["ok"] is False
+    assert failing["error"] == "rc=1: boom"
 
 
 # ---------------------------------------------------------------------------

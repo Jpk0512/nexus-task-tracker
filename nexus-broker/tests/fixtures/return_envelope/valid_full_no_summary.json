@@ -1,0 +1,23 @@
+{
+  "status": "DONE",
+  "completion_marker": "## NEXUS:DONE",
+  "files_changed": [
+    "nexus-broker/src/broker/schemas/return_envelope.schema.json"
+  ],
+  "skills_loaded": ["agent-protocol", "atlas-schema-patterns"],
+  "verification_result": "$ uv run pytest tests/test_return_envelope_schema.py -q\n................\n18 passed in 0.44s",
+  "acceptance_met": [
+    {
+      "criterion": "A CONTRACT.md-canonical FULL envelope validates without a summary field",
+      "met": true,
+      "evidence": "this fixture omits both summary and schema_version and still validates"
+    }
+  ],
+  "notepad_written": {
+    "topic": "F1-06",
+    "agent": "atlas",
+    "kind": "reminder",
+    "note": "summary is NOT a CONTRACT.md field; the envelope schema must never require it or it rejects the canonical Required Output template."
+  },
+  "notes": "Mirrors CONTRACT.md's canonical Required Output shape: no summary, no schema_version. Locks in that neither is required (F1-06 REVISE finding #1)."
+}

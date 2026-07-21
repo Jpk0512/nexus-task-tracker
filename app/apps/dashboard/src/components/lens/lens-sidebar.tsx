@@ -61,7 +61,7 @@ export const LENS_SEGMENTS: LensSegmentDef[] = [
 		id: "anytime",
 		label: "Anytime",
 		icon: InfinityIcon,
-		tint: "text-purple-400",
+		tint: "text-cyan-400",
 		hint: "In progress, no due date",
 	},
 	{

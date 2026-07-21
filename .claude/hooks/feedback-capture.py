@@ -25,10 +25,23 @@ slice and is passed as a subprocess argv element (never shell-interpolated).
 this file un-shimmed under ambient python3 (3.9). No 3.11-only idioms: keep
 timezone.utc + # noqa: UP017, no datetime.UTC, no match/case, no def-time X|None
 (from __future__ import annotations keeps PEP-604 annotations def-time-safe).
+
+DAEMON SHIM (Tranche 2, nexus-redesign/audits/daemon-hook-plan-2026-07-12.md
+§C) — `_emit_feedback` first tries a `record_event` RPC (sink="nexus_feedback")
+against the resident daemon's Unix socket with a SHORT, env-tunable timeout
+(`NEXUS_FEEDBACK_CAPTURE_DAEMON_TIMEOUT_S`, default 0.3s) via the shared
+`_daemon_rpc` shim. The daemon does NOT duplicate log.py's validation +
+open-session lookup + nexus_version stamping (a second, driftable copy of
+real business logic) — it fire-and-forget-spawns the exact same
+`log.py feedback add` subprocess this hook's inline fallback runs, just off
+this hook's own critical path (see server.py's `_spawn_feedback_add`). ANY
+daemon miss/timeout/error falls back INLINE to the `subprocess.run` call
+below — no hook may ever fail or block because the daemon is down.
 """
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import re
@@ -38,6 +51,35 @@ from datetime import datetime, timezone  # noqa: UP017
 from pathlib import Path
 
 HOOKS_DIR = Path(__file__).resolve().parent
+
+
+def _daemon_rpc_module():
+    """Same-directory dynamic import — mirrors broker-gate.py's _heartbeat load."""
+    spec = importlib.util.spec_from_file_location(
+        "_daemon_rpc", HOOKS_DIR / "_daemon_rpc.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)  # type: ignore[union-attr]
+    return module
+
+
+_DAEMON_TIMEOUT_S = float(os.environ.get("NEXUS_FEEDBACK_CAPTURE_DAEMON_TIMEOUT_S", "0.3"))
+
+
+def _daemon_call_isolated() -> bool:
+    """True when a test-isolation override is active for this invocation.
+
+    NATIVE-18-3 class of bug (see nexus-broker/tests/test_dispatch_capture.py):
+    a RESIDENT daemon binds its socket AND its `log.py feedback add` spawn's
+    cwd/db to the REAL repo root at daemon-start time, so it can never honor
+    a per-call `_HOOK_REPO_ROOT` / `NEXUS_DB_PATH` override the way the
+    inline `subprocess.run` fallback naturally does (both are read fresh on
+    every hook invocation). Skipping the daemon hop entirely whenever either
+    override is set is the only way to avoid a real hook-test silently
+    writing into THIS repo's live nexus_feedback table — mirrors
+    _heartbeat.py's identical NEXUS_HEARTBEAT_PATH-skips-daemon rule.
+    """
+    return bool(os.environ.get("_HOOK_REPO_ROOT") or os.environ.get("NEXUS_DB_PATH"))
 
 # Map the friction markers to (category, severity). DONE/CHECKPOINT are NOT here
 # (they are not friction). The first match in the text wins.
@@ -105,6 +147,36 @@ def _marker_message(text: str, marker: str) -> str:
 
 
 def _emit_feedback(root: Path, category: str, severity: str, message: str, context: dict) -> None:
+    """Record one Nexus-friction row. Never raises; failure is swallowed.
+
+    Tries the daemon `record_event` RPC first (see module docstring); on
+    ANY miss falls back to the exact `log.py feedback add` subprocess call
+    this hook has always run.
+    """
+    row = {
+        "source": "hook",
+        "severity": severity,
+        "category": category,
+        "message": message,
+        "context": context,
+    }
+    accepted = False
+    if not _daemon_call_isolated():
+        try:
+            accepted = (
+                _daemon_rpc_module().call(
+                    root, "record_event", {"sink": "nexus_feedback", "row": row}, _DAEMON_TIMEOUT_S
+                )
+                is not None
+            )
+        except Exception:
+            accepted = False
+    if accepted:
+        return
+    _emit_feedback_inline(root, category, severity, message, context)
+
+
+def _emit_feedback_inline(root: Path, category: str, severity: str, message: str, context: dict) -> None:
     """Best-effort `log.py feedback add`. Never raises; failure is swallowed."""
     log_py = _log_py(root)
     if not log_py.is_file():

@@ -65,20 +65,24 @@ These files ship regardless of stack profile:
 - `lens-fast`
 - `palette`
 
-**Skills (core protocol — 14 skills):**
+**Skills (core protocol — 11 skills):**
 - `nexus-protocol`
 - `nexus-capabilities`
 - `nexus-health`
 - `nexus-loss-function`
 - `nexus-dispatch-catalog`
 - `nexus-orchestration`
-- `tdd-patterns`
-- `verification-protocols`
 - `parallel-first-check`
 - `team-routing`
 - `session-lifecycle`
 - `contract-schema`
 - `palette-design-patterns` (design companion to the always-shipped `palette` agent; ships unconditionally)
+
+NATIVE-6 D4: `tdd-patterns` and `verification-protocols` are RETIRED. Their
+successors ARE wired: `agent-protocol`/`verification`/`review-panel` sit in
+`_AGNOSTIC_SKILLS` (`nexus-package/tools/stack_profile.py`) and flow through
+`resolve_file_manifest` via `AGNOSTIC_SET`; `tdd-core` ships per-stack alongside
+the quill agents. Asserted by `tests/test_stack_manifest.py`.
 
 ---
 
@@ -104,7 +108,6 @@ Condition: `backend.present == true` OR `backend.framework not in (null, "none")
 
 Ship agents:
 - `forge-wire`
-- `forge-wire-pro`
 
 Ship skills:
 - `forge-wire-conventions`
@@ -117,10 +120,9 @@ Condition: `data.has_ingestion == true` OR `data.db == "duckdb"`
 
 Ship agents:
 - `pipeline-data`
-- `pipeline-data-pro`
 
 Ship skills:
-- `pipeline-data-conventions`
+- (none — `pipeline-data-conventions` retired 2026-07-13, native #4 owner sweep: a stack-conditional skill installed in zero fleet projects, dropped with no successor)
 
 Note: A plain Python web backend does **not** satisfy this condition on its own. Only a real data pipeline (an ingestion layer present or DuckDB as the data store) ships these personas.
 
@@ -130,7 +132,6 @@ Condition: `workers.present == true`
 
 Ship agents:
 - `pipeline-async`
-- `pipeline-async-pro`
 
 Ship skills:
 - `pipeline-async-conventions`
@@ -145,11 +146,9 @@ Ship agents:
 - `atlas`
 
 Ship skills:
-- `duckdb-read-patterns`
-- `duckdb-test-shims`
-- `polars-duckdb-mapping`
-- `polars-test-fixtures`
 - `atlas-schema-patterns`
+
+(`duckdb-read-patterns`/`duckdb-test-shims`/`polars-duckdb-mapping`/`polars-test-fixtures` retired 2026-07-13, native #4 owner sweep — zero fleet installs.)
 
 #### Malloy semantic layer
 
@@ -160,12 +159,13 @@ Ship skills:
 
 Note: `data.semantic_layer == "malloy"` implies `data.db == "duckdb"` in practice, so the atlas agent will already be included by the DuckDB rule.
 
-#### Dramatiq workers
+#### Dramatiq workers — retired
 
-Condition: `workers.present == true` AND `workers.framework == "dramatiq"`
-
-Ship skills:
-- `dramatiq-patterns`
+`dramatiq-patterns` (the sole skill this rule shipped) was retired 2026-07-13
+(native #4 owner sweep — zero fleet installs). `workers.framework ==
+"dramatiq"` is still detected and reported truthfully in the profile (it feeds
+no other ship rule today, but the field stays accurate rather than lying about
+the stack) — it just no longer drives a ship decision.
 
 #### Next.js or Vite frontend
 
@@ -173,15 +173,13 @@ Condition: `frontend.framework in ["next", "vite"]`
 
 Ship agents:
 - `forge-ui`
-- `forge-ui-pro`
 - `forge-wire`
-- `forge-wire-pro`
 - `quill-ts`
 
 Ship skills:
 - `forge-ui-conventions`
 - `forge-wire-conventions`
-- `vitest-rtl-idioms` (the Vitest-specific extension; `tdd-patterns` is already in the agnostic set)
+- `vitest-rtl-idioms` (the Vitest-specific extension to the generic stub-authoring skill)
 
 #### RSC boundary rules — Next.js only
 
@@ -201,12 +199,14 @@ Ship skills:
 
 Note: Server actions are the API layer only when no separate Express/FastAPI backend is present. When a dedicated backend exists, server-action-contract is inapplicable and is omitted.
 
-#### Tremor UI library
+#### Tremor UI library — retired
 
-Condition: `frontend.ui_lib == "tremor"`
-
-Ship skills:
-- `tremor-patterns`
+`tremor-patterns` (the sole skill this rule shipped) was retired 2026-07-13
+(native #4 owner sweep — zero fleet installs). `frontend.ui_lib == "tremor"`
+is still detected and reported truthfully in the profile — it drives the
+`forge-ui-conventions` variant key (`_forge_ui_key` resolves it to the
+`next-tremor` variant), so detection stays even though no skill ships for it
+any more.
 
 #### Tailwind / shadcn UI library
 
@@ -220,7 +220,7 @@ Ship skills:
 Condition: `frontend.ui_lib == "mui"`
 
 Ship skills:
-- (no dedicated MUI skill in current package; omit tremor/tailwind skills)
+- (no dedicated MUI skill in current package; omit tailwind skill)
 
 #### MCP server present
 

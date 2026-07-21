@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://nexus-installer/nexus-broker/router_training_record.schema.json",
+  "$id": "https://nexus/nexus-broker/router_training_record.schema.json",
   "title": "router training record",
   "description": "Canonical contract for one labeled router training pair (00-DESIGN.md 'Canonical training-record schema'). Every exported row MUST validate. Three field groups: input features, label group, provenance/OPT-055 stamp. pred_* guess fields are optional so fallthrough rows (no pred_*) and prefill rows (with them) both validate against this one contract. Legacy rows carrying the old qwen_* keys are normalized to pred_* on read (broker.router_train.aggregate._normalize_record) BEFORE validation, so the 604 pre-rename rows still validate.",
   "type": "object",

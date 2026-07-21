@@ -115,9 +115,11 @@ Each persona owns an exclusive write surface. Cross-writes are prevented by desi
 | **scout** | Read-only investigation — heavy SocratiCode search, graph, impact | — |
 | **lens / lens-fast** | Validation reports only — lint, tsc, semantic RCA | every code-touching persona |
 
-`-pro` escalation variants (`forge-ui-pro`, `forge-wire-pro`, `pipeline-data-pro`,
-`pipeline-async-pro`) run at opus / xhigh effort. Use them when the task is Complex,
-when `stall_count > 0`, or after a Lens `NEXUS:REVISE`.
+**Escalation is a dispatch-time model override, not a separate persona.** There are
+no separate `-pro` agent files (`forge-ui-pro`, `forge-wire-pro`, `pipeline-data-pro`,
+`pipeline-async-pro` are RETIRED names) — re-dispatch the SAME base persona with
+`model: opus, effort: xhigh` when the task is Complex, when `stall_count > 0`, or
+after a Lens `NEXUS:REVISE`.
 
 ---
 
@@ -127,11 +129,19 @@ Every `Task` dispatch is hard-gated by `broker-gate.py` (PreToolUse/Task). The g
 is **FAIL-CLOSED**: a missing or unreadable `broker_state.json` blocks the dispatch
 (exit 2) — a down broker is loud, not silently bypassed.
 
-The mandatory ritual, in order, within 120 seconds before each Task:
+**F1-04 token-authoritative (default).** One `nexus_validate_brief_tool` call per
+task/plan mints a TTL-bounded (4h) capability token scoped to the dispatched
+persona as a PASS side-effect; that valid token alone is the dispatch evidence — no
+per-dispatch notepad/ping repetition, no turn-freshness window. **Rollback flag**
+`NEXUS_RITUAL_AUTHORITY=1` (kept 1 release) restores the pre-F1-04 ritual verbatim:
 
 1. `nexus_validate_brief_tool` — validates persona legality + brief JSON; writes `broker_state.json` with `approved:true` and `called_at`.
 2. `python3 .memory/log.py notepad list --topic <scope>` then `nexus_notepad_ping` — records `notepad_logged_at`.
-3. Issue the `Task`.
+3. Issue the `Task` within 300 seconds (DEC-068) of step 1.
+
+**Transition:** a broker server process mints tokens only after it is restarted /
+the MCP connection is re-established — set `NEXUS_RITUAL_AUTHORITY=1` until that is
+confirmed.
 
 The broker MCP server is `python -m broker.server` (FastMCP, `nexus-broker/src/broker/server.py`).
 The vault server is `python -m broker.vault.stdio`. Both are wired in `.mcp.json`.

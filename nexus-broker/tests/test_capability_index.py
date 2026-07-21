@@ -13,6 +13,7 @@ import copy
 import json
 
 import pytest
+from syrupy.assertion import SnapshotAssertion
 
 from broker.registry_index.discover import discover, estimate_tokens
 from broker.registry_index.index import (
@@ -186,18 +187,13 @@ def test_discover_returns_estimated_tokens_from_summary_budget() -> None:
     assert candidate["estimated_tokens"] == estimate_tokens(index["capabilities"][0])
 
 
-def test_discover_candidate_shape() -> None:
+def test_discover_candidate_shape(snapshot: SnapshotAssertion) -> None:
     index = build_index([("skill", TDD_PATTERNS_META)])
     [candidate] = discover(index, "tdd")
-    assert candidate == {
-        "id": "tdd-patterns",
-        "kind": "skill",
-        "summary": TDD_PATTERNS_META["summary"],
-        "authority": "hard-rule",
-        "estimated_tokens": 200,
-        "requires_profile": [],
-        "next_action": "nexus_prepare",
-    }
+    # envelope fixture: the rendered discover() candidate shape, reviewed via
+    # snapshot (F3-04) — a field added/renamed/reworded now shows as a
+    # readable snapshot diff instead of a silent inline-dict edit.
+    assert candidate == snapshot
 
 
 def test_discover_filters_by_query_text() -> None:

@@ -224,6 +224,88 @@ def test_empty_panel_create_does_not_clobber_closed_native1(tmp_path: Path) -> N
     )
 
 
+# ---------------------------------------------------------------------------
+# AC-4  NATIVE-16 — a direct `task mirror-native --op update` reaching
+#       _upsert_native_task's UPDATE branch must refuse to patch a pre-existing
+#       row that was NOT itself created by the mirror (no "mirrored from native
+#       task #<N>" marker), mirroring _foreign_collision() in
+#       .claude/hooks/_task_mirror.py:73 — closing the residual left by
+#       NATIVE-13 (which only guarded the hook's own pre-check, not this
+#       function reached directly).
+# ---------------------------------------------------------------------------
+
+
+def test_direct_update_refuses_foreign_row(tmp_path: Path) -> None:
+    """A hand-authored NATIVE-<N> row (e.g. the redesign family, no mirror
+    marker in notes) must survive a direct `task mirror-native --op update`
+    untouched — the guard returns a structured refusal, not a silent patch.
+    """
+    db = tmp_path / "project.db"
+    _run("init", db_path=db, check=True)
+
+    # Hand-author NATIVE-16 directly (bypassing the mirror entirely) — no
+    # "mirrored from native task #..." marker in notes.
+    add = _run(
+        "task", "add",
+        "--id", "NATIVE-16",
+        "--domain", "nexus",
+        "--title", "Hand-authored redesign task",
+        "--status", "in_progress",
+        db_path=db,
+    )
+    assert add.returncode == 0, f"task add failed: {add.stderr}"
+
+    # A direct mirror-native update against that same id must refuse.
+    update = _mirror(
+        db,
+        op="update",
+        native_id="16",
+        subject="Hand-authored redesign task",
+        status="completed",
+    )
+    assert update.returncode == 0, (
+        f"guard must no-op cleanly (never raise): {update.stderr}"
+    )
+    summary = json.loads(update.stdout)
+    assert summary.get("action") == "refused_foreign_row", (
+        f"expected a structured refusal, got: {summary}"
+    )
+
+    rows = json.loads(_run("task", "list", db_path=db).stdout)
+    native16 = next((r for r in rows if r.get("id") == "NATIVE-16"), None)
+    assert native16 is not None, "NATIVE-16 row vanished"
+    assert native16["title"] == "Hand-authored redesign task", (
+        f"NATIVE-16 title must survive the refused update: {native16}"
+    )
+    assert native16["status"] == "in_progress", (
+        f"NATIVE-16 status must NOT be patched by the refused update: {native16}"
+    )
+
+
+def test_direct_update_on_legitimate_mirror_row_still_succeeds(tmp_path: Path) -> None:
+    """A row the mirror itself created (marker present) must still accept a
+    direct `task mirror-native --op update` normally — the guard must not
+    false-positive on legitimate mirror traffic.
+    """
+    db = tmp_path / "project.db"
+    _run("init", db_path=db, check=True)
+
+    create = _mirror(db, op="create", native_id="16", subject="Mirror-owned task", status="pending")
+    assert create.returncode == 0, f"create failed: {create.stderr}"
+
+    update = _mirror(db, op="update", native_id="16", subject="Mirror-owned task", status="completed")
+    assert update.returncode == 0, f"update failed: {update.stderr}"
+    summary = json.loads(update.stdout)
+    assert summary.get("action") == "updated", f"expected a normal update, got: {summary}"
+
+    rows = json.loads(_run("task", "list", db_path=db).stdout)
+    native16 = next((r for r in rows if r.get("id") == "NATIVE-16"), None)
+    assert native16 is not None, "NATIVE-16 row vanished"
+    assert native16["status"] == "done", (
+        f"legitimate mirror update must still land: {native16}"
+    )
+
+
 def test_empty_panel_recreate_same_title_updates_in_place(tmp_path: Path) -> None:
     """Happy path preserved: a create whose subject MATCHES the existing NATIVE-1
     title is the SAME task being re-mirrored — it must update in place, NOT

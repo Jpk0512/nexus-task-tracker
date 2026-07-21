@@ -38,7 +38,7 @@ Dispatch = **match the TASK SHAPE to the right orchestrator-invocable primitive*
 - **Tournament** — N teammates attempt the SAME task differently; judges compare pairwise to one winner. Trigger: one hard problem, N attempts.
 - **Loop-until-done** — unknown-size work; loop until a stop condition ("no new findings" / "no errors"), MANDATORY max-iter cap.
 
-**Extension patterns** (for scenarios not covered by the 6 above): see `docs/ORCHESTRATION-PATTERNS.md` for staged-escalation, self-repair, blinded-holdout, debate/critique, map-reduce, and quorum patterns — each with when/primitive/skeleton and expanded guidance.
+**Extension patterns** (for scenarios not covered by the 6 above): `references/extension-patterns.md` — staged-escalation, self-repair, blinded-holdout, debate/critique, map-reduce, and quorum patterns — each with when/primitive/skeleton and a discriminator table for near-miss pattern pairs.
 
 **Fan-out width:** Fan out as wide as the work genuinely warrants — there is NO fixed K cap. The only hard limits are the harness's: ~16 agents run CONCURRENTLY (the rest QUEUE automatically), 1000 agents total per run, 4096 fan-out per single call. Two real pressures remain, NEITHER numeric: (a) diverse personas usually beat identical clones — prefer heterogeneous decomposition over wide homogeneous duplication; (b) a separate verify/critic phase (Lens) is still mandatory. Justify breadth by the work; decompose by independence; always add the verify phase. **Every** loop/poll/goal primitive needs a **crisp verifiable oracle + a max-iteration/budget cap** (runaway guard). **Worktree isolation is the DEFAULT for ≥2 parallel code-writing legs** (DEC-002/DEC-008): register a worktree per leg before spawning, with a mandatory merge-back+remove final phase; a single indivisible task stays on **main**, no worktree. Workflow-internal teammates **bypass the live SubagentStop gates** — the script MUST run an explicit **Lens verify** keyed to each teammate's `files_changed` (per-worktree-leg, a separate Lens row per leg — see `Skill verify-phase-patterns`).
 
@@ -48,120 +48,18 @@ Dispatch = **match the TASK SHAPE to the right orchestrator-invocable primitive*
 
 ## CATALOG — per technique
 
-Phase-shape notation: `scout → impl xN → lens-fast || lens` means a scout phase, then N parallel impl teammates, then fast+deep Lens verify branches.
+Full when / phase-shape / budget / stop / sketch for each of the 6 techniques (Classify-and-act,
+Fan-out-and-synthesize, Adversarial-verify, Generate-and-filter, Tournament, Loop-until-done)
+plus the polling technique (Monitor): **`references/techniques.md`** — read it before
+authoring ANY of the 6. Every code-writing teammate MUST be followed by a separate Lens
+verify keyed to that teammate's `files_changed` — workflow-internal teammates bypass the
+live SubagentStop gates, so the script re-instates the bar (separate-judge principle).
 
-### 1. Classify-and-act
-
-- **WHEN:** the right behavior depends on the KIND of the input (bug vs feature vs refactor; PII vs clean; TS vs Py). Branching on **type**, not on **scale**.
-- **PHASE SHAPE:** `classify → route → (impl per class) → lens`
-- **BUDGET:** 1 classifier (cheap/fast model) + 1 routed teammate per class actually hit. Don't pre-spawn unhit classes.
-- **STOP:** classifier emits a known class AND the routed teammate returns DONE + Lens passes. Unknown class → escalate to the user, do not guess.
-- **SKETCH:**
-```js
-const team = await TeamCreate({ name: "triage" });
-const kind = await Agent(team, { persona: "scout", model: "haiku",
-  brief: "Classify this change: {bug|feature|refactor}. Return one token." });
-const route = { bug: "fixer", feature: "builder", refactor: "refactorer" };
-const out = await Agent(team, { persona: route[kind.class], brief: fullBrief(kind) });
-await Agent(team, { persona: "lens", brief: verify(out.files_changed) }); // mandatory
-```
-
-### 2. Fan-out-and-synthesize
-
-- **WHEN:** ≥2 **independent** subtasks (no shared file scope, no read-after-write dependency) — multi-domain feature (UI+API+schema), N disjoint shards, audit across modules.
-- **PHASE SHAPE:** `scout → impl xN → synthesize barrier → lens-fast || lens`
-- **BUDGET:** one teammate per independent slice. Diverse personas over identical clones; justify breadth by the work (see Fan-out width above).
-- **STOP:** all owned `TaskCreate` items verified DONE at the synthesize barrier, with a **no-deferral completeness check** (DEC-005) — nothing surfaced-and-unresolved.
-- **SKETCH:**
-```js
-const team = await TeamCreate({ name: "feat-x" });
-const slices = ["ui", "api", "schema"];                 // independent → parallel
-const results = await Promise.all(slices.map(s =>
-  Agent(team, { persona: personaFor(s), brief: briefFor(s) })));
-const changed = results.flatMap(r => r.files_changed);
-await Agent(team, { persona: "lens", brief: verify(changed) }); // one verify over the merged set
-// no-deferral sweep: every surfaced item resolved or converted to a tracked task
-```
-
-### 3. Adversarial-verify (the Lens mandate)
-
-- **WHEN:** ALWAYS, after any code-writing teammate. Workflow-internal agents bypass `lens-gate`/`root-cause-gate`/`no-deferral-gate` — the script re-instates the bar.
-- **PHASE SHAPE:** `impl → lens (separate teammate, different viewpoint) → [REVISE loop ≤3]`
-- **BUDGET:** 1 producer + 1 separate critic per unit. Fast lens (lint/type/test) ∥ deep lens (semantic) where it pays.
-- **STOP:** Lens returns GREEN on the producer's `files_changed`. On RED → route the failure to the right persona, re-verify; **cap 3 REVISE** then escalate (stall rule — ban "same-knob-harder").
-- **SKETCH:**
-```js
-let pass = false;
-for (let i = 0; i < 3 && !pass; i++) {
-  const out = await Agent(team, { persona: "fixer", brief });
-  const v = await Agent(team, { persona: "lens", brief: verify(out.files_changed) });
-  pass = v.verdict === "GREEN";
-  if (!pass) brief = reviseFrom(v.findings);   // do NOT just retry the same knob
-}
-if (!pass) escalate("3 REVISE cap hit"); // separate-judge: producer never self-certifies
-```
-
-### 4. Generate-and-filter
-
-- **WHEN:** breadth THEN quality — many candidate fixes/designs/names, then keep only those passing a rubric. Brainstorm-then-prune.
-- **PHASE SHAPE:** `generate xN → dedupe → filter (rubric) → impl winner → lens`
-- **BUDGET:** as many generators as independent angles warrant; one filter node (deterministic dedupe + rubric scorer). Cheap models generate, stronger model filters.
-- **STOP:** filter yields ≥1 candidate above threshold. Zero survivors → loosen scope or escalate, never ship a sub-threshold candidate.
-- **SKETCH:**
-```js
-const cands = await Promise.all(angles.map(i =>   // one per distinct angle; diversity beats count
-  Agent(team, { persona: "scout", model: "haiku", brief: generate(i) })));
-const kept = dedupe(cands).filter(c => score(c) >= BAR);   // rubric, deterministic
-if (!kept.length) return escalate("no candidate cleared the bar");
-const out = await Agent(team, { persona: "builder", brief: impl(kept[0]) });
-await Agent(team, { persona: "lens", brief: verify(out.files_changed) });
-```
-
-### 5. Tournament
-
-- **WHEN:** ONE hard problem worth N independent attempts plus judging (a thorny algorithm, a design choice, a tricky bug with several plausible root causes).
-- **PHASE SHAPE:** `solve xN (different approaches) → judge pairwise (bracket) → impl winner → lens`
-- **BUDGET:** N solvers, each a DIFFERENT approach (not clones); judges compare pairwise. Halt the bracket early on statistical convergence (stability detection) if used.
-- **STOP:** one winner remains after the bracket; or adaptive-stability says the lead is stable. Then implement + Lens the winner only.
-- **SKETCH:**
-```js
-const attempts = await Promise.all(approaches.map(a =>   // as many as distinct approaches warrant
-  Agent(team, { persona: "builder", brief: solve(a) })));
-let bracket = attempts;
-while (bracket.length > 1) {
-  bracket = await reducePairwise(bracket, (x, y) =>
-    Agent(team, { persona: "lens", brief: judge(x, y) }));  // judges (input,output) vs spec, NOT code
-}
-await Agent(team, { persona: "lens", brief: verify(bracket[0].files_changed) });
-```
-
-### 6. Loop-until-done (emulates `/loop`)
-
-- **WHEN:** unknown-size work with a crisp oracle — "fix until no failing tests", "scan until no new findings", "migrate until zero callsites left". Iterate-until-a-**verifiable-condition**.
-- **PHASE SHAPE:** `loop[ scan → fix xN → re-verify ] until oracle | cap`
-- **BUDGET:** per-iteration fan-out scoped to the independent failing shards; **mandatory** max-iteration cap (e.g. 20) + token/$ budget. Anchor-file set re-injected each iteration; progress lands on disk/git.
-- **STOP (3 independent ceilings):** (a) oracle satisfied (no new findings / 0 errors); (b) **no-progress detection** — halt on identical errors / empty diffs / recurring fails N times; (c) max-iter or budget hit → escalate. A **separate judge** (Lens) confirms "done" — the loop never self-certifies.
-- **SKETCH:**
-```js
-let prev = null, stalls = 0;
-for (let i = 0; i < MAX_ITER && withinBudget(); i++) {
-  const findings = await Agent(team, { persona: "scout", brief: scan() });
-  if (findings.empty) break;                          // oracle: nothing left
-  if (sameAs(findings, prev)) { if (++stalls >= 3) { escalate("no-progress"); break; } }
-  else stalls = 0;
-  prev = findings;
-  const shards = chunkByIndependentUnit(findings);    // one shard per independent unit; ~16 run concurrently, rest queue
-  const outs = await Promise.all(shards.map(s => Agent(team, { persona: "fixer", brief: fix(s) })));
-  await Agent(team, { persona: "lens", brief: verify(outs.flatMap(o => o.files_changed)) });
-}
-```
-
-### 7. Poll external state — Monitor (emulates the polling half of `/loop`)
-
-- **WHEN:** you must REACT to state you don't control — CI run, deploy, PR review, a log line, a remote queue. Streaming Monitor is token-cheaper than a busy `/loop`.
-- **PHASE SHAPE:** `Monitor(condition) → on-fire: Workflow | Agent → re-arm or stop`
-- **BUDGET:** one Monitor; the woken handler obeys its own caps. Always a stop/timeout so the Monitor can't poll forever.
-- **STOP:** the watched condition fires and the handler completes, OR the timeout/budget elapses → escalate. (For cross-session/recurring, escalate to **CronCreate** / **RemoteTrigger** instead.)
+**Poll external state — Monitor (emulates the polling half of `/loop`).** REACT to state you
+don't control (CI, deploy, PR, log line, remote queue). Monitor streams a background command
+and re-invokes you when a stop-condition matches — token-cheaper than a busy loop. Always a
+crisp stop predicate + a max-wait. For cross-session/recurring work, escalate to `CronCreate`
+/ `RemoteTrigger` instead of a long-lived Monitor.
 
 ---
 
@@ -193,7 +91,7 @@ Escalate the Goal Object → a **Loss Function** (`goal.md`, LFD) when the work 
 ### Runaway-guard checklist (REQUIRED on every loop/poll/goal primitive)
 
 - [ ] **Instruments-per-constraint** — every success/constraint maps to ONE runnable command (the verification gates). No instrument → it's a vibe, not a constraint.
-- [ ] **No-progress detection** — halt on identical errors / empty diffs / recurring fails N times. Forced-entropy stall rule bans "same-knob-harder".
+- [ ] **No-progress detection** — halt on identical errors / empty diffs / recurring fails >= 3 consecutive times. Forced-entropy stall rule bans "same-knob-harder".
 - [ ] **Max-iteration cap** + **token/$ budget** — two independent ceilings; the loop cannot run unbounded.
 - [ ] **Circuit-breaker** — rate-based halt + escalate (failures-per-window too high → stop, don't grind).
 - [ ] **Separate-judge** — *the model that stopped working never decides it's done.* Acceptance is **Lens** (+ blinded holdout for HEAVY). Producer never self-certifies.
@@ -218,3 +116,21 @@ Reach for the cheapest primitive that fits — a Workflow on trivial work is a t
 - **No crisp oracle** → do NOT start a loop-until-done or a goal-drive. First CLARIFY the goal into a verifiable form; an un-instrumented loop is a runaway waiting to happen.
 
 > A wrongly-parallel branch wastes some tokens; a wrongly-serial chain of single dispatches wastes the user's time. When unsure, climb the ladder (`Skill parallel-first-check`) and match the SHAPE.
+
+---
+
+## References
+
+- `references/techniques.md` — full when / phase-shape / budget / stop / sketch for each of
+  the 6 dispatch techniques + the Monitor polling technique. Read before authoring any of them.
+- `references/extension-patterns.md` — 6 patterns for scenarios the canonical 6 don't cover
+  cleanly (staged-escalation, self-repair, blinded-holdout, debate/critique, map-reduce,
+  quorum), plus a discriminator table for near-miss pattern pairs.
+- `examples/dispatch-decision-walkthrough.md` — two worked examples: climbing the threshold
+  ladder for a mechanical multi-file fix, and driving a goal-shaped request through the goal
+  model end to end.
+
+**Cross-refs (do NOT rediscover):** `Skill team-routing` (persona selection, ownership
+boundaries) · `Skill nexus-loss-function` (heavy goal/loss-function authoring) ·
+`Skill verify-phase-patterns` (verify-leg decomposition) · `Skill nexus-orchestration`
+(how to RUN the chosen primitive) · `Skill parallel-first-check` (the pre-dispatch ladder).

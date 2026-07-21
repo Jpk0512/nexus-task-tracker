@@ -49,9 +49,7 @@
   "persona_set": [
     "atlas",
     "forge-ui",
-    "forge-ui-pro",
     "forge-wire",
-    "forge-wire-pro",
     "hermes",
     "lens",
     "lens-fast",
@@ -67,7 +65,6 @@
     "embedding-patterns",
     "forge-ui-conventions",
     "forge-wire-conventions",
-    "hermes-auth-patterns",
     "log-work",
     "nexus-capabilities",
     "nexus-dispatch-catalog",
@@ -81,9 +78,7 @@
     "rsc-boundary-rules",
     "server-action-contract",
     "tailwind-design-tokens",
-    "tdd-patterns",
     "team-routing",
-    "verification-protocols",
     "vitest-rtl-idioms"
   ]
 }

@@ -1,0 +1,25 @@
+---
+description: Apply when searching the codebase, finding symbols/usages, or exploring architecture before a change
+alwaysApply: false
+---
+
+# Codebase search (semantic-first)
+
+Prefer **semantic search before blind `grep`/`find`** — it understands meaning, not just text, and is the basis for any multi-file design decision (Constitution Art. III).
+
+## Order of preference
+1. **Codex's native codebase indexing / semantic search** for "where does X live", "who calls Y", architecture questions.
+2. **SocratiCode MCP** when available, for symbol-exact discovery and graph/impact:
+   - `codebase_symbol(name="<bareSymbol>")` — exact symbol. Param is `name`, the **bare** name (`read_state`), not a dotted path.
+   - `codebase_symbols(query="...")` — symbol search (param `query`, or `file`).
+   - `codebase_graph_query` / `codebase_impact` — dependency + blast-radius before a rename/refactor.
+3. **`grep`/`find`** only to pin an exact known string after semantic search has located the area.
+
+## If SocratiCode reports "not indexed"
+Index it — **do not assume** and do not silently fall back to grep:
+```
+codebase_index(projectPath="<abs path>")   # then poll codebase_status to 100%
+```
+Then re-run the discovery call.
+
+**Semantic-first is the standing expectation here, same as in Claude — only the enforcement surface differs.** In Claude, a PreToolUse hook hard-blocks `grep`/`find` until a semantic discovery call returns indexed results. In Codex, that block is not wired as a shell hook; instead Codex's **native codebase index is the enforcement substitute** — it is always available, so blind `grep`/`find` before a semantic pass is a discipline violation, not a free choice. Use `grep`/`find` only to pin an exact known string *after* a semantic pass (Codex native, or SocratiCode MCP) has located the area. Treat this as equivalent enforcement by a different mechanism, not a relaxation of the rule.

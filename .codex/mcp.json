@@ -1,0 +1,32 @@
+{
+  "mcpServers": {
+    "nexus-broker": {
+      "type": "stdio",
+      "command": "uv",
+      "args": [
+        "run",
+        "--no-sync",
+        "--directory",
+        "/Users/john.keeney/nexus-task-tracker/nexus-broker",
+        "python",
+        "-m",
+        "broker.server"
+      ],
+      "env": {}
+    },
+    "nexus-vault": {
+      "type": "stdio",
+      "command": "uv",
+      "args": [
+        "run",
+        "--no-sync",
+        "--directory",
+        "/Users/john.keeney/nexus-task-tracker/nexus-broker",
+        "python",
+        "-m",
+        "broker.vault.stdio"
+      ],
+      "env": {}
+    }
+  }
+}

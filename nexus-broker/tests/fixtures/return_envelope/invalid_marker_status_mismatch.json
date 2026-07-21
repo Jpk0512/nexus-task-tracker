@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "status": "BLOCKED",
+  "completion_marker": "## NEXUS:DONE",
+  "files_changed": [],
+  "summary": "status/completion_marker disagree — CONTRACT.md calls this a violation; the allOf consistency branch rejects it.",
+  "blockers": ["some blocker"]
+}

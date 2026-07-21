@@ -17,7 +17,7 @@ Run from nexus-package/:
 from __future__ import annotations
 
 import json
-import shutil
+import os
 import socket
 import subprocess
 import threading
@@ -101,20 +101,26 @@ class _ModelsServer:
 # ---------------------------------------------------------------------------
 
 
-def test_router_health_unreachable_emits_nested_json():
-    """Normal case: LM Studio unreachable → nested SessionStart warning, not flat string."""
+def test_router_health_unreachable_emits_nested_json(resident_daemon):
+    """Normal case: LM Studio unreachable → nested SessionStart warning, not flat string.
+
+    Post-F2-03 router-health-check.sh is the shared ping shim; the LM Studio
+    probe runs daemon-resident (handle_router_health_check), reading the
+    forwarded `_HOOK_QWEN_URL`/`_HOOK_ROUTER_MODEL` (an env-seam consumer served
+    by the DEFAULT daemon). `resident_daemon.env` routes the shim to that daemon;
+    without it the shim fails OPEN (silent)."""
     env = {"_HOOK_QWEN_URL": _dead_chat_url()}
     r = subprocess.run(
         ["bash", str(ROUTER_HEALTH)],
         capture_output=True,
         text=True,
-        env={**_base_env(), **env},
+        env={**_base_env(), **env, **dict(resident_daemon.env)},
     )
     ctx = _assert_session_start_emission(r.stdout)
     assert "unreachable" in ctx.lower()
 
 
-def test_router_health_missing_models_emits_nested_json():
+def test_router_health_missing_models_emits_nested_json(resident_daemon):
     """Reachable but model absent → nested SessionStart 'missing models' warning."""
     with _ModelsServer(model_id_in_body="some-other-model") as srv:
         env = {
@@ -125,14 +131,14 @@ def test_router_health_missing_models_emits_nested_json():
             ["bash", str(ROUTER_HEALTH)],
             capture_output=True,
             text=True,
-            env={**_base_env(), **env},
+            env={**_base_env(), **env, **dict(resident_daemon.env)},
         )
     ctx = _assert_session_start_emission(r.stdout)
     assert "missing models" in ctx.lower()
     assert "granite-4.1-3b" in ctx
 
 
-def test_router_health_adversarial_body_does_not_corrupt_json():
+def test_router_health_adversarial_body_does_not_corrupt_json(resident_daemon):
     """Adversarial model id (quotes/backslash/triple-quote) must survive json.dumps
     intact — the old triple-quoted-literal + 2>/dev/null path faked a clean check here."""
     with _ModelsServer(model_id_in_body=ADVERSARIAL) as srv:
@@ -144,7 +150,7 @@ def test_router_health_adversarial_body_does_not_corrupt_json():
             ["bash", str(ROUTER_HEALTH)],
             capture_output=True,
             text=True,
-            env={**_base_env(), **env},
+            env={**_base_env(), **env, **dict(resident_daemon.env)},
         )
     # granite is still missing (body only carries the adversarial id) → a warning emits,
     # and it MUST be valid nested JSON despite the adversarial content on the wire.
@@ -152,7 +158,7 @@ def test_router_health_adversarial_body_does_not_corrupt_json():
     assert "granite-4.1-3b" in ctx
 
 
-def test_router_health_env_driven_model_no_hardcoded_qwen():
+def test_router_health_env_driven_model_no_hardcoded_qwen(resident_daemon):
     """ROUTER-07: the required model comes from _HOOK_ROUTER_MODEL, not a hardcoded id."""
     custom = "my-custom-router-model-xyz"
     with _ModelsServer(model_id_in_body="unrelated") as srv:
@@ -161,7 +167,7 @@ def test_router_health_env_driven_model_no_hardcoded_qwen():
             ["bash", str(ROUTER_HEALTH)],
             capture_output=True,
             text=True,
-            env={**_base_env(), **env},
+            env={**_base_env(), **env, **dict(resident_daemon.env)},
         )
     ctx = _assert_session_start_emission(r.stdout)
     assert custom in ctx, "health check did not use the env-supplied model id"
@@ -174,7 +180,14 @@ def test_router_health_env_driven_model_no_hardcoded_qwen():
 
 def _make_banner_project(tmp_path: Path, health_json: str) -> Path:
     """Create a throwaway project tree with a stub .memory/log.py that prints
-    `health_json`, plus a copy of the real health-banner.sh, and return the hook path."""
+    `health_json`, and return the project ROOT.
+
+    Post-F2-03 health-banner.sh is the shared advisory ping shim; the version +
+    health-summary banner runs daemon-resident (handle_health_banner, which
+    reads project_path/.memory/log.py via _py.sh). So a test spawns a daemon FOR
+    this root (see _run_banner) and runs the SHIPPED shim against it — the
+    pre-migration copy-hook-into-tmp trick (which relied on the hook resolving
+    .memory/ relative to its own location) no longer applies."""
     mem = tmp_path / ".memory"
     mem.mkdir()
     stub = mem / "log.py"
@@ -182,22 +195,30 @@ def _make_banner_project(tmp_path: Path, health_json: str) -> Path:
         "import sys\n"
         f"sys.stdout.write({health_json!r})\n"
     )
-    hooks = tmp_path / ".claude" / "hooks"
-    hooks.mkdir(parents=True)
-    dest = hooks / "health-banner.sh"
-    shutil.copy(HEALTH_BANNER, dest)
-    return dest
+    return tmp_path
 
 
-def test_health_banner_green_emits_nothing(tmp_path):
+def _run_banner(project_root: Path, resident_daemon) -> subprocess.CompletedProcess:
+    """Run the SHIPPED health-banner.sh shim against a daemon spawned FOR
+    `project_root`, so handle_health_banner reads that root's stub .memory/log.py."""
+    daemon = resident_daemon.for_project(project_root)
+    return subprocess.run(
+        ["bash", str(HEALTH_BANNER)],
+        capture_output=True,
+        text=True,
+        env={**os.environ, **dict(daemon.env)},
+    )
+
+
+def test_health_banner_green_emits_nothing(tmp_path, resident_daemon):
     """When 0 FAIL / 0 WARN, the banner stays silent (no output)."""
     health = json.dumps({"summary": {"passes": 3, "warns": 0, "fails": 0}, "results": []})
-    hook = _make_banner_project(tmp_path, health)
-    r = subprocess.run(["bash", str(hook)], capture_output=True, text=True)
+    root = _make_banner_project(tmp_path, health)
+    r = _run_banner(root, resident_daemon)
     assert r.stdout.strip() == "", f"green run should emit nothing, got: {r.stdout!r}"
 
 
-def test_health_banner_not_green_emits_nested_json(tmp_path):
+def test_health_banner_not_green_emits_nested_json(tmp_path, resident_daemon):
     """Normal not-green case → nested SessionStart banner, not raw print() stdout."""
     health = json.dumps(
         {
@@ -209,13 +230,13 @@ def test_health_banner_not_green_emits_nested_json(tmp_path):
             ],
         }
     )
-    hook = _make_banner_project(tmp_path, health)
-    r = subprocess.run(["bash", str(hook)], capture_output=True, text=True)
+    root = _make_banner_project(tmp_path, health)
+    r = _run_banner(root, resident_daemon)
     ctx = _assert_session_start_emission(r.stdout)
     assert "broker" in ctx and "router" in ctx
 
 
-def test_health_banner_adversarial_message_does_not_corrupt_json(tmp_path):
+def test_health_banner_adversarial_message_does_not_corrupt_json(tmp_path, resident_daemon):
     """A health message containing quotes/backslashes/triple-quotes must survive
     json.dumps intact and still parse as valid nested JSON."""
     health = json.dumps(
@@ -231,8 +252,8 @@ def test_health_banner_adversarial_message_does_not_corrupt_json(tmp_path):
             ],
         }
     )
-    hook = _make_banner_project(tmp_path, health)
-    r = subprocess.run(["bash", str(hook)], capture_output=True, text=True)
+    root = _make_banner_project(tmp_path, health)
+    r = _run_banner(root, resident_daemon)
     ctx = _assert_session_start_emission(r.stdout)
     # The literal adversarial run must round-trip unmangled inside additionalContext.
     assert ADVERSARIAL.strip() in ctx

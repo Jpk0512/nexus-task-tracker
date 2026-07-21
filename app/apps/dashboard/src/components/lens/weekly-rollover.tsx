@@ -185,9 +185,9 @@ export function WeeklyRollover() {
 		<>
 			<div
 				role="status"
-				className="mb-4 flex items-start gap-3 rounded-md border border-violet-500/30 bg-violet-500/5 p-3"
+				className="mb-4 flex items-start gap-3 rounded-md border border-cyan-500/30 bg-cyan-500/5 p-3"
 			>
-				<RotateCcwIcon className="mt-0.5 size-4 shrink-0 text-violet-400" />
+				<RotateCcwIcon className="mt-0.5 size-4 shrink-0 text-cyan-400" />
 				<div className="min-w-0 flex-1">
 					<p className="font-[510] text-[13px] text-foreground">
 						Weekly rollover · {format(startOfThisWeek, "MMM d")}
@@ -231,7 +231,7 @@ export function WeeklyRollover() {
 				<DialogContent className="max-w-lg">
 					<DialogHeader>
 						<DialogTitle className="flex items-center gap-2 text-[15px]">
-							<CalendarCheck2Icon className="size-4 text-violet-400" />
+							<CalendarCheck2Icon className="size-4 text-cyan-400" />
 							Carry-overs from last week
 						</DialogTitle>
 						<DialogDescription>

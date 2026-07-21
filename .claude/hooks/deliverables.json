@@ -18,14 +18,26 @@
     "forbidden_paths": ["app/**", "ingestion/**", "models/**", ".claude/**", "docker-compose*.yml"],
     "required_markers": ["## NEXUS:DONE", "## NEXUS:BLOCKED", "## NEXUS:NEEDS-DECISION", "## NEXUS:CHECKPOINT", "## NEXUS:REVISE", "## NEXUS:DEFER-REQUEST"]
   },
+  "codex-worker": {
+    "_note": "INERT entry on a standard package install: broker.registry registers codex-worker ONLY when .claude/agents/codex-worker.md exists on the running machine (this-machine contrib-lane feature, never shipped in nexus-package/.claude/agents/) — see registry.py's _codex_lane_agent_files_present. This row exists only because test_deliverables_persona_drift.py asserts every DISPATCHABLE_PERSONAS member resolves here on a codex-lane-enabled machine. A RELAY persona: work happens inside the Codex CLI subprocess, not via this agent's own Edit/Write, so no blanket must_not_modify applies; files_changed is always [] by the agent's own envelope.",
+    "forbidden_paths": [".memory/**", ".claude/**"],
+    "required_markers": ["## NEXUS:DONE", "## NEXUS:BLOCKED", "## NEXUS:NEEDS-DECISION", "## NEXUS:CHECKPOINT", "## NEXUS:REVISE", "## NEXUS:DEFER-REQUEST"]
+  },
+  "codex-reviewer": {
+    "_note": "INERT entry on a standard package install: broker.registry registers codex-reviewer ONLY when .claude/agents/codex-reviewer.md exists on the running machine (this-machine contrib-lane feature, never shipped in nexus-package/.claude/agents/) — see registry.py's _codex_lane_agent_files_present. This row exists only because test_deliverables_persona_drift.py asserts every DISPATCHABLE_PERSONAS member resolves here on a codex-lane-enabled machine. Out-of-family read-only judge seat, sandbox hard-pinned read-only; never reviews codex-worker's own output (cross-vendor rule: Codex never judges Codex).",
+    "must_not_modify": ["**/*"],
+    "should_emit": ["SOUND/REVISE/UNSOUND verdict JSON with evidence"],
+    "required_markers": ["## NEXUS:DONE", "## NEXUS:BLOCKED", "## NEXUS:NEEDS-DECISION", "## NEXUS:CHECKPOINT", "## NEXUS:REVISE", "## NEXUS:DEFER-REQUEST"]
+  },
   "fable-planner": {
-    "_note": "INERT entry (DEC-035, nexus-installer meta-repo). fable-planner is a Plexus-meta-only planning persona with NO nexus-package/.claude/agents/fable-planner.md and NO entry in this package's own dispatch-shape-guard.sh or router_core.py — it cannot actually be dispatched in an installed target. This row exists ONLY because nexus-broker/src/broker/registry.py is synced whole into this package by build_snapshot.sh, and test_deliverables_persona_drift.py asserts every DISPATCHABLE_PERSONAS member resolves to a contract here. must_not_modify mirrors the read-only personas (scout/lens) since there is no real package write-lane to describe.",
+    "_note": "INERT entry (DEC-035, Plexus meta-repo only). fable-planner is a Plexus-meta-only planning persona with NO nexus-package/.claude/agents/fable-planner.md and NO entry in this package's own dispatch-shape-guard.sh or router_core.py — it cannot actually be dispatched in an installed target. This row exists ONLY because nexus-broker/src/broker/registry.py is synced whole into this package by build_snapshot.sh, and test_deliverables_persona_drift.py asserts every DISPATCHABLE_PERSONAS member resolves to a contract here. must_not_modify mirrors the read-only personas (scout/lens) since there is no real package write-lane to describe.",
     "must_not_modify": ["**/*"],
     "required_markers": ["## NEXUS:DONE", "## NEXUS:BLOCKED", "## NEXUS:NEEDS-DECISION", "## NEXUS:CHECKPOINT", "## NEXUS:REVISE", "## NEXUS:DEFER-REQUEST"]
   },
   "planner": {
-    "_note": "INERT entry (R3-T04 / N10, nexus-installer meta-repo). planner is a Plexus-meta-only plan-authoring persona: nexus-package/.claude/agents/planner.md stays a dispatchable:false forward stub, and this package ships NO plan-validation-gate.py / gate_runner.py wiring / dispatch-shape-guard.sh entry for it — it cannot actually be dispatched in an installed target. This row exists ONLY because nexus-broker/src/broker/registry.py is synced whole into this package by build_snapshot.sh, and test_deliverables_persona_drift.py asserts every DISPATCHABLE_PERSONAS member resolves to a contract here. must_not_modify mirrors the read-only personas (scout/lens) since there is no real package write-lane to describe.",
-    "must_not_modify": ["**/*"],
+    "_note": "ACTIVE entry (DEC-074): planner is a real, gated dispatch target on an installed target — nexus-package/.claude/agents/planner.md is dispatchable:true (opus tier), and this package ships plan-validation-gate.py / gate_runner.py wiring / a dispatch-shape-guard.sh roster entry for it. Every return is scored by the independent plan-validation gate (SubagentStop, fail-closed) before it can land — planner is never its own judge. expected_paths/forbidden_paths mirror palette's write-lane shape (a narrow, non-source output surface).",
+    "expected_paths": ["docs/plans/**", ".memory/plans/**"],
+    "forbidden_paths": ["app/**", "ingestion/**", "models/**", ".claude/**", "docker-compose*.yml"],
     "required_markers": ["## NEXUS:DONE", "## NEXUS:BLOCKED", "## NEXUS:NEEDS-DECISION", "## NEXUS:CHECKPOINT", "## NEXUS:REVISE", "## NEXUS:DEFER-REQUEST"]
   },
   "forge-ui": {
@@ -35,7 +47,7 @@
     "required_markers": ["## NEXUS:DONE", "## NEXUS:BLOCKED", "## NEXUS:NEEDS-DECISION", "## NEXUS:CHECKPOINT", "## NEXUS:REVISE", "## NEXUS:DEFER-REQUEST"]
   },
   "forge-ui-pro": {
-    "_note": "Opus escalation variant — same boundary as forge-ui.",
+    "_note": "Retired dispatch NAME (R2-T03 FIX-4): escalation is a model-override (opus/xhigh) on forge-ui, never this name; persona-alias-resolver.sh redirects any dispatch to it before it ever reaches a gate, so it is retired from every gate roster (broker-gate/lens-gate/no-deferral-gate/skills-required-guard CODE_WRITING/GATED_AGENTS/FIXING_AGENTS sets) — kept here only as an inert historical record.",
     "expected_paths": ["app/components/**", "app/(routes)/**", "app/__tests__/**"],
     "should_verify": ["rtk tsc", "rtk lint"],
     "forbidden_paths": ["app/api/**", "app/actions/**", "app/lib/ai/**", "ingestion/**", "models/**", "docker-compose*.yml", ".memory/**", ".claude/**"],
@@ -48,7 +60,7 @@
     "required_markers": ["## NEXUS:DONE", "## NEXUS:BLOCKED", "## NEXUS:NEEDS-DECISION", "## NEXUS:CHECKPOINT", "## NEXUS:REVISE", "## NEXUS:DEFER-REQUEST"]
   },
   "forge-wire-pro": {
-    "_note": "Opus escalation variant — same boundary as forge-wire.",
+    "_note": "Retired dispatch NAME (R2-T03 FIX-4): escalation is a model-override (opus/xhigh) on forge-wire, never this name; persona-alias-resolver.sh redirects any dispatch to it before it ever reaches a gate, so it is retired from every gate roster (broker-gate/lens-gate/no-deferral-gate/skills-required-guard CODE_WRITING/GATED_AGENTS/FIXING_AGENTS sets) — kept here only as an inert historical record.",
     "expected_paths": ["app/api/**", "app/actions/**", "app/lib/ai/**", "app/__tests__/**"],
     "should_verify": ["rtk tsc", "rtk lint"],
     "forbidden_paths": ["app/components/**", "app/(routes)/**", "ingestion/**", "models/**", "docker-compose*.yml", ".memory/**", ".claude/**"],
@@ -61,7 +73,7 @@
     "required_markers": ["## NEXUS:DONE", "## NEXUS:BLOCKED", "## NEXUS:NEEDS-DECISION", "## NEXUS:CHECKPOINT", "## NEXUS:REVISE", "## NEXUS:DEFER-REQUEST"]
   },
   "pipeline-data-pro": {
-    "_note": "Opus escalation variant — same boundary as pipeline-data.",
+    "_note": "Retired dispatch NAME (R2-T03 FIX-4): escalation is a model-override (opus/xhigh) on pipeline-data, never this name; persona-alias-resolver.sh redirects any dispatch to it before it ever reaches a gate, so it is retired from every gate roster (broker-gate/lens-gate/no-deferral-gate/skills-required-guard CODE_WRITING/GATED_AGENTS/FIXING_AGENTS sets) — kept here only as an inert historical record.",
     "expected_paths": ["ingestion/src/transforms/**", "ingestion/src/writers/**", "ingestion/tests/**"],
     "required_verification": ["uv run ruff check"],
     "forbidden_paths": [".claude/settings.json", ".claude/agents/**", ".claude/hooks/**", "app/**", "models/**", "docker-compose*.yml", "ingestion/src/workers/**", "ingestion/src/clients/**"],
@@ -74,7 +86,7 @@
     "required_markers": ["## NEXUS:DONE", "## NEXUS:BLOCKED", "## NEXUS:NEEDS-DECISION", "## NEXUS:CHECKPOINT", "## NEXUS:REVISE", "## NEXUS:DEFER-REQUEST"]
   },
   "pipeline-async-pro": {
-    "_note": "Opus escalation variant — same boundary as pipeline-async.",
+    "_note": "Retired dispatch NAME (R2-T03 FIX-4): escalation is a model-override (opus/xhigh) on pipeline-async, never this name; persona-alias-resolver.sh redirects any dispatch to it before it ever reaches a gate, so it is retired from every gate roster (broker-gate/lens-gate/no-deferral-gate/skills-required-guard CODE_WRITING/GATED_AGENTS/FIXING_AGENTS sets) — kept here only as an inert historical record.",
     "expected_paths": ["ingestion/src/workers/**", "ingestion/src/clients/**", "ingestion/tests/**"],
     "required_verification": ["uv run ruff check"],
     "forbidden_paths": [".claude/settings.json", ".claude/agents/**", ".claude/hooks/**", "app/**", "models/**", "docker-compose*.yml", "ingestion/src/transforms/**", "ingestion/src/writers/**"],
@@ -105,14 +117,14 @@
     "required_markers": ["## NEXUS:DONE", "## NEXUS:BLOCKED", "## NEXUS:NEEDS-DECISION", "## NEXUS:CHECKPOINT", "## NEXUS:REVISE", "## NEXUS:DEFER-REQUEST"]
   },
   "forge": {
-    "_note": "Tombstone fallback — pre-split persona key; live dispatches use forge-ui/forge-wire (+ -pro variants).",
+    "_note": "Tombstone fallback — pre-split persona key; live dispatches use forge-ui/forge-wire (escalation = model-override on the base persona).",
     "expected_paths": ["app/**/*.ts", "app/**/*.tsx"],
     "required_verification": ["rtk tsc", "rtk lint"],
     "required_markers": ["## NEXUS:DONE", "## NEXUS:BLOCKED", "## NEXUS:NEEDS-DECISION", "## NEXUS:CHECKPOINT", "## NEXUS:REVISE", "## NEXUS:DEFER-REQUEST"],
     "forbidden_paths": ["ingestion/**", "models/**", "docker-compose*.yml"]
   },
   "pipeline": {
-    "_note": "Tombstone fallback — pre-split persona key; live dispatches use pipeline-data/pipeline-async (+ -pro variants).",
+    "_note": "Tombstone fallback — pre-split persona key; live dispatches use pipeline-data/pipeline-async (escalation = model-override on the base persona).",
     "expected_paths": ["ingestion/**/*.py"],
     "required_verification": ["uv run ruff check"],
     "required_markers": ["## NEXUS:DONE", "## NEXUS:BLOCKED", "## NEXUS:NEEDS-DECISION", "## NEXUS:CHECKPOINT", "## NEXUS:REVISE", "## NEXUS:DEFER-REQUEST"],

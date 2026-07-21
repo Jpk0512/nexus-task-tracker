@@ -288,13 +288,13 @@ function DocListItem({
 			onFocus={() => onPreview?.(doc.id)}
 			onBlur={() => onPreview?.(null)}
 			className={cn(
-				"grid grid-cols-[minmax(0,1.5fr)_minmax(120px,0.8fr)_auto] items-center gap-4 rounded-md border border-transparent px-3 py-2 text-[13px] text-foreground transition-colors hover:border-border/70 hover:bg-accent/35 focus-visible:border-violet-400/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/40",
-				focused && "ring-2 ring-violet-400/40 ring-inset",
+				"grid grid-cols-[minmax(0,1.5fr)_minmax(120px,0.8fr)_auto] items-center gap-4 rounded-md border border-transparent px-3 py-2 text-[13px] text-foreground transition-colors hover:border-border/70 hover:bg-accent/35 focus-visible:border-cyan-400/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40",
+				focused && "ring-2 ring-cyan-400/40 ring-inset",
 			)}
 		>
 			<span className="flex min-w-0 items-center gap-2">
 				{doc.source === "personal" ? (
-					<BrainIcon className="size-3.5 shrink-0 text-violet-500" />
+					<BrainIcon className="size-3.5 shrink-0 text-cyan-500" />
 				) : (
 					<DocumentIcon
 						icon={doc.icon}
@@ -356,13 +356,13 @@ function DocCard({
 			onFocus={() => onPreview?.(doc.id)}
 			onBlur={() => onPreview?.(null)}
 			className={cn(
-				"flex min-h-[132px] flex-col gap-3 rounded-md border border-border bg-card p-3 transition-colors hover:border-border/80 hover:bg-accent/30 focus-visible:border-violet-400/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/40",
-				focused && "ring-2 ring-violet-400/40",
+				"flex min-h-[132px] flex-col gap-3 rounded-md border border-border bg-card p-3 transition-colors hover:border-border/80 hover:bg-accent/30 focus-visible:border-cyan-400/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40",
+				focused && "ring-2 ring-cyan-400/40",
 			)}
 		>
 			<div className="flex items-center gap-2 text-[13px] text-foreground">
 				{doc.source === "personal" ? (
-					<BrainIcon className="size-3.5 shrink-0 text-violet-500" />
+					<BrainIcon className="size-3.5 shrink-0 text-cyan-500" />
 				) : (
 					<DocumentIcon
 						icon={doc.icon}
@@ -447,7 +447,7 @@ function DocumentsPreviewRail({
 				<div className="flex items-start gap-2">
 					<div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md bg-accent/70">
 						{isPersonal ? (
-							<BrainIcon className="size-3.5 text-violet-500" />
+							<BrainIcon className="size-3.5 text-cyan-500" />
 						) : (
 							<DocumentIcon
 								icon={doc.icon}
@@ -582,7 +582,7 @@ function DocumentsEmptyState({ team }: { team: string }) {
 						onClick={() => start(t.key)}
 						className="flex flex-col items-start gap-2 rounded-md border border-border bg-card p-4 text-left transition-colors hover:border-border/80 hover:bg-accent/40"
 					>
-						<t.icon className="size-4 text-violet-500" />
+						<t.icon className="size-4 text-cyan-500" />
 						<div className="font-[510] text-[13px] tracking-[-0.005em]">
 							{t.title}
 						</div>

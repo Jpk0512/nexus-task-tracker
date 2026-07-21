@@ -127,7 +127,7 @@ export function TemplateGallery({
 							<div className="flex items-start gap-2">
 								<div
 									className={cn(
-										"flex size-7 shrink-0 items-center justify-center rounded-md border border-violet-400/20 bg-violet-400/[0.06] text-violet-300",
+										"flex size-7 shrink-0 items-center justify-center rounded-md border border-cyan-400/20 bg-cyan-400/[0.06] text-cyan-300",
 										tpl.custom &&
 											"border-border bg-card/40 text-muted-foreground",
 									)}

@@ -1,0 +1,13 @@
+# serializer version: 1
+# name: test_dispatch_announce_agent_type_fallback[additional_context]
+  '[dispatch] persona=lens goal=verify the change'
+# ---
+# name: test_dispatch_announce_no_description_uses_placeholder[additional_context]
+  '[dispatch] persona=hermes goal=(no description)'
+# ---
+# name: test_dispatch_announce_task_shape[additional_context]
+  '[dispatch] persona=forge-ui goal=build the thing'
+# ---
+# name: test_task_db_mirror_success_emits_context[additional_context]
+  '[task-db-mirror] create native #7 -> project.db NATIVE-7'
+# ---

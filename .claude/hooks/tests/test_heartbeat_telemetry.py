@@ -4,10 +4,10 @@
 Package-side twin of .claude/hooks/tests/test_heartbeat_telemetry.py, scoped to
 the deployable copies under nexus-package/.claude/hooks/. These package copies
 are hand-reconciled (never rsynced from the live tree — see
-tools/build_snapshot.sh's header note), and three of them
-(no-deferral-gate.sh, lens-gate.sh, root-cause-gate.sh) are SELF-CONTAINED —
-no _gate_deny.py import — so their block-telemetry (gate_blocks.jsonl) had to
-be added inline rather than inherited from a shared helper.
+tools/build_snapshot.sh's header note), and two of them
+(no-deferral-gate.sh, lens-gate.sh) are SELF-CONTAINED — no _gate_deny.py
+import — so their block-telemetry (gate_blocks.jsonl) had to be added inline
+rather than inherited from a shared helper.
 
 Run via R4e (tools/build_snapshot.sh:verify_hook_tests) from this directory's
 parent: `cd nexus-package/.claude/hooks && pytest tests/ -q`.
@@ -69,10 +69,6 @@ _ALLOW_CASES = [
     ),
     (
         "lens-gate.sh",
-        {"subagent_type": "hermes", "last_assistant_message": "still working"},
-    ),
-    (
-        "root-cause-gate.sh",
         {"subagent_type": "hermes", "last_assistant_message": "still working"},
     ),
 ]

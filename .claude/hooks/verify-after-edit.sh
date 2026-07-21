@@ -1,18 +1,32 @@
 #!/bin/bash
-# Verify-after-edit hook: runs tsc / ruff on changed TS/PY files and injects
-# results as additionalContext.
+# Verify-after-edit hook: runs tsc / ruff / py_compile on changed TS/PY/SH
+# files and injects results as additionalContext.
 #
-# DUAL ENTRY:
-#   (1) PostToolUse on Write|Edit|MultiEdit — runs against a single file from
-#       .tool_input.file_path. Inform-only (mid-edit feedback).
-#   (2) SubagentStop — defensive fallback: parses files_changed from the
-#       sub-agent's response JSON and runs the check on every relevant file.
-#       This catches the case where sub-agent Edit events don't bubble up
-#       to the parent's PostToolUse (harness-version-specific behavior).
-#       Also enforces the files_changed-vs-declared-scope invariant: when the
-#       agent's files_changed include paths outside the brief's context_files
-#       declared scope, a hard REVISE block is emitted (exit 2) before the
-#       advisory lint pass runs.
+# F2-03: the PostToolUse (write.post.observe) single-file lint path below is
+# migrated to the shared advisory ping shim (_ping_shim.py) — the daemon-
+# resident logic lives in
+# nexus-broker/src/broker/daemon/advisory_handlers.py:handle_verify_after_edit,
+# a tenant-branched port of this file's old per-file check loop: the
+# installed-tenant branch reads .memory/nexus-stack.json (the full raw stack
+# profile install.sh always regenerates) for the TS_CHECK_DIR/PY_CHECK_DIR/
+# INGESTION_DIR values this file used to receive as install-time-rendered
+# placeholder literals (nexus-broker ships as a plain runtime-asset copy, never
+# template-rendered, so the handler resolves them from that JSON instead —
+# same VALUES, different read path), and runs ONLY `uv run ruff check` for a
+# .py file (no py_compile step) — a REAL, not cosmetic, divergence from the
+# meta-repo body's py_compile+ruff pair, preserved rather than merged away.
+# Proven by nexus-foundation/tools/hook_parity.sh --tranche A.
+#
+# The unrendered-/Users/john.keeney/nexus-task-tracker-token loud banner below is ALSO preserved
+# install-divergent logic — the daemon path can't hit this failure mode
+# (project_path is always the daemon's real root, never a literal token), so
+# it stays only in the still-local SubagentStop branch here.
+#
+# The SECOND entry point below — SubagentStop — is DELIBERATELY NOT migrated:
+# event-taxonomy.json's write.post.observe entry lists only
+# PostToolUse:Write/Edit/MultiEdit as producing_hook_events (no SubagentStop),
+# and this branch is deny-capable (exit 2 on a files_changed-vs-declared-scope
+# violation) — Tranche-B-shaped logic, out of F2-03 tranche-A scope.
 #
 #       TURN-SCOPING (TASK-049): the checked set is the agent-reported
 #       files_changed INTERSECTED with the actual working-tree delta
@@ -31,7 +45,7 @@
 # AND hooks.SubagentStop "".
 #
 # Skips: files under .claude/ or .memory/ (orchestration scaffolding).
-# PostToolUse path: inform-only (exit 0 always).
+# PostToolUse path: inform-only, advisory / fail OPEN.
 # SubagentStop path: scope assertion is DENY-capable (exit 2 on violation).
 
 set -e
@@ -40,15 +54,16 @@ INPUT=$(cat)
 
 EVENT=$(printf '%s' "$INPUT" | jq -r '.hook_event_name // .event // ""' 2>/dev/null)
 
+HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # The install-time token is overridable via env so the hook is testable and
-# degrades LOUDLY (not silently) if the token was never rendered.
+# degrades LOUDLY (not silently) if the token was never rendered. Checked
+# BEFORE the PostToolUse delegation below (not just in the SubagentStop path)
+# — the daemon-resident handler_verify_after_edit can never observe this
+# failure mode itself (its project_path is always the daemon's real root,
+# never a literal token), so an unrendered install can ONLY be caught here,
+# locally, before ever reaching the shim.
 PROJECT_ROOT="${_HOOK_INSTALL_ROOT:-/Users/john.keeney/nexus-task-tracker}"
-TS_CHECK_DIR="app/apps/dashboard"
-PY_CHECK_DIR=""
-INGESTION_DIR=""
-# When the profile has no Python backend, py_check_dir is null → renders empty;
-# fall back to the ingestion dir so the python check still runs against real code.
-PY_CHECK_DIR="${PY_CHECK_DIR:-$INGESTION_DIR}"
 
 # Unrendered install token → fail-open-silent: with PROJECT_ROOT still literal,
 # every candidate path is skipped (it can never match "$PROJECT_ROOT"/*) and the
@@ -57,8 +72,7 @@ PY_CHECK_DIR="${PY_CHECK_DIR:-$INGESTION_DIR}"
 # advisory announcing the inert gate rather than silently doing nothing.
 case "$PROJECT_ROOT" in
   __*__)
-    event_out=$(printf '%s' "$INPUT" | jq -r '.hook_event_name // .event // "PostToolUse"' 2>/dev/null)
-    [ -z "$event_out" ] && event_out="PostToolUse"
+    event_out="${EVENT:-PostToolUse}"
     msg='[verify-after-edit] INSTALL NOT RENDERED — the /Users/john.keeney/nexus-task-tracker token was never substituted, so the post-change tsc/ruff check cannot resolve the project root and is INERT (no findings will ever surface). This is advisory-only, so edits are not blocked, but the safety net is OFF. Re-run the Nexus install/render step (or set _HOOK_INSTALL_ROOT) to restore post-edit checks.'
     jq -n --arg r "$msg" --arg ev "$event_out" '{
       hookSpecificOutput: {
@@ -70,27 +84,33 @@ case "$PROJECT_ROOT" in
     ;;
 esac
 
-# Collect candidate file paths into the FILES array.
-declare -a FILES=()
-
 if [ -z "$EVENT" ] || [ "$EVENT" = "PostToolUse" ]; then
-  fp=$(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // .tool_response.filePath // ""' 2>/dev/null)
-  if [ -n "$fp" ]; then
-    FILES+=("$fp")
-  fi
+  printf '%s' "$INPUT" | exec python3 "$HOOKS_DIR/_ping_shim.py" "write.post.observe" "verify-after-edit"
 fi
 
-if [ "$EVENT" = "SubagentStop" ] || [ -z "$EVENT" ]; then
-  # Best-effort parse of files_changed from the agent's last assistant message
-  text=$(printf '%s' "$INPUT" | jq -r '
-    .last_assistant_message //
-    .response.text //
-    .tool_response.text //
-    ""
-  ' 2>/dev/null)
-  reported_paths=""
-  if [ -n "$text" ]; then
-    reported_paths=$(printf '%s' "$text" | python3 -c '
+if [ "$EVENT" != "SubagentStop" ]; then
+  exit 0
+fi
+
+TS_CHECK_DIR="app/apps/dashboard"
+PY_CHECK_DIR=""
+INGESTION_DIR=""
+# When the profile has no Python backend, py_check_dir is null → renders empty;
+# fall back to the ingestion dir so the python check still runs against real code.
+PY_CHECK_DIR="${PY_CHECK_DIR:-$INGESTION_DIR}"
+
+declare -a FILES=()
+
+# Best-effort parse of files_changed from the agent's last assistant message
+text=$(printf '%s' "$INPUT" | jq -r '
+  .last_assistant_message //
+  .response.text //
+  .tool_response.text //
+  ""
+' 2>/dev/null)
+reported_paths=""
+if [ -n "$text" ]; then
+  reported_paths=$(printf '%s' "$text" | python3 -c '
 import sys, re, json
 text = sys.stdin.read()
 out = []
@@ -108,29 +128,28 @@ for block in re.findall(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL):
 for p in out:
     print(p)
 ' 2>/dev/null)
-  fi
+fi
 
-  if [ -n "$reported_paths" ]; then
-    is_repo=$(cd "$PROJECT_ROOT" 2>/dev/null && git rev-parse --is-inside-work-tree 2>/dev/null) || true
-    if [ "$is_repo" = "true" ]; then
-      # THIS TURN's working-tree delta: tracked modifications vs HEAD, union
-      # untracked files. Used only to FLOOR the agent's self-report (see
-      # TURN-SCOPING note above) — never as the sole source of the file set.
-      delta=$(cd "$PROJECT_ROOT" && { git diff --name-only HEAD 2>/dev/null; git ls-files --others --exclude-standard 2>/dev/null; }) || true
-      norm_delta=$(printf '%s\n' "$delta" | sed -e 's#^\./##')
-      while IFS= read -r p; do
-        [ -z "$p" ] && continue
-        norm_p="${p#./}"; norm_p="${norm_p#/}"
-        if printf '%s\n' "$norm_delta" | grep -qxF "$norm_p"; then
-          FILES+=("$p")
-        fi
-      done <<< "$reported_paths"
-    else
-      # Not a git worktree — fail open, trust the agent's report as-is.
-      while IFS= read -r p; do
-        [ -n "$p" ] && FILES+=("$p")
-      done <<< "$reported_paths"
-    fi
+if [ -n "$reported_paths" ]; then
+  is_repo=$(cd "$PROJECT_ROOT" 2>/dev/null && git rev-parse --is-inside-work-tree 2>/dev/null) || true
+  if [ "$is_repo" = "true" ]; then
+    # THIS TURN's working-tree delta: tracked modifications vs HEAD, union
+    # untracked files. Used only to FLOOR the agent's self-report (see
+    # TURN-SCOPING note above) — never as the sole source of the file set.
+    delta=$(cd "$PROJECT_ROOT" && { git diff --name-only HEAD 2>/dev/null; git ls-files --others --exclude-standard 2>/dev/null; }) || true
+    norm_delta=$(printf '%s\n' "$delta" | sed -e 's#^\./##')
+    while IFS= read -r p; do
+      [ -z "$p" ] && continue
+      norm_p="${p#./}"; norm_p="${norm_p#/}"
+      if printf '%s\n' "$norm_delta" | grep -qxF "$norm_p"; then
+        FILES+=("$p")
+      fi
+    done <<< "$reported_paths"
+  else
+    # Not a git worktree — fail open, trust the agent's report as-is.
+    while IFS= read -r p; do
+      [ -n "$p" ] && FILES+=("$p")
+    done <<< "$reported_paths"
   fi
 fi
 
@@ -147,8 +166,7 @@ if [ ${#FILES[@]} -eq 0 ]; then exit 0; fi
 # (the scope is unknown; lint still runs). The deny is reserved for the case
 # where scope is EXPLICITLY declared and EXPLICITLY violated.
 # ---------------------------------------------------------------------------
-if [ "$EVENT" = "SubagentStop" ]; then
-  scope_result=$(NEXUS_SCOPE_INPUT="$INPUT" python3 - <<'PYEOF'
+scope_result=$(NEXUS_SCOPE_INPUT="$INPUT" python3 - <<'PYEOF'
 import sys, re, json, os
 
 payload = json.loads(os.environ.get("NEXUS_SCOPE_INPUT", "{}"))
@@ -218,16 +236,13 @@ if violations:
 else:
     print("OK:IN_SCOPE")
 PYEOF
-  )
-  scope_status="${scope_result%%:*}"
-  if [ "$scope_status" = "VIOLATION" ]; then
-    scope_detail="${scope_result#*:}"
-    reason="[verify-after-edit/SCOPE] files_changed includes paths outside declared scope. Detail: ${scope_detail}. Return a NEXUS:REVISE with the corrected files_changed limited to the brief's context_files. Failure to keep writes within declared scope violates the Output-Dir STRICT contract."
-    HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    event_out="${EVENT:-SubagentStop}"
-    python3 "$HOOKS_DIR/_gate_deny.py" deny "$event_out" "verify-after-edit/SCOPE" "$reason"
-    exit 2
-  fi
+)
+scope_status="${scope_result%%:*}"
+if [ "$scope_status" = "VIOLATION" ]; then
+  scope_detail="${scope_result#*:}"
+  reason="[verify-after-edit/SCOPE] files_changed includes paths outside declared scope. Detail: ${scope_detail}. Return a NEXUS:REVISE with the corrected files_changed limited to the brief's context_files. Failure to keep writes within declared scope violates the Output-Dir STRICT contract."
+  python3 "$HOOKS_DIR/_gate_deny.py" deny "$EVENT" "verify-after-edit/SCOPE" "$reason"
+  exit 2
 fi
 
 # Per-file check accumulator
@@ -308,8 +323,7 @@ done
 
 if [ -n "$accumulator" ]; then
   full="[verify-after-edit] post-change check findings:${accumulator}"
-  event_out="${EVENT:-PostToolUse}"
-  jq -n --arg r "$full" --arg ev "$event_out" '{
+  jq -n --arg r "$full" --arg ev "$EVENT" '{
     hookSpecificOutput: {
       hookEventName: $ev,
       additionalContext: $r

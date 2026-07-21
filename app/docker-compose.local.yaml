@@ -59,6 +59,7 @@ services:
       # avoid the virtiofs triple-registration storm we hit during compose
       # churn (see docs/SKILL_LIBRARY_DESIGN.md crash post-mortem).
       LIBRARY_ALLOWED_ROOT: /host
+      NEXUS_HOST_HOME: /Users/john.keeney
     ports:
       - "3003:3003"
     volumes:
@@ -67,6 +68,16 @@ services:
       - /Users/john.keeney/elevenlabs-eval-dash/.claude:/host/eed-claude
       # Knowledge — the user's Obsidian-compatible vault. Read-write.
       - /Users/john.keeney/nexus-knowledge:/host/knowledge
+      # Site Docs — full site trees so /docs mirrors live on disk.
+      - /Users/john.keeney/ai-interaction-dash:/host/sites/ai-interaction-dash
+      - /Users/john.keeney/elevenlabs-eval-dash:/host/sites/elevenlabs-eval-dash
+      - /Users/john.keeney/nexus-task-tracker:/host/sites/nexus-task-tracker
+      # Agent Config — global agent homes (Option B). Narrow mounts only.
+      - /Users/john.keeney/.claude:/host/home/.claude
+      - /Users/john.keeney/.codex:/host/home/.codex
+      - /Users/john.keeney/.cursor:/host/home/.cursor
+      - /Users/john.keeney/.pi:/host/home/.pi
+      - /Users/john.keeney/Library/Application Support/Claude:/host/home/Library/Application Support/Claude
     networks:
       - default
     depends_on:

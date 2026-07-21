@@ -1,0 +1,28 @@
+---
+description: Verification commands that must pass before any task is done
+alwaysApply: true
+---
+
+# Verification (Constitution Art. V, XII)
+
+Run these before marking any work done and **fix everything they report** — zero errors/warnings is the bar, no exceptions for "quick fixes".
+
+## TypeScript / JS
+```bash
+rtk tsc      # → zero type errors
+rtk lint     # → zero lint errors
+```
+
+## Python (run from the package dir, e.g. cd nexus-broker)
+```bash
+uv run ruff check    # → zero warnings
+uv run pytest        # tests green (uv auto-resolves the .venv)
+```
+
+## Visual / end-to-end gate (Art. XII) — "tests pass" is not done
+Evidence at the real process boundary is required for:
+- **UI changes** — a before/after screenshot (e.g. via `aside`; load `Skill aside-browser`, use `Bash(aside:*)`). Gate enforced by `visual-evidence-gate.sh`.
+- **API changes** — a real end-to-end invocation (`curl` / browser) hitting the actual code path, output included.
+- **Container / Dockerfile changes** — a successful `docker build` + container start + in-container smoke check, output included.
+
+Mocking the boundary you are validating does NOT satisfy this gate.

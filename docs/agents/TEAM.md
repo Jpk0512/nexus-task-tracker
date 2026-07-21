@@ -13,7 +13,7 @@
 
 These are the ONLY valid `subagent_type` values. Dispatch by the exact slug:
 
-`scout`, `forge-ui`, `forge-ui-pro`, `forge-wire`, `forge-wire-pro`, `pipeline-data`, `pipeline-data-pro`, `pipeline-async`, `pipeline-async-pro`, `hermes`, `atlas`, `palette`, `lens-fast` (model: haiku), `lens`, `quill-ts`, `quill-py`.
+`scout`, `forge-ui`, `forge-wire`, `pipeline-data`, `pipeline-async`, `hermes`, `atlas`, `palette`, `lens-fast` (model: haiku), `lens`, `quill-ts`, `quill-py`, `planner` (model: opus — orchestrator-dispatched only, see "Planner" below).
 
 **RETIRED base names — never dispatch:** `forge`, `pipeline`, and `quill` are split personas and are NOT dispatch targets. `.claude/hooks/persona-alias-resolver.sh` DENIES them (exit 2) or redirects them only when the brief carries scope hints. Route to the split persona directly:
 
@@ -21,9 +21,14 @@ These are the ONLY valid `subagent_type` values. Dispatch by the exact slug:
 - `pipeline` → `pipeline-data` (transforms/writes/embeddings) or `pipeline-async` (workers/clients/async)
 - `quill` → `quill-ts` (TypeScript tests) or `quill-py` (Python tests)
 
+**RETIRED escalation names — no separate `-pro` agent files:** `forge-ui-pro`,
+`forge-wire-pro`, `pipeline-data-pro`, `pipeline-async-pro` are retired names, not
+files. Escalation is a per-dispatch **model override on the SAME base persona**
+(`model: opus, effort: xhigh`) — see "Escalation — dispatch-time override" below.
+
 **Dual-persona binding:** `forge-ui` ↔ `palette` — neither ships without the other for any visual work (see Palette and the Pairing rules table).
 
-**Install-aware availability — VERIFY BEFORE DISPATCH.** `pipeline-data`, `pipeline-async`, `pipeline-data-pro`, `pipeline-async-pro`, and `quill-py` exist ONLY in Python-stack installs. They are NOT present in a pure TS/Next.js install. Dispatching an unregistered persona hard-fails mid-workflow with no recovery path. Before any dispatch, confirm the agent file exists at `.claude/agents/<persona>.md`. In a TS/Next.js-only install, map Python work as follows:
+**Install-aware availability — VERIFY BEFORE DISPATCH.** `pipeline-data`, `pipeline-async`, and `quill-py` exist ONLY in Python-stack installs. They are NOT present in a pure TS/Next.js install. Dispatching an unregistered persona hard-fails mid-workflow with no recovery path. Before any dispatch, confirm the agent file exists at `.claude/agents/<persona>.md`. In a TS/Next.js-only install, map Python work as follows:
 
 | Python work type | TS/Next.js install mapping |
 |---|---|
@@ -54,7 +59,8 @@ When dispatching via `subagent_type=<persona>`, the persona's agent-file frontma
 | lens-fast | haiku | Parallel fast-lane sibling; deterministic gates only |
 | quill-ts | sonnet | TS test authoring with real data shapes |
 | quill-py | sonnet | Python test authoring with real data shapes |
-| `*-pro` variants | opus (effort xhigh) | forge-ui-pro / forge-wire-pro / pipeline-data-pro / pipeline-async-pro |
+| Escalated tier (any implementer above) | opus (effort xhigh) | Dispatch-time `model`/`effort` override on the SAME base persona — no separate `-pro` agent file (retired names: forge-ui-pro / forge-wire-pro / pipeline-data-pro / pipeline-async-pro) |
+| planner | opus | Plan/DAG decomposition before execution dispatch; orchestrator-mechanism-only — never emitted by the user-prompt classifier. Every return is scored by the independent plan-validation gate (never its own judge). |
 
 **Retired base names (`forge`, `pipeline`, `quill`)** are NOT valid `subagent_type` values — `persona-alias-resolver.sh` DENIES them. Dispatch the split persona directly.
 
@@ -86,6 +92,7 @@ The table below is the canonical forbidden-directory reference. Before briefing 
 | lens | Anything — `disallowedTools: Edit, Write, NotebookEdit` (reports only) |
 | lens-fast | Anything — `disallowedTools: Edit, Write, NotebookEdit` (pass/fail only) |
 | quill-ts / quill-py | Non-test files; `.memory/` |
+| planner | Anything except `docs/plans/**` and `.memory/plans/**` — no source, hooks, `.claude/**` |
 | Nexus (orchestrator) | Anything via Edit/Write — `disallowedTools: Write, Edit, NotebookEdit`; orchestrates via delegation only |
 
 **Pre-dispatch check (how to apply):**
@@ -132,7 +139,7 @@ flowchart TD
     D --> N
     E --> N
     F --> N
-    N -->|Yes| O["escalate to -pro variant\nopus, effort: xhigh"]
+    N -->|Yes| O["re-dispatch SAME persona\nmodel: opus, effort: xhigh"]
     N -->|No| P[implement]
 
     P --> M
@@ -168,9 +175,7 @@ flowchart TD
 **Does NOT:** Touch ``, ``, `docker-compose`, or `app/apps/api/src`.  
 **Pairs with:** forge-wire for full-stack work; palette for design specs; quill-ts for tests.  
 **Verification:** Must return verbatim `rtk tsc` and `rtk lint` output in `verification_result`.
-
-### forge-ui-pro (Escalation variant)
-Same scope as forge-ui. Model: opus, effort: xhigh. Nexus dispatches this variant when task is classified `complex`, `stall_count > 0`, or Lens returned NEXUS:REVISE on a prior dispatch.
+**Escalation:** re-dispatched at `model: opus, effort: xhigh` (same persona, no separate agent file) when classified `complex`, `stall_count > 0`, or Lens returned NEXUS:REVISE — see "Escalation — dispatch-time override" below.
 
 ---
 
@@ -181,22 +186,18 @@ Same scope as forge-ui. Model: opus, effort: xhigh. Nexus dispatches this varian
 **Does NOT:** Touch ``, ``, `docker-compose`, or `app/apps/dashboard/src`.  
 **Pairs with:** forge-ui for full-stack work; quill-ts for tests.  
 **Verification:** Must return verbatim language-appropriate verification output in `verification_result`.
-
-### forge-wire-pro (Escalation variant)
-Same scope as forge-wire. Model: opus, effort: xhigh. Spawned under same conditions as forge-ui-pro.
+**Escalation:** re-dispatched at `model: opus, effort: xhigh` (same persona, no separate agent file) under the same conditions as forge-ui — see "Escalation — dispatch-time override" below.
 
 ---
 
 ## pipeline-data (Python / Data Transform Engineer)
 **Role:** Implements `/transforms/**`, `/writers/**`, dataframe transforms, `postgres` writes, embeddings.  
-**Specialties:** Python 3.12, dataframe transforms, `postgres` writes, Pydantic models, embedding pipelines. Stack-specific conventions live in the `pipeline-data-conventions` skill.  
+**Specialties:** Python 3.12, dataframe transforms, `postgres` writes, Pydantic models, embedding pipelines. (`pipeline-data-conventions` retired 2026-07-13, native #4 owner sweep — no successor skill; `embedding-patterns` still ships for embedding work.)  
 **Standards:** Full type hints on all functions. `ruff format` before done. No bare `except`. `os.environ` (not `os.getenv`) unless default is semantically correct.  
 **Does NOT:** Touch `app/apps/dashboard/src` or ``. No async workers or external client calls.  
 **Pairs with:** pipeline-async for ingestion pipelines.  
 **Verification:** Must return verbatim `uv run ruff check` output in `verification_result`.
-
-### pipeline-data-pro (Escalation variant)
-Same scope as pipeline-data. Model: opus, effort: xhigh. Spawned under same conditions as forge-ui-pro.
+**Escalation:** re-dispatched at `model: opus, effort: xhigh` (same persona, no separate agent file) under the same conditions as forge-ui — see "Escalation — dispatch-time override" below.
 
 ---
 
@@ -207,18 +208,36 @@ Same scope as pipeline-data. Model: opus, effort: xhigh. Spawned under same cond
 **Does NOT:** Touch `app/apps/dashboard/src` or ``. No synchronous `postgres` write pipelines (pipeline-data owns those).  
 **Pairs with:** pipeline-data for ingestion pipelines.  
 **Verification:** Must return verbatim `uv run ruff check` output in `verification_result`.
-
-### pipeline-async-pro (Escalation variant)
-Same scope as pipeline-async. Model: opus, effort: xhigh. Spawned under same conditions as forge-ui-pro.
+**Escalation:** re-dispatched at `model: opus, effort: xhigh` (same persona, no separate agent file) under the same conditions as forge-ui — see "Escalation — dispatch-time override" below.
 
 ---
 
-## Escalation variants — dispatch rules
+## Escalation — dispatch-time override (REPLACES the deleted `*-pro` persona files)
 
-Nexus dispatches the `-pro` variant when:
+There are **no separate `-pro` agent files** (`forge-ui-pro`, `forge-wire-pro`,
+`pipeline-data-pro`, `pipeline-async-pro` are retired names). Escalation is a
+**per-dispatch model override on the SAME base persona:** re-dispatch the identical
+persona with `model` raised to `opus` and `effort: xhigh`. One persona definition, two
+power levels — the escalated tier is selected at dispatch time, not by a duplicate
+agent file.
+
+Nexus escalates to the opus/xhigh tier when:
 - (a) router/Nexus classifies task as `complex`, OR
 - (b) `tasks.stall_count > 0` for the task, OR
 - (c) Lens returned NEXUS:REVISE on a prior dispatch.
+
+Escalate at most once per task — if the escalated tier also fails, escalate to the
+user rather than cycling further.
+
+---
+
+## Planner (Plan/Decomposition Author)
+**Role:** Authors a validated task DAG for a goal before execution dispatch — decomposition only, never execution, never self-graded. Each node is a `docs/agents/CONTRACT.md` brief plus `depends_on`/`downstream_consumers` edges (the `node-contract` skill's DAG layer).
+**Model:** opus (frontmatter: `model: opus`) — the one persona in the roster whose entire job is to be slow and careful about a decision before anyone commits execution time to it.
+**Orchestrator-mechanism-only:** non-classifier-emittable — the user-prompt router never routes a stray prompt to `planner`; Nexus dispatches it deliberately for multi-phase features or a fan-out that needs a pre-verified DAG before any execution begins.
+**Gated, never self-judged:** every return is scored by the independent plan-validation gate (`.claude/hooks/plan-validation-gate.py`, SubagentStop, fail-closed) before it can land — a plan that fails scoring, or whose scoring itself errors, is DENIED.
+**Does NOT:** Write or fix application code. Set its own `validation_status` (the plan-validation gate owns that field exclusively). Touch anything outside `docs/plans/**` and `.memory/plans/**`.
+**When to use:** Before dispatching a feature that decomposes into ≥2 nodes with real dependency edges between them — a single indivisible task never needs planner.
 
 ---
 

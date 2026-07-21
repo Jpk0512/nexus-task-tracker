@@ -58,7 +58,7 @@ export const StatusIcon = ({
 				<CircleSlashIcon
 					role="img"
 					aria-label={label}
-					className={cn(className, "text-purple-400")}
+					className={cn(className, "text-cyan-400")}
 				/>
 			);
 		case "done":

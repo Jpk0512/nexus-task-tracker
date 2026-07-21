@@ -21,6 +21,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from syrupy.assertion import SnapshotAssertion
 
 from broker.conductor.pool import WorkerTask, run_pool, run_worker
 
@@ -78,18 +79,21 @@ def _run_worker(fake_claude: Path, mode: str, task_id: str = "t1") -> pool_mod.W
 # ---------------------------------------------------------------------------
 
 
-def test_run_worker_double_decodes_envelope(fake_claude: Path) -> None:
+def test_run_worker_double_decodes_envelope(fake_claude: Path, snapshot: SnapshotAssertion) -> None:
     result = _run_worker(fake_claude, "ok")
     assert result.ok is True
-    assert result.payload == {"score": 4, "reason": "ok"}
+    # envelope fixture: the double-JSON-decode inner payload, reviewed via snapshot (F3-04).
+    assert result.payload == snapshot(name="inner_payload")
     assert result.envelope["model"] == "sonnet"
     assert result.total_cost_usd == pytest.approx(0.001)
 
 
-def test_run_worker_strips_markdown_fence_on_inner_payload(fake_claude: Path) -> None:
+def test_run_worker_strips_markdown_fence_on_inner_payload(
+    fake_claude: Path, snapshot: SnapshotAssertion
+) -> None:
     result = _run_worker(fake_claude, "fenced")
     assert result.ok is True
-    assert result.payload == {"score": 4, "reason": "ok"}
+    assert result.payload == snapshot(name="inner_payload")
 
 
 def test_run_worker_nonzero_rc_fails_loud(fake_claude: Path) -> None:
@@ -163,6 +167,120 @@ def test_run_pool_spawns_n_workers(fake_claude: Path) -> None:
 
 def test_run_pool_empty_tasks_returns_empty() -> None:
     assert run_pool([], max_workers=4) == []
+
+
+# ---------------------------------------------------------------------------
+# run_worker — P1 bounded retry on TRANSIENT failure (RCA
+# .memory/scout-reports/1783912955/conductor-rca.md: 1 of 3 synthetic
+# verify-matrix gates hit a transient rc!=0/timeout and the whole run
+# recorded "failed" with no chance to recover). `subprocess.run` is
+# monkeypatched directly (not the fake_claude script) so each test controls
+# exactly which attempt fails/succeeds; `sleep_fn` is injected as a no-op so
+# no test sleeps for real.
+# ---------------------------------------------------------------------------
+
+
+def test_run_worker_retries_transient_rc_failure_then_succeeds(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = {"n": 0}
+
+    def fake_run(argv, **kwargs):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return subprocess.CompletedProcess(argv, returncode=1, stdout="", stderr="boom: transient\n")
+        return subprocess.CompletedProcess(
+            argv, returncode=0,
+            stdout='{"result": "{\\"score\\": 1}", "model": "sonnet", "total_cost_usd": 0.0}',
+            stderr="",
+        )
+
+    monkeypatch.setattr(pool_mod.subprocess, "run", fake_run)
+    sleeps: list[float] = []
+    task = WorkerTask(task_id="t1", prompt="x", cwd=".", max_retries=2)
+
+    result = run_worker(task, claude_bin="claude", sleep_fn=sleeps.append)
+
+    assert result.ok is True
+    assert calls["n"] == 2
+    assert result.attempts == 2
+    assert len(sleeps) == 1  # one backoff sleep before the successful retry
+
+
+def test_run_worker_gives_up_after_max_retries_exhausted(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = {"n": 0}
+
+    def fake_run(argv, **kwargs):
+        calls["n"] += 1
+        return subprocess.CompletedProcess(argv, returncode=1, stdout="", stderr="boom: persistent\n")
+
+    monkeypatch.setattr(pool_mod.subprocess, "run", fake_run)
+    task = WorkerTask(task_id="t1", prompt="x", cwd=".", max_retries=2)
+
+    result = run_worker(task, claude_bin="claude", sleep_fn=lambda _s: None)
+
+    assert result.ok is False
+    assert calls["n"] == 3  # initial attempt + 2 retries, then give up
+    assert result.attempts == 3
+    assert "rc=1" in result.error
+
+
+def test_run_worker_retries_on_timeout_then_succeeds(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = {"n": 0}
+
+    def fake_run(argv, **kwargs):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise subprocess.TimeoutExpired(cmd=argv, timeout=kwargs.get("timeout", 1))
+        return subprocess.CompletedProcess(
+            argv, returncode=0,
+            stdout='{"result": "{\\"score\\": 1}", "model": "sonnet", "total_cost_usd": 0.0}',
+            stderr="",
+        )
+
+    monkeypatch.setattr(pool_mod.subprocess, "run", fake_run)
+    task = WorkerTask(task_id="t1", prompt="x", cwd=".", max_retries=1)
+
+    result = run_worker(task, claude_bin="claude", sleep_fn=lambda _s: None)
+
+    assert result.ok is True
+    assert calls["n"] == 2
+
+
+def test_run_worker_does_not_retry_non_json_stdout_structural_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = {"n": 0}
+
+    def fake_run(argv, **kwargs):
+        calls["n"] += 1
+        return subprocess.CompletedProcess(argv, returncode=0, stdout="not json at all", stderr="")
+
+    monkeypatch.setattr(pool_mod.subprocess, "run", fake_run)
+    task = WorkerTask(task_id="t1", prompt="x", cwd=".", max_retries=2)
+
+    result = run_worker(task, claude_bin="claude", sleep_fn=lambda _s: None)
+
+    assert result.ok is False
+    assert calls["n"] == 1  # non-JSON envelope is structural, never retried
+    assert result.attempts == 1
+
+
+def test_run_worker_max_retries_zero_is_backward_compatible_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = {"n": 0}
+
+    def fake_run(argv, **kwargs):
+        calls["n"] += 1
+        return subprocess.CompletedProcess(argv, returncode=1, stdout="", stderr="boom\n")
+
+    monkeypatch.setattr(pool_mod.subprocess, "run", fake_run)
+    task = WorkerTask(task_id="t1", prompt="x", cwd=".")  # max_retries defaults to 0
+
+    result = run_worker(task, claude_bin="claude", sleep_fn=lambda _s: None)
+
+    assert result.ok is False
+    assert calls["n"] == 1
+    assert result.attempts == 1
 
 
 # ---------------------------------------------------------------------------

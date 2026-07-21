@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 from datetime import UTC, datetime
@@ -10,6 +11,7 @@ from typing import Any, TypedDict
 
 from fastmcp import FastMCP
 
+from broker.capability_token import mint_token
 from broker.db import log_broker_validation
 from broker.discovery import (
     DiscoverResult,
@@ -143,6 +145,46 @@ _FEATURE_WORK_TYPES = frozenset(
         "implement_wiring",
     }
 )
+
+_DOC_SHAPE_WORK_TYPES = frozenset({"meta", "docs"})
+_DOC_SHAPE_EXTENSIONS = frozenset({".md", ".json", ".txt"})
+
+
+def _is_doc_shaped_brief(brief: dict[str, Any]) -> bool:
+    """True when a missing task_tier should default to 'simple' instead of
+    'standard': work_type is meta/docs, or every extensioned path across
+    context_files + files_to_modify is .md/.json/.txt. A brief with no
+    extensioned paths at all (e.g. bare directory context) is NOT doc-shaped
+    — there's nothing here to positively confirm doc-only scope.
+    """
+    work_type = str(brief.get("work_type", "")).strip().lower()
+    if work_type in _DOC_SHAPE_WORK_TYPES:
+        return True
+    paths = list(brief.get("context_files") or []) + list(brief.get("files_to_modify") or [])
+    extensioned = [p for p in paths if isinstance(p, str) and "." in p.rsplit("/", 1)[-1]]
+    if not extensioned:
+        return False
+    return all(
+        "." + p.rsplit(".", 1)[-1].lower() in _DOC_SHAPE_EXTENSIONS for p in extensioned
+    )
+
+
+# Personas whose .claude/agents/<name>.md `tools:` frontmatter carries no Bash —
+# confirmed by reading each dispatchable persona's frontmatter (gemini-gateway
+# #21): atlas is the only current dispatchable persona without it. A
+# verification_required full of Bash-gated commands (pytest/ruff/git/...) is
+# unrunnable by these personas; validate flags it as an ADVISORY, never a deny,
+# to avoid breaking existing flows — route the actual verification elsewhere
+# (lens-fast) or reassign the dispatch.
+_BASH_LESS_PERSONAS = frozenset({"atlas"})
+_SHELL_COMMAND_HINT_RE = re.compile(
+    r"\b(pytest|ruff|git|npm|yarn|pnpm|uv|python3?|bash|sh|curl|docker|tsc|eslint|mypy|alembic|make|cargo)\b",
+    re.IGNORECASE,
+)
+
+
+def _has_shell_command(entries: list[str]) -> bool:
+    return any(isinstance(e, str) and _SHELL_COMMAND_HINT_RE.search(e) for e in entries)
 
 
 def _normalize_context_files(value: Any) -> tuple[list[str], str | None]:
@@ -303,9 +345,10 @@ def _normalize_task_tier(brief: dict[str, Any]) -> tuple[str, str | None]:
       1. A valid task_tier value (case-normalized) is taken as-is.
       2. An INVALID task_tier is snapped to 'standard' + warn.
       3. task_tier MISSING but `difficulty` present → map difficulty→tier + warn.
-      4. Both missing → infer a safe default from work_type (feature-like work
-         defaults to 'standard'; everything else to 'standard' too — 'standard'
-         is the validator's historical default) + warn.
+      4. Both missing (or difficulty unrecognized) → default to 'simple' when
+         the brief is doc-shaped (_is_doc_shaped_brief), else 'standard' — a
+         doc-only brief must not trip the planning-gate path meant for code
+         work + warn.
 
     `difficulty` is a router pre-fill vocabulary token that lives in the brief
     only as a hint; the broker stores `task_tier` exclusively.
@@ -320,6 +363,8 @@ def _normalize_task_tier(brief: dict[str, Any]) -> tuple[str, str | None]:
             f"{sorted(_VALID_TASK_TIERS)} — snapped to 'standard'"
         )
 
+    default_tier = "simple" if _is_doc_shaped_brief(brief) else "standard"
+
     difficulty = brief.get("difficulty")
     if difficulty is not None and str(difficulty).strip():
         diff = str(difficulty).strip().lower()
@@ -329,13 +374,13 @@ def _normalize_task_tier(brief: dict[str, Any]) -> tuple[str, str | None]:
                 f"normalized: task_tier was missing — coerced from "
                 f"difficulty '{difficulty}' to tier '{mapped}'"
             )
-        return "standard", (
+        return default_tier, (
             f"normalized: task_tier was missing and difficulty '{difficulty}' "
-            "is unrecognized — defaulted to 'standard'"
+            f"is unrecognized — defaulted to '{default_tier}'"
         )
 
-    return "standard", (
-        "normalized: task_tier was missing — defaulted to 'standard'"
+    return default_tier, (
+        f"normalized: task_tier was missing — defaulted to '{default_tier}'"
     )
 
 
@@ -563,6 +608,61 @@ def _width_disjoint_trigger(brief: dict[str, Any]) -> str | None:
     )
 
 
+_ROSTER_WILDCARDS = frozenset({"*", "all", "any", "everyone", "wildcard"})
+
+
+def _validate_workflow_roster(
+    roster_raw: Any, persona: str
+) -> tuple[list[str], list[str] | None]:
+    """DEC-096: derive the wave capability token's CLOSED `allowed_personas`
+    set from the orchestrator-declared `brief_json.workflow_roster`.
+
+    Returns `(errors, allowed_personas)`. On any structural violation the
+    returned `allowed_personas` is None and a HARD error is appended (flips
+    approved=false — fail-closed at mint). Constraints, all enforced here
+    because this is the only layer that owns the persona registry
+    (ALLOWED_PERSONAS): the roster MUST be a non-empty JSON array, every member
+    a known dispatchable persona, and NO wildcard/'all' sentinel (Option C is
+    permanently rejected). A single-persona dispatch simply omits
+    workflow_roster — the token then carries the degenerate one-element set
+    [persona] (mint_token derives it), with NO special-case branch anywhere."""
+    if not isinstance(roster_raw, list):
+        return (
+            [
+                "workflow_roster must be a JSON array of persona names "
+                "(DEC-096: the wave's CLOSED allowed-persona set)"
+            ],
+            None,
+        )
+    normalized: list[str] = []
+    errors: list[str] = []
+    for raw in roster_raw:
+        name = str(raw).lower().strip()
+        if not name:
+            continue
+        if name in _ROSTER_WILDCARDS:
+            errors.append(
+                f"workflow_roster must not contain a wildcard/'all' sentinel "
+                f"(got {raw!r}) — DEC-096 permanently rejects a blanket bypass"
+            )
+            continue
+        if name not in ALLOWED_PERSONAS:
+            errors.append(
+                f"workflow_roster member '{name}' is not a known dispatchable "
+                "persona — every member must be a real persona (no wildcard)"
+            )
+            continue
+        if name not in normalized:
+            normalized.append(name)
+    if not normalized and not errors:
+        errors.append(
+            "workflow_roster must be a non-empty CLOSED set of personas (DEC-096)"
+        )
+    if errors:
+        return errors, None
+    return [], normalized
+
+
 class BrokerResult(TypedDict):
     approved: bool
     warnings: list[str]
@@ -779,6 +879,19 @@ async def nexus_validate_brief(
                 "advisory — it does not block this validation."
             )
 
+        # (c) tool-ceiling ADVISORY (gemini-gateway #21) — a Bash-less persona
+        #     (see _BASH_LESS_PERSONAS) with a verification_required full of
+        #     shell-gated commands cannot run its own verification. ADVISORY
+        #     ONLY: never flips approved, so existing flows keep working.
+        if persona in _BASH_LESS_PERSONAS:
+            vr_entries = brief.get("verification_required") or []
+            if isinstance(vr_entries, list) and _has_shell_command(vr_entries):
+                warnings.append(
+                    f"TOOL-CEILING ADVISORY: persona '{persona}' has no Bash — "
+                    "verification_required will be unrunnable; route verification "
+                    "to lens-fast or reassign."
+                )
+
     # 6b. Phase 3 — decomposition forcing-function (3-tier escalation).
     #
     #     The `decomposition` brief field is OPTIONAL: {
@@ -874,6 +987,19 @@ async def nexus_validate_brief(
             if width_msg is not None:
                 warnings.append(width_msg)
 
+    # 6c. DEC-096 — workflow-leg token authority. When the orchestrator declares
+    #     a `workflow_roster` (the fan-out roster it is about to dispatch), derive
+    #     + validate the wave token's CLOSED allowed_personas set. A structural
+    #     violation (wildcard, unknown persona, empty, non-array) is a HARD error
+    #     that flips approved=false — fail-closed at the mint site. Absent =
+    #     single-persona dispatch (degenerate one-element set, derived below).
+    allowed_personas: list[str] | None = None
+    if not json_parse_failed and brief.get("workflow_roster") is not None:
+        roster_errors, allowed_personas = _validate_workflow_roster(
+            brief.get("workflow_roster"), persona
+        )
+        errors.extend(roster_errors)
+
     approved = len(errors) == 0
 
     # 7. Write broker_state.json on approval
@@ -896,12 +1022,36 @@ async def nexus_validate_brief(
         # to re-embed a full JSON brief in every Agent prompt. `intent` is the
         # function argument (the brief itself need not carry it); task_tier
         # normalizes to the same default the validator used above.
+        # NATIVE-14: thread the brief's explicit task_id through, falling back
+        # to turn_id only when the brief carries none — lets lens-gate's
+        # task-hash use the real task_id instead of the dispatch:{agent}:
+        # {session_id} identity fallback (scout report: task-id-threading.md).
+        brief_task_id = str(brief.get("task_id") or "").strip() or turn_id
         new_state["approved_brief"] = {
             "task_tier": task_tier,
             "work_type": str(brief.get("work_type", "")),
             "intent": intent,
             "skills_required": brief.get("skills_required", []),
+            "task_id": brief_task_id,
         }
+        # F1-04: mint ONE capability token (capability_token.py, F1-01 schema) as
+        # a pure PASS side-effect — additive only, computed AFTER `approved` is
+        # already decided above and never a factor in it. This validate call has
+        # no separate plan/task granularity of its own, so `turn_id` scopes both
+        # `plan_id` and `task_id`; `persona` binds the token to this dispatch.
+        # Persisted under the exact key `_token_shadow.extract_token` reads off
+        # broker_state.json. A team-scoped validate mints its own token here per
+        # (team, persona) call, same as every other approved_brief field above.
+        new_state["capability_token"] = mint_token(
+            plan_id=turn_id,
+            task_id=brief_task_id,
+            persona=persona,
+            write_scope=brief.get("write_scope"),
+            tier=task_tier,
+            allowed_personas=allowed_personas,
+            intent=intent,
+            work_type=work_type,
+        )
         write_state(new_state)
 
     # 8. Log to DB (fire-and-forget)

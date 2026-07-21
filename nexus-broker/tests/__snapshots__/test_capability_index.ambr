@@ -1,0 +1,13 @@
+# serializer version: 1
+# name: test_discover_candidate_shape
+  dict({
+    'authority': 'hard-rule',
+    'estimated_tokens': 200,
+    'id': 'tdd-patterns',
+    'kind': 'skill',
+    'next_action': 'nexus_prepare',
+    'requires_profile': list([
+    ]),
+    'summary': 'Split-workflow TDD contract; stubs must be complete assertions and lint-clean.',
+  })
+# ---

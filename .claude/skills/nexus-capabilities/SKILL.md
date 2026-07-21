@@ -81,11 +81,11 @@ former `project-context` + `log-work`); `--help` on any sub for exact flags.
 
 | Surface | Command | Canonical |
 |---|---|---|
-| TypeScript | `rtk tsc` · `rtk lint` | `Skill verification-protocols` |
-| Python | `uv run ruff check` · `uv run pytest -q` | `Skill verification-protocols` |
-| Lens protocol (order: lint→type→tests→semantic, output schema, no-bar-lowering) | — | `Skill verification-protocols` |
+| TypeScript | `rtk tsc` · `rtk lint` | `Skill verification` |
+| Python | `uv run ruff check` · `uv run pytest -q` | `Skill verification` |
+| Lens protocol (order: lint→type→tests→semantic, output schema, no-bar-lowering) | — | `Skill verification` |
 
-Lens runs deterministic checks (lint→type→tests) GREEN before its semantic verdict — see `Skill verification-protocols`.
+Lens runs deterministic checks (lint→type→tests) GREEN before its semantic verdict — see `Skill verification`.
 
 ## 5. DEPLOY / UPDATE mechanics
 

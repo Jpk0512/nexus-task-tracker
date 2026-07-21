@@ -55,6 +55,40 @@ try:
 except Exception:
     _heartbeat_mod = None
 
+# Load _envelope_shadow from the same hooks directory. F1-08 CUTOVER
+# (nexus-foundation/plans/wave-1.md track (c)): schema-parse via this
+# module's resolve_marker() is now AUTHORITATIVE for this gate's marker
+# resolution — MARKER_RE below is demoted to the single legacy-fallback
+# branch (used only when no valid envelope is found). Rollback (kept 1
+# release): env NEXUS_REGEX_AUTHORITY=1 restores regex-first ordering,
+# reproducing the pre-cutover F1-07 behavior exactly. Best-effort import,
+# same discipline as _heartbeat above — a failed import degrades to
+# regex-only (never changes this gate's exit code / DENY reasoning beyond
+# that degrade).
+try:
+    _es_path = Path(__file__).parent / "_envelope_shadow.py"
+    _es_spec = importlib.util.spec_from_file_location("_envelope_shadow", _es_path)
+    _envelope_shadow_mod = importlib.util.module_from_spec(_es_spec)  # type: ignore[arg-type]
+    _es_spec.loader.exec_module(_envelope_shadow_mod)  # type: ignore[union-attr]
+except Exception:
+    _envelope_shadow_mod = None
+
+
+def _resolve_marker(text: str, legacy_marker):
+    """F1-08 AUTHORITATIVE marker resolution — see _envelope_shadow.py's
+    resolve_marker() docstring. Degrades to `legacy_marker` outright if the
+    shadow module failed to import (mirrors the prior _shadow_compare's
+    fail-open discipline) — this call must never prevent the gate from
+    reaching a verdict, whichever source ultimately wins."""
+    if _envelope_shadow_mod is None:
+        return legacy_marker
+    try:
+        return _envelope_shadow_mod.resolve_marker(
+            hook="lens-gate", raw_text=text, legacy_regex_marker=legacy_marker
+        )
+    except Exception:
+        return legacy_marker
+
 # ADR-001 Phase 0: resolved relative to THIS file (never the env-overridable
 # DB_PATH/GIT_ROOT below) so a test pointing _HOOK_DB_PATH at a scratch DB
 # still invokes the REAL log.py — the single-writer connection, not a raw
@@ -111,6 +145,94 @@ def _record_block(event: str, code: str, reason: str) -> None:
         pass
 
 
+# TASK-094 LEG B — gate-span emission + daemon RPC-miss/latency tracking. This
+# package build is self-contained (no _gate_deny.py import — see _record_block
+# above), so emit_gate_span below is its OWN inline mirror of
+# _gate_deny.py's emit_gate_span (same span shape: gate_name/event/verdict/
+# reason + the gate_fire attrs lens_verdict/lens_tier/revise_reasons/
+# rpc_miss/rpc_latency_ms — spans.py's validate_gate_attributes), calling the
+# package's own `_daemon_rpc.py` twin (dynamic same-dir import, same pattern
+# as `_heartbeat_mod`/`_envelope_shadow_mod` above) directly rather than
+# routing through a `_gate_deny_mod` this file deliberately does not import.
+try:
+    _dr_path = Path(__file__).parent / "_daemon_rpc.py"
+    _dr_spec = importlib.util.spec_from_file_location("_daemon_rpc", _dr_path)
+    _daemon_rpc_mod = importlib.util.module_from_spec(_dr_spec)  # type: ignore[arg-type]
+    _dr_spec.loader.exec_module(_daemon_rpc_mod)  # type: ignore[union-attr]
+except Exception:
+    _daemon_rpc_mod = None
+
+_GATE_SPAN_ATTR_KEYS = (
+    "lens_verdict", "lens_tier", "revise_reasons", "rpc_miss", "rpc_latency_ms",
+)
+_GATE_SPAN_TOP_LEVEL_KEYS = ("task_id", "workflow_id", "phase_id")
+
+
+def emit_gate_span(event, code, verdict, reason, span_attrs=None):
+    """Best-effort `gate`-kind span emission. NO-OP (no RPC attempt, no
+    `_daemon_rpc_mod` load even attempted beyond the try/except above) when
+    `span_attrs` is falsy or carries no resolvable `trace_id`/`session_id` —
+    a gate span's `trace_id` is REQUIRED (spans.validate_span). ANY failure
+    (daemon down, malformed reply, missing `_daemon_rpc_mod`) is swallowed —
+    this must never affect this gate's own exit code / stdout / stderr.
+    """
+    if not span_attrs or _daemon_rpc_mod is None:
+        return
+    trace_id = span_attrs.get("trace_id") or span_attrs.get("session_id")
+    if not trace_id:
+        return
+    try:
+        import uuid
+
+        hook = code.split("/", 1)[0] if "/" in code else code
+        attributes = {
+            "gate_name": hook,
+            "event": event,
+            "verdict": verdict,
+            "reason": str(reason)[:500],
+        }
+        for key in _GATE_SPAN_ATTR_KEYS:
+            value = span_attrs.get(key)
+            if value is not None:
+                attributes[key] = value
+        span = {
+            "trace_id": str(trace_id),
+            "span_id": "gate-" + uuid.uuid4().hex,
+            "name": "gate:" + hook,
+            "kind": "gate",
+            "status": "ERROR" if verdict == "deny" else "OK",
+            "attributes": attributes,
+        }
+        for key in _GATE_SPAN_TOP_LEVEL_KEYS:
+            value = span_attrs.get(key)
+            if value:
+                span[key] = str(value)
+        timeout = float(os.environ.get("NEXUS_GATE_SPAN_TIMEOUT_S", "0.2"))
+        _daemon_rpc_mod.call(Path(GIT_ROOT), "span.emit", {"span": span}, timeout)
+    except Exception:
+        pass
+
+
+def _lens_span_attrs(session_id, lens_verdict, lens_tier=None, revise_reasons=None):
+    """Build `emit_gate_span`'s `span_attrs` for a `gate`-kind lens span.
+    Returns None (no span attempted) when `session_id` never resolved —
+    mirrors `emit_gate_span`'s own no-op-without-trace_id contract one level
+    up so every call site here can pass the result straight through
+    unconditionally."""
+    if not session_id:
+        return None
+    attrs = {"trace_id": session_id, "lens_verdict": lens_verdict}
+    if lens_tier:
+        attrs["lens_tier"] = lens_tier
+    if revise_reasons:
+        attrs["revise_reasons"] = revise_reasons
+    if _RPC_STATE["attempted"]:
+        attrs["rpc_miss"] = _RPC_STATE["miss"]
+        if _RPC_STATE["latency_ms"] is not None:
+            attrs["rpc_latency_ms"] = _RPC_STATE["latency_ms"]
+    return attrs
+
+
 DB_PATH = os.environ.get(
     "_HOOK_DB_PATH",
     "/Users/john.keeney/nexus-task-tracker/.memory/project.db",
@@ -128,19 +250,19 @@ GIT_ROOT = os.environ.get(
 # source under a gated prefix must pass through Lens before NEXUS:DONE is
 # accepted. Read-only personas (scout=investigate, lens=validate) and the
 # design-only persona (palette → docs/design only) are deliberately excluded.
-# Names mirror the nexus-broker registry DISPATCHABLE_PERSONAS keys; the --pro
-# variants are Opus reworks of the same scope and gate identically. Membership is
-# matched on the FULL persona name (not the base before '-') so the -pro and the
-# sub-stack variants (forge-ui, pipeline-async, …) each gate on their own right.
+# Names mirror the nexus-broker registry DISPATCHABLE_PERSONAS keys. The four
+# `-pro` escalation names (forge-ui-pro/forge-wire-pro/pipeline-data-pro/
+# pipeline-async-pro) are RETIRED dispatch names (R2-T03 FIX-4) — escalation is
+# now a tier=pro parameter on the base persona, never a distinct name, and
+# persona-alias-resolver.sh redirects any stale -pro dispatch before this gate
+# ever sees it. They are intentionally absent from this roster. Membership is
+# matched on the FULL persona name (not the base before '-') so each sub-stack
+# variant (forge-ui, pipeline-async, …) gates on its own right.
 GATED_AGENTS = frozenset({
     "forge-ui",
     "forge-wire",
-    "forge-ui-pro",
-    "forge-wire-pro",
     "pipeline-data",
     "pipeline-async",
-    "pipeline-data-pro",
-    "pipeline-async-pro",
     "atlas",
     "hermes",
     "quill-ts",
@@ -172,8 +294,12 @@ else:
         p.strip().lstrip("/") for p in _RENDERED_WATCHED.split(",") if p.strip()
     ) or _FALLBACK_PREFIXES
 
+# F1-08: the single legacy-fallback marker regex (schema-parse via
+# _resolve_marker above is now authoritative); used only when no valid typed
+# envelope is found in the return.
 MARKER_RE = re.compile(
-    r"##\s+NEXUS:(DONE|REVISE|BLOCKED|CHECKPOINT|NEEDS-DECISION)", re.IGNORECASE
+    r"^\s*##\s+NEXUS:(DONE|REVISE|BLOCKED|CHECKPOINT|NEEDS-DECISION)",
+    re.IGNORECASE | re.MULTILINE,
 )
 
 VALIDATION_WINDOW = timedelta(hours=1)
@@ -187,6 +313,19 @@ FAILING_CRITERION_RE = re.compile(
     r"^\s*Failing criterion\s*:\s*\S",
     re.IGNORECASE | re.MULTILINE,
 )
+
+# TASK-094 LEG B — REVISE-reason capture: the FULL text of each "Failing
+# criterion: ..." line (FAILING_CRITERION_RE above only confirms PRESENCE),
+# for the gate_fire.revise_reasons span attribute.
+FAILING_CRITERION_TEXT_RE = re.compile(
+    r"^\s*Failing criterion\s*:\s*(.+)$",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+
+def _revise_reasons(text):
+    return [m.strip() for m in FAILING_CRITERION_TEXT_RE.findall(text) if m.strip()]
+
 
 # Content-probe: presence of any of these tokens in the diff/text forces T2.
 SUBPROCESS_PROBE_RE = re.compile(
@@ -284,10 +423,16 @@ def _git_gated_changes(include_head_commit):
     HEAD commit is excluded to avoid false-blocks from unrelated checkpoint
     commits (TASK-068).
 
-    Returns the gated subset (possibly empty = clean), or None when git is
-    unavailable/errors (fail-soft — self-report stays the signal).
+    Returns (gated, head_only_gated), or None when git is unavailable/errors
+    (fail-soft — self-report stays the signal). `head_only_gated` is the
+    subset of `gated` attributable ONLY to the HEAD commit — not also present
+    in the uncommitted working tree. A committed HEAD may belong to an
+    entirely different actor (another leg's checkpoint, a pre-existing
+    commit) and the caller must not fabricate an omission finding from it
+    alone (#281) — only the working-tree portion is directly attributable to
+    the agent finishing right now.
     """
-    paths = set()
+    wt_paths = set()
     base = ["git", "-C", GIT_ROOT]
     try:
         # -uall: list untracked FILES individually — without it git collapses
@@ -304,9 +449,10 @@ def _git_gated_changes(include_head_commit):
             if " -> " in p:  # rename entry: "R  old -> new"
                 p = p.split(" -> ", 1)[1].strip()
             if p:
-                paths.add(p.strip('"'))
+                wt_paths.add(p.strip('"'))
     except Exception:
         return None
+    head_paths = set()
     if include_head_commit:
         try:
             head = subprocess.run(
@@ -314,11 +460,13 @@ def _git_gated_changes(include_head_commit):
                 capture_output=True, text=True, timeout=10,
             )
             if head.returncode == 0:
-                paths.update(ln.strip() for ln in head.stdout.splitlines() if ln.strip())
+                head_paths.update(ln.strip() for ln in head.stdout.splitlines() if ln.strip())
             # rc!=0 (e.g. single-commit repo: no HEAD~1) — working tree alone suffices.
         except Exception:
             pass
-    return sorted(p for p in paths if _touches_source([p]))
+    gated = sorted(p for p in (wt_paths | head_paths) if _touches_source([p]))
+    head_only_gated = sorted(p for p in (head_paths - wt_paths) if _touches_source([p]))
+    return gated, head_only_gated
 
 
 # N22 (plans/13 item 3.2 hook half; plans/08 3.2): per-Workflow ownership
@@ -355,6 +503,14 @@ NEXUS_DAEMON_CONNECT_TIMEOUT_ENV = "NEXUS_DAEMON_CONNECT_TIMEOUT_S"
 # owner, so an unset id degrades safely rather than over-exempting.
 FINISHING_WORKFLOW_ID = os.environ.get("_HOOK_WORKFLOW_ID") or None
 
+# TASK-094 LEG B — daemon RPC-miss observability for THIS gate's own
+# ownership RPC (gate_fire.rpc_miss/rpc_latency_ms, spans.py's
+# validate_gate_attributes). Updated by `_ownership_owners_of` below; read by
+# `_lens_span_attrs`. "attempted" stays False (attrs omitted, never
+# fabricated) when this gate never had a reason to call
+# `_ownership_owners_of` at all.
+_RPC_STATE = {"attempted": False, "miss": False, "latency_ms": None}
+
 
 def _ownership_socket_path(project_path):
     """Mirror broker.daemon.paths.socket_path_for() exactly: one per-project
@@ -375,12 +531,15 @@ def _ownership_owners_of(file_path):
     not authorize — a missing daemon is simply treated as unreachable.
     """
     try:
+        _RPC_STATE["attempted"] = True
         sock_path = _ownership_socket_path(GIT_ROOT)
         if not sock_path.exists():
+            _RPC_STATE["miss"] = True
             return None
         timeout = float(os.environ.get(NEXUS_DAEMON_CONNECT_TIMEOUT_ENV) or 2.0)
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         sock.settimeout(timeout)
+        _t0 = time.time()
         try:
             sock.connect(str(sock_path))
             request = {"id": 1, "method": "ownership_owners_of", "params": {"file_path": file_path}}
@@ -394,18 +553,24 @@ def _ownership_owners_of(file_path):
         finally:
             sock.close()
         if not buf:
+            _RPC_STATE["miss"] = True
             return None
         response = json.loads(buf.decode("utf-8"))
         if not isinstance(response, dict) or "error" in response:
+            _RPC_STATE["miss"] = True
             return None
         result = response.get("result")
         if not isinstance(result, dict):
+            _RPC_STATE["miss"] = True
             return None
         owners = result.get("owners")
         if not isinstance(owners, list) or not all(isinstance(o, str) for o in owners):
+            _RPC_STATE["miss"] = True
             return None
+        _RPC_STATE["latency_ms"] = (time.time() - _t0) * 1000.0
         return owners
     except Exception:
+        _RPC_STATE["miss"] = True
         return None
 
 
@@ -457,11 +622,38 @@ def _warn_extract_miss(payload: dict) -> None:
     }))
 
 
-def _derive_task_hash(payload: dict, assistant_text: str) -> str:
+def _derive_task_hash(payload: dict, agent_name: str) -> str:
     """Produce a stable hash that Lens can reproduce when it calls `validation add`.
 
-    Priority: explicit task_id > task_description > brief hash from assistant text.
-    Nexus embeds task_id in the delegation payload when it exists.
+    Priority: explicit task_id > task_description > dispatch identity
+    (agent_name, session_id).
+
+    WHY (NATIVE-12-3 / NATIVE-6-11 root cause + fix): task_id/task_description
+    are only populated when the orchestrator threads them through the brief,
+    which is frequently not the case — the REMOVED third fallback then hashed
+    `assistant_text[:500]`, i.e. the LEAF AGENT'S OWN RESPONSE. A SubagentStop
+    hook returning exit 2 (block) does not terminate the sub-agent: the
+    harness feeds the deny reason back into the SAME ongoing sub-agent turn,
+    which continues and produces a NEW final message. That rotated
+    assistant_text — and the hash derived from it — on every retry, so a Lens
+    PASS row written against attempt N's hash could never satisfy attempt
+    N+1's re-derived hash, trapping the agent in a REVISE loop with no
+    reachable exit and breaking validation_log dedup (keyed on task_hash).
+
+    `(agent_name, session_id)` is the strongest identity this payload
+    actually carries that stays CONSTANT across those forced retries:
+    session_id identifies THIS sub-agent's own dispatch/turn — the same
+    value on every SubagentStop firing within one Task/Agent invocation,
+    including harness-forced continuations — and changes only when the
+    orchestrator starts a genuinely NEW dispatch. agent_name is folded in
+    defensively so two personas that ever shared a session id would still
+    hash apart; this mirrors the (session_id, persona) pairing
+    dispatch-capture.py / completion-capture.py already use to correlate a
+    dispatch with its completion. The gate's own deny text prints the
+    resulting hash for the orchestrator to hand to Lens via `--task-hash` —
+    reproducibility does not require Lens to independently rediscover the
+    value, only that it stay stable across an agent's own retries, which
+    this fallback now guarantees (unlike the removed text-derived one).
     """
     task_id: str = (
         payload.get("task_id")
@@ -474,18 +666,92 @@ def _derive_task_hash(payload: dict, assistant_text: str) -> str:
         or os.environ.get("CLAUDE_TASK_DESCRIPTION", "")
         or ""
     )
-    raw = task_id or task_desc or assistant_text[:500]
+    if task_id or task_desc:
+        raw = task_id or task_desc
+    else:
+        session_id = str(payload.get("session_id") or "unknown-session")
+        raw = f"dispatch:{agent_name}:{session_id}"
     return hashlib.sha256(raw.encode()).hexdigest()[:16]
 
 
+# TASK-085 — lens-gate Stop-hook loop fix (fire-once-per-task_hash).
+#
+# RCA: a SubagentStop block does NOT terminate the sub-agent — the harness
+# feeds the deny reason back into the SAME ongoing turn, which continues and
+# produces a NEW final message (see _derive_task_hash's own docstring
+# above). task_hash is deliberately STABLE across those retries (keyed off
+# (agent_name, session_id), not the rotating response text), so an
+# unresolved deny (no Lens row exists yet) re-fires byte-identically on
+# every retry. A GATED_AGENTS leaf cannot dispatch Lens or write its own
+# validation row (Task/Agent disallowed, separate-judge principle) — only
+# the orchestrator can resolve it, and the orchestrator never regains
+# control while this hook keeps re-blocking the same leaf turn. The loop
+# cannot self-terminate and the leaf's real return envelope (files_changed,
+# verification_result, marker) never reaches the orchestrator.
+#
+# FIX: the FIRST time a given (task_hash, deny code) pair fires, BLOCK
+# exactly as before — the DEC-029 floor is untouched. Every REPEAT of that
+# SAME pair on the SAME stuck turn allows the stop through with a WARN
+# instead, so the envelope surfaces. A FRESH task_hash has no state file yet
+# and blocks exactly like a first occurrence — the floor never weakens for
+# different work.
+#
+# STATE: one flag file per (code, task_hash) — hooks run as separate
+# processes per SubagentStop firing, so only a marker persisted to disk lets
+# one firing know a PRIOR firing already blocked this exact pair. Mirrors
+# this file's own _warn_extract_miss flag-file idiom above (tempdir,
+# exists() gates a touch()) and its _HOOK_*-env-seam test-isolation
+# convention (_HOOK_DB_PATH / _HOOK_GIT_ROOT / _HOOK_WATCHED_PREFIXES).
+_LENS_GATE_STATE_DIR = os.environ.get("_HOOK_LENS_GATE_STATE_DIR")
+
+
+def _fire_once_state_path(code, task_hash):
+    """On-disk marker path for the fire-once dedup (TASK-085). `code` is
+    always one of this module's own "LENS/..." literals and `task_hash` is
+    normally a 16-char hex sha256 slice (_derive_task_hash) — both are
+    defensively sanitized anyway since they end up in a filesystem path."""
+    import tempfile
+
+    base = Path(_LENS_GATE_STATE_DIR) if _LENS_GATE_STATE_DIR else Path(tempfile.gettempdir())
+    safe_code = re.sub(r"[^A-Za-z0-9]+", "-", code).strip("-")[:64]
+    safe_hash = re.sub(r"[^A-Za-z0-9]+", "", task_hash)[:64] or "unknown"
+    return base / (".nexus-lens-gate-fired-" + safe_code + "-" + safe_hash)
+
+
+def _already_fired(code, task_hash):
+    """Returns True (writes NO new marker) on a REPEAT firing of this exact
+    (task_hash, code) pair — the caller must WARN + allow instead of
+    blocking. Returns False and WRITES the marker on a first firing — the
+    caller blocks exactly as before; the floor is untouched."""
+    state_path = _fire_once_state_path(code, task_hash)
+    if state_path.exists():
+        return True
+    try:
+        state_path.parent.mkdir(parents=True, exist_ok=True)
+        state_path.touch()
+    except OSError:
+        pass
+    return False
 
 
 def main() -> int:
+    # TASK-094 LEG B — reset per-invocation RPC-miss tracking (module-level
+    # dict — a fresh process per hook firing in production, but reset
+    # defensively in case a test harness ever imports this module and calls
+    # main() >1x in-process).
+    _RPC_STATE["attempted"] = False
+    _RPC_STATE["miss"] = False
+    _RPC_STATE["latency_ms"] = None
+
     raw = sys.stdin.read()
     try:
         payload = json.loads(raw)
     except json.JSONDecodeError:
         return 0
+
+    # TASK-094 LEG B — trace_id (== session_id) for gate-span emission; see
+    # _lens_span_attrs above. Resolved once per invocation.
+    session_id = str(payload.get("session_id") or payload.get("sessionId") or "").strip()
 
     assistant_text: str = (
         payload.get("last_assistant_message")
@@ -497,11 +763,12 @@ def main() -> int:
         _warn_extract_miss(payload)
         return 0
 
-    marker_match = MARKER_RE.search(assistant_text)
-    if not marker_match:
-        return 0
+    legacy_match = MARKER_RE.search(assistant_text)
+    legacy_marker = legacy_match.group(1).upper() if legacy_match else None
 
-    marker = marker_match.group(1).upper()
+    marker = _resolve_marker(assistant_text, legacy_marker)
+    if marker is None:
+        return 0
 
     # Extract agent_name early — needed for both the REVISE floor and the DONE gate.
     #
@@ -540,12 +807,30 @@ def main() -> int:
                 )
                 print(_reason, file=sys.stderr)
                 _record_block("SubagentStop", _code, _reason)
+                emit_gate_span(
+                    "SubagentStop", _code, "deny", _reason,
+                    _lens_span_attrs(session_id, "REVISE"),
+                )
                 return 2
+        # TASK-094 LEG B — REVISE-reason capture at hook level: a valid
+        # REVISE (criterion present, or a non-verifier persona) never
+        # blocks/prints here, but the structured reason(s) are still worth
+        # capturing as a `gate` span attribute — pure telemetry, this
+        # branch's stdout/exit-code stay byte-identical.
+        emit_gate_span(
+            "SubagentStop", "LENS/REVISE", "advise", "REVISE captured",
+            _lens_span_attrs(session_id, "REVISE", revise_reasons=_revise_reasons(assistant_text)),
+        )
         return 0
 
     if marker != "DONE":
-        # Only NEXUS:DONE triggers the Lens-validation gate below.
-        # BLOCKED/CHECKPOINT/NEEDS-DECISION pass freely.
+        # Leaf clean-terminal: a leaf executor (GATED_AGENTS) has Task/Agent
+        # denied and structurally cannot dispatch Lens itself — a
+        # NEEDS-DECISION/CHECKPOINT/BLOCKED handoff (or a non-verifier
+        # REVISE, handled above) from that agent means a Lens phase is still
+        # pending on the ORCHESTRATOR side, which is the normal T2 workflow
+        # shape, not a violation. Only NEXUS:DONE triggers the Lens-
+        # validation gate below, for every agent alike.
         return 0
 
     if agent_name in RETIRED_BASE_PERSONAS:
@@ -578,7 +863,8 @@ def main() -> int:
         # docs-only, scope git to uncommitted changes only — the HEAD commit is
         # plausibly an unrelated checkpoint and including it causes false-blocks.
         self_report_present_docs_only = bool(files_changed)  # non-empty list, no gated paths
-        git_gated = _git_gated_changes(not self_report_present_docs_only)
+        _git_result = _git_gated_changes(not self_report_present_docs_only)
+        git_gated, git_head_only = (None, []) if _git_result is None else _git_result
 
         # N22: narrow whole-tree git ground truth to per-Workflow attribution
         # before it is used as a signal below — a path the daemon positively
@@ -601,6 +887,53 @@ def main() -> int:
                     file=sys.stderr,
                 )
             git_gated = _owner_filtered
+            git_head_only = [p for p in git_head_only if p in git_gated]
+
+        # #281 FIX: a path attributable ONLY to the HEAD~1..HEAD commit (not
+        # also uncommitted in the working tree) is committed history that may
+        # belong to a different actor entirely (another leg's checkpoint, a
+        # pre-existing commit) — fabricating a hard "omitted from self-report"
+        # finding from it alone is exactly the shared-dirty-tree misattribution
+        # #281 reported. Exclude it from the blocking signal; only the
+        # directly-observable working-tree portion stays hard evidence.
+        #
+        # FLEET-FB-2 fix: this exclusion SCOPES a present self-report — it
+        # must never fire when the self-report is absent entirely. An absent
+        # self-report has nothing to trust, so the HEAD window must stay a
+        # hard fail-closed signal exactly as before FLEET-FB-2 (an agent must
+        # not be able to evade the gate by committing gated work to HEAD and
+        # omitting a self-report).
+        if git_gated and git_head_only and self_report_present_docs_only:
+            print(
+                "[lens-gate] INFO — excluded from ground-truth attribution "
+                f"(HEAD-commit-only, not this agent's uncommitted work): {git_head_only[:5]}.",
+                file=sys.stderr,
+            )
+            git_gated = [p for p in git_gated if p not in git_head_only]
+
+        # NATIVE-14 (pragmatic fix, universal — DEC-068): the git cross-check
+        # scans the WHOLE working tree and cannot attribute an uncommitted
+        # change to THIS agent. A concurrently dirty tree (another in-flight
+        # edit under a gated prefix) then false-blocks a docs-only DONE for
+        # changes it never made. When the agent DID report its scope
+        # (files_changed present, docs-only), trust the self-report and
+        # DOWNGRADE the git discrepancy to an advisory WARN instead of
+        # forcing the Lens gate. The structural floor is untouched: a
+        # SELF-REPORTED gated path (self_report_gated, above) still hard-
+        # requires a Lens row. Only when the self-report is ABSENT entirely
+        # (nothing to trust) does git stay a hard signal — that path is
+        # unchanged.
+        if git_gated and self_report_present_docs_only:
+            print(
+                "[lens-gate] WARN — git shows gated paths not in the "
+                f"docs-only self-report: {git_gated[:5]}. NOT blocking — "
+                "whole-tree attribution is unreliable while a concurrent "
+                "leg is in flight (NATIVE-14). Confirm the scope is "
+                "intentional.",
+                file=sys.stderr,
+            )
+            git_gated = None
+            return 0
 
     if not self_report_gated and not git_gated:
         # No gated source change — confirmed by self-report AND git ground
@@ -614,7 +947,7 @@ def main() -> int:
             f"omitted: {git_gated[:5]}\n"
         )
 
-    task_hash = _derive_task_hash(payload, assistant_text)
+    task_hash = _derive_task_hash(payload, agent_name)
     tier = _classify_lens_tier(files_changed, assistant_text)
 
     # ADR-001 Phase 0: v1 floor (structural backstop — NEVER removed) + v2
@@ -651,26 +984,83 @@ def main() -> int:
             "(not a directory or locked by another process), then re-dispatch. "
             "Run `python3 .memory/log.py init` if the DB is missing."
         )
+        if _already_fired(_code, task_hash):
+            print(
+                f"[GATE:{_code}] [lens-gate] WARN — REPEAT identical {_code} block for "
+                f"{agent_name} task_hash {task_hash} on this leaf turn (TASK-085 fire-once "
+                "floor — already blocked once this turn). Allowing the stop through so the "
+                "return envelope reaches the orchestrator; the validation DB error is still "
+                f"unresolved — fix it, then dispatch Lens for {task_hash} before accepting "
+                "this DONE.",
+                file=sys.stderr,
+            )
+            emit_gate_span(
+                "SubagentStop", _code, "advise", _reason, _lens_span_attrs(session_id, "FAIL", tier),
+            )
+            return 0
         print(_reason, file=sys.stderr)
         _record_block("SubagentStop", _code, _reason)
+        emit_gate_span(
+            "SubagentStop", _code, "deny", _reason, _lens_span_attrs(session_id, "FAIL", tier),
+        )
         return 2
 
     if not validated:
+        if tier == "T1":
+            # DEC-068 (owner-approved TRADE, universal): a genuine T1 leg's
+            # row is OPTIONAL — a green deterministic gate alone may satisfy
+            # a single-file, non-gated leg. A missing row degrades to an
+            # advisory WARN, never a block.
+            print(
+                f"[lens-gate] ADVISORY — {agent_name.capitalize()} NEXUS:DONE is T1 "
+                "(single non-gated file) with no Lens validation row. DEC-068: the row "
+                "is OPTIONAL at T1 — a green deterministic gate may satisfy this leg on "
+                "its own. Proceeding without a block.\n"
+                f"  Agent: {agent_name}\n"
+                f"  Task hash: {task_hash}\n"
+                f"{gt_note}",
+                file=sys.stderr,
+            )
+            emit_gate_span(
+                "SubagentStop", "LENS/T1-ROW-OPTIONAL", "advise",
+                "T1 row optional — proceeding without a block",
+                _lens_span_attrs(session_id, "T1-ROW-OPTIONAL", tier),
+            )
+            return 0
         _code = "LENS/NO-VALIDATION"
         _reason = (
             f"[GATE:{_code}] [lens-gate] BLOCK — {agent_name.capitalize()} NEXUS:DONE requires Lens "
-            "validation first (CONTRACT.md Rule 17). Dispatch Lens before re-claiming done.\n"
+            f"validation first (CONTRACT.md Rule 17). Orchestrator: dispatch Lens for "
+            f"{task_hash} before accepting this DONE.\n"
             f"  Agent: {agent_name}\n"
             f"  Task hash: {task_hash}\n"
             f"  Lens tier: {tier} ({'light — single non-gated file' if tier == 'T1' else 'full deep audit — multi-file or gated prefix or content probe'})\n"
             f"  Files changed (source): {[f for f in files_changed if _touches_source([f])][:5]}\n"
             f"{gt_note}"
-            "  Lens must run: python3 .memory/log.py validation add "
+            "  Orchestrator: dispatch Lens, which runs: python3 .memory/log.py validation add "
             f"--agent lens --target {agent_name} --task-hash {task_hash} "
             "--verdict PASS|PARTIAL|FAIL --summary \"...\""
         )
+        if _already_fired(_code, task_hash):
+            print(
+                f"[GATE:{_code}] [lens-gate] WARN — REPEAT identical {_code} block for "
+                f"{agent_name} task_hash {task_hash} on this leaf turn (TASK-085 fire-once "
+                "floor — already blocked once this turn; a leaf cannot dispatch Lens itself, "
+                "so re-blocking would only loop). Allowing the stop through so the return "
+                "envelope (files_changed, verification_result, marker) reaches the "
+                f"orchestrator — Lens validation is STILL required before this DONE is truly "
+                f"accepted; dispatch Lens for {task_hash}.",
+                file=sys.stderr,
+            )
+            emit_gate_span(
+                "SubagentStop", _code, "advise", _reason, _lens_span_attrs(session_id, "FAIL", tier),
+            )
+            return 0
         print(_reason, file=sys.stderr)
         _record_block("SubagentStop", _code, _reason)
+        emit_gate_span(
+            "SubagentStop", _code, "deny", _reason, _lens_span_attrs(session_id, "FAIL", tier),
+        )
         return 2
 
     if not v2_ok:
@@ -687,13 +1077,31 @@ def main() -> int:
             f"  Task hash: {task_hash}\n"
             f"  {v2_detail}\n"
             f"{gt_note}"
-            "  Lens must run (with --lens-type matching the required tier): "
-            "python3 .memory/log.py validation add "
+            f"  Orchestrator: dispatch Lens for {task_hash} (with --lens-type matching "
+            "the required tier); Lens runs: python3 .memory/log.py validation add "
             f"--agent lens --target {agent_name} --task-hash {task_hash} "
             "--verdict PASS --lens-type T2 --risk-tier T2 --summary \"...\""
         )
+        if _already_fired(_code, task_hash):
+            print(
+                f"[GATE:{_code}] [lens-gate] WARN — REPEAT identical {_code} block for "
+                f"{agent_name} task_hash {task_hash} on this leaf turn (TASK-085 fire-once "
+                "floor — already blocked once this turn). Allowing the stop through so the "
+                "return envelope reaches the orchestrator; the required-tier Lens row is "
+                f"still missing — dispatch Lens for {task_hash} at the matching tier.",
+                file=sys.stderr,
+            )
+            emit_gate_span(
+                "SubagentStop", _code, "advise", _reason,
+                _lens_span_attrs(session_id, "TIER-MISMATCH", tier),
+            )
+            return 0
         print(_reason, file=sys.stderr)
         _record_block("SubagentStop", _code, _reason)
+        emit_gate_span(
+            "SubagentStop", _code, "deny", _reason,
+            _lens_span_attrs(session_id, "TIER-MISMATCH", tier),
+        )
         return 2
 
     # Validated at both the v1 floor and (for T2) the v2 distinct-tier check —
@@ -704,6 +1112,10 @@ def main() -> int:
         "agent_validated='lens' row accepted (PASS)."
         + ("" if tier != "T2" else f" v2 distinct-tier check: {v2_detail}"),
         file=sys.stderr,
+    )
+    emit_gate_span(
+        "SubagentStop", "LENS/PASS", "advise", "Lens validated",
+        _lens_span_attrs(session_id, "PASS", tier),
     )
     return 0
 

@@ -1,7 +1,7 @@
 """WF7 regression: lock the confirmed-correct SubagentStop block shape for
-lens-gate.sh and root-cause-gate.sh.
+lens-gate.sh.
 
-These two hooks fire on the SubagentStop event and block via plain stderr +
+This hook fires on the SubagentStop event and blocks via plain stderr +
 `exit 2` (the WF5 review called this "shape E"). The WF5 normalization sweep
 converted several PreToolUse gates from a JSON-string / flat-decision shape to
 the nested `hookSpecificOutput.permissionDecision` object. This test pins WHY
@@ -22,9 +22,9 @@ So exit-2 + stderr is the correct, strongest, durable SubagentStop block
 mechanism. Converting it to nested permissionDecision JSON would be a fail-open
 regression (the field is ignored on this event AND ignored on exit 2). This
 test asserts:
-  1. each gate exits 2 on its block condition, with the reason on STDERR,
-  2. each gate exits 0 on its allow condition (no false block),
-  3. on block neither gate emits the PreToolUse-only nested
+  1. the gate exits 2 on its block condition, with the reason on STDERR,
+  2. the gate exits 0 on its allow condition (no false block),
+  3. on block the gate does not emit the PreToolUse-only nested
      `hookSpecificOutput.permissionDecision` shape (proves no wrong conversion).
 
 Behaviour was confirmed by direct execution before these assertions were
@@ -281,81 +281,6 @@ class TestLensGateRetiredBasePersona:
 
 
 # ---------------------------------------------------------------------------
-# root-cause-gate.sh — Article X: REVISE/BLOCKED (and fix-keyword DONE) require
-# a ## Root Cause Analysis block with 5+ Why lines, else BLOCK.
-# ---------------------------------------------------------------------------
-
-
-class TestRootCauseGateSubagentStopShape:
-    HOOK_FILE = "root-cause-gate.sh"
-
-    def _revise_without_rca_payload(self) -> dict:
-        return {
-            "last_assistant_message": "## NEXUS:REVISE\nsomething went wrong",
-            "subagent_type": "forge-ui",
-            "task_description": "fix the bug",
-        }
-
-    def test_block_exits_2_with_reason_on_stderr(self) -> None:
-        """DEC-028 (2026-06-25): root-cause-gate.sh is advisory-only (exit 0
-        always). NEXUS:REVISE without an RCA block emits an additionalContext
-        advisory in stdout JSON — it does NOT block via exit 2."""
-        result = _run(self.HOOK_FILE, self._revise_without_rca_payload())
-        assert result.returncode == 0, (
-            f"DEC-028: NEXUS:REVISE without an RCA block must exit 0 (advisory), got "
-            f"{result.returncode}: stdout={result.stdout!r} stderr={result.stderr!r}"
-        )
-        # Advisory text should be present in stdout (additionalContext JSON)
-        assert "discretion" in result.stdout or "Root Cause" in result.stdout or "DEC-028" in result.stdout, (
-            f"DEC-028 advisory must mention root cause guidance in stdout, got: {result.stdout!r}"
-        )
-
-    def test_block_does_not_emit_nested_permission_decision(self) -> None:
-        """DEC-028: gate is advisory-only (exit 0). It must NOT emit the
-        PreToolUse-only nested hookSpecificOutput.permissionDecision shape."""
-        result = _run(self.HOOK_FILE, self._revise_without_rca_payload())
-        assert not _has_nested_permission_decision(result.stdout), (
-            "root-cause-gate must not emit PreToolUse permissionDecision shape, "
-            f"got stdout: {result.stdout!r}"
-        )
-
-    def test_done_nonfix_task_allows(self) -> None:
-        """A NEXUS:DONE whose task description has no fix/bug/error keywords does
-        not require an RCA block and must ALLOW (exit 0)."""
-        result = _run(
-            self.HOOK_FILE,
-            {
-                "last_assistant_message": "## NEXUS:DONE\nadded a feature",
-                "subagent_type": "forge-ui",
-                "task_description": "add a new button",
-            },
-        )
-        assert result.returncode == 0, (
-            f"non-fix NEXUS:DONE must allow (exit 0), got "
-            f"{result.returncode}: stderr={result.stderr!r}"
-        )
-
-    @pytest.mark.parametrize("marker", ["REVISE", "BLOCKED"])
-    def test_block_on_revise_and_blocked_markers(self, marker: str) -> None:
-        """DEC-028 (2026-06-25): NEXUS:REVISE and NEXUS:BLOCKED without an RCA
-        block emit an advisory (exit 0) — they no longer block via exit 2.
-        Scout/lens/lens-fast/palette are fully exempt; other personas get the
-        advisory but are not denied."""
-        result = _run(
-            self.HOOK_FILE,
-            {
-                "last_assistant_message": f"## NEXUS:{marker}\nno rca here",
-                "subagent_type": "forge-ui",
-                "task_description": "anything",
-            },
-        )
-        assert result.returncode == 0, (
-            f"DEC-028: NEXUS:{marker} without an RCA block must exit 0 (advisory), got "
-            f"{result.returncode}: stderr={result.stderr!r}"
-        )
-
-
-# ---------------------------------------------------------------------------
 # lens-gate.sh — S2-14 ground-truth cross-check: git beats the files_changed
 # self-report. Window: uncommitted working tree + the single HEAD commit.
 # ---------------------------------------------------------------------------
@@ -422,10 +347,19 @@ class TestLensGateGroundTruth:
         )
         assert "Ground truth" in result.stderr
 
-    def test_docs_only_self_report_with_gated_ground_truth_blocks(
+    def test_docs_only_self_report_with_gated_ground_truth_is_advisory(
         self, tmp_path: Path
     ) -> None:
-        """Docs-only self-report + an uncommitted gated change → BLOCK (exit 2)."""
+        """NATIVE-14 pragmatic fix (universal, DEC-068): docs-only self-report +
+        an uncommitted gated change → ADVISORY WARN, not a block (exit 0). The
+        git cross-check scans the WHOLE working tree and cannot attribute an
+        uncommitted change to THIS agent — a concurrently-dirty gated tree
+        previously false-blocked a docs-only DONE for changes it never made.
+        When the agent DID report its scope (files_changed present, docs-only),
+        the self-report is trusted and the discrepancy is downgraded to a WARN.
+        The structural floor is unchanged: a SELF-REPORTED gated path still
+        hard-requires a Lens row (see test_done_omitting_files_changed_with_
+        staged_gated_change_blocks for the still-hard case: self-report absent)."""
         repo = self._repo_with_gated_change(tmp_path / "repo", staged=False)
         result = _run(
             self.HOOK_FILE,
@@ -435,11 +369,13 @@ class TestLensGateGroundTruth:
                 "_HOOK_GIT_ROOT": str(repo),
             },
         )
-        assert result.returncode == 2, (
-            f"Docs-washed self-report must not skip the gate when git shows "
-            f"gated changes; got {result.returncode}: stderr={result.stderr!r}"
+        assert result.returncode == 0, (
+            f"Docs-only self-report + uncommitted gated dirt must be advisory, "
+            f"not a block; got {result.returncode}: stderr={result.stderr!r}"
         )
-        assert "Ground truth" in result.stderr
+        assert "NATIVE-14" in result.stderr or "NOT blocking" in result.stderr, (
+            f"Expected the NATIVE-14 advisory-downgrade message; got: {result.stderr!r}"
+        )
 
     def test_no_files_changed_done_clean_tree_allows(self, tmp_path: Path) -> None:
         """Self-report absent + CLEAN tree → gate does not apply (exit 0)."""
@@ -575,7 +511,6 @@ class TestSubagentStopExtractMissCanary:
     PYTHON_GATES = [
         "lens-gate.sh",
         "no-deferral-gate.sh",
-        "root-cause-gate.sh",
         "return-validator.py",
     ]
 

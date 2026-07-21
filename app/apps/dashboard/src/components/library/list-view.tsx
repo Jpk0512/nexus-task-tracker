@@ -301,7 +301,7 @@ export function LibraryListView({
 											onBlur={handleBlur}
 											className={`flex aspect-square flex-col gap-3 rounded-xl border p-4 transition hover:bg-accent/40 ${
 												focused
-													? "border-violet-400/70 ring-2 ring-violet-400/40"
+													? "border-cyan-400/70 ring-2 ring-cyan-400/40"
 													: "border-border/60"
 											}`}
 										>
@@ -361,9 +361,9 @@ export function LibraryListView({
 													href={`/team/${team}/library/${e.id}`}
 													onFocus={() => handleFocus(e.id)}
 													onBlur={handleBlur}
-													className={`group flex items-start gap-3 rounded-md border px-3 py-2 transition hover:border-border hover:bg-accent/40 focus-visible:border-violet-400/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/40 ${
+													className={`group flex items-start gap-3 rounded-md border px-3 py-2 transition hover:border-border hover:bg-accent/40 focus-visible:border-cyan-400/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40 ${
 														focused
-															? "border-violet-400/70 ring-2 ring-violet-400/40"
+															? "border-cyan-400/70 ring-2 ring-cyan-400/40"
 															: "border-transparent"
 													}`}
 												>

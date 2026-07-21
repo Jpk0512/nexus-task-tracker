@@ -244,7 +244,7 @@ function TestPromptPopover({
 								onClick={shuffle}
 								title="Shuffle sample values"
 								aria-label="Shuffle sample variable values"
-								className="inline-flex size-5 items-center justify-center rounded text-muted-foreground transition hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/60"
+								className="inline-flex size-5 items-center justify-center rounded text-muted-foreground transition hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/60"
 							>
 								<ShuffleIcon className="size-3" aria-hidden="true" />
 							</button>

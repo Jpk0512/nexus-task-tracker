@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "status": "NEEDS-DECISION",
+  "completion_marker": "## NEXUS:NEEDS-DECISION",
+  "files_changed": [],
+  "summary": "A design choice surfaced: whether the typed status should carry the marker string or drop it entirely at cutover.",
+  "skills_loaded": ["agent-protocol", "atlas-schema-patterns"],
+  "decisions_needed": [
+    {
+      "question": "Should completion_marker remain a required field after F1-08 cutover, or become optional/removed?",
+      "options": [
+        "Keep required (belt-and-suspenders cross-check indefinitely)",
+        "Make optional at cutover (typed status authoritative, marker human-convention only)",
+        "Remove entirely one release after cutover"
+      ],
+      "recommendation": "Make optional at cutover (typed status authoritative, marker human-convention only)"
+    }
+  ],
+  "notepad_written": {
+    "skipped": "decision surfaced; nothing durable to note until it is resolved"
+  }
+}

@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+nexus broker record-keeping daemon (broker.daemon.server) — resident mode:
+NEXUS_DAEMON_IDLE_TIMEOUT_S=0 below opts this instance out of the 1.7
+idle-shutdown watchdog (server.py's start_idle_watchdog returns None), so
+launchd's KeepAlive owns the lifecycle instead of the daemon self-exiting
+after NEXUS_DAEMON_IDLE_TIMEOUT_S (default 300s) of no requests.
+
+This is a THIS-REPO activation choice, not a product default — an installed
+target project keeps spawn-on-demand (ensure-daemon.sh fallback) unless it
+opts in the same way. Auto-load stays opt-in for every install.
+
+Generated from launchd/daemon.plist.template by bin/install-launchd.sh
+(sed-substitutes __HOME__, __UV_PATH__, __PROJECT__). Do not edit the
+generated copy — edit the template and re-run install-launchd.sh.
+
+--no-sync below: a sync-mode `uv run` takes an exclusive lock on
+nexus-broker/.venv/.lock, and KeepAlive respawns this daemon on every crash —
+one stalled sync wedges the lock and queues every subsequent boot (session
+MCP, health probe, manual run) behind it; the venv is prebuilt by install, so
+this boot never needs to resolve/sync.
+
+User-controlled activation (we never auto-load):
+    launchctl load   ~/Library/LaunchAgents/com.nexus.broker.daemon.plist
+    launchctl unload ~/Library/LaunchAgents/com.nexus.broker.daemon.plist
+    launchctl list    com.nexus.broker.daemon
+
+Reversibility (one step, returns to spawn-on-demand):
+    launchctl unload ~/Library/LaunchAgents/com.nexus.broker.daemon.plist && \
+    rm ~/Library/LaunchAgents/com.nexus.broker.daemon.plist
+-->
+<plist version="1.0">
+  <dict>
+    <key>Label</key>
+    <string>com.nexus.broker.daemon</string>
+
+    <key>ProgramArguments</key>
+    <array>
+      <string>__UV_PATH__</string>
+      <string>run</string>
+      <string>--no-sync</string>
+      <string>--project</string>
+      <string>__PROJECT__</string>
+      <string>python</string>
+      <string>-m</string>
+      <string>broker.daemon.server</string>
+      <string>--project-path</string>
+      <string>__REPO_ROOT__</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>__PROJECT__</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <dict>
+      <key>SuccessfulExit</key>
+      <false/>
+      <key>Crashed</key>
+      <true/>
+    </dict>
+
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+      <key>NEXUS_DAEMON_IDLE_TIMEOUT_S</key>
+      <string>0</string>
+      <key>PATH</key>
+      <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>__HOME__/Library/Logs/nexus-research/broker-daemon.out.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>__HOME__/Library/Logs/nexus-research/broker-daemon.err.log</string>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+  </dict>
+</plist>

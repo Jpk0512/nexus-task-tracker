@@ -27,10 +27,10 @@ flowchart TD
     subgraph PERSONAS[Persona Subgraphs]
         direction LR
         subgraph CODE_WRITING[Code-Writing — hit socraticode gate]
-            FU[forge-ui / forge-ui-pro]
-            FW[forge-wire / forge-wire-pro]
-            PD[pipeline-data / pipeline-data-pro]
-            PA[pipeline-async / pipeline-async-pro]
+            FU[forge-ui]
+            FW[forge-wire]
+            PD[pipeline-data]
+            PA[pipeline-async]
             HM[hermes]
             AT[atlas]
             QT[quill-ts]
@@ -114,6 +114,8 @@ Two failures on the same task by the same agent → escalate to the user.
 ## 3. The Broker Dispatch Ritual — the #1 cold-block
 
 **Every `Task` dispatch is hard-gated** by `.claude/hooks/broker-gate.py` (PreToolUse on `Task|TeamCreate`, wired in `.claude/settings.json`). A cold Nexus that skips this is blocked at its very first delegation. Disambiguation: this is the **nexus-broker MCP capability broker** (`python -m broker.server`), NOT the Redis **message** broker that pipeline-async uses for Dramatiq — entirely unrelated systems.
+
+**F1-04 CUTOVER — token-authoritative by default.** A single `nexus_validate_brief_tool` call per task/plan mints a TTL-bounded (4h default, `NEXUS_TOKEN_TTL_SECONDS` override) capability token scoped to the dispatched persona as a PASS side-effect; that valid token alone (`state.capability_token`) is now the dispatch evidence the gate checks — **no per-dispatch `notepad list`/`nexus_notepad_ping` repetition and no `called_at`/`notepad_logged_at` turn-freshness window** are required in this mode. The token's own `persona` claim IS the persona binding. **Rollback flag `NEXUS_RITUAL_AUTHORITY=1`** (kept 1 release) restores the exact pre-F1-04 ritual described in the rest of this section (validate → notepad-list → ping → Task, 300s/900s freshness) — set it if the broker server process has not yet been **restarted / had its MCP connection re-established** since the cutover (a running process only mints tokens after that). The sequence, diagram, and verbatim block strings below describe **RITUAL MODE** — still fully live and enforced whenever `NEXUS_RITUAL_AUTHORITY=1` is set, and the fallback path until token minting is confirmed live.
 
 ### Broker startup
 
@@ -207,7 +209,7 @@ For the full routing table with ownership boundaries and mandatory dual-persona 
 | Deterministic gates (lint/tsc/test, Haiku, reports only) | **lens-fast** |
 | Deep / semantic / RCA / visual review (reports only) | **lens** |
 
-**`-pro` escalation** (`forge-ui-pro`, `forge-wire-pro`, `pipeline-data-pro`, `pipeline-async-pro` — model opus, effort xhigh). Dispatch the `-pro` variant when ANY of: (a) task classified **complex**; (b) `tasks.stall_count > 0` for the task; (c) **Lens returned `NEXUS:REVISE`** on a prior dispatch of the same work.
+**Escalation (dispatch-time model override, no separate `-pro` agent files)** — re-dispatch the SAME implementer persona (`forge-ui`, `forge-wire`, `pipeline-data`, `pipeline-async`) with `model: opus, effort: xhigh`. `forge-ui-pro`, `forge-wire-pro`, `pipeline-data-pro`, `pipeline-async-pro` are RETIRED names — no agent file exists for any of them. Escalate when ANY of: (a) task classified **complex**; (b) `tasks.stall_count > 0` for the task; (c) **Lens returned `NEXUS:REVISE`** on a prior dispatch of the same work.
 
 ---
 

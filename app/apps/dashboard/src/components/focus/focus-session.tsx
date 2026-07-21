@@ -349,7 +349,7 @@ function FocusTray({
 			aria-label="Focus session"
 		>
 			<header className="mb-2 flex items-center gap-2">
-				<TargetIcon className="size-4 text-violet-400" />
+				<TargetIcon className="size-4 text-cyan-400" />
 				<span className="font-[510] text-[13px]">Focus</span>
 				<span className="ml-auto text-[11px] text-muted-foreground capitalize">
 					{state.status}
@@ -368,7 +368,7 @@ function FocusTray({
 				<span
 					className={cn(
 						"font-[510] font-mono text-[28px] tabular-nums",
-						state.status === "running" && "text-violet-400",
+						state.status === "running" && "text-cyan-400",
 						state.status === "paused" && "text-muted-foreground",
 						state.status === "break" && "text-emerald-500",
 					)}
@@ -617,7 +617,7 @@ export function FocusSession() {
 				className={cn(
 					"pointer-events-auto inline-flex h-9 items-center gap-1.5 rounded-full border border-border bg-background px-2.5 shadow-md transition-colors",
 					isActive
-						? "border-violet-500/60 text-violet-400 motion-safe:animate-pulse"
+						? "border-cyan-500/60 text-cyan-400 motion-safe:animate-pulse"
 						: "text-muted-foreground hover:bg-accent",
 				)}
 			>

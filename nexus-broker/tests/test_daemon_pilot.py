@@ -9,6 +9,7 @@ authoritative, and the budget-summary counters (2.8).
 """
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import os
 import shutil
@@ -22,6 +23,7 @@ import time
 from pathlib import Path
 
 import pytest
+from syrupy.assertion import SnapshotAssertion
 
 from broker.daemon import client as daemon_client
 from broker.daemon import fallback, paths
@@ -257,6 +259,205 @@ def test_telemetry_store_rejects_unknown_table() -> None:
         store.record("not_a_real_table", {"x": 1})
 
 
+# ── Tranche 2 (daemon-hook-plan-2026-07-12.md §C) — record_event + emit_heartbeat ──
+
+
+def test_record_event_appends_to_allow_listed_jsonl_sink(
+    project, snapshot: SnapshotAssertion
+) -> None:
+    """completion-capture.py / dispatch-capture.py's shim: sink -> JSONL append."""
+    import json
+
+    state = DaemonState(project)
+    result = handle_request(
+        state,
+        "record_event",
+        {"sink": "completion_events", "row": {"session_id": "s1", "marker": "DONE"}},
+    )
+    # envelope fixture: the record_event RPC response shape, reviewed via snapshot (F3-04).
+    assert result == snapshot(name="record_event_envelope")
+    sink_path = project / ".memory" / "files" / "completion_events.jsonl"
+    rows = [json.loads(line) for line in sink_path.read_text().splitlines()]
+    assert rows == [{"session_id": "s1", "marker": "DONE"}]
+
+    handle_request(
+        state,
+        "record_event",
+        {"sink": "router_dispatches", "row": {"session_id": "s1", "dispatched_persona": "hermes"}},
+    )
+    sink_path2 = project / ".memory" / "files" / "router_dispatches.jsonl"
+    rows2 = [json.loads(line) for line in sink_path2.read_text().splitlines()]
+    assert rows2 == [{"session_id": "s1", "dispatched_persona": "hermes"}]
+
+
+def test_record_event_rejects_unknown_sink(project) -> None:
+    state = DaemonState(project)
+    with pytest.raises(ValueError, match="unknown record_event sink"):
+        handle_request(state, "record_event", {"sink": "not_a_real_sink", "row": {}})
+
+
+def test_record_event_requires_sink_and_row(project) -> None:
+    state = DaemonState(project)
+    with pytest.raises(ValueError, match="record_event requires"):
+        handle_request(state, "record_event", {"row": {}})
+    with pytest.raises(ValueError, match="record_event requires"):
+        handle_request(state, "record_event", {"sink": "completion_events"})
+
+
+def test_record_event_nexus_feedback_sink_queues_without_raising(
+    project, snapshot: SnapshotAssertion
+) -> None:
+    """feedback-capture.py's shim: fire-and-forget log.py spawn, never awaited
+    inline — this only proves the RPC itself accepts and returns immediately,
+    not that the spawned subprocess completes (that's the up/down hook drill).
+    """
+    state = DaemonState(project)
+    result = handle_request(
+        state,
+        "record_event",
+        {
+            "sink": "nexus_feedback",
+            "row": {"source": "hook", "severity": "low", "category": "other", "message": "m"},
+        },
+    )
+    assert result == snapshot(name="record_event_feedback_envelope")
+
+
+def test_emit_heartbeat_rpc_appends_fixed_columns_only(
+    project, snapshot: SnapshotAssertion
+) -> None:
+    """_heartbeat.py's shim: unknown/extra payload keys never leak into the row."""
+    import json
+
+    state = DaemonState(project)
+    result = handle_request(
+        state,
+        "emit_heartbeat",
+        {
+            "ts": "2026-07-12T00:00:00Z",
+            "hook": "worktree-guard",
+            "event": "PreToolUse",
+            "decision": "allow",
+            "latency_ms": 5,
+            "unexpected_extra_key": "must not leak into the row",
+        },
+    )
+    assert result == snapshot(name="emit_heartbeat_envelope")
+    sink_path = project / ".memory" / "files" / "hook_heartbeat.jsonl"
+    rows = [json.loads(line) for line in sink_path.read_text().splitlines()]
+    assert rows == [
+        {
+            "ts": "2026-07-12T00:00:00Z",
+            "hook": "worktree-guard",
+            "event": "PreToolUse",
+            "decision": "allow",
+            "latency_ms": 5,
+        }
+    ]
+
+
+# ── Tranche 3 (daemon-hook-plan-2026-07-12.md §C) — reflection_snapshot + task_mirror ──
+
+META_REPO_ROOT = BROKER_ROOT.parent
+REAL_LOG_PY = META_REPO_ROOT / ".memory" / "log.py"
+REAL_SCHEMA_SQL = META_REPO_ROOT / ".memory" / "schema.sql"
+
+
+def _venv_python() -> str:
+    for cand in (
+        META_REPO_ROOT / ".memory" / ".venv" / "bin" / "python",
+        META_REPO_ROOT / ".memory" / ".venv" / "bin" / "python3",
+    ):
+        if cand.exists():
+            return str(cand)
+    return sys.executable
+
+
+def _make_project_with_real_log_py(tmp_path: Path) -> Path:
+    """A project skeleton with the REAL `.memory/log.py` + schema (initialized),
+    mirroring `.claude/hooks/tests/test_task_db_mirror.py`'s `_make_repo()` —
+    needed to exercise `_run_task_mirror`'s subprocess end-to-end against a
+    real `tasks` table (the minimal SCHEMA_SQL fixture above has none)."""
+    project = tmp_path / "real-proj"
+    (project / ".memory").mkdir(parents=True)
+    shutil.copy(REAL_LOG_PY, project / ".memory" / "log.py")
+    shutil.copy(REAL_SCHEMA_SQL, project / ".memory" / "schema.sql")
+    subprocess.run(
+        [_venv_python(), str(project / ".memory" / "log.py"), "init"],
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=True,
+    )
+    return project
+
+
+def test_record_event_reflection_snapshot_sink_appends(project) -> None:
+    """reflection-capture.sh's shim: same allow-listed JSONL-append shape as
+    the Tranche 2 sinks."""
+    import json
+
+    state = DaemonState(project)
+    row = {
+        "session_id": "s1",
+        "file_path": "docs/CONSTITUTION.md",
+        "action_type": "constitution_amend",
+        "one_line_summary": "added: 'x'",
+        "captured_at": "2026-07-12T00:00:00Z",
+    }
+    result = handle_request(state, "record_event", {"sink": "reflection_snapshot", "row": row})
+    assert result == {"accepted": True, "sink": "reflection_snapshot"}
+    sink_path = project / ".memory" / "files" / "reflection_snapshot.jsonl"
+    rows = [json.loads(line) for line in sink_path.read_text().splitlines()]
+    assert rows == [row]
+
+
+def test_record_event_task_mirror_sink_persists_before_returning(tmp_path) -> None:
+    """task-db-mirror.sh's shim: UNLIKE nexus_feedback, this AWAITS the real
+    `log.py task mirror-native` subprocess — the row must already be durable
+    in project.db by the time this call returns (cross-session continuity)."""
+    real_project = _make_project_with_real_log_py(tmp_path)
+    state = DaemonState(real_project)
+    result = handle_request(
+        state,
+        "record_event",
+        {
+            "sink": "task_mirror",
+            "row": {"op": "create", "native_id": "7", "subject": "Wire the broker", "status": "in_progress"},
+        },
+    )
+    assert result == {"accepted": True, "sink": "task_mirror"}
+
+    conn = sqlite3.connect(real_project / ".memory" / "project.db")
+    try:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute("SELECT id, title, status FROM tasks").fetchall()
+    finally:
+        conn.close()
+    assert [dict(r) for r in rows] == [{"id": "NATIVE-7", "title": "Wire the broker", "status": "in_progress"}]
+
+
+def test_record_event_task_mirror_missing_log_py_not_accepted(project) -> None:
+    """No `.memory/log.py` under this project (the `project` fixture doesn't
+    ship one) — reported not-accepted so the hook's inline fallback runs,
+    never raises."""
+    state = DaemonState(project)
+    result = handle_request(
+        state, "record_event", {"sink": "task_mirror", "row": {"op": "update", "native_id": "1"}}
+    )
+    assert result == {"accepted": False, "sink": "task_mirror", "reason": "log.py missing"}
+
+
+def test_record_event_task_mirror_requires_op_and_native_id(tmp_path) -> None:
+    # log.py present (else the missing-log.py early-return would fire first).
+    real_project = _make_project_with_real_log_py(tmp_path)
+    state = DaemonState(real_project)
+    with pytest.raises(ValueError, match="task_mirror row requires"):
+        handle_request(state, "record_event", {"sink": "task_mirror", "row": {"op": "create"}})
+    with pytest.raises(ValueError, match="task_mirror row requires"):
+        handle_request(state, "record_event", {"sink": "task_mirror", "row": {"native_id": "7"}})
+
+
 # ── 1.6 / 1.7 — live daemon: health, spawn-on-demand ────────────────────────
 
 
@@ -284,6 +485,42 @@ def test_daemon_query_registry_over_real_socket(project, isolated_sockets, spawn
 
 
 # ── 1.7 — idle-shutdown ─────────────────────────────────────────────────────
+
+
+async def test_resident_mode_skips_idle_watchdog_when_timeout_not_positive(project, monkeypatch) -> None:
+    """NEXUS_DAEMON_IDLE_TIMEOUT_S<=0 (resident mode) must not start the
+    idle_task at all — fast unit assertion, no 5-minute real wait."""
+    from broker.daemon.server import start_idle_watchdog
+
+    state = DaemonState(project)
+    shutdown_event = asyncio.Event()
+
+    monkeypatch.setattr(paths, "IDLE_TIMEOUT_S", 0.0)
+    task = start_idle_watchdog(state, shutdown_event)
+    assert task is None, "resident mode (timeout<=0) must not schedule the idle watchdog"
+
+    monkeypatch.setattr(paths, "IDLE_TIMEOUT_S", -1.0)
+    task = start_idle_watchdog(state, shutdown_event)
+    assert task is None, "a negative timeout is also resident, not a busy-loop"
+
+
+async def test_default_positive_timeout_still_schedules_idle_watchdog(project, monkeypatch) -> None:
+    """Control case: any positive timeout (including the 300.0 default) DOES
+    schedule the shutdown watchdog — the additive change is backward-compatible."""
+    from broker.daemon.server import start_idle_watchdog
+
+    state = DaemonState(project)
+    shutdown_event = asyncio.Event()
+
+    monkeypatch.setattr(paths, "IDLE_TIMEOUT_S", 300.0)
+    task = start_idle_watchdog(state, shutdown_event)
+    try:
+        assert task is not None, "a positive timeout must still schedule the idle watchdog"
+        assert not task.done()
+    finally:
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
 
 
 @pytest.mark.slow

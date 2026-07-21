@@ -198,7 +198,7 @@ function LinkedKnowledgeCard({
 		<div className="mt-10 border-t pt-6">
 			<div className="mb-3 flex items-baseline justify-between">
 				<div className="flex items-center gap-2">
-					<BrainIcon className="size-3.5 text-violet-500" />
+					<BrainIcon className="size-3.5 text-cyan-500" />
 					<h2 className="font-[510] text-[13px] tracking-[-0.005em]">
 						Linked notes
 					</h2>
@@ -220,7 +220,7 @@ function LinkedKnowledgeCard({
 							href={`/team/${team}/knowledge?note=${n.id}`}
 							className="flex items-center gap-2 rounded-md border border-transparent px-2 py-1.5 text-[13px] transition hover:border-border hover:bg-accent/40"
 						>
-							<BrainIcon className="size-3 shrink-0 text-violet-500" />
+							<BrainIcon className="size-3 shrink-0 text-cyan-500" />
 							<span className="truncate font-[510]">{n.name}</span>
 							<span className="ml-auto truncate text-[11px] text-muted-foreground">
 								{n.relativePath}

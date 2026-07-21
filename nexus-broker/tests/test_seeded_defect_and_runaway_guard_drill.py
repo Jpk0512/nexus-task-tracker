@@ -64,15 +64,28 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 HOOK = REPO_ROOT / ".claude" / "hooks" / "lens-gate.sh"
 # R2-T06 skill-corpus de-dupe moved the runaway-guard checklist OUT of
 # loop-until-done-patterns and INTO nexus-dispatch-catalog as its canonical
-# home (nexus-redesign/plans/03-r2e2-design-APPROVED.md §4 Cluster 1);
-# loop-until-done-patterns now keeps only a pointer, no checklist content.
-LOOP_SKILL = REPO_ROOT / ".claude" / "skills" / "nexus-dispatch-catalog" / "SKILL.md"
+# home (nexus-redesign/plans/03-r2e2-design-APPROVED.md §4 Cluster 1). A later
+# merge (commit f3a87c7, "dispatch (merge of nexus-orchestration+
+# nexus-dispatch-catalog+parallel-first-check+loop-until-done-patterns)")
+# folded nexus-dispatch-catalog itself into the `dispatch` skill on this
+# meta-repo, with the checklist body living in dispatch's references/ file
+# (nexus-dispatch-catalog persists only as a nexus-package-installed-target
+# skill, not on Plexus). This is now the current canonical home.
+#
+# build_snapshot syncs this test VERBATIM into nexus-package/nexus-broker/
+# tests/, where the meta-repo-only `dispatch` skill doesn't exist — the
+# package layout ships the checklist at loop-until-done-patterns/references/
+# runaway-guards.md instead (same filename, different skill directory). Try
+# each layout's path, first-existing wins, so this file runs unmodified on
+# both trees.
+LOOP_SKILL_CANDIDATES = [
+    REPO_ROOT / ".claude" / "skills" / "dispatch" / "references" / "runaway-guards.md",
+    REPO_ROOT / ".claude" / "skills" / "loop-until-done-patterns" / "references" / "runaway-guards.md",
+]
 
 
 def _seed_validation_with_tier(
@@ -149,6 +162,19 @@ def _init_empty_validation_table(db: Path) -> None:
 _HOOK_ENV_EXTRA = {"_HOOK_WATCHED_PREFIXES": "nexus-broker/"}
 
 
+def _fire_once_state_env(db: Path) -> dict:
+    """TASK-088: isolate lens-gate.sh's fire-once-per-(task_hash, code) dedup
+    (TASK-085) to a per-test tmp_path-derived dir. Without this, the module's
+    reused SEEDED_DEFECT_TASK_HASH across sibling tests (same task_hash, e.g.
+    LENS/NO-VALIDATION vs LENS/TIER-MISMATCH deny codes) collides against the
+    shared default state dir (tempfile.gettempdir()), so a later test in this
+    session sees the earlier test's fire-once flag file and gets a WARN+allow
+    (repeat) instead of its own expected first-occurrence BLOCK. DEC-089:
+    fire-once semantics stand — isolate state, never weaken the assertion.
+    """
+    return {"_HOOK_LENS_GATE_STATE_DIR": str(db.parent / "lens-gate-state")}
+
+
 def _run_gate_with_payload(db: Path, payload: dict) -> subprocess.CompletedProcess[str]:
     """Invoke the live hook with an arbitrary payload against the given DB."""
     return subprocess.run(
@@ -156,7 +182,12 @@ def _run_gate_with_payload(db: Path, payload: dict) -> subprocess.CompletedProce
         input=json.dumps(payload),
         capture_output=True,
         text=True,
-        env={"_HOOK_DB_PATH": str(db), "PATH": "/usr/bin:/bin", **_HOOK_ENV_EXTRA},
+        env={
+            "_HOOK_DB_PATH": str(db),
+            "PATH": "/usr/bin:/bin",
+            **_HOOK_ENV_EXTRA,
+            **_fire_once_state_env(db),
+        },
     )
 
 
@@ -271,17 +302,32 @@ def test_seeded_defect_fix_with_genuine_pass_verdict_unblocks(tmp_path: Path) ->
 # ---------------------------------------------------------------------------
 
 
+def _resolve_loop_skill() -> Path:
+    """First-existing-wins across the meta-repo (`dispatch`) and installed-
+    package (`loop-until-done-patterns`) layouts — same filename, different
+    skill directory. See LOOP_SKILL_CANDIDATES for why both must be tried.
+    """
+    for candidate in LOOP_SKILL_CANDIDATES:
+        if candidate.exists():
+            return candidate
+    candidates_listing = "\n".join(f"  - {c}" for c in LOOP_SKILL_CANDIDATES)
+    raise AssertionError(
+        "runaway-guards.md not found at any candidate location:\n"
+        f"{candidates_listing}\n"
+        "the runaway-guard contract this drill checks has moved or been deleted."
+    )
+
+
 def _loop_skill_text() -> str:
     """Read the runaway-guard checklist's canonical home. R2-T06 relocated
     the checklist from loop-until-done-patterns to nexus-dispatch-catalog
-    (nexus-redesign/plans/03-r2e2-design-APPROVED.md §4 Cluster 1) — this
-    always reads the current canonical location, not the old pointer file.
+    (nexus-redesign/plans/03-r2e2-design-APPROVED.md §4 Cluster 1); commit
+    f3a87c7 later folded nexus-dispatch-catalog into the `dispatch` skill on
+    this meta-repo — this always reads the current canonical location, not
+    the old pointer file (whichever of LOOP_SKILL_CANDIDATES exists on this
+    layout).
     """
-    assert LOOP_SKILL.exists(), (
-        f"nexus-dispatch-catalog SKILL.md not found at {LOOP_SKILL} — the "
-        "runaway-guard contract this drill checks has moved or been deleted."
-    )
-    return LOOP_SKILL.read_text(encoding="utf-8")
+    return _resolve_loop_skill().read_text(encoding="utf-8")
 
 
 class TestGuard1MaxIterationCap:
@@ -302,22 +348,6 @@ class TestGuard1MaxIterationCap:
             "or an explicit loop counter)"
         )
 
-    @pytest.mark.xfail(
-        reason=(
-            "GAP (not a stub): no importable nexus-broker/src/broker module "
-            "implements a max-iteration ceiling as runtime code — the pattern is "
-            "prose-only, authored inline per-Workflow in JS. Tracked as a named "
-            "gap in the R1-T09 drill report, not scheduled for this delivery."
-        ),
-        strict=False,
-    )
-    def test_guard_has_a_production_runtime_implementation(self) -> None:
-        import broker.state as state_mod
-
-        assert hasattr(state_mod, "enforce_max_iterations"), (
-            "No max-iteration enforcement function exists in the broker runtime"
-        )
-
 
 class TestGuard2NoProgressDetection:
     """Guard 2 (DEC-024): no-progress detection — halt on >=3 consecutive
@@ -330,24 +360,8 @@ class TestGuard2NoProgressDetection:
         assert re.search(r"No-progress detection", text), (
             "Runaway-guard checklist must document no-progress detection"
         )
-        assert re.search(r">=\s*3|3 consecutive", text), (
-            "Checklist must name the concrete consecutive-repeat threshold (>=3)"
-        )
-
-    @pytest.mark.xfail(
-        reason=(
-            "GAP (not a stub): no importable nexus-broker/src/broker module "
-            "implements no-progress detection as runtime code — the pattern is "
-            "prose-only, authored inline per-Workflow (prev_findings comparison "
-            "in JS). Tracked as a named gap in the R1-T09 drill report."
-        ),
-        strict=False,
-    )
-    def test_guard_has_a_production_runtime_implementation(self) -> None:
-        import broker.state as state_mod
-
-        assert hasattr(state_mod, "detect_no_progress"), (
-            "No no-progress-detection function exists in the broker runtime"
+        assert re.search(r">=\s*3|3 consecutive|N\s*=\s*3", text), (
+            "Checklist must name the concrete consecutive-repeat threshold (3)"
         )
 
 
@@ -356,31 +370,18 @@ class TestGuard3TokenBudget:
 
     def test_guard_is_documented(self) -> None:
         text = _loop_skill_text()
-        assert re.search(r"Token/\$ budget", text, re.IGNORECASE), (
+        assert re.search(r"token/\$ budget", text, re.IGNORECASE), (
             "Runaway-guard checklist must document the token/$ budget ceiling"
         )
-        # nexus-dispatch-catalog (the R2-T06 canonical home) names the
-        # concrete mechanism as budget({maxIterations, ...}) covering both
-        # the max-iteration and token/$ ceilings, not a distinct maxTokens
-        # symbol — assert the mechanism it actually documents.
-        assert "budget(" in text and "maxIterations" in text, (
-            "Checklist must name the concrete mechanism (budget({maxIterations, ...}))"
-        )
-
-    @pytest.mark.xfail(
-        reason=(
-            "GAP (not a stub): no importable nexus-broker/src/broker module "
-            "tracks or enforces a token/$ budget ceiling as runtime code — the "
-            "pattern is prose-only, authored inline per-Workflow via budget(). "
-            "Tracked as a named gap in the R1-T09 drill report."
-        ),
-        strict=False,
-    )
-    def test_guard_has_a_production_runtime_implementation(self) -> None:
-        import broker.state as state_mod
-
-        assert hasattr(state_mod, "enforce_token_budget"), (
-            "No token-budget enforcement function exists in the broker runtime"
+        # The dispatch skill (current canonical home, post commit f3a87c7)
+        # documents the mechanism as a harness-injected read-only
+        # `budget.remaining()` global paired with a local `MAX_ITER` loop
+        # bound — NOT the older `budget({maxIterations, ...})` call-style API
+        # the retired nexus-dispatch-catalog checklist named. Assert the
+        # mechanism it actually documents.
+        assert "budget.remaining(" in text and "MAX_ITER" in text, (
+            "Checklist must name the concrete mechanism "
+            "(budget.remaining() + a local MAX_ITER bound)"
         )
 
 
@@ -396,22 +397,6 @@ class TestGuard4CircuitBreaker:
         )
         assert "TaskStop" in text, (
             "Checklist must name the concrete escalation mechanism (TaskStop)"
-        )
-
-    @pytest.mark.xfail(
-        reason=(
-            "GAP (not a stub): no importable nexus-broker/src/broker module "
-            "implements a failures-per-window circuit breaker as runtime code — "
-            "the pattern is prose-only, authored inline per-Workflow. Tracked as "
-            "a named gap in the R1-T09 drill report."
-        ),
-        strict=False,
-    )
-    def test_guard_has_a_production_runtime_implementation(self) -> None:
-        import broker.state as state_mod
-
-        assert hasattr(state_mod, "circuit_breaker_fire"), (
-            "No circuit-breaker function exists in the broker runtime"
         )
 
 
@@ -486,36 +471,15 @@ class TestGuard5SeparateJudge:
 
 
 # ---------------------------------------------------------------------------
-# Drill summary — a single collectible test asserting the report shape itself
-# (so the drill's pass/gap accounting cannot silently drift out of sync with
-# the acceptance criterion: "each of the four runaway guards has a documented
-# drill result — pass or a named gap").
+# TASK-111b: the former `test_drill_report_covers_all_five_guards_with_a_verdict`
+# asserted a `DRILL_RESULTS` literal dict defined 30 lines above it — a pure
+# tautology (it can only fail if someone edits the literal in the same file).
+# It, the dict, and the four `xfail(strict=False)` "GAP" placeholder tests
+# (each asserting a broker.state function that was never authored — permanently
+# xfailing, signalling nothing) were removed. The live drill coverage remains:
+# each guard's documented-contract check (grep of the runaway-guards checklist)
+# plus Guard-5's full behavioral lens-gate proof. The standing gap — guards 1-4
+# have no importable broker-runtime enforcement module (prose-only Workflow
+# pattern) — is surfaced in the TASK-111b return for separate tasking, not
+# parked as a green-forever xfail.
 # ---------------------------------------------------------------------------
-
-
-DRILL_RESULTS: dict[str, str] = {
-    "max_iteration_cap": "GAP — no production runtime module (prose-only Workflow pattern)",
-    "no_progress_detection": "GAP — no production runtime module (prose-only Workflow pattern)",
-    "token_budget": "GAP — no production runtime module (prose-only Workflow pattern)",
-    "circuit_breaker": "GAP — no production runtime module (prose-only Workflow pattern)",
-    "separate_judge": "PASS — enforced live by .claude/hooks/lens-gate.sh (behavioral proof above)",
-}
-
-
-def test_drill_report_covers_all_five_guards_with_a_verdict() -> None:
-    """Every guard DEC-024 names must have an explicit verdict — PASS or a
-    named GAP. Silence for a guard (neither) is not an acceptable drill
-    outcome, so this asserts the report dict is exhaustive.
-    """
-    expected_guards = {
-        "max_iteration_cap",
-        "no_progress_detection",
-        "token_budget",
-        "circuit_breaker",
-        "separate_judge",
-    }
-    assert set(DRILL_RESULTS.keys()) == expected_guards
-    for guard, verdict in DRILL_RESULTS.items():
-        assert verdict.startswith("PASS") or verdict.startswith("GAP"), (
-            f"Guard {guard!r} verdict must be PASS or a named GAP, got: {verdict!r}"
-        )

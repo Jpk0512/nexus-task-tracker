@@ -71,7 +71,7 @@ INPUT=$(cat)
 # that precedent here rather than importing registry.py.
 # MUST BE KEPT IN SYNC WITH nexus-broker/src/broker/registry.py
 # PERSONA_INTENTS keys whenever that dict changes.
-PERSONA_JSON='["scout","forge-wire","forge-wire-pro","forge-ui","forge-ui-pro","pipeline-data","pipeline-data-pro","pipeline-async","pipeline-async-pro","atlas","hermes","lens","lens-fast","quill-ts","quill-py","palette"]'
+PERSONA_JSON='["scout","forge-wire","forge-wire-pro","forge-ui","forge-ui-pro","pipeline-data","pipeline-data-pro","pipeline-async","pipeline-async-pro","atlas","hermes","lens","lens-fast","quill-ts","quill-py","palette","planner"]'
 
 RESULT=$(echo "$INPUT" | python3 -c "
 import json, sys

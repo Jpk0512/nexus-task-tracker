@@ -154,7 +154,7 @@ def test_allows_non_empty_skills_for_forge_ui() -> None:
     """Non-empty (complete) skills_required for forge-ui → exit 0, no deny."""
     payload = _build_payload(
         "forge-ui",
-        skills_required=["forge-ui-conventions", "tremor-patterns", "tailwind-design-tokens"],
+        skills_required=["forge-ui-conventions", "tailwind-design-tokens"],
     )
     code, out, _err = _run_guard(payload)
     assert code == 0, f"Expected exit 0, got {code}"
@@ -175,7 +175,7 @@ def test_allows_non_empty_skills_for_forge_ui() -> None:
 # Test 3 — missing mandated skill → warn (exit 0, advisory output)
 # ---------------------------------------------------------------------------
 # Given: forge-ui with skills_required=[forge-ui-conventions] only
-#        but SKILL_MAP says tremor-patterns is also required for component work_type
+#        but SKILL_MAP says tailwind-design-tokens is also required for component work_type
 # When:  guard processes it
 # Then:  exit 0, hookSpecificOutput decision=warn (not block)
 
@@ -185,8 +185,8 @@ def test_advises_on_missing_mandated_skill() -> None:
     if not SKILL_MAP_PATH.exists():
         pytest.skip("SKILL_MAP.md not present — Phase C not fully deployed")
 
-    # forge-ui/component mandates tremor-patterns + tailwind-design-tokens beyond
-    # the foundational forge-ui-conventions, so this brief is deliberately partial.
+    # forge-ui/component mandates tailwind-design-tokens beyond the foundational
+    # forge-ui-conventions, so this brief is deliberately partial.
     payload = _build_payload(
         "forge-ui",
         skills_required=["forge-ui-conventions"],
@@ -204,7 +204,7 @@ def test_advises_on_missing_mandated_skill() -> None:
         f"Missing mandated skill must advise, not deny. Got: {inner}"
     )
     ctx = inner.get("additionalContext", "")
-    assert "tremor-patterns" in ctx, (
+    assert "tailwind-design-tokens" in ctx, (
         f"Advisory must name the missing mandatory skill(s). Got: {inner}"
     )
 
@@ -357,7 +357,7 @@ def test_allows_non_empty_skills_for_team_agent_type() -> None:
     """A teammate (agent_type) with complete skills → exit 0, no deny."""
     payload = _build_team_payload(
         "forge-ui",
-        skills_required=["forge-ui-conventions", "tremor-patterns", "tailwind-design-tokens"],
+        skills_required=["forge-ui-conventions", "tailwind-design-tokens"],
     )
     code, out, _err = _run_guard(payload)
     assert code == 0, f"Complete-skills teammate must pass. Got {code}"

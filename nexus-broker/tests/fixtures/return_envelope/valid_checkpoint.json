@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "status": "CHECKPOINT",
+  "completion_marker": "## NEXUS:CHECKPOINT",
+  "files_changed": [
+    "nexus-broker/src/broker/schemas/return_envelope.schema.json"
+  ],
+  "summary": "Schema authored and committed; fixtures + test suite remain.",
+  "skills_loaded": ["agent-protocol", "atlas-schema-patterns"],
+  "notes": "Safe resume point: schema file is complete. Remaining work: author 6 valid + 3 invalid golden fixtures under tests/fixtures/return_envelope/, then write test_return_envelope_schema.py, then run `uv run pytest tests/test_return_envelope_schema.py -q`.",
+  "notepad_written": {
+    "topic": "F1-06",
+    "agent": "atlas",
+    "kind": "next-agent-action",
+    "note": "Schema is done; the if/then allOf branches key required-field sets per status. Next agent: fixtures must satisfy those conditionals (DONE needs verification_result+acceptance_met, BLOCKED needs blockers, etc.) or they will fail even though top-level required fields are present."
+  }
+}

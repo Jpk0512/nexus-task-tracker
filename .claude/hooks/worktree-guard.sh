@@ -20,7 +20,7 @@
 #      registry file → DENY (exit 2), fail-closed: ownership cannot be verified,
 #      so the command is refused. The old NEXUS_ALLOW_WORKTREE=1 env
 #      escape-hatch is RETIRED — it no longer has any effect; only a registered
-#      path is honored (parity with the live nexus-installer twin).
+#      path is honored (parity with the live meta-repo twin of this hook).
 #
 #   2. `git checkout -b <new>` / `git switch -c <new>` / `git branch <new>` →
 #      DENY (exit 2, typed NEW_BRANCH_DENIED) by default. Constitution Article
@@ -32,7 +32,7 @@
 #      demanding merge-back + delete.
 #
 #   3. `git commit` → N71 Decision A companion check (twin of the live
-#      nexus-installer hook), gated by the PRESENCE of
+#      meta-repo hook), gated by the PRESENCE of
 #      .claude/deploy-governance.enabled. Flag absent → byte-inert (identical
 #      to pre-N71 silent pass). Flag present AND the commit runs inside a
 #      registered self-modifying worktree AND the staged diff mixes a
@@ -338,8 +338,8 @@ esac
 
 case "$VERDICT" in
     WORKTREE_ADD)
-        # ── Registry-ownership check (parity with the live nexus-installer
-        # twin) ────────────────────────────────────────────────────────────
+        # ── Registry-ownership check (parity with the live meta-repo twin
+        # of this hook) ─────────────────────────────────────────────────
         REPO_ROOT="$(cd "${HOOKS_DIR}/../.." && pwd)"
         if [ -z "$WT_PATH" ]; then
             ABS_WT_PATH=""
@@ -349,7 +349,7 @@ case "$VERDICT" in
             ABS_WT_PATH="$(cd "$REPO_ROOT" 2>/dev/null && python3 -c "import os,sys; print(os.path.normpath(os.path.join(os.getcwd(), sys.argv[1])))" "$WT_PATH" 2>/dev/null || true)"
         fi
 
-        REGISTRY_PATH="${REPO_ROOT}/.memory/files/worktree_registry.json"
+        REGISTRY_PATH="${NEXUS_WORKTREE_REGISTRY_PATH:-${REPO_ROOT}/.memory/files/worktree_registry.json}"
 
         REG_VERDICT=$(python3 - "$REGISTRY_PATH" "$ABS_WT_PATH" <<'PY'
 import json
@@ -465,7 +465,7 @@ PY
         ;;
     COMMIT)
         # ── N71 Decision A: commit-cadence companion check (twin of the live
-        # nexus-installer hook). Gated by the presence of
+        # meta-repo hook). Gated by the presence of
         # .claude/deploy-governance.enabled — with the flag ABSENT this branch
         # is byte-inert: identical exit 0 / empty stdout to the pre-N71
         # default-allow path.
@@ -478,7 +478,7 @@ PY
         # Only fires INSIDE a registered self-modifying worktree (the flag's own
         # scope) — an ordinary session-branch commit is byte-inert even with
         # the flag on.
-        REGISTRY_PATH="${REPO_ROOT}/.memory/files/worktree_registry.json"
+        REGISTRY_PATH="${NEXUS_WORKTREE_REGISTRY_PATH:-${REPO_ROOT}/.memory/files/worktree_registry.json}"
         IS_REGISTERED_WT=$(python3 - "$REGISTRY_PATH" "$REPO_ROOT" <<'PY'
 import json
 import sys

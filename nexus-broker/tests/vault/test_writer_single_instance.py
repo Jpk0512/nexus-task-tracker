@@ -61,8 +61,28 @@ def test_second_writer_exits_nonzero(config_local) -> None:
         stderr=subprocess.PIPE,
     )
     try:
-        # Give the winner enough time to grab the lock.
-        time.sleep(0.5)
+        # Wait for a readiness signal instead of a fixed sleep: the winner
+        # writes its own pid into the lock file only AFTER it has acquired
+        # the flock (see _acquire_lock in writer.py) — poll for that content
+        # rather than racing a fixed grace window that loses under load.
+        deadline = time.monotonic() + 10.0
+        acquired = False
+        while time.monotonic() < deadline:
+            if winner.poll() is not None:
+                raise AssertionError(
+                    f"winner writer exited early (rc={winner.returncode}) "
+                    "before acquiring the lock"
+                )
+            if lock.exists():
+                try:
+                    content = lock.read_text().strip()
+                except OSError:
+                    content = ""
+                if content == str(winner.pid):
+                    acquired = True
+                    break
+            time.sleep(0.02)
+        assert acquired, "winner did not acquire the writer lock within the readiness timeout"
 
         loser = subprocess.run(
             cmd,

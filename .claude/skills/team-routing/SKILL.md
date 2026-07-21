@@ -24,7 +24,7 @@ Per DEC-025. When dispatching via `subagent_type=<persona>`, the persona's agent
 | quill-py | sonnet | Python test authoring with real data shapes |
 | hermes | sonnet | Cross-service wiring; auth glue |
 | palette | sonnet | Visual contract authoring |
-| `*-pro` escalation variants | opus (effort xhigh) | `forge-ui-pro` / `forge-wire-pro` / `pipeline-data-pro` / `pipeline-async-pro` — dispatched when task is `complex`, `stall_count > 0`, or Lens returned NEXUS:REVISE |
+| Escalated tier (any implementer above) | opus (effort xhigh) | Dispatch-time `model`/`effort` override on the SAME base persona — NOT a separate `-pro` agent file. `forge-ui-pro` / `forge-wire-pro` / `pipeline-data-pro` / `pipeline-async-pro` are RETIRED names. Escalate when task is `complex`, `stall_count > 0`, or Lens returned NEXUS:REVISE |
 
 **Retired base names:** `forge`, `pipeline`, `quill` are NOT canonical dispatch targets. They survive only as alias shims that `persona-alias-resolver.sh` resolves to a split persona from the brief's scope (`forge`→`forge-ui`/`forge-wire`, `pipeline`→`pipeline-data`/`pipeline-async`, `quill`→`quill-ts`/`quill-py`). Dispatch the split persona directly; an unresolvable base name is blocked.
 
@@ -52,69 +52,21 @@ Per DEC-025. When dispatching via `subagent_type=<persona>`, the persona's agent
 
 ## Install-aware persona availability (VERIFY BEFORE DISPATCH)
 
-**Python-stack personas (`pipeline-data`, `pipeline-async`, `pipeline-data-pro`, `pipeline-async-pro`, `quill-py`) exist ONLY in Python-stack installs.** They are NOT registered agent files in a pure TS/Next.js install. Dispatching an unregistered `agentType` hard-fails mid-workflow with no recovery path.
+**Stack-conditional personas exist ONLY when their stack condition is present at install
+time.** They are NOT registered agent files when the condition isn't met. Dispatching an
+unregistered `agentType` hard-fails mid-workflow with no recovery path — always verify
+`.claude/agents/<persona>.md` exists before dispatch. Full remap table (which persona
+covers the gap when a stack-conditional persona is absent) and the full classification
+decision tree: `references/install-aware-routing.md`.
 
-Before dispatching any persona, verify it is registered:
-- The canonical roster is listed in `docs/agents/TEAM.md`.
-- The agent file must exist at `.claude/agents/<persona>.md`.
-- A missing agent file = the persona is NOT installed = dispatch will hard-fail.
+## Decomposition boundary — pre-dispatch ownership check (summary)
 
-**TS/Next.js-only install mapping for Python work:**
-
-| Python work type | Map to instead |
-|---|---|
-| Data transforms / DuckDB writes / embeddings (would be `pipeline-data`) | `forge-wire` (read-side) + `hermes` (wiring) |
-| Async workers / external API clients (would be `pipeline-async`) | `forge-wire` (server actions) + `hermes` (auth/client wiring) |
-| Python test authoring (would be `quill-py`) | `quill-ts` (TS tests only) |
-
-If the work genuinely requires Python ingestion logic and the Python personas are absent, surface a `## NEXUS:NEEDS-DECISION` — do not silently remap logic that belongs in a Python stack onto TS personas.
-
-## Decomposition boundary — pre-dispatch ownership check
-
-Before briefing any teammate in a dynamic Workflow, intersect the teammate's assigned file-globs against the forbidden-directory map below.
-
-**Rule:** no teammate may be briefed on files that fall outside its write boundary. If a brief would cross an ownership line, **split the brief along that line** — one teammate per ownership domain — rather than leaving it to the teammate to self-restrict.
-
-**How to apply:**
-1. List every file or glob the teammate will touch.
-2. Check each against the persona's "Cannot touch" row in the forbidden-directory table.
-3. If ANY file crosses the boundary, split into two or more briefs — one per domain — and assign the correct persona to each.
-
-**Ownership shortcuts for common splits:**
-- Schema or migrations → split out to `atlas`
-- `app/api/**` → split out to `forge-wire`
-- `app/components/**` / RSC pages → split out to `forge-ui`
-- `ingestion/**` transforms/writers → split out to `pipeline-data`
-- `ingestion/**` workers/clients → split out to `pipeline-async`
-- Auth wrappers / env-var plumbing / Docker / MCP → split out to `hermes`
-- Test files only → split out to `quill-ts` or `quill-py`
-
-A brief that spans ownership lines is a dispatch contract violation — Lens will flag it and the task will require a REVISE cycle.
-
-## Isolation discipline — worktree vs session branch (RDEC-018 Option 3, DEC-008 default)
-
-**Worktree isolation is the DEFAULT for parallel multi-part implementation** — run 2-3
-independent phases at once in registered worktrees, not as an opt-in exception. When Nexus
-briefs teammates for a Workflow:
-
-- **≥2 independent code-writing legs in parallel** (forge-ui/forge-wire/pipeline-data/
-  pipeline-async/hermes/atlas each editing disjoint files): the orchestrator registers a
-  worktree per leg (`nexus_register_worktree`, owner_id=persona) BEFORE spawning, and each
-  brief carries `isolation_mode: worktree` + `worktree_path: <absolute-path>` (the
-  registration the orchestrator already made).
-- **A SINGLE indivisible workflow**: stays directly on the session branch, `isolation_mode:
-  main`, no worktree.
-- **Sequential legs inside one Workflow** (a write-dependency chain) or **read-only legs**
-  (Scout/Lens): stay on the session branch by default — isolation buys nothing when there's
-  no concurrent write.
-- **Self-modifying lanes** (`.claude/hooks/**`, `.claude/settings.json`, `.claude/agents/**`)
-  get `worktree_required: true` regardless of leg count (DEC-008's original hazard class).
-
-Fail-closed, unchanged: an unregistered worktree path is hard-DENIED by `worktree-guard.sh`
-on `git worktree add` — registration is the orchestrator's responsibility, never implicit.
-Every registered worktree branches off the session branch (never hardcoded `main`) and the
-merge-back+remove is a MANDATORY final phase — no orphan may ever survive. Full ladder +
-registration mechanics: `Skill nexus-dispatch-catalog`.
+Before briefing any teammate, intersect its file-globs against the forbidden-directory
+map — a brief crossing an ownership line MUST be split along that line before dispatch,
+never left to the teammate to self-restrict. Full forbidden-directory table, the
+ownership-shortcut list, and the worktree-vs-session-branch isolation ladder:
+`references/ownership-and-isolation.md`. A worked cross-boundary split:
+`examples/cross-boundary-split.md`.
 
 ## Pairing rules
 
@@ -124,43 +76,11 @@ registration mechanics: `Skill nexus-dispatch-catalog`.
 - **After every forge-* or pipeline-* completion** → lens validates before Nexus marks task done
 - **`## NEXUS:REVISE` from lens** → Re-spawn the original implementer (escalate to its `-pro` variant) with lens issues YAML; cap 3 iterations with stall detection
 
-## Forbidden directories (per persona)
+## References
 
-| Persona | Cannot touch |
-|---|---|
-| Scout | Anything (read-only via `disallowedTools: Edit, Write, NotebookEdit`) |
-| forge-ui | `ingestion/`, `models/`, `docker-compose*.yml`, `.memory/`, `Caddyfile`, `app/api/**` |
-| forge-wire | `ingestion/`, `models/`, `docker-compose*.yml`, `.memory/`, `Caddyfile`, `app/components/**` |
-| pipeline-data | `app/`, `models/`, `docker-compose*.yml`, `.memory/` |
-| pipeline-async | `app/`, `models/`, `docker-compose*.yml`, `.memory/` |
-| hermes | Business logic inside `app/` or `ingestion/` (auth/integration glue only); `models/`, `.memory/` |
-| atlas | Anything via Bash (`disallowedTools: Bash` — design only); `app/`, `ingestion/` business logic |
-| lens | Anything (`disallowedTools: Edit, Write, NotebookEdit` — reports only) |
-| lens-fast | Anything (`disallowedTools: Edit, Write, NotebookEdit` — deterministic gates only; reports only) |
-| palette | `app/` TypeScript/React code, `ingestion/`, `models/`, `docker-compose*.yml`; writes ONLY to `docs/design/` or `.memory/design-reports/` |
-| quill-ts / quill-py | Non-test files (only test files modifiable); `.memory/` |
-| Nexus | Anything via Edit/Write (`disallowedTools: Write, Edit, NotebookEdit`); orchestrate via delegation only |
-
-## Classification decision tree
-
-```
-Task arrives →
-├── Is it a bug fix / config / single obvious change touching ≤2 files (already read)?
-│   YES → Simple Task Bypass. Handle inline. No ceremony.
-│   NO  → continue
-├── Does it span >5 files OR multi-domain OR ambiguous scope?
-│   YES → Complex. Spawn Scout first. Then dispatch the parallel
-│         implementation as a dynamic Workflow (Task fan-out under a
-│         shared TaskList), one owned task per domain — NOT a raw
-│         multi-Task fan-out without a verify stage. See nexus-protocol §9.
-│         Each code-writing teammate gets an explicit Lens verify stage.
-│   NO  → Standard. Single persona per routing table (if it splits into
-│         ≥2 independent slices, escalate to a dynamic Workflow too).
-│
-└── Standard or Complex →
-    1. Run planning gate (skill: nexus-protocol §4)
-    2. Reflect (spawn Scout for 5-bullet reflection)
-    3. Delegate per CONTRACT.md (skill: contract-schema)
-    4. Review completion marker (skill: contract-schema)
-    5. Run db_log_cmds
-```
+- `references/ownership-and-isolation.md` — the full forbidden-directory table, the
+  ownership-shortcut list, and the worktree-vs-session-branch isolation ladder.
+- `references/install-aware-routing.md` — the stack-conditional-persona remap table and
+  the full classification decision tree.
+- `examples/cross-boundary-split.md` — a worked example splitting a brief that would
+  otherwise cross two personas' ownership lines.

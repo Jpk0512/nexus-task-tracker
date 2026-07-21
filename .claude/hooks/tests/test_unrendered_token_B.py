@@ -160,9 +160,17 @@ class TestSessionEndReminderUnrenderedToken:
     HOOK = SESSION_END_REMINDER
 
     def _run(
-        self, *, env_overrides: dict[str, str] | None = None
+        self, resident_daemon=None, *, env_overrides: dict[str, str] | None = None
     ) -> subprocess.CompletedProcess[str]:
+        # Post-F2-03 session-end-reminder.sh is `exec _ping_shim.py session.stop
+        # session-end-reminder`; the open-session reminder runs daemon-resident
+        # (handle_session_end_reminder), reading the forwarded `_HOOK_DB_PATH`
+        # (an env-seam consumer served by the DEFAULT daemon). resident_daemon
+        # supplies the socket-dir / _HOOK_REPO_ROOT seams so the shim reaches it;
+        # env_overrides is merged LAST so a test's own `_HOOK_DB_PATH` wins.
         env = _clean_env()
+        if resident_daemon is not None:
+            env.update(dict(resident_daemon.env))
         if env_overrides:
             env.update(env_overrides)
         return subprocess.run(
@@ -206,12 +214,20 @@ class TestSessionEndReminderUnrenderedToken:
             conn.close()
         return sid
 
-    def test_unrendered_token_is_loud_not_silent(self) -> None:
-        """Given the /Users/john.keeney/nexus-task-tracker token was never rendered (no _HOOK_DB_PATH
-        override), When the Stop hook runs, Then it does NOT silently no-op: it
-        emits a LOUD systemMessage naming the inert reminder — and exits 0
-        (advisory, never blocks)."""
-        result = self._run()
+    def test_unrendered_token_is_loud_not_silent(self, resident_daemon) -> None:
+        """Given the /Users/john.keeney/nexus-task-tracker token was never rendered, When the Stop hook
+        runs, Then it does NOT silently no-op: it emits a LOUD systemMessage
+        naming the inert reminder — and exits 0 (advisory, never blocks).
+
+        Post-F2-03 the install-token check lives daemon-resident: the shim
+        forwards `_HOOK_DB_PATH` and handle_session_end_reminder fires the LOUD
+        branch when the RESOLVED db path still contains the literal
+        `/Users/john.keeney/nexus-task-tracker` (the daemon's own project_path is always rendered, so
+        the unrendered token is forwarded explicitly to exercise that branch)."""
+        result = self._run(
+            resident_daemon,
+            env_overrides={"_HOOK_DB_PATH": "/Users/john.keeney/nexus-task-tracker/.memory/project.db"},
+        )
         assert result.returncode == 0, (
             f"advisory Stop hook must never block, got {result.returncode}: "
             f"{result.stderr!r}"
@@ -228,7 +244,7 @@ class TestSessionEndReminderUnrenderedToken:
         )
 
     def test_rendered_with_activity_emits_normal_reminder(
-        self, tmp_path: Path
+        self, tmp_path: Path, resident_daemon
     ) -> None:
         """Given _HOOK_DB_PATH points at a seeded db with an open session that has
         activity, When the Stop hook runs, Then it emits the NORMAL session-end
@@ -236,7 +252,9 @@ class TestSessionEndReminderUnrenderedToken:
         the unrendered banner."""
         db_path = tmp_path / "project.db"
         sid = self._seed_db(db_path, with_activity=True)
-        result = self._run(env_overrides={"_HOOK_DB_PATH": str(db_path)})
+        result = self._run(
+            resident_daemon, env_overrides={"_HOOK_DB_PATH": str(db_path)}
+        )
         assert result.returncode == 0, (
             f"normal reminder must exit 0, got {result.returncode}: {result.stderr!r}"
         )
@@ -254,13 +272,15 @@ class TestSessionEndReminderUnrenderedToken:
             f"Normal reminder must cite the log.py session-end call, got: {msg!r}"
         )
 
-    def test_rendered_no_activity_is_silent(self, tmp_path: Path) -> None:
+    def test_rendered_no_activity_is_silent(self, tmp_path: Path, resident_daemon) -> None:
         """Given a rendered db with an open session but NO activity, When the hook
         runs, Then it stays silent (exit 0, empty stdout) — a genuine clean pass,
         not a swallowed error."""
         db_path = tmp_path / "project.db"
         self._seed_db(db_path, with_activity=False)
-        result = self._run(env_overrides={"_HOOK_DB_PATH": str(db_path)})
+        result = self._run(
+            resident_daemon, env_overrides={"_HOOK_DB_PATH": str(db_path)}
+        )
         assert result.returncode == 0, (
             f"clean pass must exit 0, got {result.returncode}: {result.stderr!r}"
         )

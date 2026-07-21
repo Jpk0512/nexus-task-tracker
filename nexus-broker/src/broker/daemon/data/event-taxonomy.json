@@ -1,0 +1,145 @@
+{
+  "$schema_note": "F2-01 event-bus taxonomy. FUTURE-STATE (constraint C-07): describes the daemon event bus F2-02..F2-04 will build; no live mechanism has changed. Supersedes the NATIVE-1-13 migration tranches (closed-as-superseded at F2-M per DEC-070). Tranche A = advisory (fail OPEN on daemon death). Tranche B = deny-capable (fail CLOSED on daemon death, C-06). Consumer names are current hook FILES whose LOGIC becomes a resident daemon handler; the file itself shrinks to the shared ping shim.",
+  "fail_policy_classes": {
+    "advisory-fail-open": "Tranche A. Ping is best-effort via event.emit; a dead/unreachable daemon means the advisory simply does not fire (worst case: a lost banner or an unwritten capture row). Shim returns rc=0 on any RPC miss.",
+    "deny-capable-fail-closed": "Tranche B. Verdict is synchronous via event.verify. During the F2-04 shadow+rollback window the retained hook body is the fallback (still enforced locally). Post-cutover, an RPC miss/timeout MUST return DENY (shim rc=2) — a deny gate that silently fails open on daemon death is a security hole (C-06)."
+  },
+  "events": [
+    {
+      "name": "prompt.submitted",
+      "payload_sketch": {"session_id": "str", "prompt_text": "str", "cwd": "path", "turn_index": "int"},
+      "producing_hook_events": ["UserPromptSubmit"],
+      "consumers": ["router.py", "auto-parallel-nudge.sh"],
+      "fail_policy": "advisory-fail-open",
+      "tranche": "A",
+      "note": "context-reset-monitor.py is NOT a consumer — it is keep-as-hook (identity-critical post-compaction re-injection, must run daemon-independently)."
+    },
+    {
+      "name": "dispatch.pre.verify",
+      "payload_sketch": {"tool": "Task|TeamCreate|Agent", "subagent_type": "str", "brief": "obj", "plan_id": "str", "capability_token": "str", "persona": "str", "risk_tier": "str", "skills_required": "list"},
+      "producing_hook_events": ["PreToolUse:Task", "PreToolUse:TeamCreate", "PreToolUse:Agent"],
+      "consumers": ["broker-gate.py", "dispatch-shape-guard.sh", "skills-required-guard.sh", "persona-alias-resolver.sh", "routing-target-validator.py"],
+      "fail_policy": "deny-capable-fail-closed",
+      "tranche": "B",
+      "note": "routing-target-validator.py (TASK-074, 2026-07-16, owner-approved F2-04 constraint) is a mandatory member of this deny-capable set. Order preserved cheapest-first per gate_runner.py EVENT_CHAINS; routing-target-validator runs on the Task|TeamCreate subset only."
+    },
+    {
+      "name": "dispatch.pre.observe",
+      "payload_sketch": {"tool": "str", "subagent_type": "str", "brief_summary": "str", "lane_hint": "str"},
+      "producing_hook_events": ["PreToolUse:Task", "PreToolUse:TeamCreate", "PreToolUse:Agent"],
+      "consumers": ["dispatch-announce.sh", "dispatch-capture.py", "lm-studio-triage-gate.py", "router_core.py:lane-router"],
+      "fail_policy": "advisory-fail-open",
+      "tranche": "A",
+      "note": "lane-router and review-panel are flag-gated advisory adapters today (lane-router.enabled / review-panel.enabled); they remain advisory-emit only."
+    },
+    {
+      "name": "write.pre.verify",
+      "payload_sketch": {"tool": "Write|Edit|MultiEdit|NotebookEdit", "file_path": "path", "persona": "str", "content_hash": "str"},
+      "producing_hook_events": ["PreToolUse:Write", "PreToolUse:Edit", "PreToolUse:MultiEdit", "PreToolUse:NotebookEdit"],
+      "consumers": ["secret-path-guard.sh", "edit-boundary-impact-gate.sh", "oracle-immutability-guard.sh", "plexus-write-boundary.sh"],
+      "fail_policy": "deny-capable-fail-closed",
+      "tranche": "B"
+    },
+    {
+      "name": "write.post.observe",
+      "payload_sketch": {"tool": "str", "file_path": "path", "diff_summary": "str"},
+      "producing_hook_events": ["PostToolUse:Write", "PostToolUse:Edit", "PostToolUse:MultiEdit"],
+      "consumers": ["verify-after-edit.sh", "reflection-capture.sh", "post-sync-code-knowledge.sh"],
+      "fail_policy": "advisory-fail-open",
+      "tranche": "A"
+    },
+    {
+      "name": "bash.pre.verify",
+      "payload_sketch": {"tool": "Bash", "command": "str", "cwd": "path"},
+      "producing_hook_events": ["PreToolUse:Bash"],
+      "consumers": ["worktree-guard.sh", "no-direct-push-to-main.sh"],
+      "fail_policy": "deny-capable-fail-closed",
+      "tranche": "B"
+    },
+    {
+      "name": "subagent.stop.verify",
+      "payload_sketch": {"session_id": "str", "persona": "str", "last_assistant_message": "str", "return_envelope": "obj", "approved_brief": "obj"},
+      "producing_hook_events": ["SubagentStop"],
+      "consumers": ["no-deferral-gate.sh", "lens-gate.sh", "plan-validation-gate.py"],
+      "fail_policy": "deny-capable-fail-closed",
+      "tranche": "B",
+      "note": "plan-validation-gate.py is deny-capable + fail-CLOSED by its own construction (scorer error = FAIL, never silent pass) — preserve that under the daemon path."
+    },
+    {
+      "name": "subagent.stop.observe",
+      "payload_sketch": {"session_id": "str", "persona": "str", "return_envelope": "obj", "marker": "str"},
+      "producing_hook_events": ["SubagentStop"],
+      "consumers": ["completion-capture.py", "return-validator.py", "return-summarizer.sh", "feedback-capture.py", "do-not-touch-guard.sh", "gate_runner.py:review-panel"],
+      "fail_policy": "advisory-fail-open",
+      "tranche": "A",
+      "note": "completion-capture.py MUST run even when subagent.stop.verify denies — under the current multiplexer it is deliberately ordered FIRST so a REVISE deny never skips telemetry (gate_runner.py Finding #6). The bus MUST preserve this: observe handlers fire independently of the verify verdict, never short-circuited by it."
+    },
+    {
+      "name": "skill.loaded",
+      "payload_sketch": {"session_id": "str", "skill_name": "str", "persona": "str"},
+      "producing_hook_events": ["PostToolUse:Skill"],
+      "consumers": ["skill-load-capture.py"],
+      "fail_policy": "advisory-fail-open",
+      "tranche": "A"
+    },
+    {
+      "name": "search.completed",
+      "payload_sketch": {"session_id": "str", "tool": "codebase_search|codebase_symbol|...", "query": "str"},
+      "producing_hook_events": ["PostToolUse:codebase_search-family"],
+      "consumers": ["socraticode-flag.sh"],
+      "fail_policy": "advisory-fail-open",
+      "tranche": "A"
+    },
+    {
+      "name": "read.completed",
+      "payload_sketch": {"session_id": "str", "tool": "Read|Grep|Glob|Task|Bash|...", "target": "path", "consecutive_read_count": "int"},
+      "producing_hook_events": ["PostToolUse:Read", "PostToolUse:Grep", "PostToolUse:Glob", "PostToolUse:Task"],
+      "consumers": ["analysis-paralysis-guard.sh", "read-injection-scanner.sh"],
+      "fail_policy": "advisory-fail-open",
+      "tranche": "A",
+      "note": "read-injection-scanner is advisory (adds warning context) not deny-capable — its DATA-not-instructions verdict is surfaced, never a block."
+    },
+    {
+      "name": "task.tool.completed",
+      "payload_sketch": {"session_id": "str", "tool": "Task|TeamCreate", "subagent_type": "str", "status": "str"},
+      "producing_hook_events": ["PostToolUse:Task", "PostToolUse:TeamCreate"],
+      "consumers": ["stall-counter.sh", "task-mirror.sh"],
+      "fail_policy": "advisory-fail-open",
+      "tranche": "A"
+    },
+    {
+      "name": "task.record.changed",
+      "payload_sketch": {"session_id": "str", "tool": "TaskCreate|TaskUpdate", "task_id": "str", "fields": "obj"},
+      "producing_hook_events": ["PostToolUse:TaskCreate", "PostToolUse:TaskUpdate"],
+      "consumers": ["task-db-mirror.sh"],
+      "fail_policy": "advisory-fail-open",
+      "tranche": "A"
+    },
+    {
+      "name": "session.start",
+      "payload_sketch": {"session_id": "str", "cwd": "path", "resume": "bool"},
+      "producing_hook_events": ["SessionStart"],
+      "consumers": ["memory-health-check.sh", "health-banner.sh", "lesson-harvester.sh", "router-health-check.sh", "memory-errors-banner.sh", "session-task-reconcile.sh", "feedback-harvest-banner.sh"],
+      "fail_policy": "advisory-fail-open",
+      "tranche": "A",
+      "note": "inject-invariants.sh and ensure-daemon.sh are NOT consumers — both keep-as-hook (identity-critical injection / daemon bootstrap). health-banner.sh is invoked today by memory-health-check.sh; it rides the same session.start resident handler."
+    },
+    {
+      "name": "session.stop",
+      "payload_sketch": {"session_id": "str", "summary": "str"},
+      "producing_hook_events": ["Stop"],
+      "consumers": ["session-end-reminder.sh", "lens-tier-backstop.sh"],
+      "fail_policy": "advisory-fail-open",
+      "tranche": "A"
+    },
+    {
+      "name": "doc.written",
+      "payload_sketch": {"session_id": "str", "file_path": "governed-doc-path", "diff_summary": "str", "author_persona": "str"},
+      "producing_hook_events": ["PostToolUse:Write", "PostToolUse:Edit", "PostToolUse:MultiEdit"],
+      "consumers": ["docs-watcher (F2-07, future)"],
+      "fail_policy": "advisory-fail-open",
+      "tranche": "A",
+      "note": "Forward event for F2-07. A path-filtered specialization of write.post.observe firing only on governed-corpus doc paths. Watcher ALWAYS flags; AUTO-UPDATE only within the FDEC-6 authority boundary (mechanical fixes). Watcher writes are themselves watched (C-04) — the watcher's own doc.written re-enters the bus."
+    }
+  ]
+}

@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Agent Config — 5 layout options</title>
+<style>
+  :root {
+    --bg: #1c1c1b;
+    --fg: #e8e6e3;
+    --fg-bright: #f5f4f1;
+    --muted: #8a8780;
+    --card: #1f1f1e;
+    --elev: #242422;
+    --accent: #2a2a28;
+    --border: rgba(255,255,255,0.07);
+    --border-strong: rgba(255,255,255,0.12);
+    --primary: #26b5ce;
+    --primary-soft: rgba(38,181,206,0.14);
+    --primary-ring: rgba(38,181,206,0.32);
+    --orange: #f2a65a;
+    --violet: #9b8afb;
+    --green: #4cb782;
+    --pink: #e879a9;
+    --yellow: #e6c35c;
+    --sidebar: #1c1c1b;
+    --radius: 10px;
+    --font: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; background: var(--bg); color: var(--fg);
+    font-family: var(--font); -webkit-font-smoothing: antialiased; }
+  button, input { font: inherit; color: inherit; }
+  ::selection { background: rgba(38,181,206,0.28); color: #fff; }
+
+  .page { min-height: 100%; display: flex; flex-direction: column; }
+  .topbar {
+    position: sticky; top: 0; z-index: 20;
+    border-bottom: 1px solid var(--border);
+    background: rgba(28,28,27,0.92); backdrop-filter: blur(12px);
+    padding: 14px 20px 12px;
+  }
+  .topbar h1 { margin: 0; font-size: 15px; font-weight: 590; color: var(--fg-bright); letter-spacing: -0.02em; }
+  .topbar p { margin: 4px 0 0; font-size: 12.5px; color: var(--muted); max-width: 920px; line-height: 1.5; }
+  .research { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    font-size: 11px; color: var(--muted); border: 1px solid var(--border);
+    background: var(--card); border-radius: 999px; padding: 3px 9px;
+  }
+  .chip strong { color: var(--fg); font-weight: 510; }
+  .rec {
+    margin-top: 10px; font-size: 12.5px; line-height: 1.45; color: var(--fg);
+    background: var(--primary-soft); border: 1px solid var(--primary-ring);
+    border-radius: 8px; padding: 9px 12px; max-width: 920px;
+  }
+  .rec b { color: var(--primary); }
+
+  .tabs {
+    display: flex; gap: 6px; padding: 10px 20px; border-bottom: 1px solid var(--border);
+    overflow-x: auto; background: var(--bg);
+  }
+  .tab {
+    flex: 0 0 auto; appearance: none; border: 1px solid var(--border);
+    background: var(--card); color: var(--muted); border-radius: 999px;
+    padding: 7px 12px; font-size: 12px; font-weight: 510; cursor: pointer;
+    transition: .15s ease; display: inline-flex; align-items: center; gap: 7px;
+  }
+  .tab:hover { color: var(--fg); border-color: var(--border-strong); }
+  .tab.active { color: var(--fg-bright); background: var(--primary-soft); border-color: var(--primary-ring); }
+  .tab .n { font-size: 10px; opacity: .7; }
+  .tab .badge {
+    font-size: 9.5px; text-transform: uppercase; letter-spacing: .04em;
+    color: var(--primary); border: 1px solid var(--primary-ring); border-radius: 999px;
+    padding: 1px 6px; background: rgba(38,181,206,0.08);
+  }
+
+  .stage { flex: 1; padding: 16px 20px 28px; }
+  .panel { display: none; }
+  .panel.active { display: block; animation: in .22s ease; }
+  @keyframes in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+  .meta {
+    display: grid; grid-template-columns: 1.25fr .75fr; gap: 14px; margin-bottom: 14px;
+  }
+  @media (max-width: 960px) { .meta { grid-template-columns: 1fr; } }
+  .card {
+    border: 1px solid var(--border); background: var(--card); border-radius: var(--radius);
+    padding: 12px 14px; box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
+  }
+  .card h3 { margin: 0 0 6px; font-size: 12.5px; font-weight: 590; color: var(--fg-bright); letter-spacing: -0.01em; }
+  .card p, .card li { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.5; }
+  .card ul { margin: 0; padding-left: 16px; }
+  .card li + li { margin-top: 3px; }
+  .pros { color: #9fd5b5; }
+  .cons { color: #e0a0a0; }
+  .verdict {
+    margin-top: 8px; font-size: 12px; color: var(--fg); background: rgba(255,255,255,.03);
+    border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px;
+  }
+  .verdict b { color: var(--primary); font-weight: 590; }
+
+  .mock {
+    border: 1px solid var(--border); border-radius: 14px; overflow: hidden;
+    background: var(--bg); height: min(640px, 74vh);
+    display: grid; grid-template-columns: 200px 1fr;
+    box-shadow: 0 20px 60px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.03);
+  }
+  .app-side {
+    border-right: 1px solid var(--border); background: var(--sidebar); padding: 12px 10px;
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .app-side .brand {
+    display: flex; align-items: center; gap: 8px; padding: 4px 8px 12px;
+    font-size: 12.5px; font-weight: 510; color: var(--fg-bright);
+  }
+  .dot { width: 18px; height: 18px; border-radius: 6px; background: linear-gradient(135deg,#26b5ce,#4cb782); }
+  .nav-label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
+    padding: 10px 8px 4px; font-weight: 510;
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 7px;
+    font-size: 12.5px; color: var(--muted); cursor: default;
+  }
+  .nav-item.active { background: var(--accent); color: var(--fg-bright); }
+  .app-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  .app-header {
+    height: 48px; border-bottom: 1px solid var(--border); display: flex; align-items: center;
+    justify-content: space-between; padding: 0 14px; gap: 10px; flex-shrink: 0;
+  }
+  .app-header .title { font-size: 13.5px; font-weight: 590; color: var(--fg-bright); letter-spacing: -0.015em; }
+  .app-header .sub { font-size: 11px; color: var(--muted); margin-left: 8px; }
+  .app-header .tools { display: flex; gap: 6px; align-items: center; }
+  .btn {
+    height: 26px; padding: 0 9px; border-radius: 7px; border: 1px solid var(--border);
+    background: transparent; font-size: 11.5px; color: var(--muted); display: inline-flex;
+    align-items: center; gap: 5px; cursor: default;
+  }
+  .btn.primary { background: var(--primary); border-color: transparent; color: #0b1c20; font-weight: 560; }
+
+  .split { display: flex; flex: 1; min-height: 0; }
+  .gutter { width: 5px; flex-shrink: 0; position: relative; }
+  .gutter::after { content: ""; position: absolute; inset: 0 1px; background: var(--border); }
+  .list-pane {
+    display: flex; flex-direction: column; min-height: 0; background: var(--bg); width: 280px; flex-shrink: 0;
+  }
+  .list-pane.narrow { width: 220px; }
+  .list-pane.wide { width: 320px; }
+  .list-pane.registry { width: 340px; }
+  .list-head {
+    padding: 10px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px;
+  }
+  .list-body { flex: 1; overflow: auto; padding: 6px; }
+  .preview-pane {
+    display: flex; flex-direction: column; min-width: 0; min-height: 0; flex: 1; background: var(--bg);
+  }
+  .preview-toolbar {
+    height: 40px; border-bottom: 1px solid var(--border); display: flex; align-items: center;
+    justify-content: space-between; padding: 0 12px; gap: 8px; flex-shrink: 0;
+  }
+  .seg {
+    display: inline-flex; border: 1px solid var(--border); border-radius: 7px; padding: 2px; background: rgba(255,255,255,.02);
+  }
+  .seg button {
+    height: 22px; padding: 0 8px; border: 0; background: transparent; border-radius: 5px;
+    font-size: 11px; color: var(--muted); cursor: default;
+  }
+  .seg button.on { background: var(--accent); color: var(--fg-bright); }
+  .seg button.mono { font-family: var(--mono); font-size: 11px; letter-spacing: -0.02em; }
+  .pathline { font-family: var(--mono); font-size: 10.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .search {
+    height: 28px; border-radius: 7px; border: 1px solid var(--border); background: rgba(255,255,255,.02);
+    display: flex; align-items: center; gap: 6px; padding: 0 8px; color: var(--muted); font-size: 12px;
+  }
+  .search input { border: 0; outline: 0; background: transparent; width: 100%; font-size: 12px; color: var(--fg); }
+
+  .sec {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
+    font-weight: 510; padding: 10px 8px 4px; display: flex; align-items: center; gap: 6px;
+  }
+  .sec .count {
+    font-size: 10px; border: 1px solid var(--border); border-radius: 999px; padding: 0 5px;
+    color: var(--muted); font-variant-numeric: tabular-nums;
+  }
+
+  .agent-row, .file-row, .pin-row, .root-row {
+    display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 8px;
+    border: 1px solid transparent; cursor: default; font-size: 12.5px;
+  }
+  .agent-row:hover, .file-row:hover, .pin-row:hover, .root-row:hover { background: rgba(255,255,255,.03); }
+  .agent-row.sel, .file-row.sel, .pin-row.sel, .root-row.sel {
+    background: var(--primary-soft); border-color: var(--primary-ring);
+  }
+  .agent-row .name, .file-row .name, .pin-row .name { color: var(--fg-bright); font-weight: 510; flex: 1; min-width: 0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .agent-row .hint, .file-row .hint, .pin-row .hint, .root-row .hint {
+    font-size: 10.5px; color: var(--muted); font-family: var(--mono);
+  }
+  .tone { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .tone.claude { background: var(--orange); }
+  .tone.codex { background: var(--green); }
+  .tone.cursor { background: var(--primary); }
+  .tone.pi { background: var(--violet); }
+  .tone.oh { background: var(--pink); }
+  .tone.custom { background: var(--yellow); }
+
+  .filter-bar { display: flex; flex-wrap: wrap; gap: 5px; }
+  .fchip {
+    height: 24px; padding: 0 9px; border-radius: 999px; border: 1px solid var(--border);
+    background: transparent; font-size: 11px; color: var(--muted); display: inline-flex; align-items: center; gap: 5px;
+  }
+  .fchip.on { background: var(--primary-soft); border-color: var(--primary-ring); color: var(--fg-bright); }
+  .fchip .dotlet { width: 6px; height: 6px; border-radius: 50%; }
+
+  .tree-item {
+    display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-radius: 6px;
+    font-size: 12px; color: var(--fg); cursor: default;
+  }
+  .tree-item:hover { background: rgba(255,255,255,.03); }
+  .tree-item.sel { background: var(--primary-soft); }
+  .tree-item .ico { width: 13px; opacity: .55; flex-shrink: 0; font-size: 10px; }
+  .tree-item .nm { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .indent-1 { padding-left: 16px; }
+
+  .editor { flex: 1; min-width: 0; min-height: 0; overflow: auto; padding: 18px 22px 28px; }
+  .editor h2 {
+    margin: 0 0 4px; font-size: 18px; font-weight: 590; color: var(--fg-bright); letter-spacing: -0.025em;
+  }
+  .editor .path { font-size: 11px; color: var(--muted); font-family: var(--mono); margin-bottom: 14px; }
+  .codeblock {
+    font-family: var(--mono); font-size: 12px; line-height: 1.55; color: #d6d3cd;
+    background: rgba(0,0,0,.22); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 16px; white-space: pre; overflow: auto;
+  }
+  .kw { color: #c792ea; }
+  .str { color: #c3e88d; }
+  .cm { color: #6a6a66; }
+
+  .inspector {
+    width: 220px; flex-shrink: 0; border-left: 1px solid var(--border);
+    display: flex; flex-direction: column; background: var(--bg);
+  }
+  .inspector .ih {
+    padding: 10px 12px; border-bottom: 1px solid var(--border);
+    font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 510;
+  }
+  .inspector .ib { padding: 12px; font-size: 12px; color: var(--muted); line-height: 1.45; display: flex; flex-direction: column; gap: 12px; }
+  .inspector .k { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: 3px; }
+  .inspector .v { color: var(--fg); font-weight: 510; }
+  .inspector .mono { font-family: var(--mono); font-size: 10.5px; color: var(--muted); word-break: break-all; font-weight: 400; }
+
+  .home { flex: 1; overflow: auto; padding: 18px 20px 28px; }
+  .home h2 { margin: 0 0 4px; font-size: 18px; font-weight: 590; letter-spacing: -0.025em; color: var(--fg-bright); }
+  .home .lead { margin: 0 0 16px; font-size: 12.5px; color: var(--muted); max-width: 520px; line-height: 1.45; }
+  .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  @media (max-width: 1100px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .acard {
+    border: 1px solid var(--border); background: var(--card); border-radius: 12px;
+    padding: 14px; display: flex; flex-direction: column; gap: 8px; min-height: 128px;
+  }
+  .acard.sel { border-color: var(--primary-ring); background: var(--primary-soft); }
+  .acard .top { display: flex; align-items: center; gap: 8px; }
+  .acard .mark {
+    width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center;
+    font-size: 12px; font-weight: 600; color: #0b1c20;
+  }
+  .acard .mark.claude { background: rgba(242,166,90,.85); }
+  .acard .mark.codex { background: rgba(76,183,130,.85); }
+  .acard .mark.cursor { background: rgba(38,181,206,.85); }
+  .acard .mark.pi { background: rgba(155,138,251,.85); }
+  .acard .mark.oh { background: rgba(232,121,169,.85); }
+  .acard .mark.add { background: rgba(255,255,255,.08); color: var(--muted); border: 1px dashed var(--border-strong); }
+  .acard .aname { font-size: 13.5px; font-weight: 560; color: var(--fg-bright); }
+  .acard .apath { font-family: var(--mono); font-size: 10.5px; color: var(--muted); line-height: 1.4; }
+  .acard .meta-row { margin-top: auto; display: flex; gap: 6px; flex-wrap: wrap; }
+  .pill {
+    font-size: 10px; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted);
+  }
+
+  .pin-grid { display: flex; flex-direction: column; gap: 2px; }
+  .pin-row { flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px; }
+  .pin-row .top { display: flex; width: 100%; align-items: center; gap: 7px; }
+  .pin-row .agent-tag {
+    font-size: 9.5px; text-transform: uppercase; letter-spacing: .04em;
+    padding: 1px 6px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted);
+  }
+
+  .root-row { align-items: flex-start; flex-direction: column; gap: 4px; padding: 9px 8px; }
+  .root-row .top { display: flex; width: 100%; align-items: center; gap: 8px; }
+  .root-row .actions { display: flex; gap: 4px; margin-left: auto; }
+  .tiny {
+    height: 20px; padding: 0 6px; font-size: 10px; border-radius: 5px;
+    border: 1px solid var(--border); background: transparent; color: var(--muted);
+  }
+  .footer-note {
+    margin-top: 12px; font-size: 11.5px; color: var(--muted); line-height: 1.45; max-width: 920px;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="topbar">
+    <h1>Agent Config — layout options</h1>
+    <p>
+      New Brain nav item under Site Docs. Same disk-mirror idea as Notes / Site Docs, but for
+      global agent homes: <strong>~/.claude</strong>, <strong>~/.codex</strong>, <strong>~/.cursor</strong>,
+      <strong>~/.pi</strong>, Oh, plus Claude Desktop
+      (<code style="font-family:var(--mono);font-size:11px">~/Library/Application Support/Claude</code>)
+      and any folder you add. Goal: filter by agent, open the right file fast, edit safely on disk.
+    </p>
+    <div class="research">
+      <span class="chip"><strong>Model</strong> registered roots → tagged agent → file tree → editor</span>
+      <span class="chip"><strong>Claude</strong> = Code (~/.claude) + Desktop (App Support)</span>
+      <span class="chip"><strong>Defaults</strong> Claude · Codex · Cursor · Pi · Oh</span>
+      <span class="chip"><strong>Extensible</strong> + Add folder with agent tag</span>
+      <span class="chip"><strong>Safety</strong> hide secrets by default · confirm on auth.json</span>
+    </div>
+    <div class="rec">
+      <b>Recommendation:</b> Option B (chip-filtered multi-root library), with Claude registering
+      two roots under one filter. Same Notes shell you already know, filter is first-class, and
+      “Add folder” stays visible. Option D is the best power-user upgrade if you mostly touch
+      the same 6 files every day.
+    </div>
+  </div>
+
+  <div class="tabs" role="tablist">
+    <button class="tab active" data-tab="a">A · Agents rail <span class="n">Site Docs twin</span></button>
+    <button class="tab" data-tab="b">B · Chip filter <span class="badge">pick</span></button>
+    <button class="tab" data-tab="c">C · Agent homes</button>
+    <button class="tab" data-tab="d">D · Pinned essentials</button>
+    <button class="tab" data-tab="e">E · Roots registry</button>
+  </div>
+
+  <div class="stage">
+
+    <section class="panel active" id="a">
+      <div class="meta">
+        <div class="card">
+          <h3>A — Agents rail (Site Docs twin)</h3>
+          <p>Left rail lists Agents instead of Sites. Selecting Claude reveals a compound tree: Code + Desktop. Same Option C shell (list · editor · inspector).</p>
+          <ul>
+            <li class="pros">Zero new interaction pattern — mirrors Site Docs</li>
+            <li class="pros">Claude Desktop is a first-class sibling under Claude</li>
+            <li class="cons">Filter is implicit (one agent at a time) — weaker for cross-agent hunting</li>
+            <li class="cons">“Add folder” lives one click deeper</li>
+          </ul>
+          <div class="verdict"><b>Best when</b> consistency with Site Docs matters more than multi-agent scan.</div>
+        </div>
+        <div class="card">
+          <h3>Default roots shown</h3>
+          <ul>
+            <li>Claude → ~/.claude + Desktop config dir</li>
+            <li>Codex → ~/.codex</li>
+            <li>Cursor → ~/.cursor</li>
+            <li>Pi → ~/.pi</li>
+            <li>Oh → registered path (user-defined)</li>
+          </ul>
+        </div>
+      </div>
+      <div class="mock">
+        <aside class="app-side">
+          <div class="brand"><span class="dot"></span> Nexus</div>
+          <div class="nav-label">Brain</div>
+          <div class="nav-item">Notes</div>
+          <div class="nav-item">Site Docs</div>
+          <div class="nav-item active">Agent Config</div>
+          <div class="nav-item">Library</div>
+        </aside>
+        <div class="app-main">
+          <div class="app-header">
+            <div><span class="title">Agent Config</span><span class="sub">Claude · Code + Desktop</span></div>
+            <div class="tools">
+              <button class="btn">Refresh</button>
+              <button class="btn">Inspector</button>
+              <button class="btn primary">Save</button>
+            </div>
+          </div>
+          <div class="split">
+            <div class="list-pane narrow">
+              <div class="list-head">
+                <div class="search"><span>⌕</span><input value="Filter agents…" disabled /></div>
+              </div>
+              <div class="list-body">
+                <div class="sec">Agents <span class="count">5</span></div>
+                <div class="agent-row sel"><span class="tone claude"></span><span class="name">Claude</span></div>
+                <div class="agent-row"><span class="tone codex"></span><span class="name">Codex</span></div>
+                <div class="agent-row"><span class="tone cursor"></span><span class="name">Cursor</span></div>
+                <div class="agent-row"><span class="tone pi"></span><span class="name">Pi</span></div>
+                <div class="agent-row"><span class="tone oh"></span><span class="name">Oh</span></div>
+                <div class="sec">Tree</div>
+                <div class="tree-item"><span class="ico">▸</span><span class="nm">Code · ~/.claude</span></div>
+                <div class="tree-item indent-1 sel"><span class="ico">·</span><span class="nm">settings.json</span></div>
+                <div class="tree-item indent-1"><span class="ico">·</span><span class="nm">settings.local.json</span></div>
+                <div class="tree-item indent-1"><span class="ico">▸</span><span class="nm">agents/</span></div>
+                <div class="tree-item"><span class="ico">▸</span><span class="nm">Desktop · App Support</span></div>
+                <div class="tree-item indent-1"><span class="ico">·</span><span class="nm">claude_desktop_config.json</span></div>
+                <div class="tree-item indent-1"><span class="ico">·</span><span class="nm">config.json</span></div>
+              </div>
+            </div>
+            <div class="gutter"></div>
+            <div class="preview-pane">
+              <div class="preview-toolbar">
+                <div class="seg">
+                  <button class="on">Preview</button>
+                  <button class="mono">&lt;/&gt;</button>
+                </div>
+                <span class="pathline">~/.claude/settings.json</span>
+              </div>
+              <div class="editor">
+                <h2>settings.json</h2>
+                <div class="path">Claude · Code</div>
+                <div class="codeblock"><span class="cm">// ~/.claude/settings.json</span>
+{
+  <span class="kw">"permissions"</span>: { <span class="kw">"allow"</span>: [<span class="str">"Bash(*)"</span>] },
+  <span class="kw">"model"</span>: <span class="str">"claude-opus-4"</span>
+}</div>
+              </div>
+            </div>
+            <aside class="inspector">
+              <div class="ih">Inspector</div>
+              <div class="ib">
+                <div><div class="k">Agent</div><div class="v">Claude</div></div>
+                <div><div class="k">Root</div><div class="mono">~/.claude</div></div>
+                <div><div class="k">Write</div><div class="v">Through to disk</div></div>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="b">
+      <div class="meta">
+        <div class="card">
+          <h3>B — Chip-filtered multi-root library <span style="color:var(--primary)">(recommended)</span></h3>
+          <p>One Notes-style shell. All registered roots live in one library. Agent chips filter the tree. Claude chip shows both Code and Desktop roots. “+ Add folder” always in the header.</p>
+          <ul>
+            <li class="pros">Filter is explicit — Claude / Codex / All in one click</li>
+            <li class="pros">Custom folders are equal citizens (tag them on add)</li>
+            <li class="pros">Matches Notes + Site Docs shell</li>
+            <li class="cons">Rail can get long with many roots (chips + search mitigate)</li>
+          </ul>
+          <div class="verdict"><b>Best when</b> you bounce between agents and want add-folder first-class.</div>
+        </div>
+        <div class="card">
+          <h3>Why this wins</h3>
+          <p>Your brief is filter + Claude Desktop + extensibility. Chips solve filter; dual Claude roots solve Desktop; header CTA solves add-folder — without inventing a new IA.</p>
+        </div>
+      </div>
+      <div class="mock">
+        <aside class="app-side">
+          <div class="brand"><span class="dot"></span> Nexus</div>
+          <div class="nav-label">Brain</div>
+          <div class="nav-item">Notes</div>
+          <div class="nav-item">Site Docs</div>
+          <div class="nav-item active">Agent Config</div>
+        </aside>
+        <div class="app-main">
+          <div class="app-header">
+            <div><span class="title">Agent Config</span><span class="sub">6 roots · Claude filter</span></div>
+            <div class="tools">
+              <button class="btn">+ Add folder</button>
+              <button class="btn">Refresh</button>
+              <button class="btn primary">Save</button>
+            </div>
+          </div>
+          <div class="split">
+            <div class="list-pane">
+              <div class="list-head">
+                <div class="filter-bar">
+                  <button class="fchip">All</button>
+                  <button class="fchip on"><span class="dotlet" style="background:var(--orange)"></span>Claude</button>
+                  <button class="fchip"><span class="dotlet" style="background:var(--green)"></span>Codex</button>
+                  <button class="fchip"><span class="dotlet" style="background:var(--primary)"></span>Cursor</button>
+                  <button class="fchip"><span class="dotlet" style="background:var(--violet)"></span>Pi</button>
+                  <button class="fchip"><span class="dotlet" style="background:var(--pink)"></span>Oh</button>
+                </div>
+                <div class="search"><span>⌕</span><input value="settings, mcp, hooks…" disabled /></div>
+              </div>
+              <div class="list-body">
+                <div class="sec">Claude roots <span class="count">2</span></div>
+                <div class="tree-item"><span class="ico">▸</span><span class="nm">Code · ~/.claude</span></div>
+                <div class="tree-item indent-1 sel"><span class="ico">·</span><span class="nm">settings.json</span></div>
+                <div class="tree-item indent-1"><span class="ico">·</span><span class="nm">CLAUDE.md</span></div>
+                <div class="tree-item indent-1"><span class="ico">▸</span><span class="nm">agents/</span></div>
+                <div class="tree-item"><span class="ico">▸</span><span class="nm">Desktop · Application Support</span></div>
+                <div class="tree-item indent-1"><span class="ico">·</span><span class="nm">claude_desktop_config.json</span></div>
+                <div class="tree-item indent-1"><span class="ico">·</span><span class="nm">config.json</span></div>
+              </div>
+            </div>
+            <div class="gutter"></div>
+            <div class="preview-pane">
+              <div class="preview-toolbar">
+                <div class="seg">
+                  <button class="on">Preview</button>
+                  <button class="mono">&lt;/&gt;</button>
+                </div>
+                <span class="pathline">~/.claude/settings.json</span>
+              </div>
+              <div class="editor">
+                <h2>settings.json</h2>
+                <div class="path">Tagged · Claude · writable</div>
+                <div class="codeblock">{
+  <span class="kw">"env"</span>: { <span class="kw">"CLAUDE_CODE_EXPERIMENTAL"</span>: <span class="str">"1"</span> },
+  <span class="kw">"hooks"</span>: { <span class="kw">"PreToolUse"</span>: [] }
+}</div>
+              </div>
+            </div>
+            <aside class="inspector">
+              <div class="ih">Inspector</div>
+              <div class="ib">
+                <div><div class="k">Filter</div><div class="v">Claude</div></div>
+                <div><div class="k">Also under Claude</div><div class="v">Desktop config</div></div>
+                <div><div class="k">Secrets</div><div class="v">Hidden unless revealed</div></div>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </div>
+      <p class="footer-note">Codex chip → ~/.codex (AGENTS.md, config.toml, auth.json masked). All keeps every root with agent-colored dots.</p>
+    </section>
+
+    <section class="panel" id="c">
+      <div class="meta">
+        <div class="card">
+          <h3>C — Agent homes (cards → dive-in)</h3>
+          <p>Landing grid of agent cards with path health and root count. Click enters tree + editor for that agent. Claude card shows “2 roots · includes Desktop”.</p>
+          <ul>
+            <li class="pros">Great discovery — clear what lives where</li>
+            <li class="pros">Natural place for mount/status badges</li>
+            <li class="cons">Extra click when you already know the target</li>
+            <li class="cons">Cross-agent filter disappears once inside</li>
+          </ul>
+          <div class="verdict"><b>Best when</b> you want a launcher, less when you live in config all day.</div>
+        </div>
+        <div class="card">
+          <h3>Dive-in state</h3>
+          <p>After click, reuses Option A’s tree/editor. Breadcrumb: Agent Config / Claude.</p>
+        </div>
+      </div>
+      <div class="mock">
+        <aside class="app-side">
+          <div class="brand"><span class="dot"></span> Nexus</div>
+          <div class="nav-label">Brain</div>
+          <div class="nav-item">Site Docs</div>
+          <div class="nav-item active">Agent Config</div>
+        </aside>
+        <div class="app-main">
+          <div class="app-header">
+            <div><span class="title">Agent Config</span><span class="sub">Choose an agent home</span></div>
+            <div class="tools"><button class="btn primary">+ Add folder</button></div>
+          </div>
+          <div class="home">
+            <h2>Agent homes</h2>
+            <p class="lead">Global configs on disk. Claude includes Code and Desktop. Add any other folder and tag it.</p>
+            <div class="grid">
+              <div class="acard sel">
+                <div class="top"><div class="mark claude">C</div><div class="aname">Claude</div></div>
+                <div class="apath">~/.claude<br/>…/Application Support/Claude</div>
+                <div class="meta-row"><span class="pill">2 roots</span><span class="pill">Desktop</span><span class="pill">mounted</span></div>
+              </div>
+              <div class="acard">
+                <div class="top"><div class="mark codex">X</div><div class="aname">Codex</div></div>
+                <div class="apath">~/.codex</div>
+                <div class="meta-row"><span class="pill">1 root</span><span class="pill">AGENTS.md</span></div>
+              </div>
+              <div class="acard">
+                <div class="top"><div class="mark cursor">Cu</div><div class="aname">Cursor</div></div>
+                <div class="apath">~/.cursor</div>
+                <div class="meta-row"><span class="pill">mcp.json</span><span class="pill">hooks</span></div>
+              </div>
+              <div class="acard">
+                <div class="top"><div class="mark pi">π</div><div class="aname">Pi</div></div>
+                <div class="apath">~/.pi</div>
+                <div class="meta-row"><span class="pill">settings.json</span></div>
+              </div>
+              <div class="acard">
+                <div class="top"><div class="mark oh">Oh</div><div class="aname">Oh</div></div>
+                <div class="apath">path not set</div>
+                <div class="meta-row"><span class="pill">needs path</span></div>
+              </div>
+              <div class="acard">
+                <div class="top"><div class="mark add">+</div><div class="aname">Add folder</div></div>
+                <div class="apath">Register a custom root and tag an agent</div>
+                <div class="meta-row"><span class="pill">custom</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="d">
+      <div class="meta">
+        <div class="card">
+          <h3>D — Pinned essentials + full tree</h3>
+          <p>Top of the list rail is a curated Essentials strip: the files you actually edit. Full tree below, still filterable by agent.</p>
+          <ul>
+            <li class="pros">Fastest daily path — skip caches and session junk</li>
+            <li class="pros">Pins are cross-agent; filter still narrows them</li>
+            <li class="cons">Needs default pin set + “Pin this file”</li>
+            <li class="cons">Slightly denser chrome than B alone</li>
+          </ul>
+          <div class="verdict"><b>Best when</b> 80% of edits are the same six files. Strong upgrade on top of B.</div>
+        </div>
+        <div class="card">
+          <h3>Default pins (proposal)</h3>
+          <ul>
+            <li>Claude · settings.json</li>
+            <li>Claude Desktop · claude_desktop_config.json</li>
+            <li>Codex · config.toml + AGENTS.md</li>
+            <li>Cursor · mcp.json + hooks.json</li>
+            <li>Pi · settings.json</li>
+          </ul>
+        </div>
+      </div>
+      <div class="mock">
+        <aside class="app-side">
+          <div class="brand"><span class="dot"></span> Nexus</div>
+          <div class="nav-label">Brain</div>
+          <div class="nav-item">Site Docs</div>
+          <div class="nav-item active">Agent Config</div>
+        </aside>
+        <div class="app-main">
+          <div class="app-header">
+            <div><span class="title">Agent Config</span><span class="sub">Essentials first</span></div>
+            <div class="tools">
+              <button class="btn">+ Add folder</button>
+              <button class="btn primary">Save</button>
+            </div>
+          </div>
+          <div class="split">
+            <div class="list-pane wide">
+              <div class="list-head">
+                <div class="filter-bar">
+                  <button class="fchip on">All</button>
+                  <button class="fchip"><span class="dotlet" style="background:var(--orange)"></span>Claude</button>
+                  <button class="fchip"><span class="dotlet" style="background:var(--green)"></span>Codex</button>
+                  <button class="fchip"><span class="dotlet" style="background:var(--primary)"></span>Cursor</button>
+                </div>
+              </div>
+              <div class="list-body">
+                <div class="sec">Essentials <span class="count">5</span></div>
+                <div class="pin-grid">
+                  <div class="pin-row sel">
+                    <div class="top"><span class="tone claude"></span><span class="name">settings.json</span><span class="agent-tag">Claude</span></div>
+                    <div class="hint">~/.claude/settings.json</div>
+                  </div>
+                  <div class="pin-row">
+                    <div class="top"><span class="tone claude"></span><span class="name">claude_desktop_config.json</span><span class="agent-tag">Desktop</span></div>
+                    <div class="hint">…/Claude/claude_desktop_config.json</div>
+                  </div>
+                  <div class="pin-row">
+                    <div class="top"><span class="tone codex"></span><span class="name">config.toml</span><span class="agent-tag">Codex</span></div>
+                    <div class="hint">~/.codex/config.toml</div>
+                  </div>
+                  <div class="pin-row">
+                    <div class="top"><span class="tone cursor"></span><span class="name">mcp.json</span><span class="agent-tag">Cursor</span></div>
+                    <div class="hint">~/.cursor/mcp.json</div>
+                  </div>
+                  <div class="pin-row">
+                    <div class="top"><span class="tone pi"></span><span class="name">settings.json</span><span class="agent-tag">Pi</span></div>
+                    <div class="hint">~/.pi/settings.json</div>
+                  </div>
+                </div>
+                <div class="sec">Full tree</div>
+                <div class="tree-item"><span class="ico">▸</span><span class="nm">Claude · ~/.claude</span></div>
+                <div class="tree-item"><span class="ico">▸</span><span class="nm">Claude · Desktop</span></div>
+                <div class="tree-item"><span class="ico">▸</span><span class="nm">Codex · ~/.codex</span></div>
+                <div class="tree-item"><span class="ico">▸</span><span class="nm">Cursor · ~/.cursor</span></div>
+              </div>
+            </div>
+            <div class="gutter"></div>
+            <div class="preview-pane">
+              <div class="preview-toolbar">
+                <div class="seg">
+                  <button class="on">Preview</button>
+                  <button class="mono">&lt;/&gt;</button>
+                </div>
+                <span class="pathline">Pinned · Claude · settings.json</span>
+              </div>
+              <div class="editor">
+                <h2>settings.json</h2>
+                <div class="path">Essential pin · also in full tree</div>
+                <div class="codeblock">{ <span class="kw">"includeCoAuthoredBy"</span>: <span class="kw">false</span> }</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="e">
+      <div class="meta">
+        <div class="card">
+          <h3>E — Roots registry + workspace</h3>
+          <p>Left pane is a VS Code–style folder registry: path, agent tag, include globs, enabled toggle. Selecting a root opens its tree + editor.</p>
+          <ul>
+            <li class="pros">Clearest mental model for “add other folders”</li>
+            <li class="pros">Easy to disable noisy roots via globs</li>
+            <li class="cons">Feels like Settings, not a daily editor</li>
+            <li class="cons">Filter-by-agent is a tag, not a one-tap chip</li>
+          </ul>
+          <div class="verdict"><b>Best when</b> mounting/allowlisting is the hard part. Weaker as everyday edit UI — good companion to B.</div>
+        </div>
+        <div class="card">
+          <h3>Fit with Docker</h3>
+          <p>Registry rows map cleanly to allowlisted host mounts. Useful even if B is the main UI.</p>
+        </div>
+      </div>
+      <div class="mock">
+        <aside class="app-side">
+          <div class="brand"><span class="dot"></span> Nexus</div>
+          <div class="nav-label">Brain</div>
+          <div class="nav-item">Site Docs</div>
+          <div class="nav-item active">Agent Config</div>
+        </aside>
+        <div class="app-main">
+          <div class="app-header">
+            <div><span class="title">Agent Config</span><span class="sub">Registered roots</span></div>
+            <div class="tools"><button class="btn primary">+ Add folder</button></div>
+          </div>
+          <div class="split">
+            <div class="list-pane registry">
+              <div class="list-head">
+                <div class="search"><span>⌕</span><input value="Filter roots…" disabled /></div>
+              </div>
+              <div class="list-body">
+                <div class="root-row sel">
+                  <div class="top">
+                    <span class="tone claude"></span>
+                    <span class="name">Claude Code</span>
+                    <div class="actions"><button class="tiny">Edit</button></div>
+                  </div>
+                  <div class="hint">~/.claude · include **/*.{json,md,toml}</div>
+                </div>
+                <div class="root-row">
+                  <div class="top">
+                    <span class="tone claude"></span>
+                    <span class="name">Claude Desktop</span>
+                    <div class="actions"><button class="tiny">Edit</button></div>
+                  </div>
+                  <div class="hint">…/Claude · *.json only</div>
+                </div>
+                <div class="root-row">
+                  <div class="top">
+                    <span class="tone codex"></span>
+                    <span class="name">Codex</span>
+                  </div>
+                  <div class="hint">~/.codex · skip sessions/</div>
+                </div>
+                <div class="root-row">
+                  <div class="top">
+                    <span class="tone cursor"></span>
+                    <span class="name">Cursor</span>
+                  </div>
+                  <div class="hint">~/.cursor</div>
+                </div>
+                <div class="root-row">
+                  <div class="top">
+                    <span class="tone pi"></span>
+                    <span class="name">Pi</span>
+                  </div>
+                  <div class="hint">~/.pi</div>
+                </div>
+                <div class="root-row">
+                  <div class="top">
+                    <span class="tone custom"></span>
+                    <span class="name">Custom · openclaude</span>
+                  </div>
+                  <div class="hint">~/.openclaude · tag: Oh</div>
+                </div>
+              </div>
+            </div>
+            <div class="gutter"></div>
+            <div class="preview-pane">
+              <div class="preview-toolbar">
+                <span class="pathline">Selected root · Claude Code</span>
+                <div class="seg">
+                  <button class="on">Preview</button>
+                  <button class="mono">&lt;/&gt;</button>
+                </div>
+              </div>
+              <div class="split" style="flex:1;min-height:0">
+                <div class="list-pane narrow" style="width:200px;border-right:1px solid var(--border)">
+                  <div class="list-body">
+                    <div class="tree-item sel"><span class="ico">·</span><span class="nm">settings.json</span></div>
+                    <div class="tree-item"><span class="ico">·</span><span class="nm">settings.local.json</span></div>
+                    <div class="tree-item"><span class="ico">▸</span><span class="nm">agents/</span></div>
+                  </div>
+                </div>
+                <div class="editor">
+                  <h2>settings.json</h2>
+                  <div class="path">From selected registry root</div>
+                  <div class="codeblock">{ <span class="kw">"theme"</span>: <span class="str">"dark"</span> }</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll('.tab').forEach((tab) => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach((p) => p.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById(tab.dataset.tab).classList.add('active');
+    });
+  });
+</script>
+</body>
+</html>

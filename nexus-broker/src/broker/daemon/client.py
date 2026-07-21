@@ -17,7 +17,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from broker.daemon import paths
+from broker.daemon import paths, pidfile
 
 # nexus-broker/ repo root — three parents up from daemon/client.py
 # (daemon -> broker -> src -> nexus-broker). The spawned subprocess needs
@@ -114,8 +114,10 @@ def call(
     except OSError:
         # 1.8 stale-socket self-heal: a socket FILE with no live listener
         # (ConnectionRefusedError, a subclass of OSError) must be unlinked,
-        # never left to wedge every subsequent connect attempt.
-        sock_path.unlink(missing_ok=True)
+        # never left to wedge every subsequent connect attempt. Owner-checked
+        # since TASK-105: a socket whose pidfile owner is a LIVE process is
+        # never unlinked from here — the ensure path reaps the owner first.
+        pidfile.owner_checked_unlink(sock_path, pidfile.pidfile_path_for(project_path))
 
     if not spawn_if_missing:
         raise DaemonUnavailable(f"daemon unreachable for {project_path} (spawn disabled)")

@@ -1,0 +1,42 @@
+---
+description: Rebuild + restart + verify the container whenever a change affects what runs inside it — editing source is not enough
+globs: **/Dockerfile*,**/docker-compose*.yml,**/docker-compose*.yaml,ingestion/**,app/api/**,app/actions/**,**/package.json,**/pyproject.toml,**/requirements*.txt
+alwaysApply: false
+---
+
+# Rebuild the container when your change runs inside one
+
+If your change affects **what runs inside a container**, editing the source files is **not enough**. The running container holds the **OLD build** until you rebuild and restart it. You MUST rebuild the affected service and **verify the new code is actually live** before calling the task done.
+
+## When this applies
+
+You changed any of:
+- a **Dockerfile** or a **docker-compose** service definition;
+- **dependencies / lockfiles** — `package.json`, `pyproject.toml`, `requirements*.txt`, `uv.lock`;
+- **server or worker code that executes inside a container** — ingestion Dramatiq workers, the API server in a built/prod container, the FastMCP broker, etc.
+
+## Action — rebuild, restart, verify
+
+Rebuild + restart the **specific** service (use the project's compose service name — do **not** blindly rebuild everything):
+
+```
+docker compose up -d --build <service>
+```
+
+Then **verify the new code is live** with a real check — a health endpoint, a fresh log line, or a smoke request that exercises the new path — and **include that evidence** in your response.
+
+## Do NOT assume hot-reload covers it
+
+Next.js dev hot-reload may pick up some `app/` edits, but **dependency changes, Dockerfile/compose changes, Python workers, and production/built images REQUIRE a rebuild.** When in doubt, rebuild.
+
+## Gate (Constitution Art. XII)
+
+A container-affecting task is **not "done"** until the rebuilt container is verified on the **new** code. End your response with a `## Deploy step` block naming the exact rebuild + verify commands, e.g.:
+
+```
+## Deploy step
+Restart: docker compose up -d --build ingestion
+Verify:  docker compose logs --tail=20 ingestion   # confirm new code path runs
+```
+
+If you **cannot run docker in this environment**, say so explicitly and put the rebuild + verify commands in the `## Deploy step` block for the human — **do NOT silently mark the task done.**

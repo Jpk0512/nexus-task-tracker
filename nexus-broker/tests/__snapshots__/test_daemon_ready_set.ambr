@@ -1,0 +1,17 @@
+# serializer version: 1
+# name: test_handle_ready_set_request_full_cycle[invalidate_envelope]
+  dict({
+    'invalidated': True,
+  })
+# ---
+# name: test_handle_ready_set_request_full_cycle[pull_envelope]
+  dict({
+    'node_id': 'root',
+  })
+# ---
+# name: test_handle_ready_set_request_full_cycle[register_envelope]
+  dict({
+    'node_count': 4,
+    'registered': True,
+  })
+# ---

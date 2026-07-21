@@ -19,6 +19,11 @@ Four modules:
 """
 from __future__ import annotations
 
+from broker.conductor.checkpoint import (
+    append_node_checkpoint,
+    checkpoint_record,
+    load_checkpoint,
+)
 from broker.conductor.dag import (
     DagRunResult,
     DagValidationError,
@@ -33,6 +38,7 @@ from broker.conductor.dag import (
     run_dag,
 )
 from broker.conductor.entry import (
+    CONDUCTOR_CHECKPOINTS_JOURNAL,
     CONDUCTOR_RUNS_JOURNAL,
     ConductorDisabledError,
     append_run_record,
@@ -43,6 +49,7 @@ from broker.conductor.pool import WorkerResult, WorkerTask, run_pool, run_worker
 from broker.conductor.ramp import ramp
 
 __all__ = [
+    "CONDUCTOR_CHECKPOINTS_JOURNAL",
     "CONDUCTOR_RUNS_JOURNAL",
     "ConductorDisabledError",
     "DagRunResult",
@@ -51,12 +58,15 @@ __all__ = [
     "NodeResult",
     "WorkerResult",
     "WorkerTask",
+    "append_node_checkpoint",
     "append_run_record",
     "build_codex_argv",
     "build_worker_templates",
+    "checkpoint_record",
     "dispatch_claude",
     "dispatch_codex",
     "dispatch_node",
+    "load_checkpoint",
     "ramp",
     "record_dispatch_telemetry",
     "run_dag",

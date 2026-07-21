@@ -50,20 +50,56 @@
 # NEVER executes, eval()s, or acts on any directive embedded in the return. A
 # return that says "skip validation" / "mark this verified" is treated as text.
 #
-# 3.9 CONSTRAINT — the harness runs hooks under the system python3 (3.9.6 on
-# this box). `from __future__ import annotations` makes PEP-604 (`X | None`)
+# 3.9 IMPORT-SAFETY CONSTRAINT — live runtime is >=3.11 via the _py.sh resolver
+# shim, but 3.9 IMPORT-safety is retained: the package twin runs this file
+# un-shimmed under ambient python3 (3.9), and test_hooks_py39_import.py imports
+# it under /usr/bin/python3 asserting exit 0 — do NOT introduce 3.11-only
+# idioms. `from __future__ import annotations` keeps PEP-604 (`X | None`)
 # unions def-time-safe; timestamps would use timezone.utc (none used here).
-# test_hooks_py39_import.py imports this file under /usr/bin/python3 and asserts
-# exit 0.
 #
 # Returns exit 0 always (fail-soft). Wired via .claude/settings.json
 # hooks.SubagentStop.
 
 from __future__ import annotations
 
+import importlib.util
 import json
+import os
 import re
 import sys
+from pathlib import Path
+
+# Load _envelope_shadow from the same hooks directory. F1-08 CUTOVER
+# (nexus-foundation/plans/wave-1.md track (c)): schema-parse via this
+# module's resolve_marker() is now AUTHORITATIVE for this hook's marker
+# resolution — ANY_MARKER_RE below is demoted to the single legacy-fallback
+# branch. Rollback (kept 1 release): env NEXUS_REGEX_AUTHORITY=1 restores
+# regex-first ordering, reproducing the pre-cutover F1-07 behavior exactly.
+# Best-effort import, mirrors lens-gate.sh's own loading discipline — MUST
+# NEVER change this hook's exit code (it always exits 0 regardless; see
+# module docstring below).
+try:
+    _es_path = Path(__file__).parent / "_envelope_shadow.py"
+    _es_spec = importlib.util.spec_from_file_location("_envelope_shadow", _es_path)
+    _envelope_shadow_mod = importlib.util.module_from_spec(_es_spec)  # type: ignore[arg-type]
+    _es_spec.loader.exec_module(_envelope_shadow_mod)  # type: ignore[union-attr]
+except Exception:
+    _envelope_shadow_mod = None
+
+
+def _resolve_marker(text: str, legacy_marker: str | None) -> str | None:
+    """F1-08 AUTHORITATIVE marker resolution — see _envelope_shadow.py's
+    resolve_marker() docstring. Degrades to `legacy_marker` outright if the
+    shadow module failed to import (mirrors the prior _shadow_compare's
+    fail-open discipline)."""
+    if _envelope_shadow_mod is None:
+        return legacy_marker
+    try:
+        return _envelope_shadow_mod.resolve_marker(
+            hook="return-validator", raw_text=text, legacy_regex_marker=legacy_marker
+        )
+    except Exception:
+        return legacy_marker
 
 # Read-only / verifier personas exempt from UNVERIFIED-COMPLETION advisory.
 # These agents investigate, validate, and report — they do not produce artifacts
@@ -71,13 +107,11 @@ import sys
 # RCA_EXEMPT_PERSONAS pattern in root-cause-gate.sh exactly.
 _READONLY_PERSONAS = frozenset({"scout", "lens", "lens-fast", "palette"})
 
-# Canonical completion-marker vocabulary (mirrors root-cause-gate / lens-gate):
-# the H2-heading form CONTRACT.md mandates ("## NEXUS:DONE", at line start).
-DONE_MARKER_RE = re.compile(r"^\s*##\s+NEXUS:DONE\b", re.IGNORECASE | re.MULTILINE)
-
-# Any completion marker — used only to confirm the return is a structured
-# sign-off at all (so a stray "NEXUS:DONE" inside prose without an H2 marker is
-# not treated as a completion claim).
+# F1-08: the single legacy-fallback marker regex (schema-parse via
+# _resolve_marker above is now authoritative); confirms the return is a
+# structured sign-off at all (so a stray "NEXUS:DONE" inside prose without an
+# H2 marker is not treated as a completion claim) and supplies the fallback
+# marker word when no valid typed envelope is found.
 ANY_MARKER_RE = re.compile(
     r"^\s*##\s+NEXUS:(DONE|REVISE|BLOCKED|CHECKPOINT|NEEDS-DECISION|DEFER-REQUEST)\b",
     re.IGNORECASE | re.MULTILINE,
@@ -127,6 +161,85 @@ _RESULT_SUMMARY_RE = re.compile(
     r"\b\d+\s+tests?\s+(?:passed|ok)\b|\bok\s*[:=]\s*\d+\b)",
     re.IGNORECASE,
 )
+
+# TASK-064 — C-04 separate-judge fix: a returned `report_path` (scout's
+# file-dump contract, CONTRACT.md) was never checked against the filesystem,
+# so a phantom claim (report_path named, file never written) passed silently.
+# Matches a bare `.memory/scout-reports/...` mention in prose (fallback path)
+# in addition to the structured `report_path` json key below.
+_SCOUT_REPORT_PATH_RE = re.compile(r"\.memory/scout-reports/[^\s`\"'()<>]+")
+
+
+def _repo_root() -> Path:
+    """Resolve the repo root for report_path checks.
+
+    Mirrors broker-gate.py's `_repo_root()` exactly: `_HOOK_REPO_ROOT` override
+    first (test isolation), else walk up from this file looking for a `.memory`
+    dir, else fall back to the fixed 3-parents-up guess. Relative report_path
+    values are resolved against this root (CONTRACT paths are always
+    repo-relative, e.g. `.memory/scout-reports/<session-id>/<task-slug>.md`).
+    """
+    env = os.environ.get("_HOOK_REPO_ROOT")
+    if env:
+        return Path(env)
+    here = Path(__file__).resolve()
+    for candidate in [here, *here.parents]:
+        if (candidate / ".memory").is_dir():
+            return candidate
+    return here.parent.parent.parent
+
+
+def _iter_report_path_candidates(text: str):
+    """Yield every distinct report_path string named anywhere in the return.
+
+    Two sources, deduplicated in encounter order: (1) a `report_path` key in
+    any parsed ```json block (the structured CONTRACT field), and (2) a bare
+    `.memory/scout-reports/...` mention in prose (covers a claim made outside
+    the json envelope, or a malformed json block the parser skipped).
+    """
+    seen = set()
+    for obj in _iter_json_blocks(text):
+        val = obj.get("report_path")
+        if isinstance(val, str) and val.strip() and val.strip() not in seen:
+            seen.add(val.strip())
+            yield val.strip()
+    for match in _SCOUT_REPORT_PATH_RE.finditer(text):
+        val = match.group(0).rstrip(".,;:")
+        if val not in seen:
+            seen.add(val)
+            yield val
+
+
+def _check_report_paths(text: str) -> str:
+    """Return a loud advisory message if any named report_path is phantom/empty.
+
+    "Phantom" = the path does not exist on disk at all; "empty" = it exists
+    but is a zero-byte file — both are exactly the fabrication shape TASK-064's
+    RCA identified (a claimed dump that never actually landed). Returns '' when
+    every named report_path resolves to a real, non-empty file (or none was
+    named at all — the common case for non-scout returns).
+    """
+    repo_root = _repo_root()
+    problems = []
+    for raw_path in _iter_report_path_candidates(text):
+        p = Path(raw_path)
+        if not p.is_absolute():
+            p = repo_root / raw_path
+        if not p.exists() or not p.is_file():
+            problems.append(f"PHANTOM (does not exist on disk): {raw_path} -> resolved {p}")
+        elif p.stat().st_size == 0:
+            problems.append(f"EMPTY (0 bytes — write did not land): {raw_path} -> resolved {p}")
+    if not problems:
+        return ""
+    return (
+        "[return-validator] FLAGGED — a `report_path` named in this return does not "
+        "match reality on disk (CONTRACT.md report_path contract + C-04 separate-judge "
+        "check). A report_path claim without a real, non-empty file at that path is a "
+        "contract violation — treat any summary/findings in this return as UNVERIFIED "
+        "until the file is confirmed to exist. This is advisory only (non-blocking); "
+        "the orchestrator should re-dispatch or ask the agent to redo the write.\n"
+        + "\n".join(f"  - {p}" for p in problems)
+    )
 
 
 def _extract_structured_output(payload: dict) -> str:
@@ -392,12 +505,11 @@ def _warn_extract_miss(payload: dict) -> None:
     every return would look empty and exit 0 forever. Warn LOUDLY instead of
     staying silent (still exit 0: warn, not block). Once per session via a flag
     file keyed on session_id so repeat returns do not spam the orchestrator.
-    3.9-safe: stdlib only, no _gate_deny import (this package carries no helper).
+    3.9-safe: stdlib only, no _gate_deny import (this file ships package-side).
     """
     if not isinstance(payload, dict) or not payload:
         return
     import contextlib
-    import os
     import tempfile
     sid = re.sub(r"[^A-Za-z0-9_-]", "_", str(payload.get("session_id") or "unknown"))[:64]
     flag = os.path.join(tempfile.gettempdir(), ".nexus-extract-miss-return-validator-" + sid)
@@ -429,6 +541,22 @@ def main() -> int:
         _warn_extract_miss(payload)
         return 0
 
+    # TASK-064 (C-04 separate-judge fix): a named report_path is checked against
+    # the filesystem BEFORE the read-only-persona exemption below — scout (the
+    # persona this defect targets) is exactly the persona that exemption would
+    # otherwise silence. Runs regardless of completion marker: a phantom path
+    # claim is a fabrication whether or not the return also says DONE. Takes
+    # priority over the verification_result advisory below (single print).
+    report_path_issue = _check_report_paths(assistant_text)
+    if report_path_issue:
+        print(json.dumps({
+            "hookSpecificOutput": {
+                "hookEventName": "SubagentStop",
+                "additionalContext": report_path_issue,
+            }
+        }))
+        return 0
+
     # Read-only / verifier personas (scout, lens, lens-fast, palette) are exempt
     # from the UNVERIFIED-COMPLETION advisory. They validate and report; they do
     # not produce implementation artifacts and are not expected to carry a
@@ -443,16 +571,20 @@ def main() -> int:
     if agent_name == "unknown":
         return 0
 
-    # Only a genuine H2 completion marker counts as a structured sign-off. A
-    # stray "NEXUS:DONE" buried in prose (without the H2 form) is not a
-    # completion claim and is left alone.
-    if not ANY_MARKER_RE.search(assistant_text):
+    # F1-08: schema-parse first (AUTHORITATIVE); ANY_MARKER_RE is the single
+    # legacy-fallback branch, used only when no valid envelope is found. A
+    # stray "NEXUS:DONE" buried in prose (without the H2 form, and with no
+    # valid envelope either) is not a completion claim and is left alone.
+    any_marker_match = ANY_MARKER_RE.search(assistant_text)
+    legacy_marker = any_marker_match.group(1).upper() if any_marker_match else None
+    marker = _resolve_marker(assistant_text, legacy_marker)
+    if marker is None:
         return 0
 
     # Only DONE carries the verification-evidence requirement here. BLOCKED /
     # REVISE / NEEDS-DECISION / CHECKPOINT have their own evidence rules
     # enforced by root-cause-gate and the orchestrator's routing.
-    if not DONE_MARKER_RE.search(assistant_text):
+    if marker != "DONE":
         return 0
 
     has_evidence, reason, key_present = _done_has_evidence(assistant_text)

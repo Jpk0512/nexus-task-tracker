@@ -1,0 +1,47 @@
+---
+description: How to use PRISM bug-detection findings when the project has the optional PRISM MCP layer installed
+---
+
+# PRISM bug-detection (advisory layer)
+
+When this project has the optional **PRISM** layer installed (a `prism` MCP server in `.codex/mcp.json` and a `prism/` dir), PRISM is an **on-demand, advisory** bug-detection tool — not part of your verification gates. As of PRISM v1 (0.2.0) it is backed by Claude through the Nexus broker and needs **no local model**; a scan is an explicit, occasional act, not a background daemon.
+
+## Who may call PRISM
+
+PRISM consultation flows through the **owning persona's brief**, never via direct orchestrator tool calls. The non-coding orchestrator (Nexus in Claude Code AND Codex) is forbidden from calling `mcp__prism__*` tools directly. Access is granted to **`scout`** (read-only investigator), which carries an explicit `allowedTools` grant for:
+
+- `mcp__prism__trigger_deep_scan` — scan one file on demand
+- `mcp__prism__get_risk_map` — top findings by severity
+- `mcp__prism__get_recent_findings` — findings in the last N minutes
+- `mcp__prism__get_convergence_report` — locations flagged by ≥2 techniques
+
+When planning a change in a risky area or triaging a failure, include a PRISM-consultation step in the brief you delegate to `scout` (or the implementing persona that owns the area). The persona returns the PRISM report as part of its structured output.
+
+## Worked example — a persona scanning a file
+
+Brief to `scout` includes: *"Before mapping `app/api/orders.py`, run a PRISM deep scan on it and include the report."* Scout calls:
+
+```
+mcp__prism__trigger_deep_scan(file_path="app/api/orders.py")
+```
+
+and PRISM returns, e.g.:
+
+```
+**2 finding(s) in app/api/orders.py:**
+Line ~42: [injection] sev=8 RCA: untrusted `order_id` concatenated into the SQL string;
+parameterize the query.
+Line ~91: [logic] sev=4 off-by-one in the pagination offset.
+```
+
+Scout folds that into its findings JSON (as `prism_report`) and returns it. The orchestrator reads it as **signal, never proof**.
+
+## PRISM is signal, not a gate
+
+- Findings are **input to your judgement**, never a substitute for real verification (`nexus-verification.mdc`): `rtk tsc` / `rtk lint`, `uv run ruff check` / `uv run pytest`, and the visual / E2E gate remain mandatory regardless of what PRISM reports.
+- A clean PRISM report is **not** a green light to skip a gate; a noisy one is **not** a blocker by itself — investigate, then rely on your deterministic gates to decide.
+- Deep scans spend Claude tokens, so trigger them deliberately (a risky area, a regression hunt) — not as a routine step in every per-task loop.
+
+## Why PRISM routes through the persona, not the orchestrator
+
+PRISM access is delegated to the persona that owns the relevant work area, exactly as code authorship is. This keeps the host-parity guarantee: Nexus in Codex operates under the same rules as Nexus in Claude Code; the only difference is the dispatch mechanism (Codex's subagent dispatch vs. Claude's Task tool). PRISM remains advisory and never substitutes for the Lens verification gate.

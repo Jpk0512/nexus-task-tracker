@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "status": "DONE",
+  "completion_marker": "## NEXUS:DONE",
+  "files_changed": ["nexus-broker/src/broker/schemas/return_envelope.schema.json"],
+  "summary": "A DONE whose verification_result and acceptance_met are PRESENT but EMPTY — the empty-but-present evidence bypass CONTRACT.md Rule 3 forbids. verification_result:\"\" fails the top-level minLength:1; acceptance_met:[] fails the DONE branch's minItems:1. Either constraint alone must reject this envelope.",
+  "verification_result": "",
+  "acceptance_met": [],
+  "notepad_written": {"skipped": "n/a"}
+}

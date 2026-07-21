@@ -10,6 +10,11 @@ reads the latest run on the next health check.
 
 Generated from launchd/eval.plist.template by bin/install-launchd.sh.
 
+--no-sync below: a sync-mode `uv run` takes an exclusive lock on
+nexus-broker/.venv/.lock that every other `uv run` boot (session MCP, health
+probe, the other launchd agents) queues behind; the venv is prebuilt by
+install, so this run never needs to resolve/sync.
+
 User-controlled activation:
     launchctl load   ~/Library/LaunchAgents/com.nexus.vault.eval.plist
     launchctl unload ~/Library/LaunchAgents/com.nexus.vault.eval.plist
@@ -25,6 +30,7 @@ User-controlled activation:
     <array>
       <string>__UV_PATH__</string>
       <string>run</string>
+      <string>--no-sync</string>
       <string>--project</string>
       <string>__PROJECT__</string>
       <string>python</string>

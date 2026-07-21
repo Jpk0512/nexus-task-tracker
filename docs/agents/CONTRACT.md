@@ -8,7 +8,7 @@ Every task delegated to a sub-agent MUST include all required input fields and t
 
 ```json
 {
-  "agent_persona": "<scout|forge-ui|forge-ui-pro|forge-wire|forge-wire-pro|pipeline-data|pipeline-data-pro|pipeline-async|pipeline-async-pro|hermes|atlas|palette|lens-fast|lens|quill-ts|quill-py>",
+  "agent_persona": "<scout|forge-ui|forge-wire|pipeline-data|pipeline-async|hermes|atlas|palette|lens-fast|lens|quill-ts|quill-py>",
   "goal": "<precise, single-sentence statement of what to accomplish>",
   "context_files": ["<path/to/file1>", "<path/to/file2>"],
   "acceptance_criteria": [
@@ -45,13 +45,13 @@ Every task delegated to a sub-agent MUST include all required input fields and t
 
 **`skills_required`** — Required for any code-writing persona (`forge-ui`, `forge-wire`, `pipeline-data`, `pipeline-async`, `atlas`, `hermes`, `quill-ts`, `quill-py`, and their `-pro` variants). List the skill names the agent must load before their first non-Read tool call. See `docs/agents/SKILL_MAP.md` for the minimum set per `(persona, work_type)`. The code-writing persona set is derived at gate runtime from `deliverables.json`: any persona without `must_not_modify: ["**/*"]` is included. Optional for read-only personas (`scout`, `lens`, `lens-fast`) — the only three that carry `must_not_modify: ["**/*"]` in `deliverables.json` and are therefore excluded from gate enforcement. Note: `palette` is a code-writing persona (no `must_not_modify` restriction) and MUST include `skills_required`.
 
-**`verification_tier`** — OPTIONAL. Controls which verification commands the agent runs. Two values:
+**`verification_tier`** — REQUIRED for any non-trivial brief; omitted only for a trivial/single-file or docs-only brief, where the orchestrator infers `targeted`. Controls which verification commands the agent runs. Two values:
 
 - **`targeted`** (DEFAULT for `task_tier=simple` or `task_tier=trivial` AND a single changed file or docs-only change): the agent runs ONLY the targeted/changed test file(s) plus `uv run ruff check` on the changed files (e.g. `uv run pytest tests/test_hooks_py39_import.py`). For structural propagation without heavy test runs, use `tools/build_snapshot.sh --sync` (fast mode: rsync live→package + cheap structural gates only; the 3 heavy pytest phases are skipped, ~20-30 s). Do NOT run `tools/build_snapshot.sh --check` for a trivial or single-file change — that is the **over-verification anti-pattern** this field prevents.
 
 - **`release`** (REQUIRED for multi-file changes, gated paths, or an actual release/rollout): the agent runs the full `tools/build_snapshot.sh --check` — all 3 pytest phases, the complete structural gate set. Reserve this for the single final release gate, not per-item verification.
 
-When absent, the orchestrator infers the tier from `task_tier` and file count: single-file or docs-only → `targeted`; otherwise → `release`. Orchestrators MUST set this field explicitly for any non-trivial brief to prevent agents from defaulting to the heavier path unnecessarily.
+When absent (trivial/single-file/docs-only brief only), the orchestrator infers the tier from `task_tier` and file count: single-file or docs-only → `targeted`; otherwise → `release`.
 
 **Strongly recommended:** `constraints`, `db_log_cmds`, `db_context`.
 
@@ -63,7 +63,7 @@ The orchestrator REJECTS any brief missing a required field. Personas that recei
 
 ```json
 {
-  "status": "complete | partial | blocked | needs-decision | revise-requested",
+  "status": "DONE | BLOCKED | NEEDS-DECISION | CHECKPOINT | REVISE | DEFER-REQUEST",
   "completion_marker": "## NEXUS:DONE | ## NEXUS:BLOCKED | ## NEXUS:NEEDS-DECISION | ## NEXUS:CHECKPOINT | ## NEXUS:REVISE | ## NEXUS:DEFER-REQUEST",
   "files_changed": ["<path>"],
   "verification_result": "<verbatim output of each verification_required command>",
@@ -106,9 +106,66 @@ The orchestrator REJECTS any brief missing a required field. Personas that recei
 **Field notes:**
 - `root_cause_analysis` — REQUIRED for any error-fix or bug-investigation task. The `why_chain` must contain ≥ 5 entries tracing from symptom to architectural root.
 - `deploy_step` — REQUIRED for any delivery touching `app/`, `ingestion/`, `design/`, or `docker-compose*.yml`. Omitting this field is a CONTRACT VIOLATION. It always DOCUMENTS the restart/rebuild action, but documenting it does NOT mean a human handoff is required: running a LOCAL container rebuild/restart (`docker compose up --build` / `restart` / `down && up`) to verify already-committed code is part of verification and the agent MAY run it directly under the user's standing local-dev authorization. The deploy-step human handoff is reserved for REMOTE/PRODUCTION releases (Constitution Articles XII/XIV).
-- `notepad_written` — REQUIRED in every agent response. Either `{topic, agent, kind, note}` (insight written) or `{skipped: "no useful context to add"}` (explicitly opted out). Omitting this field entirely is a CONTRACT VIOLATION (Rule 17).
+- `notepad_written` — REQUIRED in FULL-tier (T2 / error-fix / risky) responses. Either `{topic, agent, kind, note}` (insight written) or `{skipped: "no useful context to add"}` (explicitly opted out). Omitting this field entirely on a FULL-tier response is a CONTRACT VIOLATION (Rule 17). LEAN-tier (T0/T1) responses OMIT this field entirely; do not populate a skip stub.
 
-The `completion_marker` is the **authoritative routing signal**. The orchestrator regex-matches the marker to route the response (proceed / revise / escalate). It MUST appear as an H2 heading at the start of a line in the agent's final output. See Completion Markers below for vocabulary and the `status` ↔ `completion_marker` mapping.
+The typed envelope (the fenced ```json block's `status`, or `completion_marker` when `status`
+is absent) is the **authoritative routing signal** — see "Typed return envelope" below for the
+schema `gate_runner.py` / `lens-gate.sh` / `return-validator.py` validate against. The
+`## NEXUS:<STATUS>` marker still MUST appear as an H2 heading at the start of a line in the
+agent's final output — it is the human-readable convention, kept in lockstep with the envelope,
+never load-bearing on its own. See Completion Markers below for the vocabulary (non-normative)
+and the `status` ↔ `completion_marker` mapping.
+
+---
+
+## Typed return envelope (CANONICAL — F1-08 cutover)
+
+**The typed JSON envelope is the load-bearing contract; the `## NEXUS:<STATUS>` marker heading
+is its human-readable convention twin, not a second independently-authoritative signal.**
+Alongside your marker heading, every dispatch emits exactly ONE fenced ```json block
+containing at minimum:
+
+- `completion_marker` — the exact `"## NEXUS:<STATUS>"` string, matching your marker heading.
+- `files_changed` — REQUIRED even when empty (`[]`).
+- `status` — the exact enum member (`DONE` | `BLOCKED` | `NEEDS-DECISION` | `CHECKPOINT` |
+  `REVISE` | `DEFER-REQUEST`), consistent with `completion_marker`. FULL-tier returns carry
+  this field; LEAN-tier returns (T0/T1) omit it by design (DEC-039).
+- `verification_result` — carried VERBATIM (Rule 3) when your dispatch has one.
+
+This validates against `nexus-broker/src/broker/schemas/return_envelope.schema.json`.
+`gate_runner.py` / `lens-gate.sh` / `return-validator.py` parse this fenced block FIRST and
+decide every verdict on the structured field (`status`, or `completion_marker` when `status`
+is absent) — never by regex-scraping the free-form response text. The `## NEXUS:<STATUS>`
+heading is still MANDATORY on every response: it is what a person scanning the transcript
+reads, and it MUST agree with the envelope (a mismatch is a CONTRACT VIOLATION — the envelope
+wins, per the mapping below).
+
+**Rollback (1 release):** the `## NEXUS:*` marker-regex parse over the raw response text
+survives as the SINGLE legacy fallback — used only when the JSON block is absent or fails
+schema validation, or under a rollback flag restoring regex-first ordering.
+
+**Example — DONE:**
+
+```json
+{
+  "status": "DONE",
+  "completion_marker": "## NEXUS:DONE",
+  "files_changed": ["docs/agents/CONTRACT.md"],
+  "verification_result": "$ python3 tools/check_liveness.py\nexit 0"
+}
+```
+
+**Example — BLOCKED:**
+
+```json
+{
+  "status": "BLOCKED",
+  "completion_marker": "## NEXUS:BLOCKED",
+  "files_changed": [],
+  "blockers": ["rtk tsc: command not found (rc=127)"],
+  "verification_result": "$ rtk tsc\nbash: rtk: command not found"
+}
+```
 
 ---
 
@@ -116,20 +173,29 @@ The `completion_marker` is the **authoritative routing signal**. The orchestrato
 
 | `status` value | Expected `completion_marker` | Notes |
 |---|---|---|
-| `complete` | `## NEXUS:DONE` | All acceptance criteria met, all verifications passing |
-| `partial` | `## NEXUS:CHECKPOINT` | Safe resume point reached; remaining work in `notes` |
-| `blocked` | `## NEXUS:BLOCKED` | Blocker described in `blockers`; requires user or re-route |
-| `needs-decision` | `## NEXUS:NEEDS-DECISION` | `decisions_needed` populated; orchestrator asks user |
-| `revise-requested` | `## NEXUS:REVISE` | Actionable issue list required immediately after marker |
-| `partial` | `## NEXUS:DEFER-REQUEST` | Out-of-scope error found; orchestrator resolves before continuing |
+| `DONE` | `## NEXUS:DONE` | All acceptance criteria met, all verifications passing |
+| `BLOCKED` | `## NEXUS:BLOCKED` | Blocker described in `blockers`; requires user or re-route |
+| `NEEDS-DECISION` | `## NEXUS:NEEDS-DECISION` | `decisions_needed` populated; orchestrator asks user |
+| `CHECKPOINT` | `## NEXUS:CHECKPOINT` | Safe resume point reached; remaining work in `notes` |
+| `REVISE` | `## NEXUS:REVISE` | Actionable issue list required immediately after marker |
+| `DEFER-REQUEST` | `## NEXUS:DEFER-REQUEST` | Out-of-scope error found; orchestrator resolves before continuing |
 
-The `completion_marker` is the **routing field** — the orchestrator routes on `completion_marker`, not `status`. A mismatch between the two fields is a CONTRACT VIOLATION; `completion_marker` wins.
+`status` is the **routing field** — the orchestrator routes on `status` (read from the typed
+envelope), not `completion_marker` (F1-08 cutover; supersedes the pre-cutover
+`completion_marker`-wins rule). For a LEAN-tier return, which carries no `status` field,
+`completion_marker` (from the JSON block, not the prose heading) is the routing field by
+necessity. A mismatch between `status` and `completion_marker` — or between either and the H2
+heading — is a CONTRACT VIOLATION; the typed envelope field wins.
 
 ---
 
-## Completion Markers (canonical vocabulary)
+## Completion Markers (human-readable convention, non-normative)
 
-All personas MUST emit exactly one of these as an H2 heading in their final response:
+**Non-normative.** This vocabulary is no longer what a gate parses — the typed envelope
+(`status`, or `completion_marker` in the JSON block for LEAN returns) is the load-bearing
+signal, per "Typed return envelope" and the mapping above. This table is kept for anyone
+reading a transcript: every persona MUST still emit exactly one of these as an H2 heading in
+their final response, in lockstep with the envelope.
 
 | Marker | When | Triggers |
 |---|---|---|
@@ -140,7 +206,8 @@ All personas MUST emit exactly one of these as an H2 heading in their final resp
 | `## NEXUS:REVISE` | Lens / lens-fast / implementer returns work for revision — MUST enumerate specific, actionable issues (each with `file:line` + what is wrong + what to change) on the line(s) immediately after the marker | Orchestrator re-spawns implementer with the actionable issue list (+ issues YAML) in `context_files` |
 | `## NEXUS:DEFER-REQUEST` | Agent discovered an out-of-scope error mid-task and is requesting permission to defer it | Orchestrator approves defer (logs task), instructs inline fix, or escalates to user |
 
-The orchestrator routes based on the marker:
+The orchestrator routes based on `status` (the marker heading below shows the same routing
+1:1, for reading the transcript by eye):
 
 ```
 DONE          → run db_log_cmds → mark task done → next task
@@ -151,7 +218,7 @@ REVISE        → re-spawn implementer with issues_yaml → 3-iteration cap with
 DEFER-REQUEST → orchestrator approves/rejects defer → fix inline or log new task
 ```
 
-### Completion-marker routing state machine
+### Status routing state machine (marker heading shown 1:1)
 
 ```mermaid
 stateDiagram-v2
@@ -255,6 +322,14 @@ The orchestrator then either:
 
    **Banned phrases** in `verification_result` without a real rc=0 capture (matched by `_PLACEHOLDER_RE`): `todo`, `tbd`, `n/a`, `none`, `pending`, `<any angle-bracket token>`, `...`, `-`, `deferred`, `structure verified`, `Ready for <tool>`, `verified complete`, any checkmark not backed by captured command output.
 
+   **The deciding signal is never the agent's own self-claim.** Whatever
+   decides DONE / survival — Lens's independent re-derivation, or a held-out
+   gate the agent never sees — must be structurally separate from what the
+   agent optimized against and self-reported. This is the **Signal-Separation
+   Invariant** (`Skill nexus-loss-function` § The Nexus mappings); if the two
+   signals ever collapse into one, that is a loss-function bug, not an agent
+   bug.
+
 4. **No silent failures.** If a tool call fails, report it in `blockers`, not in `notes`.
 5. **Commit on the session branch — commit-only, never push.** All work lands on the session branch (the branch active at session start, detected at runtime via `git branch --show-current` — may be `main` or any other branch; never hardcode it). One focused commit per task IS the checkpoint. Do NOT create a new feature branch and do NOT use `git worktree`. A sub-agent COMMITS on the session branch but does NOT push it — only the orchestrator or the user pushes (an explicitly user-authorized sub-agent push uses the bypass token).
 6. **Return `db_log_cmds`.** The orchestrator runs these to update the memory DB. Agent does not run them — orchestrator does.
@@ -326,7 +401,7 @@ The orchestrator then either:
     1. As their FIRST action, run `python3 .memory/log.py notepad list --topic <topic>` — the topic is provided in the brief's `notepad_topic` field. Read the 5 entries before any other work.
     2. As their LAST action before returning `## NEXUS:DONE` (or any completion marker), run `python3 .memory/log.py notepad add --topic <topic> --agent <persona> --note "..."` with a concise insight (≤500 chars) that future agents on this topic would NOT otherwise discover. Pick the kind that fits: `gotcha` (something tricky), `nuance` (subtle behavior), `reminder` (don't forget X), `fyi` (status-adjacent context), `next-agent-action` (what the next agent should do or check).
     3. The notepad is for INSIGHTS, not tasks. "I completed step 3" is FORBIDDEN. "The DuckDB writer lock is held by the ingestion service at startup — open read-only" is correct.
-    4. The `notepad_written` output field MUST be populated in the return JSON — either with the insight written or `{skipped: "no useful context to add"}`. Omitting it is a CONTRACT VIOLATION.
+    4. On a **FULL-tier** response, the `notepad_written` output field MUST be populated in the return JSON — either with the insight written or `{skipped: "no useful context to add"}`; omitting it is a CONTRACT VIOLATION. On a **LEAN-tier (T0/T1)** response, OMIT the `notepad_written` field entirely.
 
 18. **Skill triggers — JIT load-order rule.** Each persona has a `## Skill triggers` section in its `.claude/agents/<persona>.md` file listing JIT-load conditions. Agents MUST check their skill-trigger table at the start of each dispatch and load relevant skills via `Skill <name>` before beginning work. Skills are NOT auto-loaded (that would bloat context); the trigger table is the contract for when to reach for them.
 

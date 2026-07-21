@@ -35,7 +35,6 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { projectDroppableId } from "@/components/todos/todo-dnd-provider";
-import { useProjectParams } from "@/hooks/use-project-params";
 import { trpc } from "@/utils/trpc";
 import { ProjectIcon } from "../project-icon";
 import { ProjectContextMenu } from "../projects/context-menu";
@@ -62,7 +61,6 @@ const PROJECT_SUB_TABS: ProjectSubTab[] = [
 export function SidebarProjects() {
 	const user = useUser();
 	const pathname = usePathname();
-	const { setParams: setProjectParams } = useProjectParams();
 	const { data: projects } = useQuery(
 		trpc.projects.get.queryOptions({
 			pageSize: 10,
@@ -74,14 +72,10 @@ export function SidebarProjects() {
 			<Link href={`${user.basePath}/projects`}>
 				<SidebarGroupLabel>Projects</SidebarGroupLabel>
 			</Link>
-			<SidebarGroupAction
-				onClick={() => {
-					setProjectParams({
-						createProject: true,
-					});
-				}}
-			>
-				<PlusIcon />
+			<SidebarGroupAction asChild>
+				<Link href={`${user.basePath}/create-project`} aria-label="Create project">
+					<PlusIcon />
+				</Link>
 			</SidebarGroupAction>
 			<SidebarGroupContent>
 				<SidebarMenu>
@@ -150,7 +144,7 @@ function ProjectRow({
 							isActive={isActive}
 						>
 							<Link href={projectBase}>
-								<ProjectIcon {...(project as any)} />
+								<ProjectIcon />
 								<span>{project.name}</span>
 							</Link>
 						</SidebarMenuButton>
@@ -180,7 +174,7 @@ function ProjectRow({
 										<SidebarMenuSubItem key={tab.label}>
 											<SidebarMenuSubButton asChild isActive={isTabActive}>
 												<Link href={href}>
-													<Icon className="size-3.5" />
+													<Icon className="size-4 stroke-[1.5]" />
 													<span>{tab.label}</span>
 												</Link>
 											</SidebarMenuSubButton>

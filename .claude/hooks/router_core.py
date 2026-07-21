@@ -305,7 +305,7 @@ def _build_system_prompt(agents_dir: str, skills_dir: str) -> str:
 EXAMPLES (calibrate from these):
 {"persona":"meta","difficulty":"trivial","confidence":0.95,"required_skills":[],"tdd_required":false}  // "what's next?" / "why did X happen?" / "should I do A or B?"
 {"persona":"scout","difficulty":"simple","confidence":0.88,"required_skills":["codebase-exploration"],"tdd_required":false}  // "this build is failing — investigate"
-{"persona":"lens","difficulty":"trivial","confidence":0.90,"required_skills":["verification-protocols"],"tdd_required":false}  // "validate the last change"
+{"persona":"lens","difficulty":"trivial","confidence":0.90,"required_skills":["verification"],"tdd_required":false}  // "validate the last change"
 {"persona":"meta","difficulty":"complex","confidence":0.90,"required_skills":[],"tdd_required":false}  // "ship all open tasks" / "what's the status?"
 {"persona":"hermes","difficulty":"simple","confidence":0.87,"required_skills":[],"tdd_required":false}  // "update .claude/settings.json hook wiring" / config-only change
 {"persona":"meta","difficulty":"trivial","confidence":0.92,"required_skills":[],"tdd_required":false}  // "what is the state of X?" / "is X enabled?" — informational, no code written"""  # noqa: E501
@@ -809,7 +809,7 @@ def classify_planning_lane(
 # _write_misroute_telemetry already covers as a SEPARATE dispatch_telemetry
 # row -- to .memory/files/lane_router_decisions.jsonl (the SS5 registry
 # probe's recency+well-formedness signal,
-# nexus-redesign/activation/probes/lane_router.py).
+# docs/archive/nexus-redesign/activation/probes/lane_router.py).
 # ============================================================================
 
 LANE_ROUTER_DECISIONS_LOG = (

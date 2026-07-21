@@ -1,0 +1,19 @@
+# serializer version: 1
+# name: test_emit_heartbeat_rpc_appends_fixed_columns_only[emit_heartbeat_envelope]
+  dict({
+    'accepted': True,
+  })
+# ---
+# name: test_record_event_appends_to_allow_listed_jsonl_sink[record_event_envelope]
+  dict({
+    'accepted': True,
+    'sink': 'completion_events',
+  })
+# ---
+# name: test_record_event_nexus_feedback_sink_queues_without_raising[record_event_feedback_envelope]
+  dict({
+    'accepted': True,
+    'queued': True,
+    'sink': 'nexus_feedback',
+  })
+# ---

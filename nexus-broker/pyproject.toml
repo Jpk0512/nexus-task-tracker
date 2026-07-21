@@ -11,6 +11,7 @@ dependencies = [
   "uvicorn>=0.30",
   "httpx>=0.27",
   "jsonschema>=4.23",
+  "duckdb>=1.5.4",
 ]
 
 [dependency-groups]
@@ -19,6 +20,10 @@ dev = [
   "mypy>=1.13",
   "pytest-randomly>=4.1.0",
   "hypothesis>=6.100",
+  "pytest-xdist>=3.0",
+  "pytest-testmon>=2.1",
+  "syrupy>=5.5",
+  "mutmut>=3.2",
 ]
 
 [build-system]
@@ -82,3 +87,24 @@ warn_redundant_casts = true
 [[tool.mypy.overrides]]
 module = ["broker.vault.policy", "broker.vault.prompts_resources"]
 ignore_errors = true
+
+# F3-06 — periodic mutation scoring (nexus-foundation/tools/mutmut_score.sh).
+# source_paths stays "src" so the FULL broker package copies into mutmut's
+# sandbox (mutants/) and every import resolves; only_mutate is the actual
+# scope restriction — the two highest-value modules (capability token +
+# return-envelope gate logic). pytest_add_cli_args_test_selection narrows the
+# stats-collection pass (and thus every per-mutant re-run, via mutmut's own
+# trampoline-covered-tests optimization) to the 3 test files that exercise
+# those modules — this is the "targeted test subset for speed" the script
+# documents. Metric only: no threshold, not wired into any gate.
+[tool.mutmut]
+source_paths = ["src"]
+only_mutate = [
+  "src/broker/capability_token.py",
+  "src/broker/daemon/deny_handlers.py",
+]
+pytest_add_cli_args_test_selection = [
+  "tests/test_capability_token.py",
+  "tests/test_prop_capability_token.py",
+  "tests/test_deny_handlers.py",
+]

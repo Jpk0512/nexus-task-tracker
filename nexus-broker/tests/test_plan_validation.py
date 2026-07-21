@@ -21,7 +21,12 @@ from broker.plan_validation.skill_map import parse_skill_map, required_skills_fo
 
 FIXTURES = Path(__file__).parent / "fixtures" / "plan_validation"
 REPO_ROOT = Path(__file__).resolve().parents[2]
-REAL_PLAN = REPO_ROOT / "nexus-redesign" / "plans" / "09-r3-plan-dag.md"
+# The R3 plan DAG moved to the redesign archive at NATIVE-11-5. Repointed here
+# (TASK-111b) from the pre-archive nexus-redesign/ path so the live-only smokes
+# below RUN in the meta-repo again (they previously skipped on EVERY tree — the
+# live path was gone too, making the "live-only" skip reason a lie). The archive
+# dir is meta-repo-only, so the package snapshot still skips — genuinely live-only.
+REAL_PLAN = REPO_ROOT / "docs" / "archive" / "nexus-redesign" / "plans" / "09-r3-plan-dag.md"
 FIXTURE_SKILL_MAP = FIXTURES / "skill_map_fixture.md"
 
 VERDICT_KEYS = {"acyclic", "verification_concrete", "mece", "skills_derived", "write_disjoint"}
@@ -91,7 +96,7 @@ def test_verification_concreteness_reuses_node_contract_prose_rejection() -> Non
 
 @pytest.mark.skipif(
     not REAL_PLAN.exists(),
-    reason="live-only: nexus-redesign/ is deliberately not shipped in the package snapshot",
+    reason="live-only: docs/archive/nexus-redesign/ is deliberately not shipped in the package snapshot",
 )
 def test_real_r3_plan_scores_end_to_end_without_error() -> None:
     """Acceptance criterion 2: scores nexus-redesign/plans/09-r3-plan-dag.md end-to-end
@@ -107,7 +112,7 @@ def test_real_r3_plan_scores_end_to_end_without_error() -> None:
 
 @pytest.mark.skipif(
     not REAL_PLAN.exists(),
-    reason="live-only: nexus-redesign/ is deliberately not shipped in the package snapshot",
+    reason="live-only: docs/archive/nexus-redesign/ is deliberately not shipped in the package snapshot",
 )
 def test_real_r3_plan_is_acyclic_and_verification_concrete() -> None:
     """The 20-node plan is a valid topological order (§4) with 20/20 concrete
@@ -131,7 +136,7 @@ def test_skill_map_parser_resolves_pipeline_async_meta_fallback() -> None:
 
 @pytest.mark.skipif(
     not REAL_PLAN.exists(),
-    reason="live-only: nexus-redesign/ is deliberately not shipped in the package snapshot",
+    reason="live-only: docs/archive/nexus-redesign/ is deliberately not shipped in the package snapshot",
 )
 def test_cli_score_json_matches_acceptance_pipeline() -> None:
     """Runs the EXACT verification_method pipeline from the N08 brief."""

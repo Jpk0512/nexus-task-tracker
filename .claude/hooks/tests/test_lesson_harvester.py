@@ -88,11 +88,21 @@ def _seed_db(db_path: Path, *, with_trigger: bool, with_lesson: bool = False) ->
         conn.close()
 
 
-def _run(install_root: Path) -> subprocess.CompletedProcess[str]:
+def _run(
+    install_root: Path, daemon_env: dict | None = None
+) -> subprocess.CompletedProcess[str]:
     """Invoke the hook exactly as the harness does — minimal stdin JSON — with
-    _HOOK_DB_PATH pointing at the seeded DB (lesson-harvester.sh line 18 reads
-    _HOOK_DB_PATH; _HOOK_INSTALL_ROOT is not read by the hook)."""
+    _HOOK_DB_PATH pointing at the seeded DB.
+
+    Post-F2-03 lesson-harvester.sh is the shared advisory ping shim; the harvest
+    logic runs daemon-resident (handle_lesson_harvester), which reads the
+    forwarded `_HOOK_DB_PATH` (an env-seam consumer served by the DEFAULT
+    daemon). `daemon_env` carries `resident_daemon.env` (socket dir +
+    _HOOK_REPO_ROOT + the widened ping-shim timeout) so the shim reaches that
+    daemon; without it the shim fails OPEN (silent)."""
     env = {**os.environ, "_HOOK_DB_PATH": str(install_root / ".memory" / "project.db")}
+    if daemon_env:
+        env.update(daemon_env)
     return subprocess.run(
         [sys.executable, str(HOOK_FILE)],
         input="{}",
@@ -110,13 +120,13 @@ def _make_install_root(tmp_path: Path, **seed_kwargs) -> Path:
     return install_root
 
 
-def test_reminder_is_nested_json_on_stdout(tmp_path: Path) -> None:
+def test_reminder_is_nested_json_on_stdout(tmp_path: Path, resident_daemon) -> None:
     """Given a prior decision matching trigger keywords with no lesson, When the
     SessionStart hook runs, Then stdout is valid JSON with the nested
     hookSpecificOutput object (hookEventName == 'SessionStart') — NOT a bare
     string and NOT routed to stderr (the old, swallowed path)."""
     install_root = _make_install_root(tmp_path, with_trigger=True)
-    result = _run(install_root)
+    result = _run(install_root, daemon_env=dict(resident_daemon.env))
 
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip(), (
@@ -139,12 +149,12 @@ def test_reminder_is_nested_json_on_stdout(tmp_path: Path) -> None:
     )
 
 
-def test_reminder_text_lands_in_additional_context(tmp_path: Path) -> None:
+def test_reminder_text_lands_in_additional_context(tmp_path: Path, resident_daemon) -> None:
     """The harvest reminder content — the banner naming the prior session and the
     exact `log.py lesson add` command template — must appear in
     additionalContext, proving the surfaced message is the harvest payload."""
     install_root = _make_install_root(tmp_path, with_trigger=True)
-    result = _run(install_root)
+    result = _run(install_root, daemon_env=dict(resident_daemon.env))
 
     assert result.returncode == 0, result.stderr
     ctx = json.loads(result.stdout)["hookSpecificOutput"]["additionalContext"]
@@ -160,12 +170,12 @@ def test_reminder_text_lands_in_additional_context(tmp_path: Path) -> None:
     )
 
 
-def test_hook_is_advisory_never_blocks(tmp_path: Path) -> None:
+def test_hook_is_advisory_never_blocks(tmp_path: Path, resident_daemon) -> None:
     """The hook is advisory — exit 0 and NO block key (neither nested
     permissionDecision nor a flat decision:block). It never denied, so the fix
     must not introduce a block (no fail-open / no fail-closed flip)."""
     install_root = _make_install_root(tmp_path, with_trigger=True)
-    result = _run(install_root)
+    result = _run(install_root, daemon_env=dict(resident_daemon.env))
 
     assert result.returncode == 0, result.stderr
     payload = json.loads(result.stdout)

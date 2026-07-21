@@ -196,6 +196,9 @@ export const createProject = async ({
 	leadId?: string | null;
 	visibility?: "team" | "private" | null;
 	memberIds?: string[] | null;
+	rootPath?: string | null;
+	docsPath?: string | null;
+	prefix?: string | null;
 }) => {
 	const [project] = await db
 		.insert(projects)
@@ -263,6 +266,8 @@ export const getProjectById = async ({
 			color: projects.color,
 			prefix: projects.prefix,
 			archived: projects.archived,
+			rootPath: projects.rootPath,
+			docsPath: projects.docsPath,
 			startDate: projects.startDate,
 			endDate: projects.endDate,
 			leadId: projects.leadId,
@@ -331,6 +336,8 @@ export const updateProject = async ({
 	leadId?: string;
 	visibility?: "team" | "private";
 	memberIds?: string[] | null;
+	rootPath?: string | null;
+	docsPath?: string | null;
 }) => {
 	const whereClause: SQL[] = [eq(projects.id, id)];
 	if (teamId) whereClause.push(eq(projects.teamId, teamId));

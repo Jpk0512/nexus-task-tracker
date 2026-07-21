@@ -17,8 +17,11 @@ hammer different tables in the same file concurrently for ~1.5s with zero
 
 from __future__ import annotations
 
+import os
 import shutil
 import sqlite3
+import subprocess
+import sys
 import threading
 import time
 from pathlib import Path
@@ -154,3 +157,73 @@ def test_baseline_without_wal_can_raise_database_is_locked(tmp_path: Path) -> No
         contender.close()
         writer.rollback()
         writer.close()
+
+
+# ---------------------------------------------------------------------------
+# The tests above prove WAL+busy_timeout FIX the contention — but they open
+# their own connections with the PRAGMAs, so they would stay green even if the
+# real helpers stopped setting them. These two assert on the PRODUCTION
+# connection helpers directly, so stripping journal_mode=WAL / busy_timeout from
+# `broker.vault.db.open_db` or `.memory/log.py::_conn` (the exact DEC-034
+# regression) turns them RED.
+# ---------------------------------------------------------------------------
+
+
+def _pragma(conn: sqlite3.Connection, name: str) -> object:
+    return conn.execute(f"PRAGMA {name}").fetchone()[0]
+
+
+def test_broker_vault_open_db_sets_wal_and_busy_timeout(tmp_path: Path) -> None:
+    """broker.vault.db.open_db must open a WRITE connection with journal_mode=WAL
+    and a nonzero busy_timeout — asserted on the real helper, not a re-declared
+    local connection."""
+    from broker.vault.db import open_db
+
+    db_path = tmp_path / "vault.db"
+    conn = open_db(db_path)
+    try:
+        assert str(_pragma(conn, "journal_mode")).lower() == "wal", (
+            "open_db must persist journal_mode=WAL on write connections"
+        )
+        assert int(_pragma(conn, "busy_timeout")) > 0, (
+            "open_db must set a nonzero busy_timeout so racers wait, not error"
+        )
+    finally:
+        conn.close()
+
+
+def test_log_py_conn_sets_wal_and_busy_timeout(tmp_path: Path) -> None:
+    """.memory/log.py::_conn (via _harden_connection) must set journal_mode=WAL
+    and busy_timeout. Driven in a subprocess so log.py's import-time DB_PATH +
+    re-exec bootstrap resolve cleanly (NEXUS_DISABLE_VEC=1 suppresses the venv
+    re-exec; NEXUS_DB_PATH points _conn at a scratch db)."""
+    db_path = tmp_path / "project.db"
+    log_py = Path(__file__).resolve().parents[2] / ".memory" / "log.py"
+    if not log_py.exists():
+        pytest.skip(f"log.py not found at {log_py}")
+    probe = (
+        "import importlib.util, os\n"
+        "spec = importlib.util.spec_from_file_location('nexus_log_probe', os.environ['LOG_PY'])\n"
+        "mod = importlib.util.module_from_spec(spec)\n"
+        "spec.loader.exec_module(mod)\n"
+        "c = mod._conn()\n"
+        "print(c.execute('PRAGMA journal_mode').fetchone()[0], "
+        "c.execute('PRAGMA busy_timeout').fetchone()[0])\n"
+    )
+    env = {
+        **os.environ,
+        "NEXUS_DISABLE_VEC": "1",
+        "NEXUS_DB_PATH": str(db_path),
+        "LOG_PY": str(log_py),
+    }
+    proc = subprocess.run(
+        [sys.executable, "-c", probe], capture_output=True, text=True, env=env, timeout=30
+    )
+    assert proc.returncode == 0, f"_conn probe failed: {proc.stderr}"
+    journal_mode, busy_timeout = proc.stdout.split()
+    assert journal_mode.lower() == "wal", (
+        f"log.py::_conn must set journal_mode=WAL, got {journal_mode!r}"
+    )
+    assert int(busy_timeout) > 0, (
+        f"log.py::_conn must set a nonzero busy_timeout, got {busy_timeout!r}"
+    )

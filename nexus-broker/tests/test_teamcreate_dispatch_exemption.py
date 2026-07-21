@@ -6,7 +6,8 @@ Proves three things about the PACKAGE copies (nexus-package/):
       → broker-gate.py exits 0 (LOCKOUT-SAFETY early-out, not blocked).
 
   (b) Teammate payload carrying team_name that matches approved broker_state.json
-      (team_approval_ok path) → allowed even beyond the 120s freshness window.
+      (team_approval_ok path) → allowed even beyond the 300s freshness window
+      (DEC-068 velocity overhaul widened TURN_STALE_SECONDS 120 -> 300).
 
   (c) Ordinary persona Task (subagent_type set) with NO approval / missing
       broker_state → blocked (exit 2, fail-CLOSED).
@@ -62,8 +63,18 @@ def _run_pkg_broker_gate(
     state_path="",
     allow_degraded="",
     db_path="",
+    ritual_mode=True,
 ):
-    """Invoke the PACKAGE broker-gate.py with optional env overrides."""
+    """Invoke the PACKAGE broker-gate.py with optional env overrides.
+
+    F1-04 cutover: `ritual_mode` defaults True so every case in this file
+    (none of which mints a capability token) keeps exercising the pre-F1-04
+    validate/notepad ritual (approved + team_name + called_at freshness) that
+    is the actual subject under test here — mirrors
+    test_broker_gate_meta_exemption.py's `_run_broker_gate()` and
+    `.claude/hooks/tests/test_broker_gate.py`'s `_run()` (ritual_mode=True
+    default). TOKEN mode is a different, separately tested subject.
+    """
     env = dict(os.environ)
     if state_path:
         env["NEXUS_BROKER_STATE_PATH"] = state_path
@@ -71,6 +82,10 @@ def _run_pkg_broker_gate(
         env["NEXUS_BROKER_ALLOW_DEGRADED"] = allow_degraded
     if db_path:
         env["_HOOK_DB_PATH"] = db_path
+    if ritual_mode:
+        env["NEXUS_RITUAL_AUTHORITY"] = "1"
+    else:
+        env.pop("NEXUS_RITUAL_AUTHORITY", None)
     return subprocess.run(
         [sys.executable, str(PKG_BROKER_GATE)],
         input=json.dumps(payload),
@@ -164,12 +179,13 @@ class TestBookkeepingPayloadExemption:
 
 class TestTeammateTeamApprovalPath:
     """team_approval_ok relaxation: a TeamCreate spawn carrying team_name that
-    matches an approved broker_state.json is allowed even beyond 120s freshness.
+    matches an approved broker_state.json is allowed even beyond 300s freshness
+    (DEC-068: TURN_STALE_SECONDS widened 120 -> 300).
     """
 
-    def test_team_approval_allows_past_120s_window(self, tmp_path):
+    def test_team_approval_allows_past_300s_window(self, tmp_path):
         """Given: broker_state.json has approved=True, team_name='my-workflow',
-               persona='scout' (non-code), and called_at is 200s ago (> 120s).
+               persona='scout' (non-code), and called_at is 400s ago (> 300s).
         When: a teammate payload carrying team_name='my-workflow' hits broker-gate.
         Then: exit code is 0 — team_approval_ok supersedes the freshness check.
         """
@@ -179,7 +195,7 @@ class TestTeammateTeamApprovalPath:
             approved=True,
             team_name="my-workflow",
             persona="scout",
-            age_seconds=200,  # well beyond 120s stale threshold
+            age_seconds=400,  # well beyond the DEC-068 300s stale threshold
         )
         payload = {
             "tool_name": "TeamCreate",
@@ -197,13 +213,13 @@ class TestTeammateTeamApprovalPath:
             db_path=str(tmp_path / "project.db"),
         )
         assert proc.returncode == 0, (
-            "team_approval_ok (matching team_name) must allow past the 120s window, "
+            "team_approval_ok (matching team_name) must allow past the 300s window, "
             f"got {proc.returncode}\nstdout: {proc.stdout!r}\nstderr: {proc.stderr!r}"
         )
 
     def test_mismatched_team_name_still_blocked_when_stale(self, tmp_path):
         """Given: broker_state.json carries team_name='other-team' but the payload
-               carries team_name='my-workflow' (mismatch), and called_at is 200s ago.
+               carries team_name='my-workflow' (mismatch), and called_at is 400s ago.
         When: broker-gate evaluates the dispatch.
         Then: exit code is 2 — team_approval_ok requires an exact team_name match.
         """
@@ -213,7 +229,7 @@ class TestTeammateTeamApprovalPath:
             approved=True,
             team_name="other-team",
             persona="scout",
-            age_seconds=200,
+            age_seconds=400,
         )
         payload = {
             "tool_name": "TeamCreate",

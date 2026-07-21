@@ -1,6 +1,5 @@
 "use client";
 import { useLocaleStore } from "@nexus-app/locale";
-import { Avatar, AvatarFallback } from "@nexus-app/ui/avatar";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -77,21 +76,12 @@ export const TeamSwitcher = () => {
 		<DropdownMenu>
 			<button
 				type="button"
-				className="flex w-full items-center justify-between py-2 opacity-90 hover:bg-transparent hover:opacity-100 focus:outline-none dark:hover:bg-transparent"
+				className="flex h-full w-full items-center justify-between opacity-90 hover:bg-transparent hover:opacity-100 focus:outline-none dark:hover:bg-transparent"
 			>
-				<Link href={`/team/${user?.team?.slug}`}>
-					<div className="flex items-center gap-2">
-						<div className="flex aspect-square size-5 items-center justify-center rounded-sm border border-primary bg-primary text-sidebar-primary-foreground">
-							<Avatar className="bg-transparent text-xs">
-								<AvatarFallback className="bg-transparent text-primary-foreground">
-									{user?.team?.name?.charAt(0).toUpperCase()}
-								</AvatarFallback>
-							</Avatar>
-						</div>
-						<span className="truncate font-medium text-sm">
-							{user?.team?.name}
-						</span>
-					</div>
+				<Link href={`/team/${user?.team?.slug}`} className="min-w-0 flex-1">
+					<span className="block truncate font-medium text-sm tracking-[-0.01em]">
+						{user?.team?.name}
+					</span>
 				</Link>
 
 				<DropdownMenuTrigger asChild>
@@ -115,11 +105,6 @@ export const TeamSwitcher = () => {
 							})
 						}
 					>
-						<Avatar className="size-6">
-							<AvatarFallback className="bg-primary text-primary-foreground">
-								{team.name.charAt(0).toUpperCase()}
-							</AvatarFallback>
-						</Avatar>
 						<span className="flex-1 truncate">{team.name}</span>
 						<KbdGroup className="ml-auto">
 							<Kbd>⌘ + Ctrl + {index + 1}</Kbd>

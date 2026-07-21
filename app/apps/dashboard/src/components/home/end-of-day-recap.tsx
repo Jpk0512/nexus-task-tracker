@@ -93,12 +93,12 @@ export const EndOfDayRecap = () => {
 				className="flex w-full items-center justify-between gap-2 border-border border-b px-3 py-2 text-left transition-colors hover:bg-accent/30"
 			>
 				<div className="flex items-center gap-1.5">
-					<SparklesIcon className="size-3.5 text-violet-500" />
+					<SparklesIcon className="size-3.5 text-cyan-500" />
 					<h2 className="font-[510] text-[13px] text-foreground tracking-[-0.005em]">
 						End-of-day recap
 					</h2>
 					{!expanded && showByDefault ? (
-						<span className="ml-1 rounded-full bg-violet-500/15 px-1.5 py-0.5 font-[510] text-[10px] text-violet-500 uppercase tracking-wide">
+						<span className="ml-1 rounded-full bg-cyan-500/15 px-1.5 py-0.5 font-[510] text-[10px] text-cyan-500 uppercase tracking-wide">
 							New
 						</span>
 					) : null}
@@ -122,7 +122,7 @@ export const EndOfDayRecap = () => {
 					<RecapStat
 						label="Projects touched"
 						value={stats.projectsTouched}
-						icon={<SparklesIcon className="size-3.5 text-violet-500" />}
+						icon={<SparklesIcon className="size-3.5 text-cyan-500" />}
 					/>
 					<p className="col-span-3 text-[11px] text-muted-foreground">
 						Granola-style narrative recap (what you shipped, what's blocked,

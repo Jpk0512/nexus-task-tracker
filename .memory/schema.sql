@@ -14,13 +14,37 @@ CREATE TABLE IF NOT EXISTS sessions (
     last_reset_at       TIMESTAMP                      -- when session reset was last triggered
 );
 
+-- Sessions — nullable additive telemetry columns (drift-analysis Finding #6,
+-- 2026-07-12). NOT declared inline above because sessions' CREATE TABLE uses
+-- IF NOT EXISTS and would never touch a live (already-created) project.db —
+-- same documented-but-ALTER-applied convention as dispatch_telemetry's own
+-- nullable additive columns further below. Applied via an idempotent ALTER
+-- in log.py cmd_init (_migrate_sessions_telemetry_columns), guarded by a
+-- PRAGMA table_info existence check so re-running is a no-op.
+--
+--   tokens_total   INTEGER  -- SUM(dispatch_telemetry.tokens) across every
+--                            -- dispatch_telemetry row whose session_id
+--                            -- matches this session; populated at
+--                            -- `session end` time. NULL = pre-migration
+--                            -- session, or a session with zero captured
+--                            -- dispatches (never backfilled).
+--   duration_ms    INTEGER  -- SUM(dispatch_telemetry.duration_ms) across
+--                            -- the same row set, same populate/NULL rules.
+--
+-- Rollback (forward-only migration; documented for completeness):
+--   ALTER TABLE sessions DROP COLUMN tokens_total;
+--   ALTER TABLE sessions DROP COLUMN duration_ms;
+
 CREATE TABLE IF NOT EXISTS tasks (
     id                  TEXT PRIMARY KEY,       -- TASK-001
     feature_id          TEXT,                   -- FEAT-001
     title               TEXT NOT NULL,
     description         TEXT,
     status              TEXT NOT NULL DEFAULT 'todo',
-    -- todo | in_progress | done | blocked | cancelled
+    -- todo | in_progress | done | blocked | cancelled | archived | pending_review
+    -- ('completed' also appears on grandfathered rows — treated as terminal)
+    domain              TEXT CHECK(domain IN ('nexus','plexus','kb','ops','other')),
+    -- DEC-098 task-system domain; NULL = grandfathered pre-migration row
     priority            TEXT NOT NULL DEFAULT 'medium',
     -- critical | high | medium | low
     assigned_to         TEXT,                   -- agent persona or 'user'
@@ -438,7 +462,9 @@ CREATE TABLE IF NOT EXISTS nexus_feedback (
     captured_at  TEXT NOT NULL,          -- ISO-8601 UTC
     resolved_at  TEXT,                   -- NULL = open; ISO ts once a human resolves it
     reviewed_by  TEXT,                   -- who triaged/resolved it (Plexus harvest sets this)
-    nexus_version TEXT                   -- installed Nexus version at capture time ('unknown' if pre-migration / unreadable)
+    nexus_version TEXT,                  -- installed Nexus version at capture time ('unknown' if pre-migration / unreadable)
+    domain       TEXT CHECK(domain IN ('nexus','plexus','kb','ops','other'))
+                                         -- DEC-098 domain; NULL = grandfathered pre-migration row
 );
 
 CREATE INDEX IF NOT EXISTS idx_feedback_severity_category

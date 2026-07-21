@@ -1,0 +1,23 @@
+---
+description: No-deferral, test-first on bug fixes, RCA, and tests-not-optional gates
+alwaysApply: true
+---
+
+# Quality gates (Constitution Art. II, X, XI)
+
+## No deferral (Art. XI)
+- Fix discovered errors **in the same delivery**. No TODO, no stub, no "follow-up later", no "noted for later" left behind at completion.
+- Before calling work done, every item you surfaced is either (a) **resolved inline**, or (b) **converted to a tracked task** in `.memory/project.db` (`task add ...`). Filing a follow-up without the user's explicit OK to defer is forbidden — the default is FIX, not FILE.
+
+## Bug fixes: reproduce-test-first + RCA (Art. II, X)
+On any **bug fix**, in order:
+1. Write a test that **reproduces the bug** and confirm it FAILS first.
+2. Fix the code; confirm the test now PASSES.
+3. Include a **`## Root Cause Analysis`** block with at least **five chained "why"** levels from symptom to deepest cause. A symptom-only fix is a violation. If a pattern lets this bug class recur, address it before closing.
+
+## Tests are not optional (Art. II)
+- New feature → tests covering the **happy path AND edge cases**. Tests use **real data shapes**, not mocks that don't reflect production.
+- TS tests: Vitest + React Testing Library in `app/__tests__/`. Python tests: pytest (+ Polars fixtures) in `ingestion/tests/`.
+
+## Before "done"
+Run the verification commands (see `nexus-verification.mdc`) and **fix ALL errors/warnings** — zero `tsc`/`lint`/`ruff` issues. "Just a quick fix" is not an exception (Art. V).

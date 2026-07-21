@@ -38,24 +38,34 @@ from __future__ import annotations
 import json
 import os
 import subprocess
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone  # py3.9-safe (noqa: UP017 below)
 from pathlib import Path
 
 HOOK_FILE = Path(__file__).resolve().parent.parent / "broker-gate.py"
 
-# Must match TURN_STALE_SECONDS in broker-gate.py.
-TURN_STALE_SECONDS = 120
+# Must match TURN_STALE_SECONDS in broker-gate.py (DEC-068: widened 120->300).
+TURN_STALE_SECONDS = 300
 
 
-def _run(state_path: Path | None, db_path: Path | None = None) -> subprocess.CompletedProcess[str]:
+def _run(
+    state_path: Path | None, db_path: Path | None = None, *, ritual_mode: bool = True
+) -> subprocess.CompletedProcess[str]:
+    """F1-04: `ritual_mode` defaults True — every test in this file predates the
+    token-authority cutover and asserts pre-F1-04 ritual-deny/allow behavior
+    (approved/called_at/stale/notepad predicates), so NEXUS_RITUAL_AUTHORITY=1
+    reproduces that unchanged. Mirrors the same default applied to the live
+    test_adversarial_corpus.py's `_run_broker_gate` helper."""
     env = dict(os.environ)
     # A stray state-path override from the dev shell must never leak in.
     env.pop("NEXUS_BROKER_STATE_PATH", None)
     env.pop("_HOOK_DB_PATH", None)
+    env.pop("NEXUS_RITUAL_AUTHORITY", None)
     if state_path is not None:
         env["NEXUS_BROKER_STATE_PATH"] = str(state_path)
     if db_path is not None:
         env["_HOOK_DB_PATH"] = str(db_path)
+    if ritual_mode:
+        env["NEXUS_RITUAL_AUTHORITY"] = "1"
     # Include subagent_type so the hook proceeds past the bookkeeping early-out.
     # A payload with no persona is treated as native task bookkeeping and is
     # silently allowed without broker validation — not what these tests exercise.
@@ -154,8 +164,8 @@ def test_no_called_at_denies_exit2_nested(tmp_path: Path) -> None:
 def test_stale_state_denies_exit2_nested(tmp_path: Path) -> None:
     """Given approved state whose called_at is older than TURN_STALE_SECONDS,
     When the gate runs, Then it blocks: exit 2 AND nested permissionDecision=deny
-    — the staleness predicate (>120s) is unchanged."""
-    stale = datetime.now(tz=UTC) - timedelta(seconds=TURN_STALE_SECONDS + 60)
+    — the staleness predicate (DEC-068: >300s, was >120s) still fires."""
+    stale = datetime.now(tz=timezone.utc) - timedelta(seconds=TURN_STALE_SECONDS + 60)  # noqa: UP017
     state_path = _write_state(
         tmp_path / "broker_state.json",
         {"approved": True, "persona": "forge-ui", "called_at": stale.isoformat()},
@@ -174,7 +184,7 @@ def test_fresh_approved_state_allows_exit0(tmp_path: Path) -> None:
 
     notepad_logged_at must be present for standard-tier code-writing dispatches
     (P2-07); the hook blocks if it is absent or stale."""
-    fresh = datetime.now(tz=UTC) - timedelta(seconds=5)
+    fresh = datetime.now(tz=timezone.utc) - timedelta(seconds=5)  # noqa: UP017
     state_path = _write_state(
         tmp_path / "broker_state.json",
         {
@@ -210,7 +220,7 @@ def test_approved_brief_task_tier_simple_exempts_planning_gate(tmp_path: Path) -
     task_tier='simple' is the persisted approved_brief. Without single-sourcing,
     task_tier would default to 'standard' and the notepad/planning gate would
     fire."""
-    fresh = datetime.now(tz=UTC) - timedelta(seconds=5)
+    fresh = datetime.now(tz=timezone.utc) - timedelta(seconds=5)  # noqa: UP017
     state_path = _write_state(
         tmp_path / "broker_state.json",
         {
@@ -238,7 +248,7 @@ def test_approved_brief_task_tier_standard_still_gates_notepad(tmp_path: Path) -
     relax them. The tier resolves to 'standard' from approved_brief, so the
     notepad load-bearing check (P2-07) fires exactly as a prompt-supplied
     standard tier would."""
-    fresh = datetime.now(tz=UTC) - timedelta(seconds=5)
+    fresh = datetime.now(tz=timezone.utc) - timedelta(seconds=5)  # noqa: UP017
     state_path = _write_state(
         tmp_path / "broker_state.json",
         {
@@ -261,7 +271,7 @@ def test_prompt_block_overrides_when_state_brief_absent(tmp_path: Path) -> None:
     ALLOWS (exit 0) — _resolve_gate_fields falls back per-field to the
     prompt-JSON values when broker_state lacks approved_brief, so existing
     prompt-embedded briefs keep working unchanged."""
-    fresh = datetime.now(tz=UTC) - timedelta(seconds=5)
+    fresh = datetime.now(tz=timezone.utc) - timedelta(seconds=5)  # noqa: UP017
     state_path = _write_state(
         tmp_path / "broker_state.json",
         {
@@ -273,8 +283,12 @@ def test_prompt_block_overrides_when_state_brief_absent(tmp_path: Path) -> None:
     env = dict(os.environ)
     env.pop("NEXUS_BROKER_STATE_PATH", None)
     env.pop("_HOOK_DB_PATH", None)
+    env.pop("NEXUS_RITUAL_AUTHORITY", None)
     env["NEXUS_BROKER_STATE_PATH"] = str(state_path)
     env["_HOOK_DB_PATH"] = str(tmp_path / "no_project.db")
+    # F1-04: ritual mode so this pre-cutover test keeps exercising the
+    # prompt-JSON fallback path unchanged (see `_run`'s docstring above).
+    env["NEXUS_RITUAL_AUTHORITY"] = "1"
     prompt = "Do the work\n```json\n" + json.dumps({"task_tier": "simple"}) + "\n```\n"
     result = subprocess.run(
         ["python3", str(HOOK_FILE)],

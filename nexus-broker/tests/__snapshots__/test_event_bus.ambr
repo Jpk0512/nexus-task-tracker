@@ -1,0 +1,21 @@
+# serializer version: 1
+# name: test_event_emit_and_verify_over_real_socket_transport[emit_envelope]
+  dict({
+    'advisory_context': dict({
+    }),
+    'event': 'session.start',
+    'fail_policy': 'advisory-fail-open',
+    'ok': True,
+    'tranche': 'A',
+  })
+# ---
+# name: test_handle_event_emit_accepts_tranche_a_event[emit_envelope]
+  dict({
+    'advisory_context': dict({
+    }),
+    'event': 'session.start',
+    'fail_policy': 'advisory-fail-open',
+    'ok': True,
+    'tranche': 'A',
+  })
+# ---

@@ -9,7 +9,7 @@ import { NavUser } from "./nav-user";
 export default function Header() {
 	return (
 		<DumpModalProvider>
-			<header className="sticky top-0 z-5 h-12 border-b bg-background px-4">
+			<header className="sticky top-0 z-5 h-12 border-b border-border bg-background px-4">
 				<div className="flex h-full items-center justify-between gap-3">
 					{/* Left: capture bar dominates */}
 					<CaptureBar className="min-w-0 flex-1 sm:max-w-xl" />

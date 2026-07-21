@@ -3,23 +3,47 @@
 
 Fires before every Task invocation. Enforces the broker chokepoint:
 
-  1. broker_state.json must exist, parse, and carry approved=True for THIS turn
-     (called_at within TURN_STALE_SECONDS).  [base contract]
-  2. notepad_logged_at must be present AND within NOTEPAD_STALE_SECONDS (300s) — the
-     notepad ritual is load-bearing, not decorative (P2-07 / GAP-06).
+  1. broker_state.json must exist, parse, and carry the DENY-AUTHORITY evidence
+     for THIS dispatch. As of F1-04, that evidence is a VALID unexpired
+     capability token minted for THIS persona by nexus_validate_brief
+     (`state["capability_token"]`, verified via `_token_shadow.verify_token` —
+     see TOKEN AUTHORITY below). Set NEXUS_RITUAL_AUTHORITY=1 to roll back to
+     the pre-F1-04 validate/notepad ritual (approved=True + called_at within
+     TURN_STALE_SECONDS) unchanged.
+  2. [RITUAL MODE ONLY, NEXUS_RITUAL_AUTHORITY=1] notepad_logged_at must be
+     present AND within NOTEPAD_STALE_SECONDS (900s) — the notepad ritual is
+     load-bearing, not decorative (P2-07 / GAP-06).
   3. For Standard/Complex CODE-writing dispatches, a recent ACCEPTED planning-gate
      row must exist in project.db (P2-09 / GAP-10). Docs/hooks/prose meta-work
-     (non-code personas) is deliberately NOT gated here.
-  4. Persona binding (S1-04/S1-15): a non-team dispatch must target the SAME
-     persona the broker approved — approval for X is not a ticket to dispatch Y.
-     Team approvals carry a finite TTL (TEAM_APPROVAL_TTL_SECONDS) instead of an
-     unconditional freshness skip.
+     (non-code personas) is deliberately NOT gated here. UNCHANGED in both
+     token and ritual mode.
+  4. Persona binding: in TOKEN mode (default) the token's own `persona` claim
+     IS the binding — the token was minted for exactly one persona and a
+     dispatch targeting a different one is denied (persona-mismatch), no
+     separate state.persona comparison needed. [RITUAL MODE ONLY] a non-team
+     dispatch must target the SAME persona `state.persona` the broker approved
+     (S1-04/S1-15); team approvals carry a finite TTL (TEAM_APPROVAL_TTL_SECONDS)
+     instead of an unconditional freshness skip.
+
+TOKEN AUTHORITY (F1-04 cutover — nexus-foundation/plans/wave-1.md track (a)):
+F1-02 mints a signed HMAC capability token per approved dispatch when the
+plan-validation gate PASSes (`nexus_validate_brief`), persisted onto
+broker_state.json. F1-03 ran that token dual-parse in SHADOW only (ritual
+stayed sole authority, divergences logged to `.memory/token_shadow.jsonl` to
+measure drift pre-cutover). F1-04 flips the default: a valid token is now
+itself the pass evidence — no turn/notepad freshness required — while
+NEXUS_RITUAL_AUTHORITY=1 is the single rollback knob back to the exact
+pre-F1-04 ritual semantics. The token-shadow SHADOW TAIL (best-effort
+post-exit dual-check + JSONL logging) is RETIRED as of this cutover — its
+measurement window served its purpose; `_token_shadow.py` itself stays in
+place as the verify library the token-mode deny path calls directly (see the
+module-load comment below).
 
 Fail-CLOSED design (P2-10): if broker_state.json is missing, malformed, or
 unreadable the Task is DENIED (exit 2) — a down broker must be LOUD, not silently
 bypassed. Set NEXUS_BROKER_ALLOW_DEGRADED=1 to opt out: the Task is then allowed
 but a LOUD additionalContext warning is emitted every turn so the outage stays
-visible.
+visible. UNCHANGED by the token/ritual flip — this check runs before either mode.
 
 Output contract (mirrors no-direct-push-to-session-branch.sh / skills-required-guard.sh):
 a real object
@@ -36,8 +60,13 @@ Exit codes:
 Env overrides (test isolation):
   NEXUS_BROKER_STATE_PATH      — path to broker_state.json
   NEXUS_BROKER_ALLOW_DEGRADED  — '1' allows dispatch when the broker is down
+  NEXUS_RITUAL_AUTHORITY       — '1' rolls back to the pre-F1-04 validate/
+                                  notepad ritual as deny authority (unset/any
+                                  other value = TOKEN mode, the default)
   _HOOK_DB_PATH                — path to project.db (planning-gate lookup)
   _HOOK_REPO_ROOT              — repo root (resolves both paths)
+  _HOOK_TOKEN_KEY_PATH          — path to broker_token_key.json (token mode)
+  _HOOK_TOKEN_DENYLIST_PATH     — path to token_denylist.jsonl (token mode)
 """
 # NOTE: live runtime is >=3.11 via the _py.sh resolver shim, but 3.9
 # IMPORT-safety is retained because the package twin runs this file un-shimmed
@@ -83,6 +112,22 @@ def _emit_heartbeat(event: str, decision: str, latency_ms: int) -> None:
     _heartbeat_mod.emit_heartbeat("broker-gate", event, decision, latency_ms)
 
 
+# Load _token_shadow from the same hooks directory. F1-03 loaded this
+# best-effort for a post-exit SHADOW tail only; F1-04 promotes it to the
+# TOKEN-MODE VERIFY LIBRARY the deny-authority path calls directly (see
+# _stage_1c_token_checks below) — a load failure must therefore fail CLOSED
+# in token mode (handled inside _stage_1c_token_checks), not silently no-op.
+# The try/except here only isolates a broken/missing FILE from crashing the
+# whole hook with a raw traceback; a None module still fails closed downstream.
+try:
+    _ts_path = Path(__file__).parent / "_token_shadow.py"
+    _ts_spec = importlib.util.spec_from_file_location("_token_shadow", _ts_path)
+    _token_shadow_mod = importlib.util.module_from_spec(_ts_spec)  # type: ignore[arg-type]
+    _ts_spec.loader.exec_module(_token_shadow_mod)  # type: ignore[union-attr]
+except Exception:
+    _token_shadow_mod = None
+
+
 _START_TIME = time.time()
 
 
@@ -92,8 +137,13 @@ def _elapsed_ms() -> int:
     except Exception:
         return 0
 
-TURN_STALE_SECONDS = 120
-NOTEPAD_STALE_SECONDS = 300
+# F1-04: the single rollback knob. '1' = pre-F1-04 validate/notepad ritual is
+# deny authority (RITUAL MODE, unchanged semantics); unset/anything else =
+# a valid capability token is deny authority (TOKEN MODE, the default).
+RITUAL_AUTHORITY_FLAG = "NEXUS_RITUAL_AUTHORITY"
+
+TURN_STALE_SECONDS = 300  # DEC-068 (was 120) — velocity overhaul freshness widening
+NOTEPAD_STALE_SECONDS = 900  # DEC-068 (was 300)
 # S1-04/S1-15: a standing per-(team,persona) approval is NOT eternal. A team-
 # scoped teammate spawn is accepted without per-turn re-validation only while
 # the approval is younger than this TTL (replaces the unconditional freshness
@@ -109,10 +159,10 @@ PLANNING_GATE_WINDOW = timedelta(hours=4)
 # A dispatch to any of these at Standard/Complex tier requires a recent ACCEPTED
 # planning-gate row.
 CODE_WRITING_PERSONAS = frozenset({
-    "forge-ui", "forge-ui-pro",
-    "forge-wire", "forge-wire-pro",
-    "pipeline-data", "pipeline-data-pro",
-    "pipeline-async", "pipeline-async-pro",
+    "forge-ui",
+    "forge-wire",
+    "pipeline-data",
+    "pipeline-async",
     "atlas",
     "hermes",
     "quill-ts", "quill-py",
@@ -148,6 +198,12 @@ def _default_state_path() -> Path:
     return _repo_root() / ".memory" / "files" / "broker_state.json"
 
 
+def _ritual_authority_enabled() -> bool:
+    """True iff the F1-04 rollback flag is SET — pre-F1-04 ritual is deny
+    authority. Mirrors the `== "1"` convention of NEXUS_BROKER_ALLOW_DEGRADED."""
+    return os.environ.get(RITUAL_AUTHORITY_FLAG) == "1"
+
+
 def _db_path() -> Path:
     env = os.environ.get("_HOOK_DB_PATH")
     if env:
@@ -173,9 +229,37 @@ def note(msg: str) -> None:
     sys.stderr.write(f"[broker-gate] SKIP: {msg}\n")
 
 
+# TASK-094 LEG B — gate-deny spans w/ deny reason. `main()`'s first action is
+# `payload = _read_payload()`; stashing it here lets `block()`/
+# `allow_with_warning()` resolve a trace_id (== session_id) for
+# `_gate_deny_mod.emit_gate_span` without threading `payload` through every
+# call site in this file. Read-only; never itself a source of the gate's own
+# decision.
+_LAST_PAYLOAD: dict = {}
+
+
+def _gate_span_attrs(payload: dict | None = None) -> dict:
+    """Resolve the `trace_id`/`task_id` a gate-span emission needs from a
+    PreToolUse payload — falls back to `_LAST_PAYLOAD` (see above) when no
+    payload is passed explicitly. Returns {} (never None) when nothing is
+    resolvable — `emit_gate_span` already no-ops on a missing trace_id, so an
+    empty dict here is exactly as inert as `span_attrs=None`.
+    """
+    p = payload if isinstance(payload, dict) else _LAST_PAYLOAD
+    attrs: dict = {}
+    session_id = p.get("session_id") or p.get("sessionId")
+    if session_id:
+        attrs["trace_id"] = session_id
+    tool_input = p.get("tool_input")
+    task_id = p.get("task_id") or (tool_input.get("task_id") if isinstance(tool_input, dict) else None)
+    if task_id:
+        attrs["task_id"] = task_id
+    return attrs
+
+
 def allow_with_warning(context: str) -> None:
     """Allow the Task but surface a LOUD additionalContext warning + stderr."""
-    _gate_deny_mod.advise("PreToolUse", "BROKER/OUTAGE", context, stderr=True)
+    _gate_deny_mod.advise("PreToolUse", "BROKER/OUTAGE", context, stderr=True, span_attrs=_gate_span_attrs())
     sys.exit(0)
 
 
@@ -186,6 +270,7 @@ def block(reason: str) -> None:
             "PreToolUse",
             "BROKER/DISPATCH-BLOCKED",
             f"Task dispatch blocked: {reason}",
+            span_attrs=_gate_span_attrs(),
         )
     )
 
@@ -508,6 +593,84 @@ def _stage_1b_read_broker_state() -> dict:
     return state
 
 
+def _token_allowed_personas(token):
+    """DEC-096: the CLOSED set of personas a capability token authorizes.
+
+    Reads the signed `allowed_personas` claim (normalized, lower/stripped). An
+    absent/empty/malformed claim DEGRADES to the one-element set `{persona}` so
+    a pre-DEC-096 token stays exact-match-equivalent — there is NO
+    is_workflow_leg special-case branch (Option C permanently rejected). The
+    claim is signed, so it cannot be widened (or stripped to force the
+    degenerate fallback) without failing the `verify_token` check above."""
+    raw = token.get("allowed_personas") if isinstance(token, dict) else None
+    if isinstance(raw, list):
+        members = {
+            str(p).lower().strip()
+            for p in raw
+            if isinstance(p, str) and str(p).strip()
+        }
+        if members:
+            return members
+    persona_claim = ""
+    if isinstance(token, dict):
+        persona_claim = str(token.get("persona", "") or "").lower().strip()
+    return {persona_claim} if persona_claim else set()
+
+
+def _stage_1c_token_checks(
+    state: dict,
+    persona: str,
+    intent: str,
+    work_type: str,
+    task_tier: str,
+) -> tuple[str, str, str]:
+    """F1-04 TOKEN MODE (default, NEXUS_RITUAL_AUTHORITY unset/!=1): a VALID
+    unexpired capability token minted for THIS persona is the sole pass
+    evidence — no turn/notepad freshness required (acceptance 1). Persona
+    binding IS the token's own `persona` claim (acceptance: 'in token mode the
+    token's persona scope IS the binding') — no separate state.persona/
+    team_name comparison, unlike RITUAL mode's _stage_1c_state_checks.
+
+    Fail-CLOSED (acceptance 2): token absent/tampered/expired/persona-mismatch
+    all DENY with an actionable message naming nexus_validate_brief as the
+    mint site and NEXUS_RITUAL_AUTHORITY=1 as the rollback. A failed
+    _token_shadow module load (see the load comment near the top of this
+    file) also denies here — it is no longer a best-effort tail, it is the
+    deny-authority verify library.
+    """
+    intent, work_type, task_tier = _resolve_gate_fields(state, intent, work_type, task_tier)
+
+    _rollback_hint = (
+        "Call nexus_validate_brief to mint a fresh capability token for this "
+        f"persona/plan, or set {RITUAL_AUTHORITY_FLAG}=1 to roll back to the "
+        "pre-F1-04 validate/notepad ritual."
+    )
+
+    if _token_shadow_mod is None:
+        block(
+            "capability-token verify library (_token_shadow.py) failed to load — "
+            "cannot verify the dispatch token. " + _rollback_hint
+        )
+
+    token = _token_shadow_mod.extract_token(state)
+    token_ok, token_reason = _token_shadow_mod.verify_token(token)
+    if not token_ok:
+        block(
+            f"no valid capability token for this dispatch (reason={token_reason}). "
+            + _rollback_hint
+        )
+
+    allowed = _token_allowed_personas(token)
+    if persona and allowed and persona not in allowed:
+        block(
+            f"dispatch targets persona '{persona}' but it is not a member of this "
+            f"capability token's allowed_personas set {sorted(allowed)} "
+            f"(persona-mismatch — DEC-096 closed-set membership). " + _rollback_hint
+        )
+
+    return intent, work_type, task_tier
+
+
 def _stage_1c_state_checks(
     state: dict,
     persona: str,
@@ -696,7 +859,7 @@ def _stage_5_planning_gate(
     _ti: dict = _ti_nested if _ti_nested is not None else payload
     brief = _extract_brief(_ti)
     brief_feat = str(
-        brief.get("feat", "") or brief.get("feat_id", "") or brief.get("task_id", "")
+        brief.get("feat") or brief.get("feat_id") or brief.get("task_id") or ""
     ).strip()
     gate = _has_recent_planning_gate(brief_feat)
     if gate is None:
@@ -714,7 +877,10 @@ def _stage_5_planning_gate(
             "row). Restore .memory/project.db to re-arm enforcement."
         )
         _gate_deny_mod._record_block("PreToolUse", "BROKER/PLANNING-GATE-FAIL-OPEN", msg)
-        _gate_deny_mod.advise("PreToolUse", "BROKER/PLANNING-GATE-FAIL-OPEN", msg, stderr=True)
+        _gate_deny_mod.advise(
+            "PreToolUse", "BROKER/PLANNING-GATE-FAIL-OPEN", msg, stderr=True,
+            span_attrs=_gate_span_attrs(payload),
+        )
         sys.exit(0)
     if gate is False:
         block(
@@ -732,22 +898,33 @@ def _stage_5_planning_gate(
 
 def main() -> None:
     payload = _read_payload()
+    global _LAST_PAYLOAD
+    _LAST_PAYLOAD = payload if isinstance(payload, dict) else {}
     persona, intent, work_type, task_tier, team_name = _dispatch_facts(payload)
 
     # Stage 1a — cheapest: in-memory-only early-out (no I/O).
     _stage_1a_bookkeeping_and_carveout(persona, team_name)
 
-    # Stage 1b — one broker_state.json read (fail-closed, P2-10).
+    # Stage 1b — one broker_state.json read (fail-closed, P2-10). UNCHANGED in
+    # both token and ritual mode.
     state = _stage_1b_read_broker_state()
 
-    # Stage 1c — in-memory checks against the loaded state (approval, turn
-    # freshness/TTL, persona binding, notepad freshness). No further I/O.
-    intent, work_type, task_tier = _stage_1c_state_checks(
-        state, persona, intent, work_type, task_tier, team_name
-    )
+    # Stage 1c — F1-04 authority flip. TOKEN MODE (default): a valid
+    # capability token is the sole pass evidence, no ritual freshness. RITUAL
+    # MODE (NEXUS_RITUAL_AUTHORITY=1, rollback): unchanged pre-F1-04 semantics
+    # (approval, turn freshness/TTL, persona binding, notepad freshness).
+    if _ritual_authority_enabled():
+        intent, work_type, task_tier = _stage_1c_state_checks(
+            state, persona, intent, work_type, task_tier, team_name
+        )
+    else:
+        intent, work_type, task_tier = _stage_1c_token_checks(
+            state, persona, intent, work_type, task_tier
+        )
 
     # Stage 5 — most expensive: the sole sqlite query (planning-gate lookup),
     # gated behind a free in-scope check so the DB is touched only when needed.
+    # UNCHANGED in both token and ritual mode.
     _stage_5_planning_gate(payload, persona, intent, work_type, task_tier)
 
     sys.exit(0)
@@ -760,6 +937,13 @@ if __name__ == "__main__":
     # outermost call site captures every exit path — deny AND silent-pass —
     # without touching any of main()'s internal control flow. Purely
     # additive: re-raises the exact same SystemExit unchanged.
+    #
+    # F1-04: the token-shadow post-exit tail (_emit_token_shadow) is RETIRED
+    # here — its measurement window (F1-03) served its purpose now that the
+    # token check runs INSIDE main() as the deny authority itself.
+    # _token_shadow.py stays in place as the verify library _stage_1c_token_
+    # checks calls directly; only this best-effort post-hoc shadow call site
+    # is gone.
     _exit_code = 0
     try:
         main()

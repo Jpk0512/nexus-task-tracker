@@ -1,19 +1,123 @@
 ---
 name: palette-design-patterns
-description: Canonical design tokens, component visual patterns, mockup library index, and light/dark parity pairs for this project's design system. Preloaded into Palette — also useful when reviewing Palette output or briefing Forge on visual requirements.
+description: Discover a project's REAL design-token and component vocabulary before speccing, then structure specs (interaction states, contrast, motion) the way Palette needs them. Preloaded into Palette — also useful when reviewing Palette output or briefing a UI-writing persona on visual requirements. Ships one worked EXAMPLE token system (Tailwind `ds-*`); it is illustrative only — never assume it is THIS project's vocabulary.
 ---
 
 # Palette Design Patterns
 
-Fast-reference for the `design/` tree. Palette reads `design/design.md` as the binding contract; this skill surfaces the frequently-needed tables so you can spec without re-reading every token file.
+## When this fires
+
+Any Palette spec, or any review of Palette output / brief to a UI-writing persona
+on visual requirements. This skill does NOT ship a canonical token set for every
+project — each installed project has its own real stylesheet/component vocabulary
+(Tailwind + `ds-*` custom properties, plain CSS custom properties, CSS Modules,
+styled-components, a dark-only palette, …). Discover it before speccing anything.
 
 ---
 
-## Token table (canonical)
+## Discover the project's real vocabulary FIRST (mandatory, before any spec)
 
-All values from `design/tokens/design-tokens.ts`. Tailwind class aliases are in `design/tokens/tailwind-preset.ts`.
+Never assume `design/tokens/design-tokens.ts`, a `ds-*` token prefix, Tailwind, or
+any specific component file exists — those are one project's choices, not a Nexus
+convention. A project can be dark-mode-only, plain CSS (`gg-*` custom properties,
+no Tailwind), or something else entirely.
 
-### Color tokens
+1. Find the project's real design/token source: `grep -rn '^\s*--[a-zA-Z-]' <css dirs>`
+   for CSS custom properties, or `find <repo> -iname '*.css' -o -iname 'tokens*' -o
+   -iname 'theme*'` for a tokens file, or `codebase_search "design tokens" /
+   "theme"` if SocratiCode is indexed.
+2. Find the project's real component primitives the same way — `codebase_symbols`
+   / grep for `Card`, `Button`, `Table`, `Panel`, `Drawer`, `Chart`, `Badge`
+   equivalents; do not assume any of the file names below exist.
+3. Confirm light vs. dark: read the actual stylesheet's `:root` / `[data-theme]`
+   blocks (or equivalent) rather than assuming a light-first design.
+4. Spec using the vocabulary you just found — token names, file paths, and prefix
+   conventions in every spec MUST be ones you verified exist in THIS project.
+
+If discovery finds nothing (a genuinely new project with no design system yet),
+say so explicitly in the spec rather than inventing paths from the example system
+below.
+
+---
+
+## Interaction-state checklist (stack-agnostic)
+
+Every component spec MUST answer all of these before Palette calls it done:
+
+- [ ] **Default** — resting appearance
+- [ ] **Hover** — color / shadow shift (subtle; do not overdo)
+- [ ] **Focus** — visible, keyboard-accessible ring/outline using the project's real focus-ring token
+- [ ] **Active / pressed** — slight scale or darken
+- [ ] **Disabled** — reduced opacity + no interactive styles
+- [ ] **Loading** — shimmer or spinner; element not interactive
+- [ ] **Empty** — zero-data state; not an error, just no content yet
+- [ ] **Error** — destructive copy + optional retry; never silent
+- [ ] **Dark mode** — token mapping for all of the above (verify the project actually needs a light AND dark mapping — a dark-only project needs no light fallback)
+
+---
+
+## WCAG AA contrast thresholds
+
+| Text size | Minimum ratio | Notes |
+|---|---|---|
+| Normal text (<18px or <14px bold) | 4.5:1 | Body, labels, badges |
+| Large text (≥18px or ≥14px bold) | 3:1 | Section titles, KPI values |
+| UI components / graphical | 3:1 | Button borders, input borders, chart lines |
+
+Always state the approximate ratio when proposing a new color pair, computed
+against the project's own real background/text token values (discovered above),
+never against the example system's values.
+
+---
+
+## Motion budget (stack-agnostic defaults)
+
+| Use | Duration | Easing | Reduced-motion fallback |
+|---|---|---|---|
+| Color / opacity transitions | 150ms | `ease-out` | `transition: none` |
+| Height / layout expand | 200ms | `ease-in-out` | Instant snap |
+| Drawer / modal slide | 250ms | `cubic-bezier(0.4,0,0.2,1)` | Instant snap |
+| Skeleton shimmer | continuous | `animate-pulse` (or equivalent) | Static muted bg |
+| Chart mount animation | 400ms | `ease-out` | Skip animation |
+
+Always wrap motion specs with a `prefers-reduced-motion: reduce` note in the spec.
+
+---
+
+## Pairing rules
+
+- Palette authors the spec → the project's UI-writing persona implements it
+- Design conflicts with the project's own design doc → surface via `## NEXUS:NEEDS-DECISION` before speccing
+- New token needed beyond the project's existing real set → surface via `## NEXUS:NEEDS-DECISION` (schema-owner-equivalent gate for design tokens)
+- Verification of implemented output → Lens's job, not Palette's
+
+---
+
+## Mandatory Discipline
+
+### Token integrity
+- Every token/custom-property referenced in a spec MUST already be defined in the
+  project's real stylesheet (discovered above) — never invent a token name from
+  the example system below. Grep or `codebase_search` before introducing one.
+
+### Visual gate
+- All Palette designs require a screenshot or visual mockup in the response —
+  not just CSS specs.
+
+---
+
+## EXAMPLE SYSTEM — Tailwind `ds-*` tokens (illustrative only)
+
+The tables below are ONE worked example from a prior light-mode-first
+Tailwind/React project — they are NOT this project's tokens, and the file paths
+(`design/tokens/design-tokens.ts`, `design/components/Card.tsx`,
+`design/components/FilterPanel.tsx`, etc.) are that project's paths, not a Nexus
+convention. Use this section only as a reference for how to STRUCTURE a token
+table / component-pattern list once you've discovered the real one (see
+Discovery, above) — never cite these paths or values as if they exist in the
+current project.
+
+### Color tokens (example — from `design/tokens/design-tokens.ts` in the source project this example was drawn from; verify a matching path exists here before citing it)
 
 | Token name (JS key) | Tailwind alias | Value | Role |
 |---|---|---|---|
@@ -38,7 +142,7 @@ All values from `design/tokens/design-tokens.ts`. Tailwind class aliases are in 
 | `badgeCategoryText` | — | `#1d4ed8` | Category badge text |
 | `badgeSubcategoryText` | — | `#047857` | Subcategory badge text |
 
-### Radius tokens
+### Radius tokens (example)
 
 | Key | Value | Where used |
 |---|---|---|
@@ -48,7 +152,7 @@ All values from `design/tokens/design-tokens.ts`. Tailwind class aliases are in 
 | `2xl` | `18px` | Drawer panel left edge |
 | `full` | `9999px` | Chips, badges, pill buttons |
 
-### Shadow tokens
+### Shadow tokens (example)
 
 | Key | Value | Where used |
 |---|---|---|
@@ -56,7 +160,7 @@ All values from `design/tokens/design-tokens.ts`. Tailwind class aliases are in 
 | `filterPanel` | `0 10px 24px rgba(15,23,42,.06)` | Filter panel |
 | `drawer` | `-16px 0 40px rgba(15,23,42,.18)` | Drawer panel |
 
-### Spacing scale
+### Spacing scale (example)
 
 | Step | px | Tailwind |
 |---|---|---|
@@ -67,7 +171,7 @@ All values from `design/tokens/design-tokens.ts`. Tailwind class aliases are in 
 | 5 | 24px | `gap-6`, `mb-6` |
 | 6 | 32px | `gap-8`, `p-8` |
 
-### Typography scale
+### Typography scale (example)
 
 | Role | Size | Weight | Token/class |
 |---|---|---|---|
@@ -79,11 +183,12 @@ All values from `design/tokens/design-tokens.ts`. Tailwind class aliases are in 
 | KPI label | 10px | uppercase | `MetricTile` built-in |
 | Filter label | small caps | extrabold uppercase | `text-ds-filter-label` |
 
----
+### Light + dark token pairs (example)
 
-## Light + dark token pairs
-
-The current app is light-mode only. All specs must include a dark surface mapping for future-proofing.
+The example project this table was drawn from was light-mode only, so it kept a
+dark-surface spec-target column for future-proofing. A dark-only project (or an
+already-dual-mode one) needs the mapping the other direction, or none at all —
+check the real project before assuming this shape applies.
 
 | Role | Light value | Dark surface (spec target) |
 |---|---|---|
@@ -96,163 +201,50 @@ The current app is light-mode only. All specs must include a dark surface mappin
 | Accent blue | `#2563eb` | `#58a6ff` |
 | Primary teal | `#0f766e` | `#3fb950` |
 
-> These dark-mode values are spec targets, not yet implemented in `tailwind-preset.ts`. When authoring a component spec, note both columns so Forge can wire the dark: variant without re-reading the spec.
+### Common component patterns (example)
 
----
+The primitive paths below (`design/components/*.tsx`) are the source project's
+paths — verify the equivalent components' real locations in the current project
+before citing them in a spec.
 
-## Common component patterns
+**Card** — `design/components/Card.tsx` in the source project. Surface:
+`bg-ds-surface`, `rounded-ds`, `border border-ds-border`, `shadow-ds-card`.
+Padding via `padding` prop or explicit `p-4`/`p-6`. Empty: single centered muted
+`<p>`. Loading: skeleton shimmer bars. Error: muted error copy + optional retry.
 
-### Card
+**Button** — `design/components/Button.tsx`. `primary`: teal, bold white label,
+`rounded-xl`. `secondary`: white bg, bordered. `ghost`: subtle bg family. Focus
+ring `0 0 0 4px rgba(37,99,235,0.12)` — do not remove. Disabled: reduced opacity,
+no color change. Motion: `transition-colors duration-150`.
 
-- Primitive: `design/components/Card.tsx`
-- Surface: `bg-ds-surface`, `rounded-ds`, `border border-ds-border`, `shadow-ds-card`
-- Padding: via `padding` prop or explicit `p-4` / `p-6`
-- Empty state: single centered `<p className="text-ds-muted text-sm">No data</p>` inside card body
-- Loading state: skeleton shimmer bars replacing content (Forge uses `animate-pulse` divs)
-- Error state: muted error copy + optional retry button (secondary variant)
+**Table** — `design/components/DataTable.tsx`. Sticky header, `p-[14px]` header
+padding, `px-[14px] py-2.5` cell padding. Empty: single full-width `<tr>` with
+centered muted copy. Loading: 3–5 skeleton rows. Error: single row, copy + retry.
 
-### Button
+**Filter panel** — `FilterPanel`/`FilterPanelGroup`/`FilterPanelActions` from
+`design/components/FilterPanel.tsx`. Gradient outer fill, `p-4` outer / `gap-3`
+between groups. Primary action `primary` variant; reset `secondary`/`ghost`.
+Inactive chip: subtle border + light bg; active chip: accent border + soft bg.
 
-- Primitive: `design/components/Button.tsx`
-- `primary`: teal (`bg-ds-teal`), bold white label, `rounded-xl`, min-height ~40–44px
-- `secondary`: white background, `border-ds-border`, `text-ds-primary`
-- `ghost`: `bg-slate-50` family
-- Focus ring: `0 0 0 4px rgba(37,99,235,0.12)` — do not remove
-- Disabled: `opacity-50 cursor-not-allowed` — no color change
-- Motion: `transition-colors duration-150`; `prefers-reduced-motion: no transition`
+**KPI / metric tile** — `design/components/MetricTile.tsx`. Default (number +
+label) and `insight` (left accent + soft gradient) variants. Empty: em-dash in
+value slot. Loading: shimmer block sized to value height.
 
-### Table
+**Badge** — `design/components/Badge.tsx`. Tone-based (`category`/`subcategory`/
+`neutral`) bg/border/text triples. Extend tones in the component, never invent a
+one-off color at the call site.
 
-- Primitive: `design/components/DataTable.tsx`
-- Outer chrome: `DataTable` (border, shadow, optional title row)
-- Inner: `DataTableTable` (sticky header, cell rules)
-- Header padding: `p-[14px]`; cell padding: `px-[14px] py-2.5`
-- Header text: `text-xs uppercase tracking-wide text-ds-muted`
-- Empty state: single `<tr>` with `colSpan` full width, centered muted copy
-- Loading state: skeleton rows (3–5 rows of shimmer)
-- Error state: single row with error copy + retry link
+**Drawer** — `design/components/Drawer.tsx`. Backdrop overlay, click to close.
+Header: title + optional subtitle + close button in one row. Empty/loading/error
+states in the panel body, same pattern as Card.
 
-### Filter panel
+**Chart** — `ChartCard`/`ChartCardEmpty`/`LineChart`/`BarChart` from
+`design/components/`. Always wrap the underlying charting library — never import
+it directly in a spec or implementation. Empty/error both route through
+`ChartCardEmpty`.
 
-- Primitives: `FilterPanel`, `FilterPanelGroup`, `FilterPanelActions` from `design/components/FilterPanel.tsx`
-- Outer: gradient fill, `rounded-ds-xl` (16px), `border-ds-filter-border`, `shadow-ds-filter-panel`
-- Padding: `p-4` outer; `gap-3` between groups
-- Labels: `text-ds-filter-label`, extrabold uppercase, small size
-- Primary action: `Button variant="primary"` (teal)
-- Reset: `Button variant="secondary"` or `ghost`
-- Chip (inactive): slate border + light bg
-- Chip (active): `border-ds-accent` + `bg-ds-accent-soft` + blue text
+### Mockup library index (example)
 
-### KPI / metric tile
-
-- Primitive: `design/components/MetricTile.tsx`
-- Variants: default (number + label) and `insight` (left accent + soft blue gradient)
-- Value font: `clamp(21px, 1.9vw, 26px)`, bold, `text-ds-strong`
-- Label: 10px uppercase, `kpiLabel` color
-- Caption: 11px, `text-ds-muted`
-- Empty state: `—` dash in value slot, muted label
-- Loading state: shimmer block sized to match value height
-
-### Badge
-
-- Primitive: `design/components/Badge.tsx`
-- `tone="category"`: blue bg/border/text (`badgeCategory*` tokens)
-- `tone="subcategory"`: green bg/border/text (`badgeSubcategory*` tokens)
-- `tone="neutral"`: slate family
-- Do not invent new badge colors — extend tones in Badge.tsx only
-
-### Drawer
-
-- Primitive: `design/components/Drawer.tsx`
-- Backdrop: `rgba(15,23,42,0.42)`, click to close
-- Panel: white, `max-w-[1040px]`, `rounded-l-[18px]`, `border-ds-filter-border`, `shadow-ds-drawer`
-- Header: title + optional subtitle + `DrawerCloseButton` in one flex row
-- Empty state: muted centered copy in panel body
-- Loading state: skeleton in panel body
-- Error state: error copy + retry action in panel body
-
-### Chart
-
-- Primitives: `ChartCard`, `ChartCardEmpty`, `LineChart`, `BarChart` from `design/components/`
-- Grid stroke: `#eef2f7`; axis ticks: `#8a9299` / `#5f6c7b`
-- Series stroke width: 2–2.5px
-- Do NOT import from `recharts` directly — always use wrappers
-- Empty state: `ChartCardEmpty` component
-- Loading state: shimmer block at chart height
-- Error state: `ChartCardEmpty` with error copy
-
----
-
-## Mockup library index
-
-| File | Content | Key patterns |
-|---|---|---|
-| `docs/ui-mockups/workbook-discovery.html` | Workbook discovery page (52K) | Filter rail, workbook card grid, chip selectors, table header chrome |
-| `docs/ui-mockups/workbook-discovery-v2.html` | Workbook discovery v2 (89K) | Refined filter panel, drawer detail view, badge usage in rows, KPI strip |
-
-When citing either file, include line range. Example: `workbook-discovery-v2.html:L440–L512 — drawer panel layout`.
-
----
-
-## Interaction-state checklist
-
-Every component spec MUST answer all of these before Palette calls it done:
-
-- [ ] **Default** — resting appearance
-- [ ] **Hover** — color / shadow shift (subtle; do not overdo)
-- [ ] **Focus** — blue ring `0 0 0 4px rgba(37,99,235,0.12)`; keyboard-accessible
-- [ ] **Active / pressed** — slight scale or darken
-- [ ] **Disabled** — `opacity-50 cursor-not-allowed`; no interactive styles
-- [ ] **Loading** — shimmer or spinner; element not interactive
-- [ ] **Empty** — zero-data state; not an error, just no content yet
-- [ ] **Error** — destructive copy + optional retry; never silent
-- [ ] **Dark mode** — token mapping for all of the above
-
----
-
-## WCAG AA contrast thresholds
-
-| Text size | Minimum ratio | Notes |
-|---|---|---|
-| Normal text (<18px or <14px bold) | 4.5:1 | Body, labels, badges |
-| Large text (≥18px or ≥14px bold) | 3:1 | Section titles, KPI values |
-| UI components / graphical | 3:1 | Button borders, input borders, chart lines |
-
-Always state the approximate ratio when proposing a new color pair. Use the `textPrimary` (#0f1419) on `bgApp` (#f6f7f9) pair as the baseline (ratio ~17:1).
-
----
-
-## Motion budget
-
-| Use | Duration | Easing | Reduced-motion fallback |
-|---|---|---|---|
-| Color / opacity transitions | 150ms | `ease-out` | `transition: none` |
-| Height / layout expand | 200ms | `ease-in-out` | Instant snap |
-| Drawer slide | 250ms | `cubic-bezier(0.4,0,0.2,1)` | Instant snap |
-| Skeleton shimmer | continuous | `animate-pulse` | Static muted bg |
-| Chart mount animation | 400ms | `ease-out` | Skip animation |
-
-Always wrap motion specs with: `@media (prefers-reduced-motion: reduce) { … }` note in the spec.
-
----
-
-## Pairing rules
-
-- Palette authors the spec → Forge implements TypeScript/React
-- Design conflicts with design.md → surface via `## NEXUS:NEEDS-DECISION` before speccing
-- New token needed beyond existing set → surface via `## NEXUS:NEEDS-DECISION` (Atlas-equivalent gate for design tokens)
-- Verification of implemented output → Lens's job, not Palette's
-
----
-
-## Mandatory Discipline (2026-05-13)
-
-### Token integrity
-- Every CSS custom property referenced in a Tailwind arbitrary value
-  (`bg-[rgb(var(--color-foo))]`) MUST be defined in `app/app/globals.css` (light
-  + dark blocks). Use a token lint pass or codebase_search before introducing.
-  See `--color-surface` regression from 2026-05-13.
-
-### Visual gate
-- All Palette designs require a screenshot or visual mockup in the response —
-  not just CSS specs.
+A project MAY maintain an HTML mockup library (e.g. under `docs/ui-mockups/`) —
+verify it exists before citing a path. When citing a mockup file, include a line
+range: `<file>.html:L440–L512 — drawer panel layout`.

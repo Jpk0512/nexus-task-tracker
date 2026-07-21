@@ -1,258 +1,68 @@
 {
+  "version": 1,
   "hooks": {
-    "PreToolUse": [
+    "beforeShellExecution": [
       {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "'/Users/john.keeney/nexus-task-tracker/.codex/hooks/worktree-guard.sh'"
-          },
-          {
-            "type": "command",
-            "command": "'/Users/john.keeney/nexus-task-tracker/.codex/hooks/no-direct-push-to-session-branch.sh'"
-          },
-          {
-            "type": "command",
-            "command": "'/Users/john.keeney/nexus-task-tracker/.codex/hooks/socraticode-gate.sh'"
-          }
-        ]
-      },
-      {
-        "matcher": "Read",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "'/Users/john.keeney/nexus-task-tracker/.codex/hooks/socraticode-gate.sh'"
-          }
-        ]
-      },
-      {
-        "matcher": "Task|TeamCreate",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "'/Users/john.keeney/nexus-task-tracker/.codex/hooks/broker-gate.py'"
-          },
-          {
-            "type": "command",
-            "command": "'/Users/john.keeney/nexus-task-tracker/.codex/hooks/skills-required-guard.sh'"
-          },
-          {
-            "type": "command",
-            "command": "'/Users/john.keeney/nexus-task-tracker/.codex/hooks/persona-alias-resolver.sh'"
-          },
-          {
-            "type": "command",
-            "command": "'/Users/john.keeney/nexus-task-tracker/.codex/hooks/parallel-first-check.sh'"
-          },
-          {
-            "type": "command",
-            "command": "python3 '/Users/john.keeney/nexus-task-tracker/.codex/hooks/dispatch-capture.py' || true"
-          }
-        ]
-      },
-      {
-        "matcher": "Agent",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 '/Users/john.keeney/nexus-task-tracker/.codex/hooks/dispatch-capture.py' || true"
-          }
-        ]
-      },
-      {
-        "matcher": "Write|Edit|MultiEdit|NotebookEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "'/Users/john.keeney/nexus-task-tracker/.codex/hooks/secret-path-guard.sh'"
-          }
-        ]
+        "type": "command",
+        "command": ".codex/hooks/codex-adapter.sh beforeShellExecution no-direct-push-to-session-branch.sh worktree-guard.sh",
+        "failClosed": false,
+        "timeout": 30
       }
     ],
-    "PostToolUse": [
+    "beforeReadFile": [
       {
-        "matcher": "mcp__plugin_socraticode_socraticode__codebase_search|mcp__plugin_socraticode_socraticode__codebase_symbol|mcp__plugin_socraticode_socraticode__codebase_symbols|mcp__plugin_socraticode_socraticode__codebase_context_search|mcp__plugin_socraticode_socraticode__codebase_graph_query|mcp__plugin_socraticode_socraticode__codebase_impact|mcp__plugin_socraticode_socraticode__codebase_flow",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "'/Users/john.keeney/nexus-task-tracker/.codex/hooks/socraticode-flag.sh'"
-          }
-        ]
-      },
-      {
-        "matcher": "Write|Edit|MultiEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "'/Users/john.keeney/nexus-task-tracker/.codex/hooks/verify-after-edit.sh'"
-          },
-          {
-            "type": "command",
-            "command": "'/Users/john.keeney/nexus-task-tracker/.codex/hooks/reflection-capture.sh' 2>/dev/null || true"
-          }
-        ]
-      },
-      {
-        "matcher": "Task|TeamCreate",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "'/Users/john.keeney/nexus-task-tracker/.codex/hooks/stall-counter.sh'"
-          }
-        ]
-      },
-      {
-        "matcher": "Read|Grep|Glob|mcp__plugin_socraticode_socraticode__codebase_search|mcp__plugin_socraticode_socraticode__codebase_symbol|mcp__plugin_socraticode_socraticode__codebase_symbols|mcp__plugin_socraticode_socraticode__codebase_context_search|mcp__plugin_socraticode_socraticode__codebase_graph_query|mcp__plugin_socraticode_socraticode__codebase_impact|mcp__plugin_socraticode_socraticode__codebase_flow|Edit|Write|MultiEdit|NotebookEdit|Bash|Task",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "'/Users/john.keeney/nexus-task-tracker/.codex/hooks/analysis-paralysis-guard.sh'"
-          }
-        ]
-      },
-      {
-        "matcher": "Read",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "'/Users/john.keeney/nexus-task-tracker/.codex/hooks/read-injection-scanner.sh'"
-          }
-        ]
+        "type": "command",
+        "command": ".codex/hooks/codex-adapter.sh beforeReadFile read-injection-scanner.sh",
+        "failClosed": false,
+        "timeout": 30
       }
     ],
-    "PreCompact": [
+    "afterFileEdit": [
       {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 '/Users/john.keeney/nexus-task-tracker/.codex/hooks/precompact-reinject.py' 2>/dev/null || true"
-          }
-        ]
+        "type": "command",
+        "command": ".codex/hooks/codex-adapter.sh afterFileEdit verify-after-edit.sh reflection-capture.sh",
+        "failClosed": false,
+        "timeout": 60
       }
     ],
-    "SessionStart": [
+    "beforeSubmitPrompt": [
       {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 /Users/john.keeney/nexus-task-tracker/.memory/log.py session reap --max-age-hours 2 2>/dev/null | python3 -c 'import json,sys; d=json.load(sys.stdin); n=d.get(\"reaped_count\",0); print(f\"[Session Lifecycle] Reaped {n} abandoned session(s) at startup\") if n else None' 2>/dev/null || true"
-          },
-          {
-            "type": "command",
-            "command": "python3 /Users/john.keeney/nexus-task-tracker/.memory/log.py memory retain 2>/dev/null | python3 -c 'import json,sys; d=json.load(sys.stdin); c=d.get(\"context_log_dropped\",0); f=d.get(\"facts_decayed\",0); print(f\"[Memory Retention] Dry-run: {c} stale context_log rows + {f} unpinned facts past TTL. Apply with: python3 .memory/log.py memory retain --apply\") if (c or f) else None' 2>/dev/null || true"
-          },
-          {
-            "type": "command",
-            "command": "'/Users/john.keeney/nexus-task-tracker/.codex/hooks/lesson-harvester.sh' 2>/dev/null || true"
-          },
-          {
-            "type": "command",
-            "command": "'/Users/john.keeney/nexus-task-tracker/.codex/hooks/router-health-check.sh' 2>/dev/null || true"
-          },
-          {
-            "type": "command",
-            "command": "'/Users/john.keeney/nexus-task-tracker/.codex/hooks/health-banner.sh' 2>/dev/null || true"
-          },
-          {
-            "type": "command",
-            "command": "'/Users/john.keeney/nexus-task-tracker/.codex/hooks/inject-invariants.sh' session-start 2>/dev/null || true"
-          }
-        ]
+        "type": "command",
+        "command": ".codex/hooks/codex-adapter.sh beforeSubmitPrompt context-reset-monitor.py",
+        "failClosed": false,
+        "timeout": 15
       }
     ],
-    "UserPromptSubmit": [
+    "stop": [
       {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 '/Users/john.keeney/nexus-task-tracker/.codex/hooks/router.py' 2>/dev/null || true"
-          },
-          {
-            "type": "command",
-            "command": "python3 /Users/john.keeney/nexus-task-tracker/.memory/log.py context dump 2>/dev/null | python3 -c \"import json,sys; d=json.load(sys.stdin); tasks=[t for t in d.get('open_tasks',[]) if t['status']=='in_progress']; print('\\n[Context] Open in-progress tasks: ' + ', '.join(t['id'] for t in tasks)) if tasks else None\" 2>/dev/null || true"
-          },
-          {
-            "type": "command",
-            "command": "python3 '/Users/john.keeney/nexus-task-tracker/.codex/hooks/context-reset-monitor.py' 2>&1 || true"
-          },
-          {
-            "type": "command",
-            "command": "'/Users/john.keeney/nexus-task-tracker/.codex/hooks/auto-parallel-nudge.sh' || true"
-          }
-        ]
+        "type": "command",
+        "command": ".codex/hooks/codex-adapter.sh stop memory-consolidator.sh \"sh:python3 ./.memory/log.py context snapshot --action-type session_stop --summary 'Auto-snapshot at Codex stop' 2>/dev/null || true\" session-end-reminder.sh",
+        "failClosed": false,
+        "timeout": 60
       }
     ],
-    "SubagentStop": [
+    "sessionStart": [
       {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "'/Users/john.keeney/nexus-task-tracker/.codex/hooks/verify-deliverables.sh'"
-          },
-          {
-            "type": "command",
-            "command": "'/Users/john.keeney/nexus-task-tracker/.codex/hooks/verify-after-edit.sh'"
-          },
-          {
-            "type": "command",
-            "command": "'/Users/john.keeney/nexus-task-tracker/.codex/hooks/root-cause-gate.sh'"
-          },
-          {
-            "type": "command",
-            "command": "'/Users/john.keeney/nexus-task-tracker/.codex/hooks/lens-gate.sh'"
-          },
-          {
-            "type": "command",
-            "command": "'/Users/john.keeney/nexus-task-tracker/.codex/hooks/no-deferral-gate.sh'"
-          },
-          {
-            "type": "command",
-            "command": "'/Users/john.keeney/nexus-task-tracker/.codex/hooks/visual-evidence-gate.sh'"
-          },
-          {
-            "type": "command",
-            "command": "python3 '/Users/john.keeney/nexus-task-tracker/.codex/hooks/return-validator.py' || true"
-          },
-          {
-            "type": "command",
-            "command": "'/Users/john.keeney/nexus-task-tracker/.codex/hooks/return-summarizer.sh' 2>/dev/null || true"
-          },
-          {
-            "type": "command",
-            "command": "python3 '/Users/john.keeney/nexus-task-tracker/.codex/hooks/completion-capture.py' || true"
-          },
-          {
-            "type": "command",
-            "command": "python3 '/Users/john.keeney/nexus-task-tracker/.codex/hooks/feedback-capture.py' || true"
-          },
-          {
-            "type": "command",
-            "command": "'/Users/john.keeney/nexus-task-tracker/.codex/hooks/do-not-touch-guard.sh' || true"
-          }
-        ]
+        "type": "command",
+        "command": ".codex/hooks/codex-adapter.sh sessionStart \"sh:python3 ./.memory/log.py session reap --max-age-hours 2 2>/dev/null || true\" \"sh:python3 ./.memory/log.py memory retain 2>/dev/null || true\" lesson-harvester.sh router-health-check.sh health-banner.sh",
+        "failClosed": false,
+        "timeout": 30
       }
     ],
-    "Stop": [
+    "subagentStart": [
       {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "'/Users/john.keeney/nexus-task-tracker/.codex/hooks/memory-consolidator.sh' 2>/dev/null || true"
-          },
-          {
-            "type": "command",
-            "command": "python3 /Users/john.keeney/nexus-task-tracker/.memory/log.py context snapshot --action-type session_stop --summary \"Auto-snapshot at agent stop\" 2>/dev/null || true; python3 /Users/john.keeney/nexus-task-tracker/.memory/sync_docs.py 2>/dev/null || true"
-          },
-          {
-            "type": "command",
-            "command": "'/Users/john.keeney/nexus-task-tracker/.codex/hooks/session-end-reminder.sh' 2>/dev/null || true"
-          }
-        ]
+        "type": "command",
+        "command": ".codex/hooks/codex-adapter.sh subagentStart broker-gate.py skills-required-guard.sh persona-alias-resolver.sh parallel-first-check.sh",
+        "failClosed": false,
+        "timeout": 30
+      }
+    ],
+    "subagentStop": [
+      {
+        "type": "command",
+        "command": ".codex/hooks/codex-adapter.sh subagentStop lens-gate.sh root-cause-gate.sh verify-deliverables.sh return-summarizer.sh",
+        "failClosed": false,
+        "timeout": 60
       }
     ]
   }

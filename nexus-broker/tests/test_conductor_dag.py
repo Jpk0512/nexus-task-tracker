@@ -16,6 +16,7 @@ import threading
 from pathlib import Path
 
 import pytest
+from syrupy.assertion import SnapshotAssertion
 
 from broker.conductor import dag as dag_mod
 from broker.conductor.pool import WorkerResult
@@ -213,7 +214,9 @@ def test_work_stealing_runs_disjoint_branches_concurrently() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_dispatch_node_routes_claude_through_pool(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_dispatch_node_routes_claude_through_pool(
+    monkeypatch: pytest.MonkeyPatch, snapshot: SnapshotAssertion
+) -> None:
     def fake_run_worker(task, *, claude_bin="claude"):
         return WorkerResult(task.task_id, ok=True, duration_ms=42, payload={"a": 1}, total_cost_usd=0.002)
 
@@ -225,12 +228,13 @@ def test_dispatch_node_routes_claude_through_pool(monkeypatch: pytest.MonkeyPatc
 
     assert result.executor == "claude"
     assert result.ok is True
-    assert result.payload == {"a": 1}
+    # envelope fixture: the dispatch_node result payload, reviewed via snapshot (F3-04).
+    assert result.payload == snapshot(name="claude_payload")
     assert result.telemetry.total_cost_usd == pytest.approx(0.002)
     assert result.telemetry.worker_id == "w0"
 
 
-def test_dispatch_node_routes_codex_through_exec_subprocess() -> None:
+def test_dispatch_node_routes_codex_through_exec_subprocess(snapshot: SnapshotAssertion) -> None:
     jsonl = "\n".join([
         '{"type":"thread.started","thread_id":"th-1"}',
         '{"type":"turn.started"}',
@@ -253,7 +257,7 @@ def test_dispatch_node_routes_codex_through_exec_subprocess() -> None:
 
     assert result.executor == "codex"
     assert result.ok is True
-    assert result.payload == {"greeting": "hi"}
+    assert result.payload == snapshot(name="codex_payload")
     assert result.telemetry.input_tokens == 100
     assert result.telemetry.output_tokens == 20
     assert result.telemetry.worker_id == "w1"

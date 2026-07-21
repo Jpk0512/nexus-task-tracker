@@ -278,7 +278,7 @@ export const QuickCapture = () => {
 	// drops below the input as soon as any token resolves. Cheap reassurance
 	// that the parser saw what they meant.
 	const previewChips: Array<{ label: string; tone: string }> = [];
-	if (project) previewChips.push({ label: `@${project.name}`, tone: "violet" });
+	if (project) previewChips.push({ label: `@${project.name}`, tone: "cyan" });
 	if (parsed.priority)
 		previewChips.push({ label: `!${parsed.priority}`, tone: "amber" });
 	if (parsed.dueDate)
@@ -297,7 +297,7 @@ export const QuickCapture = () => {
 			)}
 		>
 			<div className="flex items-center gap-2">
-				<SparklesIcon className="size-4 shrink-0 text-violet-500" />
+				<SparklesIcon className="size-4 shrink-0 text-cyan-500" />
 				<input
 					ref={inputRef}
 					type="text"
@@ -331,7 +331,7 @@ export const QuickCapture = () => {
 							key={`${c.tone}-${c.label}`}
 							className={cn(
 								"inline-flex h-[18px] items-center rounded-full px-1.5 font-[510] text-[10px] uppercase tracking-wide",
-								c.tone === "violet" && "bg-violet-500/15 text-violet-500",
+								c.tone === "cyan" && "bg-cyan-500/15 text-cyan-500",
 								c.tone === "amber" && "bg-amber-500/15 text-amber-500",
 								c.tone === "sky" && "bg-sky-500/15 text-sky-500",
 								c.tone === "emerald" && "bg-emerald-500/15 text-emerald-500",

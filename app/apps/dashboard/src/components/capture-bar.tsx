@@ -143,7 +143,7 @@ export function CaptureBar({ className }: { className?: string }) {
 			<SparklesIcon
 				className={cn(
 					"size-3.5 shrink-0",
-					becomesTask ? "text-sky-400" : "text-violet-500",
+					becomesTask ? "text-sky-400" : "text-cyan-500",
 				)}
 			/>
 			<input
@@ -171,7 +171,7 @@ export function CaptureBar({ className }: { className?: string }) {
 					"hidden shrink-0 items-center rounded-full border px-1.5 py-0.5 text-[10px] font-[510] uppercase tracking-wide sm:inline-flex",
 					becomesTask
 						? "border-sky-500/30 bg-sky-500/10 text-sky-300"
-						: "border-violet-500/30 bg-violet-500/10 text-violet-300",
+						: "border-cyan-500/30 bg-cyan-500/10 text-cyan-300",
 				)}
 			>
 				{becomesTask ? `Task${project ? ` · ${project.name}` : ""}` : "Todo"}

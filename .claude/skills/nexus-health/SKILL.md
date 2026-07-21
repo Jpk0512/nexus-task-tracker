@@ -21,8 +21,5 @@ Optional flags:
 - `--history` — show last 10 logged FAIL events
 - `--verbose` — include PASS hints / extra detail
 
-For fleet status (only meaningful at the Plexus level):
-`python3 ~/nexus-installer/.memory/log.py registry health`
-
 ## Reporting back
 Surface the summary line (`N PASS · W WARN · F FAIL`), then enumerate any non-PASS items with their hints. If all green, just say "All checks PASS".

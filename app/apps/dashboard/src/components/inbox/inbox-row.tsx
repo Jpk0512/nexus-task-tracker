@@ -185,7 +185,7 @@ export const InboxRow = ({
 				"hover:bg-white/[0.04] dark:hover:bg-white/[0.04]",
 				isSelected && "bg-white/[0.06] dark:bg-white/[0.06]",
 				isFocused
-					? "border-violet-400/70 ring-2 ring-violet-400/40"
+					? "border-cyan-400/70 ring-2 ring-cyan-400/40"
 					: isBulkSelected
 						? "border-primary/50 bg-primary/[0.04]"
 						: "border-transparent",

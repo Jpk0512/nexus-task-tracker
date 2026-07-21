@@ -1,11 +1,16 @@
 {
   "schema_version": 1,
-  "current_version": "1.17.3",
-  "current_release": "releases/1.17.3",
+  "current_version": "1.19.0",
+  "current_release": "releases/1.19.0",
   "installed_at": "2026-06-16T19:15:41.734696+00:00",
-  "updated_at": "2026-07-12T06:43:46.886277+00:00",
+  "updated_at": "2026-07-18T17:33:46.300761+00:00",
   "source": "plexus",
   "releases": [
-    "1.17.3"
+    "1.17.3",
+    "1.18.0",
+    "1.18.1",
+    "1.18.2",
+    "1.18.3",
+    "1.19.0"
   ]
 }

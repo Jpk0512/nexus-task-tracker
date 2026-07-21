@@ -228,12 +228,8 @@ def _override_matches(override):
 FIXING_AGENTS = frozenset({
     "forge-ui",
     "forge-wire",
-    "forge-ui-pro",
-    "forge-wire-pro",
     "pipeline-data",
     "pipeline-async",
-    "pipeline-data-pro",
-    "pipeline-async-pro",
     "atlas",
     "hermes",
     "quill-ts",

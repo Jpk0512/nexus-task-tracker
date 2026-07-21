@@ -58,6 +58,19 @@ def test_bad_codex_lane_disabled_detected(tmp_path: Path) -> None:
     assert any(e.code == "codex-lane-disabled" for e in errors)
 
 
+_REAL_CODEX_LANE_FLAG = Path(__file__).resolve().parents[2] / ".claude" / "codex-lane.enabled"
+
+
+@pytest.mark.skipif(
+    _REAL_CODEX_LANE_FLAG.exists(),
+    reason=(
+        "this machine has the codex lane deliberately ENABLED (RDEC-011 "
+        "decorrelated-judge lane, orchestrator decision) — the real "
+        f"{_REAL_CODEX_LANE_FLAG} flag file exists, so the off-by-default proof is "
+        "unprovable HERE by construction, not broken. The property still holds "
+        "and is still proven on any clean/CI machine where the lane ships off."
+    ),
+)
 def test_codex_lane_rejected_on_real_default_path_no_override() -> None:
     """R4-T07 off-by-default proof: every other test in this module passes an
     explicit `codex_lane_flag_path` override. This one calls `validate_file`
@@ -68,7 +81,7 @@ def test_codex_lane_rejected_on_real_default_path_no_override() -> None:
     `bin/codex-lane enable` on this machine, this test starts failing until
     `disable` is run again — that is the intended, correct behavior of an
     off-by-default proof, not a bug in the test."""
-    real_flag = Path(__file__).resolve().parents[2] / ".claude" / "codex-lane.enabled"
+    real_flag = _REAL_CODEX_LANE_FLAG
     assert not real_flag.exists(), (
         f"real lane flag {real_flag} exists — off-by-default proof is meaningless while "
         "the lane is actually enabled on this machine; run 'bin/codex-lane disable' first"

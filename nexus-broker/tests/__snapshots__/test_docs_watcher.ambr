@@ -1,0 +1,58 @@
+# serializer version: 1
+# name: test_dead_path_with_unique_basename_match_is_mechanically_fixed[trail_fixes]
+  list([
+    dict({
+      'after': 'nexus-broker/src/broker/daemon/docs_watcher.py',
+      'auto_fixed': True,
+      'before': 'old/location/docs_watcher.py',
+      'category': 'mechanical',
+      'detail': 'referenced path `old/location/docs_watcher.py` does not exist; unique same-name match at `nexus-broker/src/broker/daemon/docs_watcher.py`',
+      'kind': 'dead_path',
+    }),
+  ])
+# ---
+# name: test_on_doc_written_rechecks_its_own_fix_and_converges_clean[recheck_envelope]
+  dict({
+    'auto_fixed': False,
+    'findings': list([
+    ]),
+    'flagged': False,
+    'recheck': None,
+  })
+# ---
+# name: test_stale_version_is_mechanically_fixed_and_logged_to_trail[rewritten_doc]
+  '''
+  This install is v2.0.0.
+  
+  '''
+# ---
+# name: test_stale_version_is_mechanically_fixed_and_logged_to_trail[trail_fixes]
+  list([
+    dict({
+      'after': 'v2.0.0',
+      'auto_fixed': True,
+      'before': 'v1.0.0',
+      'category': 'mechanical',
+      'detail': 'doc cites v1.0.0, canonical is v2.0.0',
+      'kind': 'stale_version',
+    }),
+  ])
+# ---
+# name: test_superseded_decision_pointer_is_mechanically_fixed[rewritten_doc]
+  '''
+  See DEC-084 for the original ruling.
+  
+  '''
+# ---
+# name: test_superseded_decision_pointer_is_mechanically_fixed[trail_fixes]
+  list([
+    dict({
+      'after': 'DEC-084',
+      'auto_fixed': True,
+      'before': 'DEC-050',
+      'category': 'mechanical',
+      'detail': 'DEC-050 was superseded by DEC-084',
+      'kind': 'superseded_pointer',
+    }),
+  ])
+# ---
