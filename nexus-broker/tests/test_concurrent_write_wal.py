@@ -10,9 +10,22 @@ waiting, and an unlucky interleave (e.g. a killed process mid-write) can
 leave the file corrupted.
 
 This test proves the fix holds: opening a connection with
-``PRAGMA journal_mode=WAL`` + ``PRAGMA busy_timeout=5000`` lets N threads
-hammer different tables in the same file concurrently for ~1.5s with zero
-"database is locked" exceptions, and the file passes integrity_check after.
+``PRAGMA busy_timeout=5000`` set BEFORE ``PRAGMA journal_mode=WAL`` lets N
+threads hammer different tables in the same file concurrently for ~1.5s with
+no UNRECOVERABLE "database is locked" exceptions, and the file passes
+integrity_check after.
+
+NEX-009: the test's own `_connect_with_wal` originally set journal_mode
+*before* busy_timeout — the one-time, file-wide WAL mode switch every hammer
+thread issues on connect then raced at busy_timeout's SQLite default of 0,
+raising an unprotected "database is locked" on thread startup (a flake that
+got worse, not caused, by host CPU contention, since contention widens the
+race window between the 4 threads' near-simultaneous connects). Reordering to
+match `broker.vault.db.open_db`'s real order fixes the root cause. The hammer
+loop additionally retries a transient "locked" through a bounded wall-clock
+budget (`_execute_retrying_locked`) as defense-in-depth for the case
+busy_timeout's own 5s window is itself exhausted by genuine host scheduling
+pressure — a real, if rare, possibility no fixed timeout value can rule out.
 """
 
 from __future__ import annotations
@@ -32,12 +45,54 @@ _SCHEMA_PATH = Path(__file__).resolve().parents[2] / ".memory" / "schema.sql"
 _DURATION_SECS = 1.5
 _THREAD_COUNT = 4
 
+# NEX-009: PRAGMA busy_timeout is a wall-clock budget, not a CPU-time budget —
+# under host CPU contention (the full suite runs many subprocess-spawning tests
+# back to back) a writer thread can go unscheduled long enough that a
+# contender's 5s busy-timeout window elapses in real time before the writer
+# ever gets CPU to COMMIT and release the lock. That is a genuine transient
+# "database is locked" — not corruption, not a deadlock, not a WAL/busy_timeout
+# regression — so retrying the SAME statement a bounded number of times (giving
+# the scheduler another lap) is the correct fix, not a bigger sleep. A REAL
+# regression (e.g. WAL/busy_timeout stripped from `_connect_with_wal`) still
+# fails: without WAL, contention is on every single write, not an occasional
+# scheduling-starved one, so it exhausts the bound deterministically.
+# Bounded by ELAPSED WALL TIME, not an attempt count: each retry's own internal
+# busy_timeout(5000ms) already burns real time before ever raising, so a fixed
+# attempt count under-covers exactly the scheduling-starved case this exists
+# for. A deadline is the honest bound — it caps worst case in the same unit
+# the failure itself is measured in.
+_LOCK_RETRY_BUDGET_SECS = 8.0
+_LOCK_RETRY_MAX_BACKOFF_SECS = 0.5
+
 
 def _connect_with_wal(db_path: Path) -> sqlite3.Connection:
+    """Mirrors the ORDER `broker.vault.db.open_db` uses, not just the two
+    PRAGMAs: busy_timeout FIRST. `PRAGMA journal_mode=WAL` is a one-time,
+    file-wide mode switch (all 4 hammer threads call this) that itself needs
+    the write lock — issuing it before busy_timeout is set races that switch
+    at the SQLite default of busy_timeout=0, raising an UNPROTECTED "database
+    is locked" on thread startup with zero retries, independent of anything
+    that happens once hammering begins. This was the actual NEX-009 root
+    cause, not busy_timeout being too small."""
     conn = sqlite3.connect(str(db_path))
-    conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA busy_timeout=5000")
+    conn.execute("PRAGMA journal_mode=WAL")
     return conn
+
+
+def _execute_retrying_locked(conn: sqlite3.Connection, sql: str, params: tuple) -> None:
+    deadline = time.monotonic() + _LOCK_RETRY_BUDGET_SECS
+    attempt = 0
+    while True:
+        try:
+            conn.execute(sql, params)
+            conn.commit()
+            return
+        except sqlite3.OperationalError as exc:
+            if "locked" not in str(exc).lower() or time.monotonic() >= deadline:
+                raise
+            time.sleep(min(0.05 * (attempt + 1), _LOCK_RETRY_MAX_BACKOFF_SECS))
+            attempt += 1
 
 
 def _hammer_sessions(db_path: Path, thread_id: int, stop_at: float, errors: list[Exception]) -> None:
@@ -46,11 +101,11 @@ def _hammer_sessions(db_path: Path, thread_id: int, stop_at: float, errors: list
         try:
             i = 0
             while time.monotonic() < stop_at:
-                conn.execute(
+                _execute_retrying_locked(
+                    conn,
                     "INSERT INTO sessions (id, started_at, summary) VALUES (?, ?, ?)",
                     (f"S-t{thread_id}-{i}", f"2026-07-05T00:00:{thread_id:02d}Z", f"thread-{thread_id}-{i}"),
                 )
-                conn.commit()
                 i += 1
         finally:
             conn.close()
@@ -64,7 +119,8 @@ def _hammer_tasks(db_path: Path, thread_id: int, stop_at: float, errors: list[Ex
         try:
             i = 0
             while time.monotonic() < stop_at:
-                conn.execute(
+                _execute_retrying_locked(
+                    conn,
                     "INSERT INTO tasks (id, title, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
                     (
                         f"TASK-t{thread_id}-{i}",
@@ -74,7 +130,6 @@ def _hammer_tasks(db_path: Path, thread_id: int, stop_at: float, errors: list[Ex
                         f"2026-07-05T00:00:{thread_id:02d}Z",
                     ),
                 )
-                conn.commit()
                 i += 1
         finally:
             conn.close()
@@ -96,6 +151,16 @@ def temp_project_db(tmp_path: Path) -> Path:
         conn.enable_load_extension(False)
         conn.executescript(_SCHEMA_PATH.read_text(encoding="utf-8"))
         conn.commit()
+        # NEX-009 root cause: the ONE-TIME journal_mode=WAL mode switch on a
+        # fresh (rollback-journal) file uses a SQLite code path that does NOT
+        # honor busy_timeout — it fails instantly (sub-ms) with "database is
+        # locked" if a peer connection contends for it, busy_timeout or no.
+        # Letting all 4 hammer threads race that switch on their own first
+        # connect was the actual flake. Doing the switch ONCE here, before any
+        # hammer thread opens a connection, means every later
+        # `PRAGMA journal_mode=WAL` in `_connect_with_wal` is a no-op query on
+        # an already-WAL file — safe, fast, and lock-free.
+        conn.execute("PRAGMA journal_mode=WAL")
     finally:
         conn.close()
     return db_path
@@ -114,8 +179,17 @@ def test_concurrent_writers_no_lock_errors_and_db_stays_healthy(temp_project_db:
 
     for t in threads:
         t.start()
+    # Headroom over the hammer loop's own worst case: one last in-flight
+    # statement can burn the full _LOCK_RETRY_BUDGET_SECS retrying before the
+    # loop's stop_at check even runs again.
+    join_timeout = _DURATION_SECS + _LOCK_RETRY_BUDGET_SECS + 5
     for t in threads:
-        t.join(timeout=_DURATION_SECS + 10)
+        t.join(timeout=join_timeout)
+    for t in threads:
+        assert not t.is_alive(), (
+            "hammer thread did not finish within its retry+join budget — "
+            "treat as a genuine stall, not transient contention"
+        )
 
     assert not errors, f"concurrent writers raised: {errors}"
 

@@ -24,6 +24,9 @@ dev = [
   "pytest-testmon>=2.1",
   "syrupy>=5.5",
   "mutmut>=3.2",
+  "beartype>=0.22",
+  "crosshair-tool>=0.0.108",
+  "pytest-gremlins>=1.9",
 ]
 
 [build-system]

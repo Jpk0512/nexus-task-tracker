@@ -93,6 +93,20 @@ _gd_spec = importlib.util.spec_from_file_location("_gate_deny", _gd_path)
 _gate_deny_mod = importlib.util.module_from_spec(_gd_spec)  # type: ignore[arg-type]
 _gd_spec.loader.exec_module(_gate_deny_mod)  # type: ignore[union-attr]
 
+# F2-04 SHADOW wiring (tranche-B) — best-effort, never authoritative. See
+# _verify_shadow.py's module docstring. Guarded: an isolated test-fixture
+# copy of just this hook file (no _verify_shadow.py sibling) must never
+# crash the gate — any load/install failure here is swallowed, same
+# best-effort posture as the _heartbeat.py load just below.
+try:
+    _vs_path = Path(__file__).parent / "_verify_shadow.py"
+    _vs_spec = importlib.util.spec_from_file_location("_verify_shadow", _vs_path)
+    _verify_shadow_mod = importlib.util.module_from_spec(_vs_spec)  # type: ignore[arg-type]
+    _vs_spec.loader.exec_module(_verify_shadow_mod)  # type: ignore[union-attr]
+    _verify_shadow_mod.install_shadow_wiring(_gate_deny_mod, "dispatch.pre.verify", "broker-gate")
+except Exception:
+    _verify_shadow_mod = None
+
 # Load _heartbeat from the same hooks directory. Best-effort only — see
 # _heartbeat.py; this MUST NEVER change exit code/behavior of this gate.
 # emit_heartbeat() itself never raises; the try/except here additionally
@@ -900,6 +914,7 @@ def main() -> None:
     payload = _read_payload()
     global _LAST_PAYLOAD
     _LAST_PAYLOAD = payload if isinstance(payload, dict) else {}
+
     persona, intent, work_type, task_tier, team_name = _dispatch_facts(payload)
 
     # Stage 1a — cheapest: in-memory-only early-out (no I/O).

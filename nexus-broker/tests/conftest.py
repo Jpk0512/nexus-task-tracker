@@ -34,6 +34,15 @@ import sys
 
 import pytest
 
+# NEX-002: must precede every broker.* import in this process — beartype's claw
+# only instruments submodules imported AFTER the hook below is installed. None
+# of the stdlib/pytest imports above touch broker.*, so this is still "first",
+# and placing it after them (rather than before) keeps this file E402-clean.
+# See _beartype_activation.py for the covered-module list and why it's scoped.
+from _beartype_activation import activate as _nex002_activate_beartype
+
+_nex002_activate_beartype()
+
 # Several tests in this suite dynamically load nexus-package/ modules in-process
 # (`importlib.util.spec_from_file_location(...).exec_module(...)` against
 # nexus-package/.memory/health.py, nexus-package/tools/safe_update.py, etc. —

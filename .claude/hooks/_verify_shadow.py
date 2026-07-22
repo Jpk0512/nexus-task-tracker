@@ -14,26 +14,21 @@ row to the shadow log (`.memory/files/gate_verdict_shadow.jsonl` by default)
 for `hook_parity.sh --tranche B --assert-zero-divergence` to later assert
 over (nexus-foundation/tools/hook_parity_check.py).
 
-TWO ENTRY POINTS WITH DELIBERATELY DIFFERENT MISS-CONTRACTS (notepad #327
-— "the deny-capable shim's miss-policy must be distinct from the advisory
-shim's"):
+SHADOW-ONLY (notepad #327 — "the deny-capable shim's miss-policy must be
+distinct from the advisory shim's"):
 
   shadow_verify() / install_shadow_wiring() / capture_stdin() /
-  capture_verdicts() — SHADOW-ONLY. Best-effort; NEVER raises past its own
-  boundary, NEVER blocks past its bounded per-consumer timeout, NEVER exits
-  the caller process, NEVER influences the caller's own decision. This is
-  the ONLY family of entry points any of the 14 tranche-B hook bodies call
-  today.
+  capture_verdicts() — Best-effort; NEVER raises past its own boundary,
+  NEVER blocks past its bounded per-consumer timeout, NEVER exits the
+  caller process, NEVER influences the caller's own decision. This is the
+  ONLY family of entry points any of the 14 tranche-B hook bodies call.
 
-  enforce_fail_closed() — ENCODED, NOT ARMED. The POST-CUTOVER authoritative
-  path: RPC `event.verify`; ANY miss/timeout/non-"allow" verdict =>
-  `sys.exit(2)` (DENY), matching `_daemon_rpc.call_deny_capable`'s
-  fail-closed contract byte-for-byte. NO caller invokes this today — wiring
-  it into settings.json in place of a retained hook body IS the C-06
-  cutover itself (>=2 shadow sessions, zero unexplained divergence), never
-  this leg's job. It exists here, encoded, so cutover is a call-site flip
-  at that future gate, not new fail-closed logic written under time
-  pressure.
+  (DEC-104: the NEX-004 pilot's deny-capable `enforce_fail_closed()` entry
+  point — the daemon-resident enforcement OFFLOAD broker-gate.py's now-
+  retired `NEXUS_BROKER_GATE_DAEMON_MODE=1` thin client armed — was removed
+  as a measured latency regression. The cold in-process gate path is once
+  again the sole, unconditional enforcement authority; this module is
+  SHADOW/telemetry-only again.)
 
 DETACHED / BACKGROUNDED BY DESIGN: every caller (both the bash
 `nexus_shadow_verify_ping` helper in gate-lib.sh and this module's own
@@ -183,27 +178,6 @@ def shadow_verify(
         })
     except Exception:
         pass  # best-effort — a shadow-ping bug must never surface to the gate
-
-
-def enforce_fail_closed(event_name: str, consumer: str, payload: dict, timeout_s: float = None) -> None:
-    """ENCODED, NOT ARMED (notepad #327) — see module docstring. The
-    post-cutover authoritative replacement for a retained hook body: ANY
-    RPC miss or non-"allow" verdict is a hard DENY (rc=2), matching
-    `_daemon_rpc.call_deny_capable`'s fail-closed contract. No settings.json
-    entry calls this yet.
-    """
-    rpc = _load_daemon_rpc()
-    t = timeout_s if timeout_s is not None else _timeout_for(consumer)
-    result = rpc.call_deny_capable(
-        _repo_root(), "event.verify",
-        {"name": event_name, "consumer": consumer, "payload": payload, "env": _forwarded_env()},
-        t,
-    )
-    if not isinstance(result, dict) or result.get("decision") != "allow":
-        reason = result.get("reason", "daemon-miss") if isinstance(result, dict) else "daemon-miss"
-        sys.stderr.write(f"[GATE:{consumer.upper()}/DAEMON-VERDICT] {reason}\n")
-        sys.exit(2)
-    sys.exit(0)
 
 
 # ---------------------------------------------------------------------------

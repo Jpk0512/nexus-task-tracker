@@ -125,10 +125,12 @@ def _record_block(event: str, code: str, reason: str) -> None:
     try:
         sink_path = os.environ.get("NEXUS_GATE_BLOCKS_PATH")
         if sink_path is None:
-            # Default: <repo-root>/.memory/files/gate_blocks.jsonl
-            # repo-root = 3 parents up from this file's location
-            repo_root = Path(__file__).resolve().parents[2]
-            sink_path = str(repo_root / ".memory" / "files" / "gate_blocks.jsonl")
+            # Default: <repo-root>/.memory/files/gate_blocks.jsonl, where
+            # repo-root honors _HOOK_REPO_ROOT (see _repo_root() above) —
+            # NEX-001 fix: this used to re-derive repo_root inline via
+            # Path(__file__).resolve().parents[2], bypassing the override
+            # and leaking real rows into the live repo during isolated tests.
+            sink_path = str(_repo_root() / ".memory" / "files" / "gate_blocks.jsonl")
         sink = Path(sink_path)
         sink.parent.mkdir(parents=True, exist_ok=True)
         # Split HOOK/CODE from the full code token

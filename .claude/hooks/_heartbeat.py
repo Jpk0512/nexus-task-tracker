@@ -41,11 +41,19 @@ from pathlib import Path
 
 
 def _repo_root() -> Path:
-    """Resolve repo root by walking up from this file's location for .memory.
+    """Resolve repo root, honoring _HOOK_REPO_ROOT first, else walking up from
+    this file's location for .memory.
 
-    Mirrors broker-gate.py:_repo_root — never depends on CWD, so a hook fired
-    from an unexpected working directory still finds the real sink.
+    Mirrors broker-gate.py:_repo_root exactly (env override first) — never
+    depends on CWD, so a hook fired from an unexpected working directory
+    still finds the real sink. NEX-001 fix: previously this skipped the
+    _HOOK_REPO_ROOT override entirely despite the docstring's claim to mirror
+    broker-gate.py, leaking real rows into the live repo during isolated
+    tests.
     """
+    env = os.environ.get("_HOOK_REPO_ROOT")
+    if env:
+        return Path(env)
     here = Path(__file__).resolve()
     for candidate in [here, *here.parents]:
         if (candidate / ".memory").is_dir():
