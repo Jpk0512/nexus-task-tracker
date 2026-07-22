@@ -11,6 +11,7 @@ import {
 import {
 	CopyPlusIcon,
 	EllipsisVerticalIcon,
+	FolderKanbanIcon,
 	ShareIcon,
 	TrashIcon,
 } from "lucide-react";
@@ -19,6 +20,7 @@ import { toast } from "sonner";
 import { DependencyIcon } from "@/components/dependency-icon";
 import Loader from "@/components/loader";
 import { useCloneTaskPanel } from "@/components/panels/task-panel";
+import { useProjectParams } from "@/hooks/use-project-params";
 import { useShareableParams } from "@/hooks/use-shareable-params";
 import { useTaskDependencyParams } from "@/hooks/use-task-dependency-params";
 import { useTaskParams } from "@/hooks/use-task-params";
@@ -29,6 +31,7 @@ export const ActionsMenu = () => {
 	const { setParams } = useTaskParams();
 	const { setParams: setShareableParams } = useShareableParams();
 	const { setParams: setTaskDependecyParams } = useTaskDependencyParams();
+	const { setParams: setProjectParams } = useProjectParams();
 	const form = useFormContext<TaskFormValues>();
 	const cloneTaskPanel = useCloneTaskPanel();
 	const taskId = form.watch("id");
@@ -83,10 +86,29 @@ export const ActionsMenu = () => {
 		cloneTaskPanel.open(form.getValues().id!);
 	};
 
+	// FEAT-006 item 5 — "convert task to project": seed the project-create
+	// dialog with this task's title/description and close the task sheet.
+	// The task itself is left intact (non-destructive) so the user can decide
+	// whether to delete it once the new project exists.
+	const handleConvertToProject = () => {
+		const values = form.getValues();
+		setProjectParams({
+			createProject: true,
+			projectSeedName: values.title,
+			projectSeedDescription: values.description || null,
+		});
+		setParams({ taskId: null });
+	};
+
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
-				<Button type="button" variant={"ghost"} size={"icon"}>
+				<Button
+					type="button"
+					variant={"ghost"}
+					size={"icon"}
+					aria-label="Task actions"
+				>
 					<EllipsisVerticalIcon />
 				</Button>
 			</DropdownMenuTrigger>
@@ -97,7 +119,11 @@ export const ActionsMenu = () => {
 					}}
 				>
 					<CopyPlusIcon />
-					Clone
+					Duplicate task
+				</DropdownMenuItem>
+				<DropdownMenuItem onClick={handleConvertToProject}>
+					<FolderKanbanIcon />
+					Convert to project
 				</DropdownMenuItem>
 				<DropdownMenuItem
 					onClick={() => {

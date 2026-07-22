@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { BreadcrumbSetter } from "@/components/breadcrumbs";
 import { ChatProvider } from "@/components/chat/chat-provider";
 import { ChatSidebarLayout } from "@/components/chat/chat-sidebar-layout";
+import { RecordVisit } from "@/components/global-search/record-visit";
 import { getSelectedAgentCookieKeyClient } from "@/store/chat";
 import { trpcClient } from "@/utils/trpc";
 
@@ -36,6 +37,21 @@ export default async function Layout({
 					},
 				]}
 			/>
+			{/* Only record real, previously-persisted conversations — a brand
+			 new chat id (created on every `/chat` click before a message is
+			 sent) has no `chat` row yet, and recording it would flood
+			 "recently visited" with empty conversations. */}
+			{chat && (
+				<RecordVisit
+					item={{
+						id: chatId,
+						type: "chat",
+						title: chat.title || "New Conversation",
+						href: `/chat/${chatId}`,
+						teamId: currentTeam.id,
+					}}
+				/>
+			)}
 			<ChatProvider
 				initialMessages={(chat?.messages as UIChatMessage[]) || []}
 				id={chatId}

@@ -18,7 +18,9 @@ export const SmartInput = () => {
 		trpc.tasks.smartComplete.mutationOptions({
 			onSuccess: (rawData) => {
 				const data = rawData as Record<string, unknown>;
-				setExplanation(typeof data.explanation === "string" ? data.explanation : null);
+				setExplanation(
+					typeof data.explanation === "string" ? data.explanation : null,
+				);
 
 				for (const key in data) {
 					if (

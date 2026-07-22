@@ -55,15 +55,22 @@ vi.mock("@/utils/trpc", () => {
 });
 
 vi.mock("@tanstack/react-query", () => ({
-	useQueryClient: () => ({ invalidateQueries: () => {}, cancelQueries: () => {} }),
+	useQueryClient: () => ({
+		invalidateQueries: () => {},
+		cancelQueries: () => {},
+	}),
 	useMutation: () => ({
 		mutate: () => {},
 		mutateAsync: () => Promise.resolve({}),
 		isPending: false,
 	}),
-	useQuery: (): { data: undefined; isLoading: boolean } => ({ data: undefined, isLoading: false }),
+	useQuery: (): { data: undefined; isLoading: boolean } => ({
+		data: undefined,
+		isLoading: false,
+	}),
 	QueryClient: class {},
-	QueryClientProvider: ({ children }: { children: React.ReactNode }) => children,
+	QueryClientProvider: ({ children }: { children: React.ReactNode }) =>
+		children,
 }));
 
 vi.mock("@/lib/single-user-mode", () => ({
@@ -132,38 +139,29 @@ describe("TASK-017 — BulkOpsBar mounts in TodosView on multi-select", () => {
 	 * it. The failing suite exit proves the test is real and pinned. Remove
 	 * test.fails() once Forge verifies the mount is permanent (TASK-017 done).
 	 */
-	test(
-		"GWT: selecting a todo causes BulkOpsBar to render the bulk-actions region",
-		async () => {
-			await seedSelection([TODO_ID_1]);
+	test("GWT: selecting a todo causes BulkOpsBar to render the bulk-actions region", async () => {
+		await seedSelection([TODO_ID_1]);
 
-			render(<BulkOpsBar surface="todos" noun="todo" />);
+		render(<BulkOpsBar surface="todos" noun="todo" />);
 
-			const region = screen.getByRole("region", { name: /bulk actions/i });
-			expect(region).toBeInTheDocument();
-		},
-	);
+		const region = screen.getByRole("region", { name: /bulk actions/i });
+		expect(region).toBeInTheDocument();
+	});
 
-	test(
-		"GWT: selecting multiple todos shows a count badge with the correct number",
-		async () => {
-			await seedSelection([TODO_ID_1, TODO_ID_2]);
+	test("GWT: selecting multiple todos shows a count badge with the correct number", async () => {
+		await seedSelection([TODO_ID_1, TODO_ID_2]);
 
-			render(<BulkOpsBar surface="todos" noun="todo" />);
+		render(<BulkOpsBar surface="todos" noun="todo" />);
 
-			const region = screen.getByRole("region", { name: /bulk actions/i });
-			expect(region).toBeInTheDocument();
-			expect(region.textContent).toContain("2 todos selected");
-		},
-	);
+		const region = screen.getByRole("region", { name: /bulk actions/i });
+		expect(region).toBeInTheDocument();
+		expect(region.textContent).toContain("2 todos selected");
+	});
 
-	test(
-		"GWT: with no todos selected, BulkOpsBar does NOT render the region",
-		async () => {
-			render(<BulkOpsBar surface="todos" noun="todo" />);
+	test("GWT: with no todos selected, BulkOpsBar does NOT render the region", async () => {
+		render(<BulkOpsBar surface="todos" noun="todo" />);
 
-			const region = screen.queryByRole("region", { name: /bulk actions/i });
-			expect(region).toBeNull();
-		},
-	);
+		const region = screen.queryByRole("region", { name: /bulk actions/i });
+		expect(region).toBeNull();
+	});
 });

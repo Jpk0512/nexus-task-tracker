@@ -2,8 +2,10 @@
 
 import { Button } from "@nexus-app/ui/button";
 import * as Kanban from "@nexus-app/ui/kanban";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { Badge } from "@ui/components/ui/badge";
 import { Minimize2Icon, PlusIcon } from "lucide-react";
+import { useRef } from "react";
 import type { GenericGroup } from "@/components/tasks-view/tasks-group";
 import type { EnrichedTask } from "@/hooks/use-data";
 import { useTaskParams } from "@/hooks/use-task-params";
@@ -19,6 +21,14 @@ interface BoardColumnProps {
 	tasks: EnrichedTask[];
 }
 
+// Columns beyond this length switch to a windowed (virtualized) render — the
+// vast majority of columns stay well under it, so the common case renders
+// pixel-identical to before. `Kanban.Column`'s SortableContext items come
+// from board data (`context.items[value]`), not from rendered DOM children,
+// so only rendering a visible slice doesn't desync dnd-kit's index math.
+const VIRTUALIZE_THRESHOLD = 30;
+const ESTIMATED_TASK_CARD_HEIGHT = 140;
+
 export function BoardColumn({ column, columnName, tasks }: BoardColumnProps) {
 	const { hiddenColumns, toggleColumnHide } = useKanbanStore();
 
@@ -28,6 +38,15 @@ export function BoardColumn({ column, columnName, tasks }: BoardColumnProps) {
 
 	const open = !hiddenColumns.includes(columnName);
 	const isHovered = overColumnName === columnName && Boolean(activeTaskId);
+
+	const scrollContainerRef = useRef<HTMLDivElement>(null);
+	const shouldVirtualize = tasks.length > VIRTUALIZE_THRESHOLD;
+	const virtualizer = useVirtualizer({
+		count: tasks.length,
+		getScrollElement: () => scrollContainerRef.current,
+		estimateSize: () => ESTIMATED_TASK_CARD_HEIGHT,
+		overscan: 6,
+	});
 
 	if (!open) {
 		return (
@@ -106,30 +125,66 @@ export function BoardColumn({ column, columnName, tasks }: BoardColumnProps) {
 					</Button>
 				</div>
 			</div>
-			<div className="grow-1 overflow-y-auto px-2">
+			<div className="grow-1 overflow-y-auto px-2" ref={scrollContainerRef}>
 				<div className="relative h-full space-y-2">
-					{tasks.map((task) => (
-						<TaskContextMenu task={task} key={task.id}>
-							<Kanban.Item
-								value={task.id}
-								asHandle
-								asChild
-								// onClick={(e) => {
-								// 	e.preventDefault();
-								// 	e.stopPropagation();
+					{shouldVirtualize ? (
+						<div
+							style={{
+								height: virtualizer.getTotalSize(),
+								width: "100%",
+								position: "relative",
+							}}
+						>
+							{virtualizer.getVirtualItems().map((virtualRow) => {
+								const task = tasks[virtualRow.index];
+								if (!task) return null;
+								return (
+									<div
+										key={task.id}
+										data-index={virtualRow.index}
+										ref={virtualizer.measureElement}
+										style={{
+											position: "absolute",
+											top: 0,
+											left: 0,
+											width: "100%",
+											transform: `translateY(${virtualRow.start}px)`,
+											paddingBottom: "0.5rem",
+										}}
+									>
+										<TaskContextMenu task={task}>
+											<Kanban.Item value={task.id} asHandle asChild>
+												<KanbanTask task={task} />
+											</Kanban.Item>
+										</TaskContextMenu>
+									</div>
+								);
+							})}
+						</div>
+					) : (
+						tasks.map((task) => (
+							<TaskContextMenu task={task} key={task.id}>
+								<Kanban.Item
+									value={task.id}
+									asHandle
+									asChild
+									// onClick={(e) => {
+									// 	e.preventDefault();
+									// 	e.stopPropagation();
 
-								// 	// Prefetch/Cache data before navigation
-								// 	queryClient.setQueryData(
-								// 		trpc.tasks.getById.queryKey({ id: task.id }),
-								// 		task,
-								// 	);
-								// 	setTaskParams({ taskId: task.id });
-								// }}
-							>
-								<KanbanTask task={task} />
-							</Kanban.Item>
-						</TaskContextMenu>
-					))}
+									// 	// Prefetch/Cache data before navigation
+									// 	queryClient.setQueryData(
+									// 		trpc.tasks.getById.queryKey({ id: task.id }),
+									// 		task,
+									// 	);
+									// 	setTaskParams({ taskId: task.id });
+									// }}
+								>
+									<KanbanTask task={task} />
+								</Kanban.Item>
+							</TaskContextMenu>
+						))
+					)}
 
 					<div>
 						<Button

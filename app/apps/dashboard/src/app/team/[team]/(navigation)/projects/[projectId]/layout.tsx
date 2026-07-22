@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { BreadcrumbSetter } from "@/components/breadcrumbs";
+import { RecordVisit } from "@/components/global-search/record-visit";
 import { ProjectBreadcrumb } from "@/components/projects/project-breadcrumb";
 import { ProjectRelationshipsSidebar } from "@/components/projects/project-relationships-sidebar";
 import { ProjectTabs } from "@/components/projects/project-tabs";
@@ -34,6 +35,15 @@ export default async function ProjectLayout({ children, params }: Props) {
 				]}
 			/>
 			<ProjectBreadcrumb projectName={project.name} backHref={backHref} />
+			<RecordVisit
+				item={{
+					id: project.id,
+					type: "project",
+					title: project.name,
+					color: project.color,
+					teamId: "",
+				}}
+			/>
 			<ProjectTabs projectId={project.id} />
 			<div className="flex min-h-0 grow">
 				<div className="min-w-0 grow">{children}</div>

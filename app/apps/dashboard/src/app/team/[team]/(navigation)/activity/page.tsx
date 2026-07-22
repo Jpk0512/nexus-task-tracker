@@ -11,7 +11,7 @@ export default function ActivityPage() {
 			</div>
 			<div className="min-h-0 flex-1 overflow-auto p-4">
 				<div className="mx-auto max-w-2xl">
-					<ActivityFeed />
+					<ActivityFeed enableBulkActions />
 				</div>
 			</div>
 		</div>

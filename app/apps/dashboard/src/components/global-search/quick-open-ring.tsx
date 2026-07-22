@@ -7,9 +7,10 @@
  * showing the 5–7 most-recently-visited entities the user has touched in the
  * palette. Faster than Cmd+K — no search input, no filtering, no debounce.
  *
- * Recent-items source: the existing `nexus.palette.recent` localStorage key
- * iter 4 introduced. We read it once on open; this component never writes
- * to that key (the palette owns writes).
+ * Recent-items source: the shared `nexus.palette.recent` store in
+ * `./recent-items` — written by the palette's own selections and by
+ * `RecordVisit` (direct navigation to a project/chat/document). We read it
+ * once on open; this component never writes to that key.
  *
  * Navigation:
  *   - ↑/↓ — move the focus ring
@@ -32,31 +33,18 @@ import {
 	LibraryIcon,
 	ListChecksIcon,
 	MapPinIcon,
+	MessageCircleIcon,
 	SparklesIcon,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTaskPanel } from "@/components/panels/task-panel";
 import { useUser } from "@/components/user-provider";
-import type { GlobalSearchItem } from "./types";
+import { loadRecent, type RecentItem } from "./recent-items";
 
-const RECENT_KEY = "nexus.palette.recent";
 const RING_MAX = 7;
 
-type Recent = GlobalSearchItem & { visitedAt?: string };
-
-function loadRecentRaw(): Recent[] {
-	if (typeof window === "undefined") return [];
-	try {
-		const raw = window.localStorage.getItem(RECENT_KEY);
-		if (!raw) return [];
-		const parsed = JSON.parse(raw);
-		if (!Array.isArray(parsed)) return [];
-		return parsed.slice(0, RING_MAX) as Recent[];
-	} catch {
-		return [];
-	}
-}
+type Recent = RecentItem;
 
 // Type-icon mapping. Mirrors the section labels used by the full palette so
 // the ring feels visually coherent — same icon for the same entity type.
@@ -70,6 +58,7 @@ const TYPE_ICON: Record<string, typeof LayersIcon> = {
 	library: LibraryIcon,
 	prompt: SparklesIcon,
 	navigation: HashIcon,
+	chat: MessageCircleIcon,
 };
 
 const TYPE_LABEL: Record<string, string> = {
@@ -82,6 +71,7 @@ const TYPE_LABEL: Record<string, string> = {
 	library: "Library",
 	prompt: "Prompt",
 	navigation: "Nav",
+	chat: "Chat",
 };
 
 function relative(at: string | undefined): string {
@@ -110,7 +100,7 @@ export const QuickOpenRing = ({ open, onOpenChange }: QuickOpenRingProps) => {
 	// otherwise see a stale list — the palette is the source of truth.
 	useEffect(() => {
 		if (!open) return;
-		setItems(loadRecentRaw());
+		setItems(loadRecent().slice(0, RING_MAX));
 		setCursor(0);
 	}, [open]);
 

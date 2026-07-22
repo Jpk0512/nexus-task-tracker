@@ -54,7 +54,7 @@ export function FocusShell() {
 							type="button"
 							onClick={() => setTab(id)}
 							className={cn(
-								"inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[12.5px] font-[510] transition-colors",
+								"inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-[510] text-[12.5px] transition-colors",
 								tab === id
 									? "bg-accent text-foreground"
 									: "text-muted-foreground hover:text-foreground",
@@ -62,7 +62,7 @@ export function FocusShell() {
 						>
 							{label}
 							{id === "needs-you" && unread > 0 ? (
-								<span className="rounded-full bg-primary/20 px-1.5 text-[10px] tabular-nums text-primary">
+								<span className="rounded-full bg-primary/20 px-1.5 text-[10px] text-primary tabular-nums">
 									{unread}
 								</span>
 							) : null}

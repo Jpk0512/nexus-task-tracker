@@ -1,8 +1,8 @@
 import { getContrast } from "@nexus-app/utils/random";
 import { subDays, subHours } from "date-fns";
 import { CalendarIcon, TagsIcon, UserCheckIcon, UserIcon } from "lucide-react";
-import type { DateRangeOptionItem } from "@/components/filters/types";
 import { AssigneeAvatar } from "@/components/asignee-avatar";
+import type { DateRangeOptionItem } from "@/components/filters/types";
 import { MilestoneIcon } from "@/components/milestone-icon";
 import { ProjectIcon } from "@/components/project-icon";
 import { StatusIcon } from "@/components/status-icon";
@@ -145,27 +145,45 @@ export const tasksFilterOptions = {
 		options: [
 			{
 				label: "Last 1 hour",
-				value: [subHours(new Date(), 1).toISOString(), new Date().toISOString()] as [string, string],
+				value: [
+					subHours(new Date(), 1).toISOString(),
+					new Date().toISOString(),
+				] as [string, string],
 			},
 			{
 				label: "Last 6 hours",
-				value: [subHours(new Date(), 6).toISOString(), new Date().toISOString()] as [string, string],
+				value: [
+					subHours(new Date(), 6).toISOString(),
+					new Date().toISOString(),
+				] as [string, string],
 			},
 			{
 				label: "Last 12 hours",
-				value: [subHours(new Date(), 12).toISOString(), new Date().toISOString()] as [string, string],
+				value: [
+					subHours(new Date(), 12).toISOString(),
+					new Date().toISOString(),
+				] as [string, string],
 			},
 			{
 				label: "Last 24 hours",
-				value: [subHours(new Date(), 24).toISOString(), new Date().toISOString()] as [string, string],
+				value: [
+					subHours(new Date(), 24).toISOString(),
+					new Date().toISOString(),
+				] as [string, string],
 			},
 			{
 				label: "Last 3 days",
-				value: [subDays(new Date(), 3).toISOString(), new Date().toISOString()] as [string, string],
+				value: [
+					subDays(new Date(), 3).toISOString(),
+					new Date().toISOString(),
+				] as [string, string],
 			},
 			{
 				label: "Last 7 days",
-				value: [subDays(new Date(), 7).toISOString(), new Date().toISOString()] as [string, string],
+				value: [
+					subDays(new Date(), 7).toISOString(),
+					new Date().toISOString(),
+				] as [string, string],
 			},
 		],
 	},
@@ -178,15 +196,24 @@ export const tasksFilterOptions = {
 		options: [
 			{
 				label: "Last 1 day",
-				value: [subDays(new Date(), 1).toISOString(), new Date().toISOString()] as [string, string],
+				value: [
+					subDays(new Date(), 1).toISOString(),
+					new Date().toISOString(),
+				] as [string, string],
 			},
 			{
 				label: "Last 7 days",
-				value: [subDays(new Date(), 7).toISOString(), new Date().toISOString()] as [string, string],
+				value: [
+					subDays(new Date(), 7).toISOString(),
+					new Date().toISOString(),
+				] as [string, string],
 			},
 			{
 				label: "Last 30 days",
-				value: [subDays(new Date(), 30).toISOString(), new Date().toISOString()] as [string, string],
+				value: [
+					subDays(new Date(), 30).toISOString(),
+					new Date().toISOString(),
+				] as [string, string],
 			},
 		],
 	},

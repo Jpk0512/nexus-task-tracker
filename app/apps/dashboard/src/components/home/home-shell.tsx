@@ -9,6 +9,7 @@ import { WeeklyRollover } from "@/components/lens/weekly-rollover";
 import { ActiveProjectsRail } from "./active-projects-rail";
 import { ActivityFeed } from "./activity-feed";
 import { AgendaCard } from "./agenda-card";
+import { ContinueCard } from "./continue-card";
 import { DashboardConfigModal } from "./dashboard-config-modal";
 import { DoNowCard } from "./do-now-card";
 import { EndOfDayRecap } from "./end-of-day-recap";
@@ -179,6 +180,7 @@ export const HomeShell = () => {
 					);
 				})
 			)}
+			<ContinueCard />
 			<StarterContinueCard />
 			{/* Dashboard OS quick tiles — Notes / Skills / Meetings / Starter */}
 			<OsQuickTiles />
@@ -213,6 +215,7 @@ function DefaultHomeFallback() {
 				<UpNextCard />
 			</div>
 			<ActiveProjectsRail />
+			<ContinueCard />
 			<StarterContinueCard />
 			<OsQuickTiles />
 		</>

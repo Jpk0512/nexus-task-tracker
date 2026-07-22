@@ -8,6 +8,7 @@ import {
 import { useMemo } from "react";
 import { toast } from "sonner";
 import type { EnrichedTask, Task } from "@/hooks/use-data";
+import { useOptimisticAction } from "@/hooks/use-optimistic-action";
 import { trpc } from "@/utils/trpc";
 import { AssigneeAvatar } from "../asignee-avatar";
 import { MilestoneIcon } from "../milestone-icon";
@@ -370,6 +371,73 @@ export const useTasksGrouped = () => {
 		toast.error(error instanceof Error ? error.message : "Failed to move task");
 	};
 
+	// Cross-column drag (an actual status/group change, not a same-column
+	// reorder) routes through the shared optimistic-undo primitive so it gets
+	// an explicit "Undo" toast button and Cmd+Z support (FEAT-008 items 2+3),
+	// with a real snapshot-based rollback instead of a network re-fetch.
+	const statusChangeAction = useOptimisticAction<
+		{
+			id: string;
+			columnUpdateKey: keyof EnrichedTask;
+			newValue: any;
+			newOrder: number;
+			newGroupData: any;
+			updateData: GroupByOption["updateData"];
+			prevValue: any;
+			prevOrder: number;
+			prevGroupData: any;
+		},
+		{
+			id: string;
+			columnUpdateKey: keyof EnrichedTask;
+			updateData: GroupByOption["updateData"];
+			prevValue: any;
+			prevOrder: number;
+			prevGroupData: any;
+		}
+	>({
+		action: "task.status-change",
+		optimisticUpdate: (input) => {
+			const payload = {
+				id: input.id,
+				[input.columnUpdateKey]: input.newValue,
+				order: input.newOrder,
+				statusChangedAt: new Date().toISOString(),
+			};
+			input.updateData(payload, input.newGroupData);
+			updateCache(payload);
+			return {
+				id: input.id,
+				columnUpdateKey: input.columnUpdateKey,
+				updateData: input.updateData,
+				prevValue: input.prevValue,
+				prevOrder: input.prevOrder,
+				prevGroupData: input.prevGroupData,
+			};
+		},
+		mutateFn: (input) =>
+			updateTask({
+				id: input.id,
+				[input.columnUpdateKey]: input.newValue,
+				order: input.newOrder,
+			}),
+		rollback: (snapshot) => {
+			const payload = {
+				id: snapshot.id,
+				[snapshot.columnUpdateKey]: snapshot.prevValue,
+				order: snapshot.prevOrder,
+			};
+			snapshot.updateData(payload, snapshot.prevGroupData);
+			updateCache(payload);
+		},
+		onError: (error) => {
+			toast.error(
+				error instanceof Error ? error.message : "Failed to move task",
+			);
+		},
+		toastLabel: "Moved task",
+	});
+
 	const guardScopedMove = ({
 		activeTask,
 		targetColumn,
@@ -435,24 +503,19 @@ export const useTasksGrouped = () => {
 			const options = tasksGroupByOptions[targetColumn.type];
 			const columnUpdateKey = options.updateKey;
 
-			const newTaskPayload = {
+			// Always a group/status change — an empty column can't already be
+			// the task's own column.
+			statusChangeAction.run({
 				id: activeTask.id,
-				[columnUpdateKey]: targetColumn.id,
-				order: DEFAULT_EMPTY_COLUMN_ORDER,
-				statusChangedAt: new Date().toISOString(),
-			};
-			options.updateData(newTaskPayload, targetColumn.data);
-
-			updateCache(newTaskPayload);
-			try {
-				await updateTask({
-					id: newTaskPayload.id,
-					[columnUpdateKey]: newTaskPayload[columnUpdateKey],
-					order: newTaskPayload.order,
-				});
-			} catch (error) {
-				handleReorderError(error);
-			}
+				columnUpdateKey,
+				newValue: targetColumn.id,
+				newOrder: DEFAULT_EMPTY_COLUMN_ORDER,
+				newGroupData: targetColumn.data,
+				updateData: options.updateData,
+				prevValue: activeTask[columnUpdateKey],
+				prevOrder: activeTask.order,
+				prevGroupData: options.getData(activeTask),
+			});
 			return;
 		}
 
@@ -472,14 +535,6 @@ export const useTasksGrouped = () => {
 			activeTask.order < overTask.order,
 		);
 
-		const newTaskPayload = {
-			id: activeTask.id,
-			[columnUpdateKey]: overTask[columnUpdateKey],
-			order: newOrder,
-			statusChangedAt: new Date().toISOString(),
-		};
-		options.updateData(newTaskPayload, options.getData(overTask));
-
 		if (
 			!guardScopedMove({
 				activeTask,
@@ -495,6 +550,34 @@ export const useTasksGrouped = () => {
 		) {
 			return;
 		}
+
+		// Cross-column move: a real status/group change — route through the
+		// undo-able status-change action instead of the plain path below.
+		if (activeTask[columnUpdateKey] !== overTask[columnUpdateKey]) {
+			statusChangeAction.run({
+				id: activeTask.id,
+				columnUpdateKey,
+				newValue: overTask[columnUpdateKey],
+				newOrder,
+				newGroupData: options.getData(overTask),
+				updateData: options.updateData,
+				prevValue: activeTask[columnUpdateKey],
+				prevOrder: activeTask.order,
+				prevGroupData: options.getData(activeTask),
+			});
+			return;
+		}
+
+		// Same-column reorder — order-only change, no status/group shift, so
+		// this keeps the plain optimistic + invalidate-on-error path; an Undo
+		// toast would just be noise for a manual reorder.
+		const newTaskPayload = {
+			id: activeTask.id,
+			[columnUpdateKey]: overTask[columnUpdateKey],
+			order: newOrder,
+			statusChangedAt: new Date().toISOString(),
+		};
+		options.updateData(newTaskPayload, options.getData(overTask));
 
 		updateCache(newTaskPayload);
 

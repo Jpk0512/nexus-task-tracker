@@ -29,26 +29,32 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@ui/components/ui/select";
+import { Skeleton } from "@ui/components/ui/skeleton";
 import { cn } from "@ui/lib/utils";
 import {
+	ArchiveIcon,
 	BookOpenIcon,
 	BugIcon,
 	ChevronDownIcon,
 	ChevronRightIcon,
+	KanbanIcon,
 	type LucideIcon,
 	PinIcon,
 	PinOffIcon,
+	PlusIcon,
 	SparklesIcon,
 	WrenchIcon,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
-import { toast } from "sonner";
 import { ProjectIcon } from "@/components/project-icon";
 import { useUser } from "@/components/user-provider";
 import { usePinnedProjects } from "@/hooks/use-pinned-projects";
 import { useProjectParams } from "@/hooks/use-project-params";
+import { useTaskParams } from "@/hooks/use-task-params";
 import { IS_SINGLE_USER_MODE } from "@/lib/single-user-mode";
+import { runToastAction } from "@/lib/toast-action";
 import { queryClient, trpc } from "@/utils/trpc";
 import { ProjectContextMenu } from "./context-menu";
 import { ProjectsFilters } from "./filters";
@@ -212,6 +218,41 @@ function ProjectCard({
 		total > 0 ? Math.round((project.progress.completed / total) * 100) : 0;
 	const accent = project.color || "var(--brand)";
 
+	const router = useRouter();
+	const { setParams: setTaskParams } = useTaskParams();
+
+	const archiveMutation = useMutation(trpc.projects.update.mutationOptions());
+
+	// Standardized lifecycle (FEAT-009 item 4): loading -> success (with an
+	// Undo that flips `archived` straight back) -> error (with Retry that
+	// re-fires the exact same toggle).
+	const toggleArchived = useCallback(
+		(nextArchived: boolean) => {
+			runToastAction(
+				() =>
+					archiveMutation.mutateAsync({
+						id: project.id,
+						archived: nextArchived,
+					}),
+				{
+					id: `archive-project-${project.id}`,
+					loading: nextArchived ? "Archiving project…" : "Unarchiving project…",
+					success: nextArchived ? "Project archived" : "Project unarchived",
+					error: "Failed to update project",
+					undo: () => toggleArchived(!nextArchived),
+					retry: () => toggleArchived(nextArchived),
+				},
+			).then(() => {
+				// Invalidate on both outcomes — a retried failure still needs the
+				// list re-synced after the eventual success, and a settled error
+				// leaves cached state untouched either way.
+				queryClient.invalidateQueries(trpc.projects.get.infiniteQueryOptions());
+				queryClient.invalidateQueries(trpc.projects.get.queryOptions());
+			});
+		},
+		[archiveMutation, project.id],
+	);
+
 	return (
 		<ProjectContextMenu project={project}>
 			<div className="group relative">
@@ -255,32 +296,87 @@ function ProjectCard({
 					</div>
 				</Link>
 
-				{/* Hover-revealed pin button (Task 5) */}
-				<button
-					type="button"
-					aria-label={isPinned ? "Unpin project" : "Pin project"}
-					aria-pressed={isPinned}
-					onClick={(e) => {
-						e.preventDefault();
-						e.stopPropagation();
-						onTogglePin(project.id);
-					}}
+				{/* Hover-revealed action strip: pin (Task 5) + add task / open
+				    board / archive (FEAT-008 item 4). */}
+				<div
 					className={cn(
-						"absolute top-2 right-2 inline-flex h-7 w-7 items-center justify-center rounded-md border border-transparent text-muted-foreground transition-all",
-						"hover:border-border hover:bg-background hover:text-foreground",
+						"absolute top-2 right-2 flex items-center gap-0.5 transition-opacity",
 						isPinned
-							? "text-brand opacity-100"
-							: "opacity-0 focus:opacity-100 group-hover:opacity-100",
+							? "opacity-100"
+							: "opacity-0 focus-within:opacity-100 group-hover:opacity-100",
 					)}
 				>
-					{isPinned ? (
-						<PinOffIcon className="size-3.5" />
-					) : (
-						<PinIcon className="size-3.5" />
-					)}
-				</button>
+					<CardActionButton
+						title="Add task"
+						onClick={() =>
+							setTaskParams({ createTask: true, taskProjectId: project.id })
+						}
+					>
+						<PlusIcon className="size-3.5" />
+					</CardActionButton>
+					<CardActionButton
+						title="Open board"
+						onClick={() => router.push(`${href}?vType=board`)}
+					>
+						<KanbanIcon className="size-3.5" />
+					</CardActionButton>
+					<CardActionButton
+						title={project.archived ? "Unarchive project" : "Archive project"}
+						disabled={archiveMutation.isPending}
+						onClick={() => toggleArchived(!project.archived)}
+					>
+						<ArchiveIcon className="size-3.5" />
+					</CardActionButton>
+					<CardActionButton
+						title={isPinned ? "Unpin project" : "Pin project"}
+						pressed={isPinned}
+						onClick={() => onTogglePin(project.id)}
+					>
+						{isPinned ? (
+							<PinOffIcon className="size-3.5" />
+						) : (
+							<PinIcon className="size-3.5" />
+						)}
+					</CardActionButton>
+				</div>
 			</div>
 		</ProjectContextMenu>
+	);
+}
+
+function CardActionButton({
+	title,
+	onClick,
+	pressed,
+	disabled,
+	children,
+}: {
+	title: string;
+	onClick: () => void;
+	pressed?: boolean;
+	disabled?: boolean;
+	children: React.ReactNode;
+}) {
+	return (
+		<button
+			type="button"
+			title={title}
+			aria-label={title}
+			aria-pressed={pressed}
+			disabled={disabled}
+			onClick={(e) => {
+				e.preventDefault();
+				e.stopPropagation();
+				if (!disabled) onClick();
+			}}
+			className={cn(
+				"inline-flex size-7 items-center justify-center rounded-md border border-transparent text-muted-foreground transition-all",
+				"hover:border-border hover:bg-background hover:text-foreground disabled:pointer-events-none disabled:opacity-40",
+				pressed && "text-brand",
+			)}
+		>
+			{children}
+		</button>
 	);
 }
 
@@ -369,6 +465,38 @@ function StarterTemplates({
 	);
 }
 
+// ─── Loading skeleton ────────────────────────────────────────────────────────
+// Same card geometry as `app/(navigation)/projects/loading.tsx` (the Next.js
+// route-level shell) — this one covers the client-side `useInfiniteQuery`
+// refetch that route shell never sees once the segment has already mounted.
+
+function ProjectsGridSkeleton() {
+	return (
+		<div
+			className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3"
+			aria-hidden
+		>
+			{Array.from({ length: 6 }).map((_, i) => (
+				<div
+					key={`projects-grid-skel-${i}`}
+					className="rounded-lg border border-border bg-card p-4"
+				>
+					<div className="flex items-center gap-2">
+						<Skeleton className="size-4 rounded" />
+						<Skeleton className="h-4 w-1/2" />
+					</div>
+					<Skeleton className="mt-3 h-8 w-full" />
+					<Skeleton className="mt-3 h-1.5 w-full rounded-full" />
+					<div className="mt-2 flex justify-between">
+						<Skeleton className="h-3 w-16" />
+						<Skeleton className="h-3 w-10" />
+					</div>
+				</div>
+			))}
+		</div>
+	);
+}
+
 // ─── Main grid ──────────────────────────────────────────────────────────────
 
 interface ProjectsGridProps {
@@ -391,7 +519,7 @@ export function ProjectsGrid({
 	const [pinnedCollapsed, setPinnedCollapsed] = useState(false);
 	const [pinnedOrder, setPinnedOrder] = useState<string[]>(() => readOrder());
 
-	const { data } = useInfiniteQuery(
+	const { data, isLoading } = useInfiniteQuery(
 		trpc.projects.get.infiniteQueryOptions(
 			{
 				pageSize,
@@ -465,32 +593,39 @@ export function ProjectsGrid({
 		[pinnedProjects],
 	);
 
-	const createMutation = useMutation(
-		trpc.projects.create.mutationOptions({
-			onSuccess: (project) => {
-				queryClient.invalidateQueries(trpc.projects.get.infiniteQueryOptions());
-				queryClient.invalidateQueries(trpc.projects.get.queryOptions());
-				toast.success(`Project "${project.name}" created`);
-				setParams({ projectId: project.id });
-			},
-			onError: () => {
-				toast.error("Failed to create project from template");
-			},
-		}),
-	);
+	const createMutation = useMutation(trpc.projects.create.mutationOptions());
 
 	const onTemplateCreate = useCallback(
 		(template: StarterTemplate) => {
-			createMutation.mutate({
-				name: template.name,
-				description: template.description,
-				color: template.color,
+			runToastAction(
+				() =>
+					createMutation.mutateAsync({
+						name: template.name,
+						description: template.description,
+						color: template.color,
+					}),
+				{
+					loading: `Creating "${template.name}"…`,
+					success: (project) => `Project "${project.name}" created`,
+					error: "Failed to create project from template",
+					retry: () => onTemplateCreate(template),
+				},
+			).then((result) => {
+				if (!result.ok) return;
+				queryClient.invalidateQueries(trpc.projects.get.infiniteQueryOptions());
+				queryClient.invalidateQueries(trpc.projects.get.queryOptions());
+				setParams({ projectId: result.data.id });
 			});
 		},
-		[createMutation],
+		[createMutation, setParams],
 	);
 
-	const isEmpty = allProjects.length === 0;
+	// `isLoading` only covers the *initial* fetch — a background refetch (e.g.
+	// invalidate-on-mutation) keeps `data` populated so the grid doesn't flash
+	// back to skeleton. Gating `isEmpty` on `isLoading` stops the sparse-state
+	// "Start with a template" panel from flashing in before the first page of
+	// real projects has even arrived.
+	const isEmpty = !isLoading && allProjects.length === 0;
 	const basePath = user?.basePath ?? "/team";
 
 	return (
@@ -522,8 +657,14 @@ export function ProjectsGrid({
 				</div>
 			)}
 
+			{/* Initial-load skeleton — same card geometry as the route-level
+			 *  loading.tsx so an in-place refetch (search, group-by change) never
+			 *  flashes the "Start with a template" sparse-state before the first
+			 *  page has actually resolved. */}
+			{isLoading && <ProjectsGridSkeleton />}
+
 			{/* Pinned row */}
-			{pinnedProjects.length > 0 && (
+			{!isLoading && pinnedProjects.length > 0 && (
 				<section
 					className={cn(
 						"-mx-6 sticky top-0 z-10 border-border border-b bg-background/95 px-6 py-3 backdrop-blur",
@@ -610,7 +751,7 @@ export function ProjectsGrid({
 			)}
 
 			{/* Grouped non-pinned projects */}
-			{!isEmpty && (
+			{!isLoading && !isEmpty && (
 				<div className="flex flex-col gap-6">
 					{groups.map((group) => {
 						const collapsed = collapsedGroups.has(group.id);

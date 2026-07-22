@@ -123,6 +123,7 @@ export function RecurringCard({
 									size="icon"
 									className="size-7 text-muted-foreground hover:text-foreground"
 									title="Edit recurrence"
+									aria-label="Edit recurrence"
 								>
 									<PencilIcon className="size-3.5" />
 								</Button>

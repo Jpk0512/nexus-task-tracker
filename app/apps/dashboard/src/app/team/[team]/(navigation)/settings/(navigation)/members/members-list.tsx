@@ -76,6 +76,7 @@ export const MembersList = () => {
 											size={"icon"}
 											variant={"ghost"}
 											disabled={!canTeamWrite && member.id !== user?.id}
+											aria-label={`Actions for ${member.name}`}
 										>
 											<EllipsisIcon className="size-4" />
 										</Button>

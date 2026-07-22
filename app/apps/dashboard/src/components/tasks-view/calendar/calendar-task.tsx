@@ -3,8 +3,8 @@
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { useTaskPanel } from "@/components/panels/task-panel";
-import type { EnrichedTask } from "@/hooks/use-data";
 import { TaskProperty } from "@/components/tasks-view/properties/task-properties";
+import type { EnrichedTask } from "@/hooks/use-data";
 import { useTaskParams } from "@/hooks/use-task-params";
 import { cn } from "@/lib/utils";
 import { queryClient, trpc } from "@/utils/trpc";

@@ -1,5 +1,10 @@
 "use client";
-import { Card, CardContent, CardDescription, CardHeader } from "@nexus-app/ui/card";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+} from "@nexus-app/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { EnableAutopilotSettingsForm } from "./enable-autopilot-settings-form copy";

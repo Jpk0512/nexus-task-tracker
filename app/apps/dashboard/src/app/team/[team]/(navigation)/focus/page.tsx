@@ -6,7 +6,13 @@ import { FocusShell } from "@/components/focus/focus-shell";
  */
 export default function FocusPage() {
 	return (
-		<Suspense fallback={<div className="p-4 text-[13px] text-muted-foreground">Loading Focus…</div>}>
+		<Suspense
+			fallback={
+				<div className="p-4 text-[13px] text-muted-foreground">
+					Loading Focus…
+				</div>
+			}
+		>
 			<FocusShell />
 		</Suspense>
 	);

@@ -7,18 +7,9 @@ import {
 	PopoverTrigger,
 } from "@ui/components/ui/popover";
 import { cn } from "@ui/lib/utils";
-import {
-	BoxIcon,
-	CheckSquareIcon,
-	FileTextIcon,
-	ListPlusIcon,
-	PlusIcon,
-	SparklesIcon,
-} from "lucide-react";
-import { usePathname, useRouter } from "next/navigation";
+import { PlusIcon } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useTaskParams } from "@/hooks/use-task-params";
-import { useUser } from "./user-provider";
+import { useCreateActions } from "@/hooks/use-create-actions";
 
 // Bottom-right floating command tray: a single FAB that expands into quick
 // create actions. Hidden whenever a real Dialog/Sheet/AlertDialog is open so
@@ -56,68 +47,16 @@ const useAnyDialogOpen = () => {
 };
 
 export const CommandTray = () => {
-	const user = useUser();
-	const router = useRouter();
-	const pathname = usePathname();
-	const { setParams } = useTaskParams();
 	const [open, setOpen] = useState(false);
 	const dialogOpen = useAnyDialogOpen();
-
-	// Context-awareness: if we're inside a project, "New task" pre-fills it.
-	const inProject = /\/projects\/[^/]+/.test(pathname);
+	// Shared with the sidebar CreateButton and the global "c" hotkey (see
+	// use-create-actions.ts) so all three create entrypoints agree on
+	// wording, icons, and ambient project/milestone context (FEAT-007).
+	const { list: actions } = useCreateActions();
 
 	if (dialogOpen) return null;
 
 	const close = () => setOpen(false);
-	const base = user.basePath;
-
-	const actions = [
-		{
-			label: inProject ? "New task in project" : "New task",
-			hint: "c",
-			icon: ListPlusIcon,
-			onSelect: () => {
-				close();
-				setParams({ createTask: true });
-			},
-		},
-		{
-			label: "New todo",
-			hint: "N",
-			icon: CheckSquareIcon,
-			onSelect: () => {
-				close();
-				router.push(`${base}/todos`);
-			},
-		},
-		{
-			label: "New doc",
-			hint: "",
-			icon: FileTextIcon,
-			onSelect: () => {
-				close();
-				router.push(`${base}/documents/create`);
-			},
-		},
-		{
-			label: "New project",
-			hint: "",
-			icon: BoxIcon,
-			onSelect: () => {
-				close();
-				router.push(`${base}/create-project`);
-			},
-		},
-		{
-			label: "Start from an idea",
-			hint: "",
-			icon: SparklesIcon,
-			onSelect: () => {
-				close();
-				router.push(`${base}/create-project/starter`);
-			},
-		},
-	];
 
 	return (
 		<div className="pointer-events-none fixed right-5 bottom-5 z-40">
@@ -144,9 +83,12 @@ export const CommandTray = () => {
 					<div className="flex flex-col">
 						{actions.map((a) => (
 							<button
-								key={a.label}
+								key={a.id}
 								type="button"
-								onClick={a.onSelect}
+								onClick={() => {
+									close();
+									a.onSelect();
+								}}
 								className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-left text-[13px] text-foreground transition-colors hover:bg-accent"
 							>
 								<a.icon className="size-3.5 text-muted-foreground" />

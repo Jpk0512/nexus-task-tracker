@@ -196,6 +196,78 @@ export function invalidateDocumentByIdCache(documentId: string) {
 	);
 }
 
+/**
+ * Remove a single project from the projects list caches (optimistic delete —
+ * pairs with `addProjectToCache` for the delete-with-undo flow).
+ */
+export function removeProjectFromCache(projectId: string) {
+	queryClient.setQueriesData(
+		{ queryKey: trpc.projects.get.infiniteQueryKey() },
+		(old: any) => {
+			if (!old?.pages) return old;
+			return {
+				...old,
+				pages: old.pages.map((page: any) => ({
+					...page,
+					data: page.data.filter((project: any) => project.id !== projectId),
+				})),
+			};
+		},
+	);
+
+	queryClient.setQueriesData(
+		{ queryKey: trpc.projects.get.queryKey() },
+		(old: any) => {
+			if (!old?.data) return old;
+			return {
+				...old,
+				data: old.data.filter((project: any) => project.id !== projectId),
+			};
+		},
+	);
+
+	queryClient.invalidateQueries(
+		trpc.projects.getById.queryOptions({ id: projectId }),
+	);
+}
+
+/**
+ * Restore a project into the projects list cache (undo of an optimistic
+ * delete — see `removeProjectFromCache`).
+ */
+export function addProjectToCache(newProject: Project) {
+	queryClient.setQueriesData(
+		{ queryKey: trpc.projects.get.infiniteQueryKey() },
+		(old: any) => {
+			if (!old?.pages) return old;
+			return {
+				...old,
+				pages: old.pages.map((page: any, index: number) =>
+					index === 0 ? { ...page, data: [newProject, ...page.data] } : page,
+				),
+			};
+		},
+	);
+
+	// Symmetric with removeProjectFromCache's removal from the plain (non-
+	// infinite) query cache — sidebar-projects/project-switcher/home widgets
+	// read via useQuery on this key, not the infinite one.
+	queryClient.setQueriesData(
+		{ queryKey: trpc.projects.get.queryKey() },
+		(old: any) => {
+			if (!old?.data) return old;
+			return { ...old, data: [newProject, ...old.data] };
+		},
+	);
+
+	// getById's return shape (rootPath/docsPath, no lead/progress/milestone)
+	// genuinely differs from the list Project shape — invalidate rather than
+	// seed with a mismatched object; the detail page will refetch on visit.
+	queryClient.invalidateQueries(
+		trpc.projects.getById.queryOptions({ id: newProject.id }),
+	);
+}
+
 export function updateProjectInCache(updatedProject: Partial<Project>) {
 	const updateProject = (projects: Project[]) => {
 		return projects.map((p) =>

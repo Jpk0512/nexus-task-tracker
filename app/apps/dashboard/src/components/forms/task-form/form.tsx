@@ -37,6 +37,7 @@ import { taskFormSchema } from "./form-type";
 import { TaskFormProperties } from "./properties";
 import { SmartInput } from "./smart-input";
 import { SubscribersList } from "./subscribers-list";
+import { TaskLinkChips } from "./task-link-chips";
 import { Title } from "./title";
 
 export const TaskForm = ({
@@ -199,6 +200,7 @@ export const TaskForm = ({
 											</span>
 										</div>
 									)}
+									<TaskLinkChips />
 									<div className="flex items-center justify-between gap-4 px-4 py-2">
 										<Title />
 									</div>

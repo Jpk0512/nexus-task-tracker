@@ -25,6 +25,7 @@ import {
 	type PaletteLinkMode,
 	useGlobalSearch,
 } from "./global-search-context";
+import { loadRecent, persistRecent } from "./recent-items";
 import {
 	isCommandItem,
 	loadLastCommand,
@@ -60,42 +61,9 @@ const TAB_DEFS: ReadonlyArray<{
 
 type TabId = (typeof TAB_DEFS)[number]["id"];
 
-// ─── Recent items (last 5 visited entities, persisted) ───────────────────
-// Persisted to `nexus.palette.recent`. We keep the storage small (5 entries,
-// stringified) and refresh whenever an item is selected.
-const RECENT_KEY = "nexus.palette.recent";
-const RECENT_MAX = 5;
-
-function loadRecent(): GlobalSearchItem[] {
-	if (typeof window === "undefined") return [];
-	try {
-		const raw = window.localStorage.getItem(RECENT_KEY);
-		if (!raw) return [];
-		const parsed = JSON.parse(raw);
-		return Array.isArray(parsed) ? parsed.slice(0, RECENT_MAX) : [];
-	} catch {
-		return [];
-	}
-}
-
-function persistRecent(item: GlobalSearchItem): void {
-	if (typeof window === "undefined") return;
-	try {
-		const prior = loadRecent().filter((x) => x.id !== item.id);
-		// Stamp the entry with a `visitedAt` so the Cmd+O quick-open ring
-		// (codex delighter #9) can render a relative time. We intentionally
-		// widen the storage shape only here — readers tolerate a missing
-		// timestamp.
-		const stamped = {
-			...item,
-			visitedAt: new Date().toISOString(),
-		} as GlobalSearchItem & { visitedAt?: string };
-		const next = [stamped, ...prior].slice(0, RECENT_MAX);
-		window.localStorage.setItem(RECENT_KEY, JSON.stringify(next));
-	} catch {
-		// Quota / privacy mode — recent items are a nicety, not a contract.
-	}
-}
+// Recent items (last 5 visited entities, persisted to `nexus.palette.recent`)
+// now live in `./recent-items` so direct-navigation visits (FEAT-006 item 4)
+// and the palette's own selection-based recording share one store.
 
 // Static Actions catalogue lives in `./actions-catalogue` so it can be reused
 // by the repeat-last (Cmd+.) and quick-open (Cmd+O) delighters.

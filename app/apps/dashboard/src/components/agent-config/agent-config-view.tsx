@@ -33,7 +33,14 @@ const LIST_WIDTH_DEFAULT = 300;
 const LIST_WIDTH_MIN = 240;
 const LIST_WIDTH_MAX = 480;
 
-type AgentFilter = "all" | "claude" | "codex" | "cursor" | "pi" | "oh" | "custom";
+type AgentFilter =
+	| "all"
+	| "claude"
+	| "codex"
+	| "cursor"
+	| "pi"
+	| "oh"
+	| "custom";
 
 type TreeNode = {
 	name: string;
@@ -577,9 +584,7 @@ export function AgentConfigView() {
 						>
 							{roots.map((r) => (
 								<option key={r.id} value={r.id}>
-									{r.agent === "claude"
-										? `${r.label} · Claude`
-										: r.label}
+									{r.agent === "claude" ? `${r.label} · Claude` : r.label}
 								</option>
 							))}
 						</select>
@@ -673,7 +678,8 @@ export function AgentConfigView() {
 									? "Oh has no folder yet — use Add folder."
 									: "No roots for this filter."}
 							</div>
-						) : rootsQuery.isLoading || (roots.length > 0 && trees.isLoading) ? (
+						) : rootsQuery.isLoading ||
+							(roots.length > 0 && trees.isLoading) ? (
 							<div className="px-2 py-6 text-center text-[12px] text-muted-foreground">
 								Loading…
 							</div>
@@ -803,8 +809,7 @@ export function AgentConfigView() {
 							</div>
 							<div className="min-h-0 flex-1 overflow-y-auto">
 								<div className="mx-auto w-full max-w-[46rem] px-6 py-6">
-									{mode === "preview" &&
-									isMarkdown(selection.relativePath) ? (
+									{mode === "preview" && isMarkdown(selection.relativePath) ? (
 										<BlockEditor
 											key={`${selection.rootId}:${selection.relativePath}:${sha}`}
 											value={draft}
@@ -812,7 +817,7 @@ export function AgentConfigView() {
 											className="editor-xl [&_.tiptap]:min-h-[min(60vh,520px)]"
 										/>
 									) : mode === "preview" ? (
-										<pre className="whitespace-pre-wrap break-words rounded-md border border-border/50 bg-muted/20 p-4 font-mono text-[12px] leading-[1.6] text-foreground/90">
+										<pre className="whitespace-pre-wrap break-words rounded-md border border-border/50 bg-muted/20 p-4 font-mono text-[12px] text-foreground/90 leading-[1.6]">
 											{draft || "Empty."}
 										</pre>
 									) : (
@@ -821,7 +826,7 @@ export function AgentConfigView() {
 											onChange={(e) => setDraft(e.target.value)}
 											spellCheck={false}
 											disabled={!!fileQuery.data?.masked}
-											className="min-h-[min(60vh,520px)] w-full resize-y rounded-md border border-border/60 bg-transparent px-3 py-2 font-mono text-[12.5px] leading-[1.65] text-foreground/90 outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-60"
+											className="min-h-[min(60vh,520px)] w-full resize-y rounded-md border border-border/60 bg-transparent px-3 py-2 font-mono text-[12.5px] text-foreground/90 leading-[1.65] outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-60"
 											placeholder="Empty."
 										/>
 									)}
@@ -843,7 +848,9 @@ export function AgentConfigView() {
 										<div className="text-[10px] text-muted-foreground uppercase">
 											Agent
 										</div>
-										<div className="font-[510] capitalize">{activeRoot.agent}</div>
+										<div className="font-[510] capitalize">
+											{activeRoot.agent}
+										</div>
 									</div>
 									<div>
 										<div className="text-[10px] text-muted-foreground uppercase">

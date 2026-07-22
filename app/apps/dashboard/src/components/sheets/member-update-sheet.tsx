@@ -1,5 +1,10 @@
 "use client";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@nexus-app/ui/sheet";
+import {
+	Sheet,
+	SheetContent,
+	SheetHeader,
+	SheetTitle,
+} from "@nexus-app/ui/sheet";
 import { useQuery } from "@tanstack/react-query";
 import { useMemberParams } from "@/hooks/use-member-params";
 import { trpc } from "@/utils/trpc";

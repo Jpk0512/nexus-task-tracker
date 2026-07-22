@@ -119,6 +119,7 @@ export function ChatMessageActions({
 							<button
 								type="button"
 								onClick={copyToClipboard}
+								aria-label={copied ? "Copied" : "Copy response"}
 								className="flex h-6 w-6 items-center justify-center transition-colors duration-200 hover:bg-muted"
 							>
 								{copied ? (
@@ -143,6 +144,7 @@ export function ChatMessageActions({
 							<button
 								type="button"
 								onClick={handleRegenerate}
+								aria-label="Retry response"
 								className="flex h-6 w-6 items-center justify-center transition-colors duration-200 hover:bg-muted"
 							>
 								<RefreshCwIcon className="size-3.5 text-muted-foreground hover:text-foreground" />
@@ -163,6 +165,11 @@ export function ChatMessageActions({
 							<button
 								type="button"
 								onClick={handlePositive}
+								aria-label={
+									feedbackGiven === "positive"
+										? "Remove positive feedback"
+										: "Positive feedback"
+								}
 								disabled={
 									createFeedbackMutation.isPending ||
 									deleteFeedbackMutation.isPending
@@ -203,6 +210,11 @@ export function ChatMessageActions({
 							<button
 								type="button"
 								onClick={handleNegative}
+								aria-label={
+									feedbackGiven === "negative"
+										? "Remove negative feedback"
+										: "Negative feedback"
+								}
 								disabled={
 									createFeedbackMutation.isPending ||
 									deleteFeedbackMutation.isPending

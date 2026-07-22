@@ -260,7 +260,9 @@ function TodoRow({
 											: "text-foreground"
 									}`}
 								>
-									<span className="min-w-0 flex-1 truncate">{todo.content}</span>
+									<span className="min-w-0 flex-1 truncate">
+										{todo.content}
+									</span>
 									<MetadataConflictBadge
 										task={{
 											id: todo.id,
@@ -282,7 +284,7 @@ function TodoRow({
 											onFilterByProject?.(todo.projectId!);
 										}}
 										className={cn(
-											"inline-flex items-center rounded-full border border-border/60 px-2 py-0.5 font-normal text-xs text-muted-foreground transition-colors hover:border-border hover:text-foreground",
+											"inline-flex items-center rounded-full border border-border/60 px-2 py-0.5 font-normal text-muted-foreground text-xs transition-colors hover:border-border hover:text-foreground",
 											"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1",
 										)}
 										aria-label={todo.projectName}

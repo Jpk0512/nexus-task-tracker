@@ -24,6 +24,7 @@ import {
 import { memo, useCallback, useMemo, useRef, useState } from "react";
 import { useTaskPanel } from "@/components/panels/task-panel";
 import type { EnrichedTask } from "@/hooks/use-data";
+import { useTaskHoverQuickActions } from "@/hooks/use-task-hover-actions";
 import { useTaskParams } from "@/hooks/use-task-params";
 import { useTaskSelectionStore } from "@/store/task-selection";
 import { queryClient, trpc } from "@/utils/trpc";
@@ -52,6 +53,7 @@ export const TasksList = () => {
 	);
 
 	const { tasks, reorderTask } = useTasksGrouped();
+	useTaskHoverQuickActions();
 
 	// Get stable reference to panel opener - only this component subscribes to panel context
 	const taskPanel = useTaskPanel();

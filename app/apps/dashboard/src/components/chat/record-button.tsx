@@ -208,6 +208,7 @@ export function RecordButton({
 				variant="ghost"
 				size="icon"
 				disabled
+				aria-label="Transcribing recording"
 				className={cn("mr-2 size-8 opacity-50", className)}
 			>
 				<div className="flex items-center justify-center">
@@ -224,6 +225,8 @@ export function RecordButton({
 			size="icon"
 			onClick={handleRecordClick}
 			disabled={disabled}
+			aria-label={isRecording ? "Stop recording" : "Start voice recording"}
+			aria-pressed={isRecording}
 			className={cn(
 				"size-8 text-muted-foreground transition-all duration-300 hover:bg-transparent",
 				isRecording &&

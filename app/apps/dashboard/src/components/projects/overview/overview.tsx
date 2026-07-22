@@ -1,5 +1,6 @@
 "use client";
 import { useQuery } from "@tanstack/react-query";
+import { Skeleton } from "@ui/components/ui/skeleton";
 import {
 	BookOpenIcon,
 	BrainIcon,
@@ -19,7 +20,7 @@ import { MilestonesCard } from "./milestones-card";
 
 export const ProjectOverview = ({ projectId }: { projectId: string }) => {
 	const { team } = useParams<{ team: string }>();
-	const { data } = useQuery(
+	const { data, isLoading } = useQuery(
 		trpc.projects.getById.queryOptions({
 			id: projectId,
 		}),
@@ -35,6 +36,11 @@ export const ProjectOverview = ({ projectId }: { projectId: string }) => {
 
 	return (
 		<div className="h-full overflow-y-auto">
+			{/* Client-side refetch (e.g. switching projects without a full route
+			 *  transition) never hits the route-level loading.tsx, so this
+			 *  in-place skeleton covers the resource strip + form + milestones
+			 *  shape while `getById` resolves. */}
+			{isLoading && !data && <ProjectOverviewSkeleton />}
 			{data && (
 				// Linear / Notion-style centered document column. The ProjectForm
 				// renders the Tiptap block editor for `description`, and we drop
@@ -63,6 +69,35 @@ export const ProjectOverview = ({ projectId }: { projectId: string }) => {
 		</div>
 	);
 };
+
+/** Matches the resource-strip / form / milestones geometry of the loaded
+ *  page so there's no layout jump once `data` arrives. */
+function ProjectOverviewSkeleton() {
+	return (
+		<div className="mx-auto max-w-2xl px-6 py-8 lg:py-12" aria-hidden>
+			<div className="mb-8 grid grid-cols-3 gap-2 sm:grid-cols-6">
+				{Array.from({ length: 6 }).map((_, i) => (
+					<div
+						key={`overview-skel-strip-${i}`}
+						className="flex flex-col items-center gap-1.5 rounded-xl border border-border/60 bg-card/30 px-2 py-3"
+					>
+						<Skeleton className="size-6 rounded-full" />
+						<Skeleton className="h-2.5 w-10" />
+					</div>
+				))}
+			</div>
+			<Skeleton className="h-7 w-2/3" />
+			<Skeleton className="mt-4 h-4 w-full" />
+			<Skeleton className="mt-2 h-4 w-5/6" />
+			<Skeleton className="mt-2 h-4 w-3/5" />
+			<div className="mt-10 border-t pt-6">
+				<Skeleton className="h-4 w-32" />
+				<Skeleton className="mt-3 h-10 w-full rounded-md" />
+				<Skeleton className="mt-2 h-10 w-full rounded-md" />
+			</div>
+		</div>
+	);
+}
 
 /** Dashboard OS resource strip — one-click jump to project surfaces. */
 function ProjectResourceStrip({
@@ -119,7 +154,7 @@ function ProjectResourceStrip({
 					className="flex flex-col items-center gap-1.5 rounded-xl border border-border/60 bg-card/30 px-2 py-3 text-center transition-colors hover:bg-accent/40"
 				>
 					<SoftIcon icon={it.icon} tone={it.tone} size="sm" />
-					<span className="text-[11px] font-[510]">{it.label}</span>
+					<span className="font-[510] text-[11px]">{it.label}</span>
 				</Link>
 			))}
 		</div>

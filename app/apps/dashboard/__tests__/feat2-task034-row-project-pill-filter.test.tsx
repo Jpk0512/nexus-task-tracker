@@ -130,7 +130,10 @@ vi.mock("@tanstack/react-query", () => {
 			mutate: () => {},
 			isPending: false,
 		}),
-		useQuery: (opts: { queryKey?: unknown[]; input?: { projectId?: string; pageSize?: number; tag?: string } }) => {
+		useQuery: (opts: {
+			queryKey?: unknown[];
+			input?: { projectId?: string; pageSize?: number; tag?: string };
+		}) => {
 			const input = opts?.input;
 			// projects.get call: has pageSize — return empty so the project filter
 			// strip doesn't render and doesn't collide with the row pill button.
@@ -173,15 +176,31 @@ vi.mock("@/components/tasks/task-toolbar", () => ({
 	useToolbarGroupBy: () => ["none", () => {}] as const,
 }));
 vi.mock("@/hooks/use-jk-navigation", () => ({
-	useJkNavigation: () => ({ focusedId: null as string | null, setFocusedId: () => {}, isFocused: () => false }),
+	useJkNavigation: () => ({
+		focusedId: null as string | null,
+		setFocusedId: () => {},
+		isFocused: () => false,
+	}),
 }));
 vi.mock("@/hooks/use-shortcuts", () => ({ useShortcut: () => {} }));
 vi.mock("@/hooks/use-task-params", () => ({
 	useTaskParams: () => ({ params: {}, setParams: () => {} }),
 }));
 vi.mock("@/stores/task-selection", () => ({
-	useTaskSelection: (selector: (s: { selected: Set<string>; toggle: () => void; rangeTo: () => void; clear: () => void }) => unknown) =>
-		selector({ selected: new Set(), toggle: () => {}, rangeTo: () => {}, clear: () => {} }),
+	useTaskSelection: (
+		selector: (s: {
+			selected: Set<string>;
+			toggle: () => void;
+			rangeTo: () => void;
+			clear: () => void;
+		}) => unknown,
+	) =>
+		selector({
+			selected: new Set(),
+			toggle: () => {},
+			rangeTo: () => {},
+			clear: () => {},
+		}),
 }));
 vi.mock("./todo-dnd-provider", () => ({
 	useTodoSortableHandler: (): null => null,
@@ -203,8 +222,12 @@ vi.mock("@dnd-kit/sortable", () => ({
 		return next;
 	},
 }));
-vi.mock("@dnd-kit/core", () => ({ CSS: { Transform: { toString: (): string => "" } } }));
-vi.mock("@dnd-kit/utilities", () => ({ CSS: { Transform: { toString: (): string => "" } } }));
+vi.mock("@dnd-kit/core", () => ({
+	CSS: { Transform: { toString: (): string => "" } },
+}));
+vi.mock("@dnd-kit/utilities", () => ({
+	CSS: { Transform: { toString: (): string => "" } },
+}));
 vi.mock("react-hotkeys-hook", () => ({ useHotkeys: () => {} }));
 
 // ─── Component under test (imported after mocks) ──────────────────────────────
@@ -230,18 +253,15 @@ describe("TASK-034 — row project pill is interactive and filters the todo list
 	 * WHEN the rendered DOM is inspected
 	 * THEN the project name appears as a role="button" element
 	 */
-	test(
-		"AC(a): row project pill is rendered as a button (not a static Badge)",
-		() => {
-			render(<TodosView />);
+	test("AC(a): row project pill is rendered as a button (not a static Badge)", () => {
+		render(<TodosView />);
 
-			// The project name "ALP · Alpha Project" (or similar) on the row must
-			// be an interactive button — getByRole will fail if it's a plain <span>
-			// or <div> without an explicit role.
-			const pill = screen.getByRole("button", { name: /alpha project/i });
-			expect(pill).toBeInTheDocument();
-		},
-	);
+		// The project name "ALP · Alpha Project" (or similar) on the row must
+		// be an interactive button — getByRole will fail if it's a plain <span>
+		// or <div> without an explicit role.
+		const pill = screen.getByRole("button", { name: /alpha project/i });
+		expect(pill).toBeInTheDocument();
+	});
 
 	/**
 	 * AC(b): Clicking the row project pill sets selectedProjectId, narrowing
@@ -251,29 +271,26 @@ describe("TASK-034 — row project pill is interactive and filters the todo list
 	 * WHEN the user clicks the project pill on the Alpha Project row
 	 * THEN TODO_B ("Todo from Beta") is no longer in the document
 	 */
-	test(
-		"AC(b): clicking the row project pill filters the list to that project",
-		async () => {
-			const user = userEvent.setup();
-			render(<TodosView />);
+	test("AC(b): clicking the row project pill filters the list to that project", async () => {
+		const user = userEvent.setup();
+		render(<TodosView />);
 
-			// Both todos should be initially visible.
-			expect(screen.getByText("Todo from Alpha")).toBeInTheDocument();
-			expect(screen.getByText("Todo from Beta")).toBeInTheDocument();
+		// Both todos should be initially visible.
+		expect(screen.getByText("Todo from Alpha")).toBeInTheDocument();
+		expect(screen.getByText("Todo from Beta")).toBeInTheDocument();
 
-			// Click the project pill on the Alpha Project row.
-			// Currently a static Badge — getByRole will throw because there is no
-			// button with this label, so the test fails for the right reason.
-			const alphaProjectPill = screen.getByRole("button", {
-				name: /alpha project/i,
-			});
-			await user.click(alphaProjectPill);
+		// Click the project pill on the Alpha Project row.
+		// Currently a static Badge — getByRole will throw because there is no
+		// button with this label, so the test fails for the right reason.
+		const alphaProjectPill = screen.getByRole("button", {
+			name: /alpha project/i,
+		});
+		await user.click(alphaProjectPill);
 
-			// After filtering, only Alpha todos should remain.
-			await waitFor(() => {
-				expect(screen.queryByText("Todo from Beta")).not.toBeInTheDocument();
-			});
-			expect(screen.getByText("Todo from Alpha")).toBeInTheDocument();
-		},
-	);
+		// After filtering, only Alpha todos should remain.
+		await waitFor(() => {
+			expect(screen.queryByText("Todo from Beta")).not.toBeInTheDocument();
+		});
+		expect(screen.getByText("Todo from Alpha")).toBeInTheDocument();
+	});
 });

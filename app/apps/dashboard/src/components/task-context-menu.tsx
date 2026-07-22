@@ -16,6 +16,7 @@ import {
 	BoxIcon,
 	CircleDashedIcon,
 	CopyPlusIcon,
+	FolderKanbanIcon,
 	Maximize2Icon,
 	SignalHighIcon,
 	TagsIcon,
@@ -28,10 +29,9 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { useUser } from "@/components/user-provider";
 import { useProjects, useStatuses, useTeamMembers } from "@/hooks/use-data";
-import {
-	invalidateTasksCache,
-	updateTaskInCache,
-} from "@/hooks/use-data-cache-helpers";
+import { invalidateTasksCache } from "@/hooks/use-data-cache-helpers";
+import { useProjectParams } from "@/hooks/use-project-params";
+import { useTaskDeleteWithUndo } from "@/hooks/use-task-delete-with-undo";
 import { useTaskParams } from "@/hooks/use-task-params";
 import { queryClient, trpc } from "@/utils/trpc";
 import { Assignee, AssigneeAvatar } from "./asignee-avatar";
@@ -55,32 +55,14 @@ export const TaskContextMenu = ({
 	additionalItems?: React.ReactNode;
 }) => {
 	const { setParams } = useTaskParams();
+	const { setParams: setProjectParams } = useProjectParams();
 	const taskPanel = useTaskPanel();
 	const cloneTaskPanel = useCloneTaskPanel();
 	const { setItems } = useChatContext();
 
 	const user = useUser();
 
-	const { mutateAsync: deleteTask } = useMutation(
-		trpc.tasks.delete.mutationOptions({
-			onMutate: () => {
-				toast.loading("Deleting task...", {
-					id: "delete-task",
-				});
-			},
-			onSuccess: () => {
-				toast.success("Task deleted", {
-					id: "delete-task",
-				});
-				invalidateTasksCache();
-			},
-			onError: () => {
-				toast.error("Failed to delete task", {
-					id: "delete-task",
-				});
-			},
-		}),
-	);
+	const deleteTaskWithUndo = useTaskDeleteWithUndo();
 	const { mutate: updateTask } = useMutation(
 		trpc.tasks.update.mutationOptions({
 			onMutate: () => {
@@ -130,11 +112,6 @@ export const TaskContextMenu = ({
 		),
 	);
 
-	const handleDeleteTask = async (taskId: string) => {
-		await deleteTask({ id: taskId });
-		invalidateTasksCache();
-	};
-
 	const handleUpdateTask = async (data: {
 		priority?: "low" | "medium" | "high";
 		labels?: string[];
@@ -177,7 +154,22 @@ export const TaskContextMenu = ({
 
 				<ContextMenuItem onClick={() => cloneTaskPanel.open(task.id)}>
 					<CopyPlusIcon className="text-muted-foreground" />
-					Clone
+					Duplicate
+				</ContextMenuItem>
+
+				<ContextMenuItem
+					onClick={() =>
+						// FEAT-006 item 5 — non-destructive: seeds the create-project
+						// dialog from this task, the task itself is left untouched.
+						setProjectParams({
+							createProject: true,
+							projectSeedName: task.title,
+							projectSeedDescription: task.description || null,
+						})
+					}
+				>
+					<FolderKanbanIcon className="text-muted-foreground" />
+					Convert to project
 				</ContextMenuItem>
 
 				{/* <ContextMenuItem
@@ -345,7 +337,7 @@ export const TaskContextMenu = ({
 				{showDelete && (
 					<ContextMenuItem
 						variant="destructive"
-						onClick={handleDeleteTask.bind(null, task.id)}
+						onClick={() => deleteTaskWithUndo.run(task)}
 					>
 						<TrashIcon />
 						Delete

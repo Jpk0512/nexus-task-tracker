@@ -3,9 +3,10 @@ import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { Checkbox } from "@ui/components/ui/checkbox";
 import { memo, useCallback } from "react";
 import { StatusChangedChip } from "@/components/status-changed-chip";
-import type { EnrichedTask } from "@/hooks/use-data";
 import { useUser } from "@/components/user-provider";
+import type { EnrichedTask } from "@/hooks/use-data";
 import { cn } from "@/lib/utils";
+import { useTaskHoverStore } from "@/store/task-hover";
 import {
 	useIsTaskSelected,
 	useTaskSelectionStore,
@@ -35,6 +36,8 @@ export const TaskItem = memo(function TaskItem({
 	const toggleTaskSelection = useTaskSelectionStore(
 		(state) => state.toggleTaskSelection,
 	);
+	const setHoveredTask = useTaskHoverStore((s) => s.setHoveredTask);
+	const clearHoveredTask = useTaskHoverStore((s) => s.clearHoveredTask);
 
 	const { listeners, attributes, setNodeRef, transform, isDragging } =
 		useDraggable({
@@ -78,6 +81,8 @@ export const TaskItem = memo(function TaskItem({
 				setNodeRef(node);
 				setDroppableNodeRef(node);
 			}}
+			onMouseEnter={() => setHoveredTask(task.id)}
+			onMouseLeave={() => clearHoveredTask(task.id)}
 			{...listeners}
 			{...attributes}
 			style={{

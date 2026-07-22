@@ -23,9 +23,10 @@ import {
 	FolderTreeIcon,
 	LayersIcon,
 	LightbulbIcon,
+	ListPlusIcon,
 	type LucideIcon,
-	PanelRightIcon,
 	PanelRightCloseIcon,
+	PanelRightIcon,
 	PencilLineIcon,
 	PlusIcon,
 	RefreshCwIcon,
@@ -40,6 +41,7 @@ import { toast } from "sonner";
 import { BacklinksPanel } from "@/components/backlinks/backlinks-panel";
 import { BlockEditor } from "@/components/editor/block-editor";
 import { WikiLinkInline } from "@/components/knowledge/wiki-link-inline";
+import { useTaskParams } from "@/hooks/use-task-params";
 import { trpc } from "@/utils/trpc";
 
 type Category =
@@ -275,6 +277,7 @@ function parseWikiLinks(
 export function KnowledgeView() {
 	const qc = useQueryClient();
 	const searchParams = useSearchParams();
+	const { setParams: setTaskParams } = useTaskParams();
 	const initialNoteId = searchParams?.get("note") ?? null;
 	const [search, setSearch] = useState("");
 	const [category, setCategory] = useState<Category>("all");
@@ -324,14 +327,12 @@ export function KnowledgeView() {
 		}
 	}, [inspectorOpen]);
 
-	const onListResizeStart = (
-		e: {
-			preventDefault: () => void;
-			clientX: number;
-			pointerId: number;
-			currentTarget: EventTarget & HTMLDivElement;
-		},
-	) => {
+	const onListResizeStart = (e: {
+		preventDefault: () => void;
+		clientX: number;
+		pointerId: number;
+		currentTarget: EventTarget & HTMLDivElement;
+	}) => {
 		e.preventDefault();
 		dragRef.current = { startX: e.clientX, startW: listWidth };
 		e.currentTarget.setPointerCapture(e.pointerId);
@@ -598,6 +599,14 @@ export function KnowledgeView() {
 		});
 	};
 
+	// FEAT-006 item 5 — "convert note to task": seeds the create-task dialog
+	// with the note's title, same non-destructive pattern as "convert task to
+	// project" — the note stays put so it's still there as reference.
+	const convertSelectedToTask = () => {
+		if (!selectedNote) return;
+		setTaskParams({ createTask: true, taskTitle: displayTitle(selectedNote) });
+	};
+
 	const onDraftChange = (value: string) => {
 		draftRef.current = value;
 		setDraft(value);
@@ -643,7 +652,12 @@ export function KnowledgeView() {
 							{scanMut.isPending ? "Scanning…" : "Re-scan"}
 						</span>
 					</Button>
-					<Button variant="ghost" size="sm" className="h-7 px-2 text-[12px]" asChild>
+					<Button
+						variant="ghost"
+						size="sm"
+						className="h-7 px-2 text-[12px]"
+						asChild
+					>
 						<a href="zennotes://open" title="Open vault in ZenNotes">
 							<BookOpenIcon className="size-3.5" />
 							<span className="hidden md:inline">ZenNotes</span>
@@ -697,7 +711,12 @@ export function KnowledgeView() {
 						// biome-ignore lint/a11y/noAutofocus: path entry
 						autoFocus
 					/>
-					<Button size="sm" className="h-8" onClick={createNote} disabled={!newPath.trim()}>
+					<Button
+						size="sm"
+						className="h-8"
+						onClick={createNote}
+						disabled={!newPath.trim()}
+					>
 						Create
 					</Button>
 					<span className="text-[11px] text-muted-foreground">
@@ -756,7 +775,9 @@ export function KnowledgeView() {
 							</Select>
 							<Select
 								value={updatedFilter}
-								onValueChange={(value) => setUpdatedFilter(value as UpdatedFilter)}
+								onValueChange={(value) =>
+									setUpdatedFilter(value as UpdatedFilter)
+								}
 							>
 								<SelectTrigger className="h-7 min-w-0 flex-1 text-[11px]">
 									<SelectValue />
@@ -771,10 +792,14 @@ export function KnowledgeView() {
 					</div>
 					<div className="min-h-0 flex-1 overflow-y-auto p-1.5">
 						{listQuery.isLoading ? (
-							<div className="p-3 text-[12px] text-muted-foreground">Loading…</div>
+							<div className="p-3 text-[12px] text-muted-foreground">
+								Loading…
+							</div>
 						) : filteredNotes.length === 0 ? (
 							<div className="p-3 text-center text-[12px] text-muted-foreground">
-								{notes.length === 0 ? "Vault empty — create a note." : "No matches."}
+								{notes.length === 0
+									? "Vault empty — create a note."
+									: "No matches."}
 							</div>
 						) : (
 							<div className="space-y-1">
@@ -812,12 +837,14 @@ export function KnowledgeView() {
 					onPointerCancel={onListResizeEnd}
 					className="group relative w-1.5 shrink-0 cursor-col-resize bg-transparent hover:bg-primary/30 active:bg-primary/50"
 				>
-					<span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border group-hover:bg-primary/60 group-active:bg-primary" />
+					<span className="-translate-x-1/2 absolute inset-y-0 left-1/2 w-px bg-border group-hover:bg-primary/60 group-active:bg-primary" />
 				</div>
 
 				{/* Primary editor surface */}
 				<section className="flex min-w-0 flex-1 flex-col bg-background">
-					{!selectedNote && filteredNotes.length === 0 && !listQuery.isLoading ? (
+					{!selectedNote &&
+					filteredNotes.length === 0 &&
+					!listQuery.isLoading ? (
 						<EmptyState
 							hasNotes={notes.length > 0}
 							onNew={() => setShowNew(true)}
@@ -851,6 +878,7 @@ export function KnowledgeView() {
 							status={selectedStatus}
 							isPromoting={promoteMut.isPending}
 							onPromote={promoteSelected}
+							onConvertToTask={convertSelectedToTask}
 							onDelete={onDeleteSelected}
 							onClose={() => setInspectorOpen(false)}
 						/>
@@ -950,9 +978,7 @@ function NoteCard({
 	onSelect: (id: string) => void;
 }) {
 	// Kept for viewMode===cards compatibility (rail defaults to list).
-	return (
-		<NoteRow note={note} selected={selected} onSelect={onSelect} />
-	);
+	return <NoteRow note={note} selected={selected} onSelect={onSelect} />;
 }
 
 /**
@@ -1005,7 +1031,7 @@ function NoteEditor({
 		<div className="flex h-full min-h-0 flex-col">
 			<div className="flex shrink-0 items-center justify-between gap-3 border-border border-b px-4 py-2.5">
 				<div className="min-w-0">
-					<h2 className="truncate font-[510] text-[18px] tracking-[-0.025em] text-[#f6f6f8]">
+					<h2 className="truncate font-[510] text-[#f6f6f8] text-[18px] tracking-[-0.025em]">
 						{title}
 					</h2>
 					<p className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">
@@ -1031,7 +1057,12 @@ function NoteEditor({
 						))}
 					</div>
 					<AutoSaveIndicator state={saveState} />
-					<Button size="sm" className="h-7" onClick={onSave} disabled={isSaving || !noteDetail}>
+					<Button
+						size="sm"
+						className="h-7"
+						onClick={onSave}
+						disabled={isSaving || !noteDetail}
+					>
 						<SaveIcon className="size-3.5" />
 						{isSaving ? "Saving…" : "Save"}
 					</Button>
@@ -1051,11 +1082,13 @@ function NoteEditor({
 					) : (
 						<div className="space-y-5">
 							{body.trim() ? (
-								<pre className="whitespace-pre-wrap break-words font-sans text-[13.5px] leading-[1.65] text-foreground/90">
+								<pre className="whitespace-pre-wrap break-words font-sans text-[13.5px] text-foreground/90 leading-[1.65]">
 									{body}
 								</pre>
 							) : (
-								<p className="text-[13px] text-muted-foreground">No content yet. Switch to Edit.</p>
+								<p className="text-[13px] text-muted-foreground">
+									No content yet. Switch to Edit.
+								</p>
 							)}
 							{wikiLinks.length > 0 ? (
 								<div>
@@ -1095,6 +1128,7 @@ function NoteInspectorRail({
 	status,
 	isPromoting,
 	onPromote,
+	onConvertToTask,
 	onDelete,
 	onClose,
 }: {
@@ -1105,6 +1139,7 @@ function NoteInspectorRail({
 	status: string | null;
 	isPromoting: boolean;
 	onPromote: () => void;
+	onConvertToTask: () => void;
 	onDelete: () => void;
 	onClose: () => void;
 }) {
@@ -1112,7 +1147,7 @@ function NoteInspectorRail({
 		return (
 			<div className="flex h-full flex-col p-3">
 				<div className="mb-2 flex items-center justify-between">
-					<span className="font-[510] text-[11px] uppercase tracking-wider text-muted-foreground">
+					<span className="font-[510] text-[11px] text-muted-foreground uppercase tracking-wider">
 						Inspector
 					</span>
 					<button
@@ -1132,7 +1167,7 @@ function NoteInspectorRail({
 	return (
 		<div className="flex h-full min-h-0 flex-col">
 			<div className="flex items-center justify-between border-border border-b px-3 py-2.5">
-				<span className="font-[510] text-[11px] uppercase tracking-wider text-muted-foreground">
+				<span className="font-[510] text-[11px] text-muted-foreground uppercase tracking-wider">
 					Inspector
 				</span>
 				<button
@@ -1146,21 +1181,21 @@ function NoteInspectorRail({
 			</div>
 			<div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-3">
 				<div>
-					<div className="text-[10px] font-[510] uppercase tracking-wider text-muted-foreground">
+					<div className="font-[510] text-[10px] text-muted-foreground uppercase tracking-wider">
 						Vault
 					</div>
-					<div className="mt-1 text-[12.5px] font-[510]">
+					<div className="mt-1 font-[510] text-[12.5px]">
 						{noteDetail?.vaultLabel ?? "Personal Notes"}
 					</div>
 				</div>
 				<div>
-					<div className="text-[10px] font-[510] uppercase tracking-wider text-muted-foreground">
+					<div className="font-[510] text-[10px] text-muted-foreground uppercase tracking-wider">
 						Updated
 					</div>
 					<div className="mt-1 text-[12.5px]">{formatDate(note.updatedAt)}</div>
 				</div>
 				<div>
-					<div className="text-[10px] font-[510] uppercase tracking-wider text-muted-foreground">
+					<div className="font-[510] text-[10px] text-muted-foreground uppercase tracking-wider">
 						Path
 					</div>
 					<div className="mt-1 break-all font-mono text-[10.5px] text-muted-foreground">
@@ -1169,12 +1204,15 @@ function NoteInspectorRail({
 				</div>
 				{(status || tags.length > 0) && (
 					<div>
-						<div className="text-[10px] font-[510] uppercase tracking-wider text-muted-foreground">
+						<div className="font-[510] text-[10px] text-muted-foreground uppercase tracking-wider">
 							Tags
 						</div>
 						<div className="mt-1.5 flex flex-wrap gap-1">
 							{status ? (
-								<Badge variant="outline" className="h-[18px] px-1.5 font-normal text-[10px]">
+								<Badge
+									variant="outline"
+									className="h-[18px] px-1.5 font-normal text-[10px]"
+								>
 									{status}
 								</Badge>
 							) : null}
@@ -1190,7 +1228,7 @@ function NoteInspectorRail({
 					</div>
 				)}
 				<div>
-					<div className="mb-1.5 text-[10px] font-[510] uppercase tracking-wider text-muted-foreground">
+					<div className="mb-1.5 font-[510] text-[10px] text-muted-foreground uppercase tracking-wider">
 						Backlinks
 					</div>
 					<BacklinksPanel entityType="knowledge" entityId={note.id} />
@@ -1205,6 +1243,15 @@ function NoteInspectorRail({
 				>
 					<FileTextIcon className="size-3.5" />
 					{isPromoting ? "Promoting…" : "Promote to doc"}
+				</Button>
+				<Button
+					size="sm"
+					variant="outline"
+					className="h-8 w-full"
+					onClick={onConvertToTask}
+				>
+					<ListPlusIcon className="size-3.5" />
+					Convert to task
 				</Button>
 				<Button
 					size="sm"
@@ -1234,14 +1281,15 @@ function EmptyState({
 			<div className="flex flex-col items-center gap-2">
 				<BrainIcon className="size-10 text-muted-foreground/60" />
 				<p className="font-[510] text-[15px] tracking-[-0.012em]">
-					{hasNotes ? "No notes match these filters" : "Your notes vault is empty"}
+					{hasNotes
+						? "No notes match these filters"
+						: "Your notes vault is empty"}
 				</p>
 				<p className="max-w-md text-balance text-[12px] text-muted-foreground">
 					Notes are markdown files on disk. Prefer{" "}
-					<code className="text-[11px]">projects/&#123;projectId&#125;/</code> paths.
-					Filter by vault category,
-					status, or updated date, then inspect and edit the note in the right
-					pane.
+					<code className="text-[11px]">projects/&#123;projectId&#125;/</code>{" "}
+					paths. Filter by vault category, status, or updated date, then inspect
+					and edit the note in the right pane.
 				</p>
 			</div>
 			<div className="grid w-full max-w-xl gap-3 sm:grid-cols-2">

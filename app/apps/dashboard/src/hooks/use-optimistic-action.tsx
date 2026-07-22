@@ -63,7 +63,7 @@ function popLatest(): UndoEntry | undefined {
 	return undoStack.pop();
 }
 
-const TOAST_WINDOW_MS = 5_000;
+export const TOAST_WINDOW_MS = 5_000;
 
 export interface UseOptimisticActionOptions<TInput, TSnapshot> {
 	/** Stable identifier (e.g. `'task.complete'`) used for telemetry + toast id. */

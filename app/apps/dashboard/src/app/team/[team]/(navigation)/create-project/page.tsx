@@ -1,7 +1,12 @@
 "use client";
 
 import { Button } from "@ui/components/ui/button";
-import { FileTextIcon, FolderPlusIcon, HardDriveIcon, SparklesIcon } from "lucide-react";
+import {
+	FileTextIcon,
+	FolderPlusIcon,
+	HardDriveIcon,
+	SparklesIcon,
+} from "lucide-react";
 import Link from "next/link";
 import { SoftIcon } from "@/components/ui/soft-icon";
 import { useUser } from "@/components/user-provider";
@@ -63,8 +68,7 @@ export default function CreateProjectPage() {
 						<h2 className="font-[510] text-[15px]">Existing on disk</h2>
 						<p className="mt-1 text-[12.5px] text-muted-foreground">
 							Point at a site folder, name it, pick which folder Site Docs
-							mirrors (usually{" "}
-							<code className="text-[11px]">docs/</code>).
+							mirrors (usually <code className="text-[11px]">docs/</code>).
 						</p>
 					</div>
 					<Button asChild className="mt-auto w-fit" variant="outline">

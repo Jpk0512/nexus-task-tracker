@@ -122,7 +122,11 @@ export const McpServerList = () => {
 								</div>
 								<DropdownMenu>
 									<DropdownMenuTrigger asChild>
-										<Button size="icon" variant="ghost">
+										<Button
+											size="icon"
+											variant="ghost"
+											aria-label={`Actions for ${server.name}`}
+										>
 											<EllipsisIcon />
 										</Button>
 									</DropdownMenuTrigger>

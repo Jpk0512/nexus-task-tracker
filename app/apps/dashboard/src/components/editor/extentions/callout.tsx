@@ -141,4 +141,3 @@ export const Callout = Node.create({
 		return ReactNodeViewRenderer(CalloutView as any);
 	},
 });
-

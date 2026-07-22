@@ -1,6 +1,8 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { Button } from "@ui/components/ui/button";
+import { Checkbox } from "@ui/components/ui/checkbox";
 import { Skeleton } from "@ui/components/ui/skeleton";
 import { cn } from "@ui/lib/utils";
 import {
@@ -9,11 +11,12 @@ import {
 	isToday,
 	isYesterday,
 } from "date-fns";
-import { ActivityIcon, ArrowRight } from "lucide-react";
+import { ActivityIcon, ArrowRight, CheckCheckIcon } from "lucide-react";
 import Link from "next/link";
-import { Fragment, useMemo } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { AssigneeAvatar } from "@/components/asignee-avatar";
 import { useUser } from "@/components/user-provider";
+import { useActivityReadState } from "@/hooks/use-activity-read-state";
 import { trpc } from "@/utils/trpc";
 
 /**
@@ -96,9 +99,17 @@ function groupKeyFor(date: Date): GroupKey {
 
 const GROUP_ORDER: GroupKey[] = ["Today", "Yesterday", "This week", "Earlier"];
 
-export function ActivityTimeline() {
+export function ActivityTimeline({
+	enableBulkActions = false,
+}: {
+	/** Full `/activity` page turns this on; the compact Home widget stays as
+	 *  plain read-only rows so bulk chrome doesn't clutter a small card. */
+	enableBulkActions?: boolean;
+} = {}) {
 	const user = useUser();
 	const basePath = user?.basePath ?? "/team";
+	const { isRead, markRead, markUnread } = useActivityReadState();
+	const [selected, setSelected] = useState<Set<string>>(() => new Set());
 
 	const { data, isLoading } = useQuery(
 		trpc.activities.get.queryOptions(
@@ -125,6 +136,20 @@ export function ActivityTimeline() {
 	);
 
 	const activities = (data?.data ?? []) as unknown as Activity[];
+	const unreadIds = useMemo(
+		() => activities.filter((a) => !isRead(a.id)).map((a) => a.id),
+		[activities, isRead],
+	);
+
+	const toggleSelect = (id: string) => {
+		setSelected((prev) => {
+			const next = new Set(prev);
+			if (next.has(id)) next.delete(id);
+			else next.add(id);
+			return next;
+		});
+	};
+	const clearSelection = () => setSelected(new Set());
 
 	const groups = useMemo(() => {
 		const buckets = new Map<GroupKey, Activity[]>();
@@ -149,15 +174,76 @@ export function ActivityTimeline() {
 						Recent activity
 					</h2>
 				</div>
-				<Link
-					href={`${basePath}/inbox`}
-					className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[12px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-					aria-label="View all activity"
-				>
-					View all
-					<ArrowRight className="size-3" />
-				</Link>
+				<div className="flex items-center gap-2">
+					{enableBulkActions && unreadIds.length > 0 && (
+						<Button
+							type="button"
+							variant="ghost"
+							size="sm"
+							className="h-6 gap-1 px-1.5 text-[12px] text-muted-foreground hover:text-foreground"
+							onClick={() => markRead(unreadIds)}
+							aria-label={`Mark all ${unreadIds.length} activity read`}
+						>
+							<CheckCheckIcon className="size-3.5" />
+							Mark all read
+						</Button>
+					)}
+					<Link
+						href={`${basePath}/inbox`}
+						className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[12px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+						aria-label="View all activity"
+					>
+						View all
+						<ArrowRight className="size-3" />
+					</Link>
+				</div>
 			</header>
+			{enableBulkActions && selected.size > 0 && (
+				<div
+					className="flex items-center justify-between gap-2 border-border border-b bg-accent/30 px-3 py-1.5"
+					role="region"
+					aria-label="Bulk activity actions"
+				>
+					<span className="text-[12px] text-foreground">
+						{selected.size} selected
+					</span>
+					<div className="flex items-center gap-1">
+						<Button
+							type="button"
+							variant="ghost"
+							size="sm"
+							className="h-6 px-2 text-[12px]"
+							onClick={() => {
+								markRead(Array.from(selected));
+								clearSelection();
+							}}
+						>
+							Mark read
+						</Button>
+						<Button
+							type="button"
+							variant="ghost"
+							size="sm"
+							className="h-6 px-2 text-[12px]"
+							onClick={() => {
+								markUnread(Array.from(selected));
+								clearSelection();
+							}}
+						>
+							Mark unread
+						</Button>
+						<Button
+							type="button"
+							variant="ghost"
+							size="sm"
+							className="h-6 px-2 text-[12px] text-muted-foreground"
+							onClick={clearSelection}
+						>
+							Clear
+						</Button>
+					</div>
+				</div>
+			)}
 			<div className="px-3 py-3">
 				{isLoading ? (
 					<TimelineSkeleton />
@@ -184,6 +270,10 @@ export function ActivityTimeline() {
 												activity={a}
 												basePath={basePath}
 												isLast={idx === g.items.length - 1}
+												isRead={isRead(a.id)}
+												enableBulkActions={enableBulkActions}
+												isSelected={selected.has(a.id)}
+												onToggleSelect={() => toggleSelect(a.id)}
 											/>
 										</Fragment>
 									))}
@@ -201,10 +291,18 @@ function TimelineRow({
 	activity,
 	basePath,
 	isLast: _isLast,
+	isRead,
+	enableBulkActions,
+	isSelected,
+	onToggleSelect,
 }: {
 	activity: Activity;
 	basePath: string;
 	isLast: boolean;
+	isRead: boolean;
+	enableBulkActions: boolean;
+	isSelected: boolean;
+	onToggleSelect: () => void;
 }) {
 	const verb = activityVerb(activity);
 	const actorName = activity.user?.name ?? activity.user?.email ?? "Someone";
@@ -215,6 +313,15 @@ function TimelineRow({
 
 	const content = (
 		<div className="relative flex items-start gap-2.5 rounded-md px-1 py-1.5 transition-colors hover:bg-accent/40">
+			{enableBulkActions && (
+				<Checkbox
+					checked={isSelected}
+					onCheckedChange={() => onToggleSelect()}
+					onClick={(e) => e.stopPropagation()}
+					aria-label={`Select activity: ${actorName} ${verb}`}
+					className="relative z-10 mt-1.5"
+				/>
+			)}
 			<div className="relative z-10 mt-0.5">
 				<AssigneeAvatar
 					{...(activity.user ?? {})}
@@ -246,6 +353,14 @@ function TimelineRow({
 					</p>
 				) : null}
 			</div>
+			{enableBulkActions && !isRead && (
+				<span
+					role="status"
+					className="mt-1.5 size-1.5 shrink-0 rounded-full bg-brand"
+					aria-label="Unread"
+					title="Unread"
+				/>
+			)}
 		</div>
 	);
 

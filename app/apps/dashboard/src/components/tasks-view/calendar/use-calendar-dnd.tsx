@@ -2,8 +2,8 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { create } from "zustand";
-import type { EnrichedTask } from "@/hooks/use-data";
 import { useTasksViewContext } from "@/components/tasks-view/tasks-view";
+import type { EnrichedTask } from "@/hooks/use-data";
 import { trpc } from "@/utils/trpc";
 
 type CalendarDndStore = {

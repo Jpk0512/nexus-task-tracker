@@ -205,6 +205,7 @@ export const TaskChecklist = ({ taskId }: { taskId: string }) => {
 																variant={"ghost"}
 																size={"icon"}
 																className="size-6"
+																aria-label="Checklist item actions"
 															>
 																<EllipsisIcon />
 															</Button>

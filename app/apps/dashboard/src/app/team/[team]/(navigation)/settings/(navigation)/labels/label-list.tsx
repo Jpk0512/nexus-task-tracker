@@ -71,7 +71,12 @@ export const LabelList = () => {
 							<div>
 								<DropdownMenu>
 									<DropdownMenuTrigger asChild>
-										<Button size={"icon"} variant="ghost" className="size-5">
+										<Button
+											size={"icon"}
+											variant="ghost"
+											className="size-5"
+											aria-label={`Actions for ${label.name}`}
+										>
 											<EllipsisIcon />
 										</Button>
 									</DropdownMenuTrigger>

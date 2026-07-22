@@ -1,11 +1,6 @@
 "use client";
 
-import {
-	BrainIcon,
-	BookOpenIcon,
-	MicIcon,
-	SparklesIcon,
-} from "lucide-react";
+import { BookOpenIcon, BrainIcon, MicIcon, SparklesIcon } from "lucide-react";
 import Link from "next/link";
 import { SoftIcon } from "@/components/ui/soft-icon";
 import { useUser } from "@/components/user-provider";

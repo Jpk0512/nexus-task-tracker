@@ -42,7 +42,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import {
+	EmptyState,
+	EmptyStateAction,
+	EmptyStateDescription,
+	EmptyStateIcon,
+	EmptyStateTitle,
+} from "@/components/empty-state";
 import { tagColor } from "@/lib/project-color";
+import { runToastAction } from "@/lib/toast-action";
 import { trpc } from "@/utils/trpc";
 
 type Props = { productSlug: string; team: string };
@@ -343,27 +351,45 @@ export function PromptListView({ productSlug, team }: Props) {
 		qc.invalidateQueries({ queryKey: [["prompts", "getPrompts"]] });
 	};
 
-	const createMut = useMutation(
-		trpc.prompts.createPrompt.mutationOptions({
-			onSuccess: (p) => {
-				toast.success(`Created ${(p as { name: string }).name}`);
-				setShowNew(false);
-				setName("");
-				invalidatePrompts();
-			},
-			onError: (e) => toast.error(e.message),
-		}),
-	);
+	const createMut = useMutation(trpc.prompts.createPrompt.mutationOptions());
+	const deleteMut = useMutation(trpc.prompts.deletePrompt.mutationOptions());
 
-	const deleteMut = useMutation(
-		trpc.prompts.deletePrompt.mutationOptions({
-			onSuccess: () => {
-				toast.success("Deleted");
-				invalidatePrompts();
+	// Standardized lifecycle (FEAT-009 item 4): loading -> success (View opens
+	// the new/duplicated prompt's editor) -> error (Retry re-fires the same
+	// create call, e.g. after a transient network failure).
+	const createPrompt = (input: { productId: string; name: string }) => {
+		runToastAction(() => createMut.mutateAsync(input), {
+			loading: `Creating "${input.name}"…`,
+			success: (p) => `Created ${(p as { name: string }).name}`,
+			view: {
+				onClick: (created) => {
+					const { slug } = created as { slug: string };
+					router.push(`/team/${team}/prompts/${productSlug}/${slug}`);
+				},
 			},
-			onError: (e) => toast.error(e.message),
-		}),
-	);
+			error: (e) =>
+				e instanceof Error ? e.message : "Failed to create prompt",
+			retry: () => createPrompt(input),
+		}).then((result) => {
+			if (!result.ok) return;
+			setShowNew(false);
+			setName("");
+			invalidatePrompts();
+		});
+	};
+
+	const deletePrompt = (input: { id: string }) => {
+		runToastAction(() => deleteMut.mutateAsync(input), {
+			loading: "Deleting prompt…",
+			success: "Deleted",
+			error: (e) =>
+				e instanceof Error ? e.message : "Failed to delete prompt",
+			retry: () => deletePrompt(input),
+		}).then((result) => {
+			if (!result.ok) return;
+			invalidatePrompts();
+		});
+	};
 
 	const product = data?.product;
 	const prompts = (data?.prompts ?? []) as PromptRow[];
@@ -391,7 +417,7 @@ export function PromptListView({ productSlug, team }: Props) {
 	const submitInline = () => {
 		if (!product) return;
 		if (!name.trim()) return;
-		createMut.mutate({ productId: product.id, name: name.trim() });
+		createPrompt({ productId: product.id, name: name.trim() });
 	};
 
 	return (
@@ -459,7 +485,8 @@ export function PromptListView({ productSlug, team }: Props) {
 								style={{ background: tagColor(projectFilter) }}
 							/>
 							<span className="max-w-[120px] truncate">
-								{prompts.find((p) => p.projectId === projectFilter)?.projectName ?? "Project"}
+								{prompts.find((p) => p.projectId === projectFilter)
+									?.projectName ?? "Project"}
 							</span>
 							<XIcon className="ml-0.5 size-[12px] text-muted-foreground" />
 						</button>
@@ -513,10 +540,34 @@ export function PromptListView({ productSlug, team }: Props) {
 				)}
 
 				{filtered.length === 0 && (
-					<div className="py-16 text-center text-muted-foreground text-sm">
-						{prompts.length === 0
-							? `No prompts yet for ${productDetail?.name ?? productSlug}. Add the first one above.`
-							: "No prompts match this search."}
+					<div className="py-10">
+						<EmptyState>
+							<EmptyStateIcon>
+								{prompts.length === 0 ? (
+									<ClipboardIcon className="size-full" />
+								) : (
+									<SearchIcon className="size-full" />
+								)}
+							</EmptyStateIcon>
+							<EmptyStateTitle>
+								{prompts.length === 0
+									? "No prompts yet"
+									: "No prompts match this search"}
+							</EmptyStateTitle>
+							<EmptyStateDescription>
+								{prompts.length === 0
+									? `${productDetail?.name ?? productSlug} doesn't have any prompts yet — create the first one to get started.`
+									: "Try a different name, tag, or clear the project filter."}
+							</EmptyStateDescription>
+							{prompts.length === 0 && product && !showNew && (
+								<EmptyStateAction>
+									<Button size="sm" onClick={() => setShowNew(true)}>
+										<PlusIcon className="size-3.5" />
+										New prompt
+									</Button>
+								</EmptyStateAction>
+							)}
+						</EmptyState>
 					</div>
 				)}
 
@@ -633,7 +684,7 @@ export function PromptListView({ productSlug, team }: Props) {
 											<DropdownMenuItem
 												onSelect={() => {
 													if (!product) return;
-													createMut.mutate({
+													createPrompt({
 														productId: product.id,
 														name: `${p.name} (copy)`,
 													});
@@ -647,7 +698,7 @@ export function PromptListView({ productSlug, team }: Props) {
 												className="text-destructive focus:text-destructive"
 												onSelect={() => {
 													if (confirm(`Delete "${p.name}"?`)) {
-														deleteMut.mutate({ id: p.id });
+														deletePrompt({ id: p.id });
 													}
 												}}
 											>

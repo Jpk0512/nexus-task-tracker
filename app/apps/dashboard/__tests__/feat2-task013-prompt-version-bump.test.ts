@@ -137,7 +137,7 @@ describe("prompts version-bump behavioral contract", () => {
 
 		expect(
 			src,
-			"onConflictDoNothing target must include promptVersions\.version",
+			"onConflictDoNothing target must include promptVersions.version",
 		).toMatch(/promptVersions\.version/);
 	});
 

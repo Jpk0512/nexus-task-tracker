@@ -34,15 +34,13 @@ export function TodosCard() {
 
 	const createMut = useMutation(
 		trpc.todos.create.mutationOptions({
-			onSuccess: () =>
-				qc.invalidateQueries({ queryKey: [["todos", "get"]] }),
+			onSuccess: () => qc.invalidateQueries({ queryKey: [["todos", "get"]] }),
 			onError: (e: { message?: string }) => toast.error(e.message ?? "Failed"),
 		}),
 	);
 	const checkMut = useMutation(
 		trpc.todos.check.mutationOptions({
-			onSuccess: () =>
-				qc.invalidateQueries({ queryKey: [["todos", "get"]] }),
+			onSuccess: () => qc.invalidateQueries({ queryKey: [["todos", "get"]] }),
 		}),
 	);
 

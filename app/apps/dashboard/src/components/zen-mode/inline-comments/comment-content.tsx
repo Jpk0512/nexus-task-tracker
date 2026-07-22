@@ -137,6 +137,7 @@ export const CommentContent = ({
 							type="button"
 							className="transition-colors hover:text-foreground"
 							title="Resolve"
+							aria-label="Resolve comment"
 							onClick={() => {
 								updateComment({
 									id: activity.id,
@@ -154,7 +155,11 @@ export const CommentContent = ({
 						</button>
 						<DropdownMenu>
 							<DropdownMenuTrigger asChild>
-								<button type="button" className="hover:text-foreground">
+								<button
+									type="button"
+									className="hover:text-foreground"
+									aria-label="More comment actions"
+								>
 									<EllipsisVerticalIcon className="size-4" />
 								</button>
 							</DropdownMenuTrigger>

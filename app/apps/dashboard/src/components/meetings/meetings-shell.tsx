@@ -10,6 +10,12 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import {
+	EmptyState,
+	EmptyStateDescription,
+	EmptyStateIcon,
+	EmptyStateTitle,
+} from "@/components/empty-state";
 import { SoftIcon } from "@/components/ui/soft-icon";
 import { trpcClient } from "@/utils/trpc";
 
@@ -49,8 +55,7 @@ export function MeetingsShell() {
 	const [selected, setSelected] = useState<Record<number, boolean>>({});
 	const actions = useMemo(() => extractActions(transcript), [transcript]);
 
-	const toggle = (i: number) =>
-		setSelected((s) => ({ ...s, [i]: !s[i] }));
+	const toggle = (i: number) => setSelected((s) => ({ ...s, [i]: !s[i] }));
 
 	const promote = async () => {
 		const picks = actions.filter((_, i) => selected[i]);
@@ -86,7 +91,7 @@ export function MeetingsShell() {
 			</div>
 
 			<div className="space-y-2">
-				<label className="text-[12px] font-[510]">Transcript</label>
+				<label className="font-[510] text-[12px]">Transcript</label>
 				<Textarea
 					value={transcript}
 					onChange={(e) => {
@@ -113,9 +118,16 @@ export function MeetingsShell() {
 					</div>
 				</div>
 				{actions.length === 0 ? (
-					<p className="py-6 text-center text-[13px] text-muted-foreground">
-						Paste a transcript to extract candidate actions.
-					</p>
+					<EmptyState>
+						<EmptyStateIcon>
+							<FileAudioIcon className="size-full" />
+						</EmptyStateIcon>
+						<EmptyStateTitle>No actions yet</EmptyStateTitle>
+						<EmptyStateDescription>
+							Paste a transcript above — we'll pull out anything that reads like
+							an action, todo, or follow-up.
+						</EmptyStateDescription>
+					</EmptyState>
 				) : (
 					<ul className="space-y-1.5">
 						{actions.map((a, i) => (

@@ -81,7 +81,7 @@ export function CaptureShell() {
 		<ul
 			className={cn(
 				"space-y-1",
-				depth > 0 && "ml-4 border-l border-border/50 pl-3",
+				depth > 0 && "ml-4 border-border/50 border-l pl-3",
 			)}
 		>
 			{nodes.map((n) => (
@@ -106,9 +106,7 @@ export function CaptureShell() {
 							<Trash2Icon className="size-3" />
 						</button>
 					</div>
-					{n.children.length > 0
-						? renderOutline(n.children, depth + 1)
-						: null}
+					{n.children.length > 0 ? renderOutline(n.children, depth + 1) : null}
 				</li>
 			))}
 		</ul>
@@ -164,7 +162,7 @@ export function CaptureShell() {
 					</Button>
 				</div>
 				{outline.length === 0 ? (
-					<p className="rounded-xl border border-dashed border-border/60 px-4 py-10 text-center text-[13px] text-muted-foreground">
+					<p className="rounded-xl border border-border/60 border-dashed px-4 py-10 text-center text-[13px] text-muted-foreground">
 						Start an outline. Use + on a row to nest deeper.
 					</p>
 				) : (

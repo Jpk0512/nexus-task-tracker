@@ -9,7 +9,8 @@ import { useProjectParams } from "@/hooks/use-project-params";
 import { ProjectForm } from "../forms/project-form/form";
 
 export const ProjectCreateSheet = () => {
-	const { createProject, setParams } = useProjectParams();
+	const { createProject, projectSeedName, projectSeedDescription, setParams } =
+		useProjectParams();
 
 	const isOpen = Boolean(createProject);
 
@@ -19,7 +20,18 @@ export const ProjectCreateSheet = () => {
 				<DialogHeader className="sr-only">
 					<DialogTitle>Create project</DialogTitle>
 				</DialogHeader>
-				<ProjectForm propertiesLayout="compact" />
+				{/* Dialog content stays mounted while closed, so `ProjectForm`'s
+				 internal form would otherwise only ever see the first seed. The
+				 `key` forces a fresh mount (and fresh useForm defaults) whenever
+				 the seed changes — e.g. a new "convert task to project" call. */}
+				<ProjectForm
+					key={`${createProject}-${projectSeedName ?? ""}`}
+					propertiesLayout="compact"
+					defaultValues={{
+						name: projectSeedName || undefined,
+						description: projectSeedDescription || undefined,
+					}}
+				/>
 			</DialogContent>
 		</Dialog>
 	);

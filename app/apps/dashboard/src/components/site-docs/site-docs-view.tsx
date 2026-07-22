@@ -70,7 +70,10 @@ export function SiteDocsView() {
 	useEffect(() => {
 		try {
 			const w = localStorage.getItem(LIST_WIDTH_KEY);
-			if (w) setListWidth(Math.min(LIST_WIDTH_MAX, Math.max(LIST_WIDTH_MIN, Number(w))));
+			if (w)
+				setListWidth(
+					Math.min(LIST_WIDTH_MAX, Math.max(LIST_WIDTH_MIN, Number(w))),
+				);
 			const insp = localStorage.getItem(INSPECTOR_OPEN_KEY);
 			if (insp != null) setInspectorOpen(insp === "1");
 		} catch {}
@@ -106,8 +109,7 @@ export function SiteDocsView() {
 	const fileQuery = useQuery({
 		...trpc.siteDocs.readFile.queryOptions({
 			projectId: siteId ?? "",
-			relativePath:
-				selection?.kind === "file" ? selection.relativePath : "",
+			relativePath: selection?.kind === "file" ? selection.relativePath : "",
 		}),
 		enabled: !!siteId && selection?.kind === "file",
 	});
@@ -184,7 +186,10 @@ export function SiteDocsView() {
 			if (!dragRef.current) return;
 			const next = Math.min(
 				LIST_WIDTH_MAX,
-				Math.max(LIST_WIDTH_MIN, dragRef.current.startW + (e.clientX - dragRef.current.startX)),
+				Math.max(
+					LIST_WIDTH_MIN,
+					dragRef.current.startW + (e.clientX - dragRef.current.startX),
+				),
 			);
 			setListWidth(next);
 		};
@@ -239,7 +244,9 @@ export function SiteDocsView() {
 				<button
 					key={node.relativePath}
 					type="button"
-					onClick={() => setSelection({ kind: "file", relativePath: node.relativePath })}
+					onClick={() =>
+						setSelection({ kind: "file", relativePath: node.relativePath })
+					}
 					className={cn(
 						"flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-[12px] hover:bg-accent/40",
 						selected && "border border-primary/40 bg-primary/10",
@@ -281,10 +288,7 @@ export function SiteDocsView() {
 						}}
 					>
 						<RefreshCwIcon
-							className={cn(
-								"size-3.5",
-								treeQuery.isFetching && "animate-spin",
-							)}
+							className={cn("size-3.5", treeQuery.isFetching && "animate-spin")}
 						/>
 						<span className="hidden sm:inline">Refresh</span>
 					</Button>
@@ -391,7 +395,8 @@ export function SiteDocsView() {
 													}
 													className={cn(
 														"flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-[12px] hover:bg-accent/40",
-														selected && "border border-primary/40 bg-primary/10",
+														selected &&
+															"border border-primary/40 bg-primary/10",
 													)}
 												>
 													<MapIcon kind={m.kind} />
@@ -489,7 +494,7 @@ export function SiteDocsView() {
 											value={draft}
 											onChange={(e) => setDraft(e.target.value)}
 											spellCheck={false}
-											className="min-h-[min(60vh,520px)] w-full resize-y rounded-md border border-border/60 bg-transparent px-3 py-2 font-mono text-[12.5px] leading-[1.65] text-foreground/90 outline-none focus-visible:ring-1 focus-visible:ring-ring"
+											className="min-h-[min(60vh,520px)] w-full resize-y rounded-md border border-border/60 bg-transparent px-3 py-2 font-mono text-[12.5px] text-foreground/90 leading-[1.65] outline-none focus-visible:ring-1 focus-visible:ring-ring"
 											placeholder="Empty."
 										/>
 									)}

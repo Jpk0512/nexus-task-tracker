@@ -44,7 +44,9 @@ export function SecretsShell() {
 		const v = value.trim();
 		if (!k || !v) return;
 		const masked =
-			v.length <= 4 ? "••••" : `${v.slice(0, 2)}${"•".repeat(Math.min(12, v.length - 4))}${v.slice(-2)}`;
+			v.length <= 4
+				? "••••"
+				: `${v.slice(0, 2)}${"•".repeat(Math.min(12, v.length - 4))}${v.slice(-2)}`;
 		persist([
 			{
 				id: crypto.randomUUID(),
@@ -71,14 +73,14 @@ export function SecretsShell() {
 				<div>
 					<h1 className="font-[510] text-[22px] tracking-[-0.02em]">Secrets</h1>
 					<p className="mt-1 text-[13px] text-muted-foreground">
-						Infisical-style vault. Values are masked after save. Never paste into
-						chat — inject into MCP env only.
+						Infisical-style vault. Values are masked after save. Never paste
+						into chat — inject into MCP env only.
 					</p>
 				</div>
 			</div>
 
-			<div className="rounded-xl border border-border/60 bg-card/40 p-4 space-y-3">
-				<div className="flex items-center gap-2 text-[12px] font-[510]">
+			<div className="space-y-3 rounded-xl border border-border/60 bg-card/40 p-4">
+				<div className="flex items-center gap-2 font-[510] text-[12px]">
 					<LockIcon className="size-3.5" /> Add secret
 				</div>
 				<div className="grid gap-2 sm:grid-cols-2">
@@ -96,14 +98,18 @@ export function SecretsShell() {
 						className="font-mono text-[12.5px]"
 					/>
 				</div>
-				<Button size="sm" onClick={add} disabled={!keyName.trim() || !value.trim()}>
+				<Button
+					size="sm"
+					onClick={add}
+					disabled={!keyName.trim() || !value.trim()}
+				>
 					Save masked
 				</Button>
 			</div>
 
 			<ul className="space-y-2">
 				{rows.length === 0 ? (
-					<li className="rounded-xl border border-dashed border-border/60 px-4 py-8 text-center text-[13px] text-muted-foreground">
+					<li className="rounded-xl border border-border/60 border-dashed px-4 py-8 text-center text-[13px] text-muted-foreground">
 						No secrets yet. Local-dev store only — Infisical bridge next.
 					</li>
 				) : (
@@ -114,7 +120,7 @@ export function SecretsShell() {
 						>
 							<SoftIcon icon={KeyRoundIcon} tone="gray" size="sm" />
 							<div className="min-w-0 flex-1">
-								<p className="truncate font-mono text-[12.5px] font-[510]">
+								<p className="truncate font-[510] font-mono text-[12.5px]">
 									{r.key}
 								</p>
 								<p className="font-mono text-[11px] text-muted-foreground">

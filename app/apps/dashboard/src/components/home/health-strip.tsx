@@ -56,7 +56,12 @@ export function HealthStrip() {
 			href: `${base}/focus?tab=needs-you`,
 			warn: stats.unread > 0,
 		},
-		{ label: "Health", n: null as number | null, href: `${base}/health`, warn: false },
+		{
+			label: "Health",
+			n: null as number | null,
+			href: `${base}/health`,
+			warn: false,
+		},
 	];
 
 	return (

@@ -32,7 +32,7 @@ export function StarterContinueCard() {
 			<div className="flex items-start gap-3">
 				<SoftIcon icon={SparklesIcon} tone="blue" size="md" />
 				<div>
-					<p className="text-[11px] font-[510] uppercase tracking-wider text-muted-foreground">
+					<p className="font-[510] text-[11px] text-muted-foreground uppercase tracking-wider">
 						Continue starter
 					</p>
 					<p className="font-[510] text-[14px]">{seed.name}</p>

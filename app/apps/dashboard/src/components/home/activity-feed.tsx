@@ -11,4 +11,8 @@ import { ActivityTimeline } from "./activity-timeline";
  * surface; the wrapper gives the config modal a stable identifier without
  * touching the implementation.
  */
-export const ActivityFeed = () => <ActivityTimeline />;
+export const ActivityFeed = ({
+	enableBulkActions = false,
+}: {
+	enableBulkActions?: boolean;
+} = {}) => <ActivityTimeline enableBulkActions={enableBulkActions} />;

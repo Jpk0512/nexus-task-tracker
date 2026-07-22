@@ -1,14 +1,19 @@
 "use client";
 
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Button } from "@ui/components/ui/button";
 import { cn } from "@ui/lib/utils";
 import {
 	AtSignIcon,
+	CheckCheckIcon,
 	EyeIcon,
 	InboxIcon,
 	type LucideIcon,
 	UserCheckIcon,
 } from "lucide-react";
-import { useInbox } from "./use-inbox";
+import { runToastAction } from "@/lib/toast-action";
+import { trpc } from "@/utils/trpc";
+import { type Inbox, useInbox } from "./use-inbox";
 import { type InboxTab, useInboxFilterParams } from "./use-inbox-filter-params";
 
 interface TabDef {
@@ -26,8 +31,42 @@ const tabs: TabDef[] = [
 
 export const InboxTabs = ({ className }: { className?: string }) => {
 	const { params, setParams } = useInboxFilterParams();
-	const { tabCounts } = useInbox();
+	const { tabCounts, allInboxes } = useInbox();
+	const qc = useQueryClient();
 	const activeTab = params.tab as InboxTab;
+
+	const updateMut = useMutation(trpc.inbox.update.mutationOptions({}));
+
+	// One-shot "mark everything currently loaded as read" — distinct from the
+	// row-level bulk-select flow (BulkOpsBar's "Mark read" needs an explicit
+	// selection first). Standardized lifecycle (FEAT-009 item 4): loading ->
+	// success (Undo puts every touched row back to unread) -> error (Retry).
+	const markAllRead = () => {
+		const unread: Inbox[] = allInboxes.filter((item) => !item.seen);
+		if (unread.length === 0) return;
+		const ids = unread.map((item) => item.id);
+
+		const setSeen = (targetIds: string[], seen: boolean) =>
+			Promise.all(
+				targetIds.map((id) => updateMut.mutateAsync({ id, seen } as any)),
+			);
+
+		runToastAction(() => setSeen(ids, true), {
+			id: "inbox-mark-all-read",
+			loading: `Marking ${ids.length} read…`,
+			success: `Marked ${ids.length} read`,
+			error: "Couldn't mark everything read",
+			undo: () => {
+				setSeen(ids, false).then(() =>
+					qc.invalidateQueries(trpc.inbox.get.infiniteQueryOptions({})),
+				);
+			},
+			retry: markAllRead,
+		}).then((result) => {
+			if (!result.ok) return;
+			qc.invalidateQueries(trpc.inbox.get.infiniteQueryOptions({}));
+		});
+	};
 
 	return (
 		<nav
@@ -37,8 +76,24 @@ export const InboxTabs = ({ className }: { className?: string }) => {
 				className,
 			)}
 		>
-			<div className="px-2 pb-2 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">
-				Inbox
+			<div className="flex items-center justify-between px-2 pb-2">
+				<span className="font-medium text-[11px] text-muted-foreground uppercase tracking-wider">
+					Inbox
+				</span>
+				{tabCounts.unread > 0 && (
+					<Button
+						type="button"
+						variant="ghost"
+						size="icon"
+						className="size-5 text-muted-foreground hover:text-foreground"
+						onClick={markAllRead}
+						disabled={updateMut.isPending}
+						aria-label={`Mark all ${tabCounts.unread} read`}
+						title="Mark all read"
+					>
+						<CheckCheckIcon className="size-3.5" />
+					</Button>
+				)}
 			</div>
 			{tabs.map(({ id, label, icon: Icon }) => {
 				const isActive = activeTab === id;

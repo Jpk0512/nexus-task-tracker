@@ -100,8 +100,9 @@ export default function CreateExistingProjectPage() {
 						Link existing site
 					</h1>
 					<p className="mt-1 text-[13px] text-muted-foreground">
-						Mount the site under <code className="text-[11px]">/host/sites/</code>
-						, then paste the host path or container path.
+						Mount the site under{" "}
+						<code className="text-[11px]">/host/sites/</code>, then paste the
+						host path or container path.
 					</p>
 				</div>
 			</div>

@@ -117,7 +117,8 @@ export function VaultShell() {
 	);
 
 	const filtered = useMemo(
-		() => (filter === "all" ? entries : entries.filter((e) => e.kind === filter)),
+		() =>
+			filter === "all" ? entries : entries.filter((e) => e.kind === filter),
 		[entries, filter],
 	);
 
@@ -132,7 +133,11 @@ export function VaultShell() {
 						only — values masked after save. Never paste into chat.
 					</p>
 				</div>
-				<Button size="sm" onClick={() => setShowForm((s) => !s)} className="gap-1.5">
+				<Button
+					size="sm"
+					onClick={() => setShowForm((s) => !s)}
+					className="gap-1.5"
+				>
 					<PlusIcon className="size-3.5" />
 					Add
 				</Button>
@@ -152,7 +157,7 @@ export function VaultShell() {
 						type="button"
 						onClick={() => setFilter(id)}
 						className={cn(
-							"rounded-md px-3 py-1.5 text-[12.5px] font-[510] transition-colors",
+							"rounded-md px-3 py-1.5 font-[510] text-[12.5px] transition-colors",
 							filter === id
 								? "bg-accent text-foreground"
 								: "text-muted-foreground hover:text-foreground",
@@ -191,7 +196,11 @@ export function VaultShell() {
 					<Input
 						value={form.name}
 						onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-						placeholder={form.kind === "secret" ? "e.g. OPENAI_API_KEY" : "e.g. filesystem-mcp"}
+						placeholder={
+							form.kind === "secret"
+								? "e.g. OPENAI_API_KEY"
+								: "e.g. filesystem-mcp"
+						}
 						className="font-mono text-[12.5px]"
 					/>
 					<Input
@@ -212,7 +221,11 @@ export function VaultShell() {
 						className="min-h-[56px] text-[12.5px]"
 					/>
 					<div className="flex justify-end gap-2">
-						<Button size="sm" variant="ghost" onClick={() => setShowForm(false)}>
+						<Button
+							size="sm"
+							variant="ghost"
+							onClick={() => setShowForm(false)}
+						>
 							Cancel
 						</Button>
 						<Button size="sm" onClick={add}>
@@ -225,7 +238,7 @@ export function VaultShell() {
 			{/* List */}
 			<ul className="mt-4 space-y-2">
 				{filtered.length === 0 ? (
-					<li className="rounded-xl border border-dashed border-border/60 px-4 py-12 text-center text-[13px] text-muted-foreground">
+					<li className="rounded-xl border border-border/60 border-dashed px-4 py-12 text-center text-[13px] text-muted-foreground">
 						Nothing here yet. Add a secret or MCP to start your collection.
 					</li>
 				) : (
@@ -243,10 +256,10 @@ export function VaultShell() {
 								/>
 								<div className="min-w-0 flex-1">
 									<div className="flex items-center gap-2">
-										<p className="truncate font-mono text-[12.5px] font-[510]">
+										<p className="truncate font-[510] font-mono text-[12.5px]">
 											{e.name}
 										</p>
-										<span className="rounded-full border border-border/60 px-1.5 py-0 text-[10px] uppercase tracking-wide text-muted-foreground">
+										<span className="rounded-full border border-border/60 px-1.5 py-0 text-[10px] text-muted-foreground uppercase tracking-wide">
 											{e.kind}
 										</span>
 									</div>

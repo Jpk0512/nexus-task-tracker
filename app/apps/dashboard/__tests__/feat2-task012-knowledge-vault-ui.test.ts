@@ -186,7 +186,9 @@ describe("GWT#5 — auto-save on editor blur within 500ms; last-write-wins on SH
 		// We check that 500 appears in the file near a debounce/timeout call
 		expect(src).toMatch(/setTimeout|debounce|useDebounce/);
 		// And that the value is ≤500 (either 500 or a smaller value)
-		expect(src).toMatch(/(?:setTimeout|debounce)\s*[\w(]*[,\s]+(?:[1-4]?\d{1,2}|500)\b/);
+		expect(src).toMatch(
+			/(?:setTimeout|debounce)\s*[\w(]*[,\s]+(?:[1-4]?\d{1,2}|500)\b/,
+		);
 	});
 
 	test("SHA conflict in auto-save re-fetches getById and re-saves (last-write-wins, DEC-010)", () => {

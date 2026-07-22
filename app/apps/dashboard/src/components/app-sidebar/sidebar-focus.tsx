@@ -80,7 +80,11 @@ export function SidebarFocus() {
 				<SidebarMenu>
 					{items.map((item) => (
 						<SidebarMenuItem key={item.href}>
-							<SidebarMenuButton asChild isActive={item.active} tooltip={item.label}>
+							<SidebarMenuButton
+								asChild
+								isActive={item.active}
+								tooltip={item.label}
+							>
 								<Link href={item.href}>
 									<item.icon />
 									<span>{item.label}</span>

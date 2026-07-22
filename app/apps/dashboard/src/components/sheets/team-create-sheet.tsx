@@ -1,5 +1,10 @@
 "use client";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@nexus-app/ui/sheet";
+import {
+	Sheet,
+	SheetContent,
+	SheetHeader,
+	SheetTitle,
+} from "@nexus-app/ui/sheet";
 import { useTeamParams } from "@/hooks/use-team-params";
 import { TeamForm } from "../forms/team-form";
 

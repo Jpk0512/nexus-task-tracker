@@ -114,6 +114,7 @@ export function ResourceIconPicker({
 					type="button"
 					variant="ghost"
 					size="icon"
+					aria-label="Choose an icon"
 					className={cn(
 						"size-8 shrink-0 rounded-md hover:bg-accent",
 						className,
@@ -147,6 +148,7 @@ export function ResourceIconPicker({
 							size="icon"
 							className="size-7 shrink-0"
 							onClick={handleClear}
+							aria-label="Clear icon"
 						>
 							<XIcon className="size-3.5" />
 						</Button>

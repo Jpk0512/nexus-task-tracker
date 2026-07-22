@@ -10,10 +10,16 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useMemo } from "react";
+import {
+	EmptyState,
+	EmptyStateDescription,
+	EmptyStateIcon,
+	EmptyStateTitle,
+} from "@/components/empty-state";
+import { useInboxCounts } from "@/components/inbox/use-inbox-counts";
 import { SoftIcon } from "@/components/ui/soft-icon";
 import { useUser } from "@/components/user-provider";
 import { useTasks } from "@/hooks/use-data";
-import { useInboxCounts } from "@/components/inbox/use-inbox-counts";
 
 type DebtCard = {
 	id: string;
@@ -101,7 +107,15 @@ export function WorkspaceHealthShell() {
 			</div>
 
 			{isLoading ? (
-				<p className="text-[13px] text-muted-foreground">Loading signals…</p>
+				<EmptyState>
+					<EmptyStateIcon>
+						<ServerIcon className="size-full animate-pulse" />
+					</EmptyStateIcon>
+					<EmptyStateTitle>Gathering signals…</EmptyStateTitle>
+					<EmptyStateDescription>
+						Pulling overdue, due-today, and attention counts.
+					</EmptyStateDescription>
+				</EmptyState>
 			) : (
 				<ul className="grid gap-3 sm:grid-cols-2">
 					{cards.map((c) => (

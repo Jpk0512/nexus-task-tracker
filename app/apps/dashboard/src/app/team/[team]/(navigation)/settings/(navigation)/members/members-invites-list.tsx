@@ -62,6 +62,7 @@ export const MembersInvitesList = () => {
 												size={"icon"}
 												variant={"ghost"}
 												disabled={!canWriteTeam}
+												aria-label={`Actions for invite to ${invite.email}`}
 											>
 												<EllipsisIcon className="size-4" />
 											</Button>

@@ -43,6 +43,7 @@ export function LinkItem({ editor, open, setOpen }: LinkItemProps) {
 						isActive={isActive}
 						action={() => setOpen(true)}
 						className="h-full"
+						aria-label={linkValue ? "Edit link" : "Add link"}
 					>
 						{linkValue ? (
 							<Link2OffIcon className="size-4" />
@@ -73,6 +74,7 @@ export function LinkItem({ editor, open, setOpen }: LinkItemProps) {
 							size="icon"
 							variant="outline"
 							type="button"
+							aria-label="Remove link"
 							className="flex size-7 items-center p-1 text-red-600 transition-all hover:border-none hover:bg-red-100 dark:hover:bg-red-800"
 							onClick={() => {
 								editor.chain().focus().unsetLink().run();
@@ -89,6 +91,7 @@ export function LinkItem({ editor, open, setOpen }: LinkItemProps) {
 							size="icon"
 							className="size-7"
 							type="button"
+							aria-label="Save link"
 							onClick={handleSubmit}
 						>
 							<Link2Icon className="size-4" />

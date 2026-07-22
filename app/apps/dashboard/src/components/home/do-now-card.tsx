@@ -96,8 +96,7 @@ export function DoNowCard() {
 		>
 			<ul className="divide-y divide-border/50">
 				{ranked.map((t) => {
-					const statusType = (t as { status?: { type?: string } }).status
-						?.type;
+					const statusType = (t as { status?: { type?: string } }).status?.type;
 					return (
 						<li key={t.id}>
 							<Link

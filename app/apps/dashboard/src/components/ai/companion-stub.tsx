@@ -61,13 +61,18 @@ export function CompanionStub({ compact }: { compact?: boolean }) {
 				className="min-h-[72px] text-[13px]"
 			/>
 			<div className="mt-2 flex justify-end">
-				<Button size="sm" className="gap-1.5" onClick={ask} disabled={!q.trim()}>
+				<Button
+					size="sm"
+					className="gap-1.5"
+					onClick={ask}
+					disabled={!q.trim()}
+				>
 					<SparklesIcon className="size-3.5" />
 					Ask ({provider === "lmstudio" ? "LM Studio" : "Gemini"})
 				</Button>
 			</div>
 			{answer ? (
-				<pre className="mt-3 whitespace-pre-wrap rounded-lg border border-border/50 bg-background/50 p-3 font-sans text-[12.5px] leading-relaxed text-muted-foreground">
+				<pre className="mt-3 whitespace-pre-wrap rounded-lg border border-border/50 bg-background/50 p-3 font-sans text-[12.5px] text-muted-foreground leading-relaxed">
 					{answer}
 				</pre>
 			) : null}

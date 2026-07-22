@@ -4,6 +4,7 @@ import { BacklinksPanel } from "@/components/backlinks/backlinks-panel";
 import { BreadcrumbSetter } from "@/components/breadcrumbs";
 import { DocumentForm } from "@/components/documents/document-form";
 import { DocumentToc } from "@/components/documents/document-toc";
+import { RecordVisit } from "@/components/global-search/record-visit";
 import { trpcClient } from "@/utils/trpc";
 
 type Props = {
@@ -51,6 +52,14 @@ export default async function DocumentPage({ params }: Props) {
 						segments: ["documents", documentId],
 					},
 				]}
+			/>
+			<RecordVisit
+				item={{
+					id: documentId,
+					type: "document",
+					title: document.name,
+					teamId: "",
+				}}
 			/>
 			{/*
 			  Linear / Notion-style page: max-w-2xl centered editor with a

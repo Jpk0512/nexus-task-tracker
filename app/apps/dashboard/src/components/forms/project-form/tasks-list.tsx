@@ -22,10 +22,10 @@ import { useDebounceValue } from "usehooks-ts";
 import Loader from "@/components/loader";
 import { TaskContextMenu } from "@/components/task-context-menu";
 import { TaskItem } from "@/components/tasks-view/list/task-item";
+import type { PropertyKey } from "@/components/tasks-view/properties/task-properties";
 import type { EnrichedTask } from "@/hooks/use-data";
 import { useTasks } from "@/hooks/use-data";
 import { useTaskParams } from "@/hooks/use-task-params";
-import type { PropertyKey } from "@/components/tasks-view/properties/task-properties";
 import { queryClient, trpc } from "@/utils/trpc";
 
 const PROJECT_TASK_LIST_PROPERTIES: PropertyKey[] = ["status", "priority"];
@@ -87,7 +87,9 @@ export const TasksList = ({ projectId }: { projectId: string }) => {
 								<TaskItem
 									task={task}
 									className="bg-accent hover:bg-accent/80"
-									onOpenTask={(t: EnrichedTask) => setTaskParams({ taskId: t.id })}
+									onOpenTask={(t: EnrichedTask) =>
+										setTaskParams({ taskId: t.id })
+									}
 									visibleProperties={PROJECT_TASK_LIST_PROPERTIES}
 								/>
 							</li>

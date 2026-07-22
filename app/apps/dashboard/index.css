@@ -1,6 +1,20 @@
 @import "@nexus-app/ui/index.css";
 @source "../../packages/ui/src";
 
+/*
+ * Visible focus rings everywhere (FEAT-009 item 3). shadcn's Button/Input/etc
+ * already carry an explicit `focus-visible:ring-2` utility, but a lot of
+ * surfaces in this app reach for a raw `<button>`/`<a>` for bespoke rows,
+ * chips, and menu triggers — those relied on the browser default outline,
+ * which several of our `outline-none` resets strip entirely. This is a
+ * safety-net `:focus-visible` ring for anything that doesn't already draw
+ * its own — keyboard navigation should never go invisible.
+ */
+:focus-visible {
+	outline: 2px solid var(--color-ring);
+	outline-offset: 2px;
+}
+
 @theme {
 	--animate-slide-in-top: slide-in-top 0.3s ease-in-out both;
 	@keyframes slide-in-top {

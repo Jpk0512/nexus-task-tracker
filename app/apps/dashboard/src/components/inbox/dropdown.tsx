@@ -30,7 +30,12 @@ export const InboxDropdown = ({
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
-				<Button variant="ghost" size="icon" className="size-6">
+				<Button
+					variant="ghost"
+					size="icon"
+					className="size-6"
+					aria-label="Inbox item actions"
+				>
 					<EllipsisIcon />
 				</Button>
 			</DropdownMenuTrigger>
@@ -52,4 +57,3 @@ export const InboxDropdown = ({
 		</DropdownMenu>
 	);
 };
-

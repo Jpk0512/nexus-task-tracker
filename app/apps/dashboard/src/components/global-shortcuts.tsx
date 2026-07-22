@@ -2,9 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { useCreateActions } from "@/hooks/use-create-actions";
 import { useUndoLastOptimistic } from "@/hooks/use-optimistic-action";
 import { useShortcut } from "@/hooks/use-shortcuts";
-import { useTaskParams } from "@/hooks/use-task-params";
 import { ProjectSwitcher } from "./project-switcher";
 import { ShortcutsOverlay } from "./shortcuts-overlay";
 import { useUser } from "./user-provider";
@@ -12,7 +12,9 @@ import { useUser } from "./user-provider";
 /**
  * Global keyboard shortcuts (Linear parity).
  *
- *   c          → open the centered create-task dialog
+ *   c          → open the centered create-task dialog, pre-filled with the
+ *                current project/milestone when invoked from inside one
+ *                (see use-create-actions.ts)
  *   ?          → toggle the keyboard-shortcuts cheatsheet overlay
  *   Cmd/Ctrl+Shift+P → open the project switcher
  *   Cmd/Ctrl+J      → open the brain-dump modal
@@ -22,7 +24,11 @@ import { useUser } from "./user-provider";
  * explicit Cmd/Ctrl+J chord) — so it never fights the user's typing.
  */
 export const GlobalShortcuts = () => {
-	const { setParams } = useTaskParams();
+	// Shared with the sidebar CreateButton and the FAB CommandTray (see
+	// use-create-actions.ts, FEAT-007 item 4) — "c" fires the identical
+	// context-aware create-task handler so all three entrypoints pre-fill the
+	// same project/milestone when invoked from inside one.
+	const { task: createTaskAction } = useCreateActions();
 	const router = useRouter();
 	const user = useUser();
 	const base = user.basePath;
@@ -121,13 +127,13 @@ export const GlobalShortcuts = () => {
 					return;
 				}
 				e.preventDefault();
-				setParams({ createTask: true });
+				createTaskAction.onSelect();
 			}
 		};
 
 		window.addEventListener("keydown", handler);
 		return () => window.removeEventListener("keydown", handler);
-	}, [setParams]);
+	}, [createTaskAction]);
 
 	return (
 		<>

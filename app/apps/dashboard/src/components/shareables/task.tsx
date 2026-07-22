@@ -4,8 +4,8 @@ import { Checkbox } from "@ui/components/ui/checkbox";
 import { cn } from "@ui/lib/utils";
 import { LayersIcon } from "lucide-react";
 import { Response } from "../chat/response";
-import { PropertyChecklist } from "../tasks-view/properties/task-properties-components";
 import { TaskPropertyStatus } from "../tasks-view/properties/status";
+import { PropertyChecklist } from "../tasks-view/properties/task-properties-components";
 
 export const TaskShareable = ({
 	task,

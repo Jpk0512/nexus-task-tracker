@@ -8,16 +8,22 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@ui/components/ui/dropdown-menu";
-import { CheckSquareIcon, LogOut, Settings, TargetIcon, User } from "lucide-react";
 import { isPast, isToday } from "date-fns";
+import {
+	CheckSquareIcon,
+	LogOut,
+	Settings,
+	TargetIcon,
+	User,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo } from "react";
-import { AssigneeAvatar } from "./asignee-avatar";
 import { useInboxCounts } from "@/components/inbox/use-inbox-counts";
 import { useUser } from "@/components/user-provider";
 import { useTasks } from "@/hooks/use-data";
 import { authClient } from "@/lib/auth-client";
+import { AssigneeAvatar } from "./asignee-avatar";
 
 export function NavUser() {
 	const user = useUser();
@@ -41,7 +47,12 @@ export function NavUser() {
 		const today = tasks.filter(
 			(t) => t.dueDate && isToday(new Date(t.dueDate)),
 		).length;
-		return { open: tasks.length, overdue, today, unread: tabCounts?.unread ?? 0 };
+		return {
+			open: tasks.length,
+			overdue,
+			today,
+			unread: tabCounts?.unread ?? 0,
+		};
 	}, [tasks, tabCounts]);
 
 	if (!user) return <div className="size-7 rounded-full bg-secondary/50" />;
@@ -58,9 +69,9 @@ export function NavUser() {
 					/>
 					{/* Attention dot — red when overdue, else subtle */}
 					{stats.overdue > 0 ? (
-						<span className="absolute -right-0.5 -top-0.5 size-2.5 rounded-full border-2 border-background bg-red-500" />
+						<span className="-right-0.5 -top-0.5 absolute size-2.5 rounded-full border-2 border-background bg-red-500" />
 					) : stats.unread > 0 ? (
-						<span className="absolute -right-0.5 -top-0.5 size-2.5 rounded-full border-2 border-background bg-primary" />
+						<span className="-right-0.5 -top-0.5 absolute size-2.5 rounded-full border-2 border-background bg-primary" />
 					) : null}
 				</div>
 			</DropdownMenuTrigger>
@@ -81,7 +92,7 @@ export function NavUser() {
 						/>
 						<div className="grid min-w-0 flex-1 text-left text-sm leading-tight">
 							<span className="truncate font-medium">{user.name}</span>
-							<span className="truncate text-xs text-muted-foreground">
+							<span className="truncate text-muted-foreground text-xs">
 								{user.email}
 							</span>
 						</div>

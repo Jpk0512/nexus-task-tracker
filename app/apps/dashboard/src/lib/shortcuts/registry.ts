@@ -286,6 +286,44 @@ export const SHORTCUTS: ShortcutSpec[] = [
 		route: "/triage",
 		action: "triage.move.later",
 	},
+	// ─── Board & list task quick actions (FEAT-008) ────────────────────────
+	// `route` here is a logical tag for the tasks-view feature area (board +
+	// list share one hover-driven handler), not a single literal URL — the
+	// view mounts under three different dynamic routes. It only exists so
+	// these entries don't collide with the ambient (routeless) row.* entries
+	// above that mean something different in Inbox/Triage/Todos.
+	{
+		keys: "x",
+		label: "Complete task",
+		scope: "row",
+		route: "/tasks-view",
+		action: "tasks.hover.complete",
+		description: "Mark the hovered board/list task done, with undo.",
+	},
+	{
+		keys: "e",
+		label: "Edit task",
+		scope: "row",
+		route: "/tasks-view",
+		action: "tasks.hover.edit",
+		description: "Open the hovered board/list task in the detail panel.",
+	},
+	{
+		keys: "backspace",
+		label: "Delete task",
+		scope: "row",
+		route: "/tasks-view",
+		action: "tasks.hover.delete",
+		description: "Delete the hovered board/list task, with undo.",
+	},
+	{
+		keys: "mod+d",
+		label: "Duplicate task",
+		scope: "row",
+		route: "/tasks-view",
+		action: "tasks.hover.duplicate",
+		description: "Open the clone panel for the hovered board/list task.",
+	},
 ];
 
 /**

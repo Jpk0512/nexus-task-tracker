@@ -1,6 +1,11 @@
 "use client";
 import { t } from "@nexus-app/locale";
-import { Card, CardContent, CardDescription, CardHeader } from "@nexus-app/ui/card";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+} from "@nexus-app/ui/card";
 import { MemberInviteForm } from "@/components/forms/member-invite-form";
 import { useScopes } from "@/hooks/use-scopes";
 

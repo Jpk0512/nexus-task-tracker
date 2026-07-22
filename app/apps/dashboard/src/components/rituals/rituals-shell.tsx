@@ -3,17 +3,23 @@
 import { Button } from "@ui/components/ui/button";
 import { isPast, isToday } from "date-fns";
 import {
+	CalendarRangeIcon,
 	CheckCircle2Icon,
 	MoonIcon,
 	SunIcon,
-	CalendarRangeIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import {
+	EmptyState,
+	EmptyStateDescription,
+	EmptyStateIcon,
+	EmptyStateTitle,
+} from "@/components/empty-state";
+import { useInboxCounts } from "@/components/inbox/use-inbox-counts";
 import { SoftIcon } from "@/components/ui/soft-icon";
 import { useUser } from "@/components/user-provider";
 import { useTasks } from "@/hooks/use-data";
-import { useInboxCounts } from "@/components/inbox/use-inbox-counts";
 
 type RitualId = "morning" | "weekly" | "eod";
 
@@ -102,7 +108,11 @@ export function RitualsShell() {
 		if (id === "weekly")
 			return [
 				{ key: "w1", label: "Workspace Health", href: `${base}/health` },
-				{ key: "w2", label: "Activity since last week", href: `${base}/activity` },
+				{
+					key: "w2",
+					label: "Activity since last week",
+					href: `${base}/activity`,
+				},
 				{ key: "w3", label: "Focus upcoming", href: `${base}/focus` },
 				{
 					key: "w4",
@@ -111,7 +121,11 @@ export function RitualsShell() {
 				},
 			];
 		return [
-			{ key: "e1", label: "Dump leftovers to Capture", href: `${base}/capture` },
+			{
+				key: "e1",
+				label: "Dump leftovers to Capture",
+				href: `${base}/capture`,
+			},
 			{
 				key: "e2",
 				label: `Close or defer open work (${stats.open})`,
@@ -156,6 +170,18 @@ export function RitualsShell() {
 				))}
 			</ul>
 
+			{!active && (
+				<EmptyState>
+					<EmptyStateIcon>
+						<CalendarRangeIcon className="size-full" />
+					</EmptyStateIcon>
+					<EmptyStateTitle>Pick a ritual to start</EmptyStateTitle>
+					<EmptyStateDescription>
+						Choose Morning, Weekly, or EOD above and we'll turn your live counts
+						into a guided checklist.
+					</EmptyStateDescription>
+				</EmptyState>
+			)}
 			{active ? (
 				<div className="rounded-xl border border-border/60 bg-card/40 p-4">
 					<p className="mb-3 font-[510] text-[13px]">

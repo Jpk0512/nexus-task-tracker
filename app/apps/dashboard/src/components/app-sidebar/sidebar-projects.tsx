@@ -73,7 +73,10 @@ export function SidebarProjects() {
 				<SidebarGroupLabel>Projects</SidebarGroupLabel>
 			</Link>
 			<SidebarGroupAction asChild>
-				<Link href={`${user.basePath}/create-project`} aria-label="Create project">
+				<Link
+					href={`${user.basePath}/create-project`}
+					aria-label="Create project"
+				>
 					<PlusIcon />
 				</Link>
 			</SidebarGroupAction>

@@ -4,6 +4,7 @@ import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
+	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@ui/components/ui/dropdown-menu";
 import { RotatingText } from "@ui/components/ui/rotating-text";
@@ -11,17 +12,23 @@ import {
 	BoxIcon,
 	ChevronDownIcon,
 	CirclePlusIcon,
-	Layers3Icon,
 	PlusIcon,
 } from "lucide-react";
+import { useCreateActions } from "@/hooks/use-create-actions";
 import { useProjectParams } from "@/hooks/use-project-params";
 import { useStatusParams } from "@/hooks/use-status-params";
-import { useTaskParams } from "@/hooks/use-task-params";
 
 export const CreateButton = () => {
-	const { setParams: setTaskParams } = useTaskParams();
 	const { setParams: setStatusParams } = useStatusParams();
 	const { setParams: setProjectParams } = useProjectParams();
+	// Shared with the FAB CommandTray and the global "c" hotkey (see
+	// use-create-actions.ts, FEAT-007 item 4) — Task/Todo/Doc/Idea keep
+	// identical wording, icons, and project/milestone context across all
+	// three entrypoints. Status and the quick blank-project sheet below stay
+	// sidebar-only: neither has a FAB equivalent in the audit brief, and the
+	// sheet is a distinct, already-wired "quick create" the wizard's own
+	// "blank project" choice redirects back to — not a duplicate to collapse.
+	const { task, todo, doc, idea } = useCreateActions();
 
 	return (
 		<div>
@@ -44,9 +51,9 @@ export const CreateButton = () => {
 					</Button>
 				</DropdownMenuTrigger>
 				<DropdownMenuContent align="start" className="w-[236px]">
-					<DropdownMenuItem onClick={() => setTaskParams({ createTask: true })}>
-						<Layers3Icon />
-						Task
+					<DropdownMenuItem onClick={task.onSelect}>
+						<task.icon />
+						{task.label}
 					</DropdownMenuItem>
 					<DropdownMenuItem
 						onClick={() => setStatusParams({ createStatus: true })}
@@ -59,6 +66,19 @@ export const CreateButton = () => {
 					>
 						<BoxIcon />
 						Project
+					</DropdownMenuItem>
+					<DropdownMenuSeparator />
+					<DropdownMenuItem onClick={todo.onSelect}>
+						<todo.icon />
+						{todo.label}
+					</DropdownMenuItem>
+					<DropdownMenuItem onClick={doc.onSelect}>
+						<doc.icon />
+						{doc.label}
+					</DropdownMenuItem>
+					<DropdownMenuItem onClick={idea.onSelect}>
+						<idea.icon />
+						{idea.label}
 					</DropdownMenuItem>
 				</DropdownMenuContent>
 			</DropdownMenu>

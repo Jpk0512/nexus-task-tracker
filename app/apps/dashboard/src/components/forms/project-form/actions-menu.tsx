@@ -72,7 +72,12 @@ export const ActionsMenu = () => {
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
-				<Button type="button" variant={"ghost"} size={"icon"}>
+				<Button
+					type="button"
+					variant={"ghost"}
+					size={"icon"}
+					aria-label="Project actions"
+				>
 					<EllipsisVerticalIcon />
 				</Button>
 			</DropdownMenuTrigger>

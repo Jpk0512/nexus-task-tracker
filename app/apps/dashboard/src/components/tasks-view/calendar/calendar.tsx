@@ -26,12 +26,12 @@ import {
 } from "date-fns";
 import { ChevronLeftIcon, ChevronRightIcon, ListPlusIcon } from "lucide-react";
 import { useMemo, useState } from "react";
+import type { EnrichedTask } from "@/hooks/use-data";
 import Loader from "../../loader";
 import { TaskContextMenu } from "../../task-context-menu";
 import { useTasksViewContext } from "../tasks-view";
 import { CalendarDayDroppable } from "./calendar-day";
 import { CalendarTask, DraggableCalendarTask } from "./calendar-task";
-import type { EnrichedTask } from "@/hooks/use-data";
 import { useCalendarDnd, useCalendarDndStore } from "./use-calendar-dnd";
 
 type CalendarTaskData = EnrichedTask;
@@ -145,10 +145,20 @@ export const TasksCalendar = () => {
 						<Button variant="outline" size="sm" onClick={goToToday}>
 							Today
 						</Button>
-						<Button variant="ghost" size="icon" onClick={goToPreviousMonth}>
+						<Button
+							variant="ghost"
+							size="icon"
+							onClick={goToPreviousMonth}
+							aria-label="Previous month"
+						>
 							<ChevronLeftIcon className="size-4" />
 						</Button>
-						<Button variant="ghost" size="icon" onClick={goToNextMonth}>
+						<Button
+							variant="ghost"
+							size="icon"
+							onClick={goToNextMonth}
+							aria-label="Next month"
+						>
 							<ChevronRightIcon className="size-4" />
 						</Button>
 					</div>

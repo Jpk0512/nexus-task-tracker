@@ -6,6 +6,7 @@ import { useUser } from "@/components/user-provider";
 import type { EnrichedTask } from "@/hooks/use-data";
 import { updateTaskInCache } from "@/hooks/use-data-cache-helpers";
 import { cn } from "@/lib/utils";
+import { useTaskHoverStore } from "@/store/task-hover";
 import {
 	PropertyAssignee,
 	PropertyChecklist,
@@ -30,6 +31,8 @@ export const KanbanTask = ({
 }) => {
 	const user = useUser();
 	const taskPanel = useTaskPanel();
+	const setHoveredTask = useTaskHoverStore((s) => s.setHoveredTask);
+	const clearHoveredTask = useTaskHoverStore((s) => s.clearHoveredTask);
 
 	return (
 		<div
@@ -46,6 +49,8 @@ export const KanbanTask = ({
 				updateTaskInCache(task);
 				taskPanel.open(task.id);
 			}}
+			onMouseEnter={() => setHoveredTask(task.id)}
+			onMouseLeave={() => clearHoveredTask(task.id)}
 			{...props}
 		>
 			<div className="p-2">

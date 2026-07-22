@@ -13,10 +13,10 @@ import {
 } from "@ui/components/ui/popover";
 import { useMemo, useState } from "react";
 import { useDebounceValue } from "usehooks-ts";
+import type { EnrichedTask } from "@/hooks/use-data";
 import { cn } from "@/lib/utils";
 import { queryClient, trpc } from "@/utils/trpc";
 import { Assignee, AssigneeAvatar } from "../../asignee-avatar";
-import type { EnrichedTask } from "@/hooks/use-data";
 
 export const TaskPropertyAssignee = ({ task }: { task: EnrichedTask }) => {
 	const [search, setSearch] = useState("");

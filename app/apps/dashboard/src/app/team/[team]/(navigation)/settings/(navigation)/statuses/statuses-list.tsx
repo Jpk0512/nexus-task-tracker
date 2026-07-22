@@ -96,6 +96,7 @@ const SortableStatusItem = ({
 		>
 			<button
 				type="button"
+				aria-label="Drag to reorder"
 				className={cn(
 					"touch-none text-muted-foreground hover:text-foreground",
 					disableDrag ? "cursor-not-allowed opacity-40" : "cursor-grab",

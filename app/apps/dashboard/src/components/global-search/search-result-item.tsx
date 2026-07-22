@@ -1,4 +1,5 @@
 import { ActionResultItem } from "./result-items/action-result-item";
+import { ChatResultItem } from "./result-items/chat-result-item";
 import { DocumentResultItem } from "./result-items/document-result-item";
 import { KnowledgeResultItem } from "./result-items/knowledge-result-item";
 import { LibraryResultItem } from "./result-items/library-result-item";
@@ -30,6 +31,8 @@ export const SearchResultItem = ({ item }: SearchResultItemProps) => {
 			return <MilestoneResultItem item={item} />;
 		case "document":
 			return <DocumentResultItem item={item} />;
+		case "chat":
+			return <ChatResultItem item={item} />;
 		case "todo":
 			return <TodoResultItem item={item} />;
 		case "knowledge":

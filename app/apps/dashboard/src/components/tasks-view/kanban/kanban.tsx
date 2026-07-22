@@ -1,16 +1,52 @@
 "use client";
 
 import * as Kanban from "@nexus-app/ui/kanban";
+import { Skeleton } from "@ui/components/ui/skeleton";
 import { AnimatePresence } from "motion/react";
 import { useMemo, useRef } from "react";
+import type { EnrichedTask } from "@/hooks/use-data";
+import { useTaskHoverQuickActions } from "@/hooks/use-task-hover-actions";
+import { useTasksViewContext } from "../tasks-view";
 import { BoardColumn } from "./column";
 import { KanbanMinimap } from "./kanban-minimap";
-import type { EnrichedTask } from "@/hooks/use-data";
 import { useKanbanBoard, useKanbanStore } from "./use-kanban-board";
+
+// Board loading skeleton — the underlying `tasks.get` query resolving after
+// the route shell has already mounted (e.g. switching group-by, or a
+// same-route project change) never hits `[projectId]/loading.tsx`, so the
+// board would otherwise flash empty columns while data is in flight.
+function TasksBoardSkeleton() {
+	return (
+		<div
+			className="flex grow-1 items-stretch gap-4 overflow-x-hidden py-2"
+			aria-hidden
+		>
+			{Array.from({ length: 4 }).map((_, colIdx) => (
+				<div
+					key={`board-skel-col-${colIdx}`}
+					className="flex h-[calc(100vh-188px)] min-h-[200px] min-w-86 max-w-86 flex-1 flex-col gap-2 rounded-sm bg-card p-2 dark:bg-card/30"
+				>
+					<div className="flex items-center gap-2">
+						<Skeleton className="size-4 rounded" />
+						<Skeleton className="h-3.5 w-20" />
+					</div>
+					{Array.from({ length: 3 }).map((_, cardIdx) => (
+						<Skeleton
+							key={`board-skel-card-${colIdx}-${cardIdx}`}
+							className="h-24 w-full rounded-md"
+						/>
+					))}
+				</div>
+			))}
+		</div>
+	);
+}
 
 export function TasksBoard() {
 	const { setActiveTaskId, setOverColumnName } = useKanbanStore();
 	const scrollContainerRef = useRef<HTMLDivElement>(null);
+	useTaskHoverQuickActions();
+	const { isLoading } = useTasksViewContext();
 
 	// Use our custom hook for logic
 	const { boardData, reorderTask, columns } = useKanbanBoard();
@@ -32,6 +68,18 @@ export function TasksBoard() {
 			return { name: columnName, column, tasks: tasks as EnrichedTask[] };
 		});
 	}, [formattedBoardData]);
+
+	// Only the *initial* load renders the skeleton — once columns exist, a
+	// background refetch (filter change, realtime update) keeps the board as
+	// interactive drag-and-drop surface instead of yanking it out from under
+	// an in-progress drag.
+	if (isLoading && columnsArray.length === 0) {
+		return (
+			<div className="flex grow-1 flex-col">
+				<TasksBoardSkeleton />
+			</div>
+		);
+	}
 
 	return (
 		<div className="flex grow-1 flex-col">

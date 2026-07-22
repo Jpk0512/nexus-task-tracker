@@ -31,9 +31,9 @@ import { useHotkeys } from "react-hotkeys-hook";
 import { toast } from "sonner";
 import {
 	addDumpItem,
+	type DumpItem,
 	readDump,
 	removeDumpItem,
-	type DumpItem,
 } from "@/components/dump/dump-store";
 import { useProjects } from "@/hooks/use-data";
 import { trpc, trpcClient } from "@/utils/trpc";
@@ -51,11 +51,7 @@ export function useDumpModal() {
  * Global dump surface — always-on modal triggered from the header + ⌘J.
  * Brain dump (not Inbox). Promote = create then archive.
  */
-export function DumpModalProvider({
-	children,
-}: {
-	children: React.ReactNode;
-}) {
+export function DumpModalProvider({ children }: { children: React.ReactNode }) {
 	const [open, setOpen] = useState(false);
 	const [items, setItems] = useState<DumpItem[]>([]);
 
@@ -78,10 +74,7 @@ export function DumpModalProvider({
 		{ enableOnContentEditable: true, enableOnFormTags: true },
 	);
 
-	const value = useMemo<DumpCtx>(
-		() => ({ open: () => setOpen(true) }),
-		[],
-	);
+	const value = useMemo<DumpCtx>(() => ({ open: () => setOpen(true) }), []);
 
 	return (
 		<Ctx.Provider value={value}>
@@ -111,10 +104,12 @@ function DumpDialog({
 	const { data: projectsData } = useProjects();
 	const project = useMemo(() => {
 		// biome-ignore lint/suspicious/noExplicitAny: tRPC list shape
-		const list = (((projectsData as any)?.data ?? []) as Array<{
-			id: string;
-			archived?: boolean;
-		}>).filter((p) => !p.archived);
+		const list = (
+			((projectsData as any)?.data ?? []) as Array<{
+				id: string;
+				archived?: boolean;
+			}>
+		).filter((p) => !p.archived);
 		return list[0] ?? null;
 	}, [projectsData]);
 
@@ -215,7 +210,7 @@ function DumpDialog({
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent className="max-w-xl gap-0 p-0">
-				<div className="flex items-center justify-between border-b border-border/60 px-4 py-3">
+				<div className="flex items-center justify-between border-border/60 border-b px-4 py-3">
 					<div className="flex items-center gap-2">
 						<NotebookPenIcon className="size-4 text-cyan-500" />
 						<DialogTitle className="font-[510] text-[15px]">

@@ -403,7 +403,12 @@ export function ApiKeysList() {
 									</div>
 									<AlertDialog>
 										<AlertDialogTrigger asChild>
-											<Button variant="ghost" size="icon" disabled={isDeleting}>
+											<Button
+												variant="ghost"
+												size="icon"
+												disabled={isDeleting}
+												aria-label={`Delete ${apiKey.name || "Unnamed Key"}`}
+											>
 												<Trash2 className="size-4 text-muted-foreground" />
 											</Button>
 										</AlertDialogTrigger>
