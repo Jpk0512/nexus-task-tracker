@@ -5,8 +5,10 @@ const {
 	shell,
 	dialog,
 	nativeTheme,
+	screen,
 } = require("electron");
 const path = require("node:path");
+const fs = require("node:fs");
 const http = require("node:http");
 
 // Handle Windows squirrel install/uninstall shortcuts.
@@ -14,12 +16,18 @@ if (require("electron-squirrel-startup")) {
 	app.quit();
 }
 
-const DASHBOARD_URL =
-	process.env.NEXUS_DESKTOP_URL || "http://localhost:5179";
+const DASHBOARD_URL = process.env.NEXUS_DESKTOP_URL || "http://localhost:5179";
 const START_PATH = process.env.NEXUS_DESKTOP_PATH || "/team/local-dev";
+
+const DEFAULT_WIDTH = 1440;
+const DEFAULT_HEIGHT = 900;
+const MIN_WIDTH = 1024;
+const MIN_HEIGHT = 680;
 
 /** @type {BrowserWindow | null} */
 let mainWindow = null;
+/** @type {ReturnType<typeof setTimeout> | undefined} */
+let saveStateTimer;
 
 function offlineHtml(url) {
 	return `<!doctype html>
@@ -87,14 +95,91 @@ function probeDashboard(url) {
 	});
 }
 
+function windowStatePath() {
+	return path.join(app.getPath("userData"), "window-state.json");
+}
+
+function loadWindowState() {
+	try {
+		const parsed = JSON.parse(fs.readFileSync(windowStatePath(), "utf8"));
+		if (
+			typeof parsed.width === "number" &&
+			typeof parsed.height === "number" &&
+			parsed.width >= MIN_WIDTH &&
+			parsed.height >= MIN_HEIGHT
+		) {
+			return parsed;
+		}
+	} catch {
+		/* first launch, or the file is missing/corrupt — fall back to defaults */
+	}
+	return null;
+}
+
+// A saved x/y from a since-disconnected monitor would place the window
+// off-screen with no way to drag it back, so only trust a position that
+// still overlaps a currently connected display.
+function isOnScreen(bounds) {
+	return screen.getAllDisplays().some((display) => {
+		const area = display.workArea;
+		return (
+			bounds.x < area.x + area.width &&
+			bounds.x + bounds.width > area.x &&
+			bounds.y < area.y + area.height &&
+			bounds.y + bounds.height > area.y
+		);
+	});
+}
+
+function boundsFromState(state) {
+	if (!state) {
+		return { width: DEFAULT_WIDTH, height: DEFAULT_HEIGHT };
+	}
+	const hasPosition =
+		typeof state.x === "number" && typeof state.y === "number";
+	if (hasPosition && isOnScreen(state)) {
+		return {
+			width: state.width,
+			height: state.height,
+			x: state.x,
+			y: state.y,
+		};
+	}
+	return { width: state.width, height: state.height };
+}
+
+function saveWindowState(win) {
+	if (!win || win.isDestroyed()) return;
+	const isMaximized = win.isMaximized();
+	const bounds = isMaximized ? win.getNormalBounds() : win.getBounds();
+	try {
+		fs.mkdirSync(path.dirname(windowStatePath()), { recursive: true });
+		fs.writeFileSync(
+			windowStatePath(),
+			JSON.stringify({ ...bounds, isMaximized }),
+		);
+	} catch {
+		/* best-effort persistence; a read-only profile dir shouldn't crash the app */
+	}
+}
+
+function scheduleSaveWindowState() {
+	clearTimeout(saveStateTimer);
+	// Drag-resize fires dozens of events/sec; debounce so we write the
+	// file once per gesture instead of on every intermediate frame.
+	saveStateTimer = setTimeout(() => saveWindowState(mainWindow), 500);
+}
+
 function createWindow() {
 	const iconPath = path.join(__dirname, "..", "assets", "icon.png");
+	const savedState = loadWindowState();
 
 	mainWindow = new BrowserWindow({
-		width: 1440,
-		height: 900,
-		minWidth: 1024,
-		minHeight: 680,
+		...boundsFromState(savedState),
+		// Resizing is Electron's BrowserWindow default (resizable: true) and
+		// is never overridden below — only the floor is enforced here.
+		minWidth: MIN_WIDTH,
+		minHeight: MIN_HEIGHT,
 		title: "Nexus",
 		backgroundColor: nativeTheme.shouldUseDarkColors ? "#1c1c1b" : "#f6f7f9",
 		show: false,
@@ -107,6 +192,14 @@ function createWindow() {
 			spellcheck: true,
 		},
 	});
+
+	if (savedState?.isMaximized) {
+		mainWindow.maximize();
+	}
+
+	mainWindow.on("resize", scheduleSaveWindowState);
+	mainWindow.on("move", scheduleSaveWindowState);
+	mainWindow.on("close", () => saveWindowState(mainWindow));
 
 	const target = new URL(START_PATH, DASHBOARD_URL).toString();
 
@@ -145,6 +238,7 @@ function createWindow() {
 	})();
 
 	mainWindow.on("closed", () => {
+		clearTimeout(saveStateTimer);
 		mainWindow = null;
 	});
 }

@@ -33,6 +33,23 @@ Open the packaged app:
 open "out/Nexus-darwin-arm64/Nexus.app"
 ```
 
+## Window behavior
+
+- Minimum size is enforced at 1024×680 (`minWidth`/`minHeight`); drag-to-resize is
+  Electron's `BrowserWindow` default and is never disabled.
+- Size and position persist across restarts. State is written to
+  `window-state.json` under Electron's per-OS `userData` directory (e.g.
+  `~/Library/Application Support/Nexus/window-state.json` on macOS) — on
+  resize/move (debounced ~500ms) and on window close. No extra dependency: it's
+  a small JSON file read/written with `node:fs`.
+- If the saved position no longer overlaps any currently connected display (e.g.
+  an external monitor was unplugged since the last run), the saved size is kept
+  but the position is dropped in favor of the platform default placement — this
+  prevents the window from reopening off-screen with no way to drag it back.
+- Maximized state is remembered too: the window re-maximizes on launch, and the
+  underlying (non-maximized) size/position is what gets saved, so un-maximizing
+  later doesn't leave you with the maximized dimensions as the "restored" size.
+
 ## Notes
 
 - Renamed from the old mimrai desktop skeleton.
