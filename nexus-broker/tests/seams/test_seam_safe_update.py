@@ -24,7 +24,17 @@ from unittest.mock import patch
 import pytest
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
-_TOOLS_DIR = _REPO_ROOT / "nexus-package" / "tools"
+_NEXUS_PACKAGE = _REPO_ROOT / "nexus-package"
+_TOOLS_DIR = _NEXUS_PACKAGE / "tools"
+
+if not _NEXUS_PACKAGE.is_dir():
+    pytest.skip(
+        "nexus-package/ absent — this tree is an installed target, not the Plexus "
+        "meta-repo; this seam only has a real safe_update() source tree to drive "
+        "where nexus-package/ ships",
+        allow_module_level=True,
+    )
+
 if str(_TOOLS_DIR) not in sys.path:
     sys.path.insert(0, str(_TOOLS_DIR))
 

@@ -18,8 +18,19 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 _NEXUS_PACKAGE = Path(__file__).resolve().parents[3] / "nexus-package"
 _TOOLS_DIR = _NEXUS_PACKAGE / "tools"
+
+if not _NEXUS_PACKAGE.is_dir():
+    pytest.skip(
+        "nexus-package/ absent — this tree is an installed target, not the Plexus "
+        "meta-repo; this seam only has a real render_install() source tree to drive "
+        "where nexus-package/ ships",
+        allow_module_level=True,
+    )
+
 if str(_TOOLS_DIR) not in sys.path:
     sys.path.insert(0, str(_TOOLS_DIR))
 
