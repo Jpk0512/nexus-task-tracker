@@ -619,7 +619,10 @@ export const libraryRouter = router({
 			const [e] = await db
 				.select({ id: libraryEntries.id })
 				.from(libraryEntries)
-				.innerJoin(librarySources, eq(librarySources.id, libraryEntries.sourceId))
+				.innerJoin(
+					librarySources,
+					eq(librarySources.id, libraryEntries.sourceId),
+				)
 				.where(
 					and(
 						eq(libraryEntries.id, input.entryId),
@@ -642,7 +645,10 @@ export const libraryRouter = router({
 			const [e] = await db
 				.select({ id: libraryEntries.id })
 				.from(libraryEntries)
-				.innerJoin(librarySources, eq(librarySources.id, libraryEntries.sourceId))
+				.innerJoin(
+					librarySources,
+					eq(librarySources.id, libraryEntries.sourceId),
+				)
 				.where(
 					and(
 						eq(libraryEntries.id, input.entryId),
@@ -675,7 +681,10 @@ export const libraryRouter = router({
 			const [e] = await db
 				.select({ id: libraryEntries.id })
 				.from(libraryEntries)
-				.innerJoin(librarySources, eq(librarySources.id, libraryEntries.sourceId))
+				.innerJoin(
+					librarySources,
+					eq(librarySources.id, libraryEntries.sourceId),
+				)
 				.where(
 					and(
 						eq(libraryEntries.id, input.entryId),
@@ -703,7 +712,10 @@ export const libraryRouter = router({
 			const [e] = await db
 				.select({ id: libraryEntries.id })
 				.from(libraryEntries)
-				.innerJoin(librarySources, eq(librarySources.id, libraryEntries.sourceId))
+				.innerJoin(
+					librarySources,
+					eq(librarySources.id, libraryEntries.sourceId),
+				)
 				.where(
 					and(
 						eq(libraryEntries.id, input.entryId),

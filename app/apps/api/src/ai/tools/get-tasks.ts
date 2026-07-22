@@ -1,6 +1,6 @@
 import { getStatuses } from "@nexus-app/db/queries/statuses";
-import { getMembers } from "@nexus-app/db/queries/teams";
 import { getTasks } from "@nexus-app/db/queries/tasks";
+import { getMembers } from "@nexus-app/db/queries/teams";
 import { statusTypeEnum } from "@nexus-app/db/schema";
 import { getTaskPermalink } from "@nexus-app/utils/tasks";
 import { tool } from "ai";
@@ -93,9 +93,7 @@ export const getTasksTool = tool({
 			const statusNameById = new Map(
 				statusesResult.data.map((s) => [s.id, s.name]),
 			);
-			const memberNameById = new Map(
-				members.map((m) => [m.id, m.name]),
-			);
+			const memberNameById = new Map(members.map((m) => [m.id, m.name]));
 
 			const mappedData = result.data.map((task) => ({
 				id: task.id,

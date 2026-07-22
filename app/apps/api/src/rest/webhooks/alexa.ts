@@ -1,7 +1,5 @@
 import { OpenAPIHono } from "@hono/zod-openapi";
 import type { MiddlewareHandler } from "hono";
-import type { Context } from "../types";
-
 // alexa-verifier (v4, ESM) — types in src/alexa-verifier.d.ts (no @types package).
 // It validates per Amazon's spec:
 //   1. SignatureCertChainUrl: https, host=s3.amazonaws.com, port=443, path=/echo.api/*
@@ -14,6 +12,7 @@ import type { Context } from "../types";
 //   HTTP 400 { "ok": false, "error": "missing Signature or SignatureCertChainUrl header" }
 //   HTTP 500 { "ok": false, "error": "Server misconfiguration" }
 import { verifyAlexaSignature } from "../../lib/alexa-verifier";
+import type { Context } from "../types";
 
 const app = new OpenAPIHono<Context>();
 
@@ -52,7 +51,8 @@ const verifyAlexaRequest: MiddlewareHandler = async (c, next) => {
 	try {
 		await verifyAlexaSignature(certUrl, signature, rawBody);
 	} catch (err) {
-		const reason = typeof err === "string" ? err : "signature verification failed";
+		const reason =
+			typeof err === "string" ? err : "signature verification failed";
 		return c.json({ ok: false, error: reason }, 401);
 	}
 

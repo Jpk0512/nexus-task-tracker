@@ -55,7 +55,7 @@ const STARTER_MODEL = (() => {
 	const apiKey = process.env.GEMINI_API;
 	if (url && apiKey) {
 		const gemini = createOpenAI({ baseURL: url, apiKey, name: "gemini" });
-		return gemini.chat(process.env.GEMINI_MODEL ?? "gemini-3.5-flash");
+		return gemini.chat(process.env.GEMINI_MODEL ?? "gemini-3.6-flash");
 	}
 	return undefined;
 })();

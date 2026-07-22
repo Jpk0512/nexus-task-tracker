@@ -19,6 +19,8 @@ const verifyAlexaSignature: (
 	signature: string,
 	rawBody: string,
 ) => Promise<void> =
-	typeof mod.default === "function" ? mod.default : (mod as unknown as typeof verifyAlexaSignature);
+	typeof mod.default === "function"
+		? mod.default
+		: (mod as unknown as typeof verifyAlexaSignature);
 
 export { verifyAlexaSignature };

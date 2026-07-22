@@ -5,7 +5,12 @@
 
 import { protectedProcedure, router } from "@api/trpc/init";
 import { db } from "@nexus-app/db/client";
-import { documents, projects, todoAttachments, todos } from "@nexus-app/db/schema";
+import {
+	documents,
+	projects,
+	todoAttachments,
+	todos,
+} from "@nexus-app/db/schema";
 import { TRPCError } from "@trpc/server";
 import { and, asc, eq, ilike, inArray, sql } from "drizzle-orm";
 import { z } from "zod/v3";

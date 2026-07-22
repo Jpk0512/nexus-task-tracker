@@ -32,9 +32,7 @@ function makeLocalLimiter(maxPerMinute: number): Ratelimit {
 		limit: async (id: string) => {
 			const now = Date.now();
 			const windowStart = now - 60_000;
-			const timestamps = (windows.get(id) ?? []).filter(
-				(t) => t > windowStart,
-			);
+			const timestamps = (windows.get(id) ?? []).filter((t) => t > windowStart);
 			const allowed = timestamps.length < maxPerMinute;
 			if (allowed) {
 				timestamps.push(now);
@@ -56,9 +54,9 @@ function makeLocalLimiter(maxPerMinute: number): Ratelimit {
 function buildLimiter(maxPerMinute: number, prefix: string): Ratelimit {
 	if (LOCAL_DEV && !UPSTASH_CONFIGURED) {
 		console.warn(
-			`[rate-limit] NEXUS_LOCAL_DEV=1 and Upstash not configured — ` +
+			"[rate-limit] NEXUS_LOCAL_DEV=1 and Upstash not configured — " +
 				`using in-process limiter (${maxPerMinute}/min, prefix=${prefix}). ` +
-				`This MUST NOT reach production.`,
+				"This MUST NOT reach production.",
 		);
 		return makeLocalLimiter(maxPerMinute);
 	}

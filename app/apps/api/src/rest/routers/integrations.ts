@@ -91,7 +91,10 @@ app.get("/associate", async (c) => {
 
 	if (safeQuery.data.integrationType) {
 		whereClause.push(
-			eq(integrationUserLink.integrationType, safeQuery.data.integrationType as IntegrationName),
+			eq(
+				integrationUserLink.integrationType,
+				safeQuery.data.integrationType as IntegrationName,
+			),
 		);
 	}
 

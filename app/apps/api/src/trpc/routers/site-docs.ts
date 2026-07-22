@@ -135,7 +135,11 @@ export const siteDocsRouter = router({
 		.query(async ({ ctx, input }) => {
 			const project = await requireProject(input.projectId, ctx.user.teamId!);
 			if (!project.docsPath) {
-				return { docsPath: null as string | null, tree: [] as TreeNode[], maps: [] };
+				return {
+					docsPath: null as string | null,
+					tree: [] as TreeNode[],
+					maps: [],
+				};
 			}
 			let root: string;
 			try {
@@ -389,7 +393,7 @@ export const siteDocsRouter = router({
 					title: "Architecture",
 					content:
 						"```mermaid\ngraph TD\n  A[" +
-						project.name.replace(/[\[\]]/g, "") +
+						project.name.replace(/[[\]]/g, "") +
 						"] --> B[Docs]\n  A --> C[App]\n```\n",
 				},
 				{

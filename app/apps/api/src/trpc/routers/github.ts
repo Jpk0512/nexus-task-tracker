@@ -28,7 +28,10 @@ import {
 	installIntegration,
 	linkUserToIntegration,
 } from "@nexus-app/db/queries/integrations";
-import { getPrReviews, getPrReviewsCount } from "@nexus-app/db/queries/pr-reviews";
+import {
+	getPrReviews,
+	getPrReviewsCount,
+} from "@nexus-app/db/queries/pr-reviews";
 import { syncTeamPrReviewsJob } from "@nexus-app/jobs/pull-request-reviews/sync-team-pr-reviews-job";
 import { Octokit } from "octokit";
 
@@ -174,7 +177,9 @@ export const githubRouter = router({
 				repositoryId: input.repositoryId,
 				integrationId: input.integrationId,
 				repositoryName: input.repositoryName,
-				installationId: Number((integration.config as { installationId?: string }).installationId),
+				installationId: Number(
+					(integration.config as { installationId?: string }).installationId,
+				),
 				teamId: ctx.user.teamId!,
 				userId: ctx.user.id,
 			});

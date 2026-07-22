@@ -202,7 +202,12 @@ const DEFAULT_ROOTS: Array<{
 		path: `${HOME_MOUNT}/Library/Application Support/Claude`,
 		sortOrder: 20,
 	},
-	{ agent: "codex", label: "Codex", path: `${HOME_MOUNT}/.codex`, sortOrder: 30 },
+	{
+		agent: "codex",
+		label: "Codex",
+		path: `${HOME_MOUNT}/.codex`,
+		sortOrder: 30,
+	},
 	{
 		agent: "cursor",
 		label: "Cursor",
