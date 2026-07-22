@@ -27,7 +27,7 @@
 
 import { Button } from "@ui/components/ui/button";
 import { cn } from "@ui/lib/utils";
-import { ArrowLeftIcon, XIcon } from "lucide-react";
+import { ArrowLeftIcon, MessageCircleIcon, XIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect } from "react";
@@ -70,6 +70,8 @@ export function ProjectBreadcrumb({ projectName, backHref, className }: Props) {
 		return () => window.removeEventListener("keydown", onKey);
 	}, [close]);
 
+	const base = backHref.replace(/\/projects$/, "");
+
 	return (
 		<div
 			className={cn(
@@ -96,21 +98,35 @@ export function ProjectBreadcrumb({ projectName, backHref, className }: Props) {
 					{projectName}
 				</span>
 			</div>
-			<Button
-				type="button"
-				variant="ghost"
-				size="sm"
-				onClick={close}
-				className="h-7 gap-1 px-2 text-muted-foreground hover:text-foreground"
-				title="Close (Esc)"
-				aria-label="Close project (Esc)"
-			>
-				<XIcon className="size-4" />
-				<span className="hidden text-xs sm:inline">Close</span>
-				<kbd className="ml-1 hidden rounded border border-border bg-background px-1.5 font-mono text-[10px] text-muted-foreground sm:inline">
-					Esc
-				</kbd>
-			</Button>
+			<div className="flex items-center gap-1">
+				<Button
+					asChild
+					variant="ghost"
+					size="sm"
+					className="h-7 gap-1 px-2 text-muted-foreground hover:text-foreground"
+					title="Open Chat"
+				>
+					<Link href={`${base}/chat`}>
+						<MessageCircleIcon className="size-4" />
+						<span className="hidden text-xs sm:inline">Chat</span>
+					</Link>
+				</Button>
+				<Button
+					type="button"
+					variant="ghost"
+					size="sm"
+					onClick={close}
+					className="h-7 gap-1 px-2 text-muted-foreground hover:text-foreground"
+					title="Close (Esc)"
+					aria-label="Close project (Esc)"
+				>
+					<XIcon className="size-4" />
+					<span className="hidden text-xs sm:inline">Close</span>
+					<kbd className="ml-1 hidden rounded border border-border bg-background px-1.5 font-mono text-[10px] text-muted-foreground sm:inline">
+						Esc
+					</kbd>
+				</Button>
+			</div>
 		</div>
 	);
 }

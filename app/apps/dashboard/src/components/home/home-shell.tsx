@@ -4,13 +4,17 @@ import { cn } from "@ui/lib/utils";
 import { SettingsIcon } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { CompanionStub } from "@/components/ai/companion-stub";
 import { WeeklyRollover } from "@/components/lens/weekly-rollover";
 import { ActiveProjectsRail } from "./active-projects-rail";
 import { ActivityFeed } from "./activity-feed";
 import { AgendaCard } from "./agenda-card";
 import { DashboardConfigModal } from "./dashboard-config-modal";
+import { DoNowCard } from "./do-now-card";
 import { EndOfDayRecap } from "./end-of-day-recap";
+import { FirstRunCoach } from "./first-run-coach";
 import { GreetingCard } from "./greeting-card";
+import { HealthStrip } from "./health-strip";
 import {
 	type HomeCardId,
 	type HomeConfig,
@@ -18,13 +22,10 @@ import {
 	resetHomeConfig,
 	saveHomeConfig,
 } from "./home-config";
-import { CompanionStub } from "@/components/ai/companion-stub";
-import { DoNowCard } from "./do-now-card";
-import { HealthStrip } from "./health-strip";
 import { OsQuickTiles } from "./os-quick-tiles";
-import { TodosCard } from "./todos-card";
-import { StarterContinueCard } from "./starter-continue-card";
 import { StaleCommitmentDigest } from "./stale-commitment-digest";
+import { StarterContinueCard } from "./starter-continue-card";
+import { TodosCard } from "./todos-card";
 import { UpNextCard } from "./up-next-card";
 
 /**
@@ -125,6 +126,9 @@ export const HomeShell = () => {
 				 the rest of the week. Mounted at the top so it's the first thing
 				 seen on home. */}
 			<WeeklyRollover />
+			{/* First-run coach: dismissible orientation tips, self-managed via
+				 localStorage — a no-op after the user's first dismissal. */}
+			<FirstRunCoach />
 			{/* Slim health strip + home configurator share one row. Capture lives in
 			 * the global header now, so the top of Home stays tight. */}
 			<div className="flex items-center justify-between gap-3">

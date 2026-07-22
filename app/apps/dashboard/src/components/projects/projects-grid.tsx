@@ -224,10 +224,7 @@ function ProjectCard({
 				>
 					<div className="flex items-start justify-between gap-2">
 						<div className="flex min-w-0 items-center gap-2">
-							<ProjectIcon
-								className="size-4 shrink-0"
-								color={accent}
-							/>
+							<ProjectIcon className="size-4 shrink-0" color={accent} />
 							<h3 className="truncate font-semibold text-[16px] text-foreground leading-tight">
 								{project.name}
 							</h3>
@@ -596,13 +593,16 @@ export function ProjectsGrid({
 					<StarterTemplates onCreate={onTemplateCreate} />
 					<div className="mt-6 flex flex-wrap items-center justify-center gap-2">
 						<Button asChild size="sm">
-							<Link href={`${basePath}/create-project`}>
-								Open Project Starter
+							<Link href={`${basePath}/create-project/starter`}>
+								Start from an idea
 							</Link>
 						</Button>
 						<Button asChild variant="outline" size="sm">
+							<Link href={`${basePath}/create-project`}>Browse options</Link>
+						</Button>
+						<Button asChild variant="ghost" size="sm">
 							<Link href={`${basePath}/projects?createProject=true`}>
-								Or create a blank project
+								Or create blank
 							</Link>
 						</Button>
 					</div>

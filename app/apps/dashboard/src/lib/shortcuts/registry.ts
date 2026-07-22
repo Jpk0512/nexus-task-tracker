@@ -140,6 +140,24 @@ export const SHORTCUTS: ShortcutSpec[] = [
 		scope: "global",
 		action: "nav.triage",
 	},
+	{
+		keys: "g c",
+		label: "Go to Chat",
+		scope: "global",
+		action: "nav.chat",
+	},
+	{
+		keys: "g n",
+		label: "Go to Notes",
+		scope: "global",
+		action: "nav.notes",
+	},
+	{
+		keys: "g k",
+		label: "Go to Knowledge",
+		scope: "global",
+		action: "nav.knowledge",
+	},
 	// ─── Undo ──────────────────────────────────────────────────────────────
 	{
 		keys: "mod+z",

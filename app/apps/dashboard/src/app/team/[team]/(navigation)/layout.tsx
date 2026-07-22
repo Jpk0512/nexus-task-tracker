@@ -15,6 +15,12 @@ export default async function DashboardLayout({
 
 	return (
 		<Suspense>
+			<a
+				href="#main-content"
+				className="sr-only z-50 rounded-md bg-foreground px-3 py-2 text-background focus:not-sr-only focus:absolute focus:top-3 focus:left-3"
+			>
+				Skip to content
+			</a>
 			<SidebarProvider
 				defaultOpen={true}
 				style={
@@ -26,7 +32,7 @@ export default async function DashboardLayout({
 				<DashboardDndProviderClient>
 					<AppSidebar />
 					<BreadcrumbsProvider session={session}>
-						<main className="flex flex-1 flex-col">
+						<main id="main-content" className="flex flex-1 flex-col">
 							<Header />
 							<AppSidebarWrapper>{children}</AppSidebarWrapper>
 						</main>

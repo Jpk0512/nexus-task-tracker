@@ -47,6 +47,14 @@ export function useShortcut(
 			preventDefault: options?.preventDefault ?? true,
 			enableOnFormTags: options?.enableOnFormTags ?? false,
 			enableOnContentEditable: options?.enableOnContentEditable ?? false,
+			// react-hotkeys-hook only treats a `keys` string as a sequence when it
+			// contains its `sequenceSplitKey` (default ">"). The registry's
+			// documented convention is space-separated sequences (e.g. "g t"), so
+			// without this override every "g <key>" binding silently parses as one
+			// literal (unmatchable) combo token instead of a two-key sequence and
+			// never fires. No registered `keys` string mixes "+" and " ", so this
+			// is a no-op for every non-sequence binding.
+			sequenceSplitKey: " ",
 		},
 	);
 }
