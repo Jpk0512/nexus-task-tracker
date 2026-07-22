@@ -7,16 +7,13 @@ function createOpenPanelStub(): OpenPanel {
 		console.log(`[stub:openpanel] track ${event ?? ""}`);
 		return undefined;
 	};
-	return new Proxy(
-		{} as OpenPanel,
-		{
-			get: (_t, prop) => {
-				if (prop === "then") return undefined;
-				if (prop === "track") return handler;
-				return (..._args: unknown[]): undefined => undefined;
-			},
+	return new Proxy({} as OpenPanel, {
+		get: (_t, prop) => {
+			if (prop === "then") return undefined;
+			if (prop === "track") return handler;
+			return (..._args: unknown[]): undefined => undefined;
 		},
-	);
+	});
 }
 
 export const op = LOCAL_DEV

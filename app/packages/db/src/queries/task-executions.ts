@@ -58,11 +58,16 @@ export const createTaskExecution = async (input: CreateTaskExecutionInput) => {
 /**
  * Get a task execution by task ID, scoped to the caller's team.
  */
-export const getTaskExecutionByTaskId = async (taskId: string, teamId: string) => {
+export const getTaskExecutionByTaskId = async (
+	taskId: string,
+	teamId: string,
+) => {
 	const [execution] = await db
 		.select()
 		.from(taskExecutions)
-		.where(and(eq(taskExecutions.taskId, taskId), eq(taskExecutions.teamId, teamId)))
+		.where(
+			and(eq(taskExecutions.taskId, taskId), eq(taskExecutions.teamId, teamId)),
+		)
 		.limit(1);
 
 	return execution ?? null;

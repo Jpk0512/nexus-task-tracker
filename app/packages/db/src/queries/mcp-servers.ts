@@ -1,5 +1,5 @@
-import { and, eq, inArray, type SQL } from "drizzle-orm";
 import { decryptToken, encryptToken } from "@nexus-app/utils/token-crypto";
+import { and, eq, inArray, type SQL } from "drizzle-orm";
 import { db } from "..";
 import { integrationUserLink, mcpServers } from "../schema";
 
@@ -199,7 +199,11 @@ export const updateMcpServerUserToken = async ({
 			// Encrypt before persisting — decryptToken handles the "v1:" prefix on read.
 			accessToken: await encryptToken(accessToken),
 			...(refreshToken !== undefined
-				? { refreshToken: refreshToken ? await encryptToken(refreshToken) : null }
+				? {
+						refreshToken: refreshToken
+							? await encryptToken(refreshToken)
+							: null,
+					}
 				: {}),
 			...(config ? { config } : {}),
 		})

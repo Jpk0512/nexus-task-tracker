@@ -1,5 +1,8 @@
 import { openai } from "@ai-sdk/openai";
-import { getImportById, updateImportStatus } from "@nexus-app/db/queries/imports";
+import {
+	getImportById,
+	updateImportStatus,
+} from "@nexus-app/db/queries/imports";
 import { createLabel, getLabelByName } from "@nexus-app/db/queries/labels";
 import { getProjects } from "@nexus-app/db/queries/projects";
 import { getBacklogStatus } from "@nexus-app/db/queries/statuses";
@@ -8,8 +11,8 @@ import { getMemberByEmail } from "@nexus-app/db/queries/teams";
 import { LocalDiskStorageAdapter } from "@nexus-app/storage";
 import { randomColor } from "@nexus-app/utils/random";
 import { generateText, Output } from "ai";
-import * as cptable from "xlsx/dist/cpexcel.full.mjs";
 import * as XLSX from "xlsx";
+import * as cptable from "xlsx/dist/cpexcel.full.mjs";
 import z from "zod";
 import { defineJob, logger } from "../../init";
 

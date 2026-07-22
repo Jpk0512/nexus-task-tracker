@@ -6,7 +6,11 @@ import { db } from "../index";
 import { activities, statuses, tasks, users, usersOnTeams } from "../schema";
 
 function dbSelect<T extends SelectedFields>(fields: T): PgSelectBuilder<T> {
-	return (db as unknown as { select<F extends SelectedFields>(f: F): PgSelectBuilder<F> }).select(fields);
+	return (
+		db as unknown as {
+			select<F extends SelectedFields>(f: F): PgSelectBuilder<F>;
+		}
+	).select(fields);
 }
 
 export const getTasksBurnup = async ({
@@ -31,9 +35,9 @@ export const getTasksBurnup = async ({
 	const [tasksCompleted, tasksCreated] = await Promise.all([
 		// @ts-expect-error — Drizzle PgDatabase has a mapped-type query property over TablesRelationalConfig (Record<string,*>) which causes noUncheckedIndexedAccess to treat all methods as possibly-undefined; dbSelect is a plain function and always defined
 		dbSelect({
-				createdAt: sql<Date>`created_at.date`,
-				completedCount: sql<number>`SUM(COUNT(${activities.id})) OVER (ORDER BY DATE(created_at.date) ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)`,
-			})
+			createdAt: sql<Date>`created_at.date`,
+			completedCount: sql<number>`SUM(COUNT(${activities.id})) OVER (ORDER BY DATE(created_at.date) ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)`,
+		})
 			.from(seriesDates)
 			.leftJoin(
 				activities,
@@ -46,9 +50,9 @@ export const getTasksBurnup = async ({
 			.groupBy(sql`created_at.date`),
 		// @ts-expect-error — same Drizzle noUncheckedIndexedAccess false positive
 		dbSelect({
-				createdAt: sql<Date>`created_at.date`,
-				createdCount: sql<number>`SUM(COUNT(${activities.id})) OVER (ORDER BY DATE(created_at.date) ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)`,
-			})
+			createdAt: sql<Date>`created_at.date`,
+			createdCount: sql<number>`SUM(COUNT(${activities.id})) OVER (ORDER BY DATE(created_at.date) ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)`,
+		})
 			.from(seriesDates)
 			.leftJoin(
 				activities,
@@ -249,9 +253,9 @@ export const getTasksCompletionRate = async ({
 	// get tasks completion by date
 	// @ts-expect-error — same Drizzle noUncheckedIndexedAccess false positive
 	const data = await dbSelect({
-			date: sql<Date>`DATE(created_at.date)`,
-			completedCount: sql<number>`COUNT(${activities.id})`,
-		})
+		date: sql<Date>`DATE(created_at.date)`,
+		completedCount: sql<number>`COUNT(${activities.id})`,
+	})
 		.from(seriesDates)
 		.leftJoin(
 			activities,

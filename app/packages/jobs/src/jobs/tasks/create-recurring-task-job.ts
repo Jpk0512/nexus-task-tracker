@@ -1,4 +1,7 @@
-import { createTask, updateTaskRecurringJob } from "@nexus-app/db/queries/tasks";
+import {
+	createTask,
+	updateTaskRecurringJob,
+} from "@nexus-app/db/queries/tasks";
 import {
 	checklistItems,
 	labelsOnTasks,

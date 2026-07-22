@@ -1,6 +1,11 @@
 import { TZDate } from "@date-fns/tz";
 import { createTaskSuggestion } from "@nexus-app/db/queries/tasks-suggestions";
-import { autopilotSettings, statuses, tasks, teams } from "@nexus-app/db/schema";
+import {
+	autopilotSettings,
+	statuses,
+	tasks,
+	teams,
+} from "@nexus-app/db/schema";
 import { and, arrayContains, eq, isNull, lte, not, or, sql } from "drizzle-orm";
 import { defineJob, getDb, logger } from "../../init";
 

@@ -18,7 +18,10 @@ interface StubSubscriber {
 function makeStubSubscriber(): StubSubscriber {
 	const handlers = new Map<string, Array<(...args: unknown[]) => void>>();
 	const self: StubSubscriber = {
-		on: (event: string, handler: (...args: unknown[]) => void): StubSubscriber => {
+		on: (
+			event: string,
+			handler: (...args: unknown[]) => void,
+		): StubSubscriber => {
 			const list = handlers.get(event) ?? [];
 			list.push(handler);
 			handlers.set(event, list);

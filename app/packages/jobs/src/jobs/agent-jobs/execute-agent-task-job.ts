@@ -12,7 +12,10 @@ import {
 import { getAllTools } from "@api/ai/tools/tool-registry";
 import type { UIChatMessage } from "@api/ai/types";
 import { getUserContext } from "@api/ai/utils/get-user-context";
-import { createActivity, getActivities } from "@nexus-app/db/queries/activities";
+import {
+	createActivity,
+	getActivities,
+} from "@nexus-app/db/queries/activities";
 import { getAgentByUserId } from "@nexus-app/db/queries/agents";
 import {
 	getChatById,

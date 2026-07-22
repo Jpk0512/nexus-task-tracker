@@ -30,7 +30,7 @@ function getRawKey(): Uint8Array {
 	}
 	const bytes = new Uint8Array(32);
 	for (let i = 0; i < 32; i++) {
-		bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+		bytes[i] = Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16);
 	}
 	return bytes;
 }
@@ -40,7 +40,10 @@ async function importKey(): Promise<CryptoKey> {
 	// Slice to get a concrete ArrayBuffer (Uint8Array.buffer may be SharedArrayBuffer)
 	return crypto.subtle.importKey(
 		"raw",
-		raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength) as ArrayBuffer,
+		raw.buffer.slice(
+			raw.byteOffset,
+			raw.byteOffset + raw.byteLength,
+		) as ArrayBuffer,
 		{ name: "AES-GCM" },
 		false,
 		["encrypt", "decrypt"],

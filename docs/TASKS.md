@@ -42,10 +42,31 @@
 | **TASK-030** — FEAT-001 spec: update @mimir/billing grep-lines to @nexus-app/billing (DEC-014) | done | forge-ui | 2026-06-21 |
 | **TASK-039** — Knowledge tab redesign: grouped vault hub, filters, seeded notes, inspector | done | codex | 2026-06-23 |
 
-## Infrastructure / Housekeeping (8/9 done, 88%)
+## FEAT-003 — FEAT-003 (1/3 done, 33%)
 
 | Task | Status | Owner | Updated |
 |------|--------|-------|---------|
+| **NEX-001** — Project Starter: real in-app interview chat → PRD → project creation | done | nexus | 2026-07-21 |
+| **NEX-002** — Project Starter: host agent runtime (Claude Agent SDK + Codex OAuth) for full REV3 workshop | backlog |  | 2026-07-21 |
+| **NEX-003** — Project Starter: kanban board materialization + task_dependencies (to-tickets phase) | backlog |  | 2026-07-21 |
+
+## FEAT-004 — FEAT-004 (1/1 done, 100%)
+
+| Task | Status | Owner | Updated |
+|------|--------|-------|---------|
+| **PLX-002** — Review, finish, verify, commit pi-agent uncommitted P0 batch | done |  | 2026-07-22 |
+
+## FEAT-005 — FEAT-005 (0/1 done, 0%)
+
+| Task | Status | Owner | Updated |
+|------|--------|-------|---------|
+| **NEX-004** — Commit Nexus 1.20.0 upgrade files as standalone checkpoint | todo |  | 2026-07-22 |
+
+## Infrastructure / Housekeeping (8/10 done, 80%)
+
+| Task | Status | Owner | Updated |
+|------|--------|-------|---------|
+| **PLX-001** — pi subagents route personas to amazon-bedrock (no key) instead of default GLM | backlog |  | 2026-07-21 |
 | **TASK-016** — Repo hygiene: gitignore/remove Nexus-install backup dirt | done |  | 2026-06-21 |
 | **TASK-031** — PRISM setup: repoint safe-working-dir from prism/ install tree to project root | cancelled | hermes | 2026-06-21 |
 | **TASK-032** — SECURITY CRITICAL: cross-tenant IDORs in tasks.ts + agents.ts + task-executions + teams routers | done | forge-wire+quill-ts | 2026-06-21 |
