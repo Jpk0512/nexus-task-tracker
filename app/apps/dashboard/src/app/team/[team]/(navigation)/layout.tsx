@@ -23,6 +23,13 @@ export default async function DashboardLayout({
 			</a>
 			<SidebarProvider
 				defaultOpen={true}
+				// Base primitive only sets `min-h-svh` (a floor, not a ceiling) --
+				// at short window heights (Electron resize) that let page content
+				// grow the whole document instead of scrolling internally. Pin an
+				// exact viewport height here so descendants get a definite size to
+				// flex/percentage against, and internal panes (not the window) own
+				// the scroll.
+				className="h-svh"
 				style={
 					{
 						"--sidebar-width": "240px",

@@ -74,7 +74,11 @@ export function BoardColumn({ column, columnName, tasks }: BoardColumnProps) {
 	return (
 		<Kanban.Column
 			className={cn(
-				"flex h-[calc(100vh-188px)] min-h-[200px] min-w-86 max-w-86 flex-1 grow-1 flex-col rounded-sm bg-card p-2 shadow-none dark:bg-card/30",
+				// No fixed vh height: the parent board row is `items-stretch`, so
+				// this column naturally fills whatever height is actually
+				// available (robust to window resize) instead of guessing a
+				// pixel offset that breaks at short window heights.
+				"flex min-h-[200px] min-w-86 max-w-86 flex-1 grow-1 flex-col rounded-sm bg-card p-2 shadow-none dark:bg-card/30",
 			)}
 			value={columnName}
 		>
@@ -125,7 +129,10 @@ export function BoardColumn({ column, columnName, tasks }: BoardColumnProps) {
 					</Button>
 				</div>
 			</div>
-			<div className="grow-1 overflow-y-auto px-2" ref={scrollContainerRef}>
+			<div
+				className="min-h-0 grow-1 overflow-y-auto px-2"
+				ref={scrollContainerRef}
+			>
 				<div className="relative h-full space-y-2">
 					{shouldVirtualize ? (
 						<div

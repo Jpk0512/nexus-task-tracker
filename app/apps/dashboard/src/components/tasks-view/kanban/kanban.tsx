@@ -18,13 +18,13 @@ import { useKanbanBoard, useKanbanStore } from "./use-kanban-board";
 function TasksBoardSkeleton() {
 	return (
 		<div
-			className="flex grow-1 items-stretch gap-4 overflow-x-hidden py-2"
+			className="flex min-h-0 grow-1 items-stretch gap-4 overflow-x-hidden py-2"
 			aria-hidden
 		>
 			{Array.from({ length: 4 }).map((_, colIdx) => (
 				<div
 					key={`board-skel-col-${colIdx}`}
-					className="flex h-[calc(100vh-188px)] min-h-[200px] min-w-86 max-w-86 flex-1 flex-col gap-2 rounded-sm bg-card p-2 dark:bg-card/30"
+					className="flex min-h-[200px] min-w-86 max-w-86 flex-1 flex-col gap-2 rounded-sm bg-card p-2 dark:bg-card/30"
 				>
 					<div className="flex items-center gap-2">
 						<Skeleton className="size-4 rounded" />
@@ -75,14 +75,18 @@ export function TasksBoard() {
 	// an in-progress drag.
 	if (isLoading && columnsArray.length === 0) {
 		return (
-			<div className="flex grow-1 flex-col">
+			<div className="flex min-h-0 grow-1 flex-col">
 				<TasksBoardSkeleton />
 			</div>
 		);
 	}
 
 	return (
-		<div className="flex grow-1 flex-col">
+		// min-h-0 is the required partner to grow-1 here: without it this flex
+		// item refuses to shrink below its content's natural height, so a tall
+		// board grows the whole page instead of stopping at the available
+		// space and letting BoardColumn's own internal list scroll.
+		<div className="flex min-h-0 grow-1 flex-col">
 			<Kanban.Root
 				value={formattedBoardData}
 				getItemValue={(item) => item.id}

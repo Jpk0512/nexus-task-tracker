@@ -79,7 +79,11 @@ export const AppSidebarWrapper = ({
 	return (
 		<div
 			className={cn(
-				"relative flex max-h-[calc(100vh-48px)] flex-1 flex-col rounded-lg bg-background p-4 [&:has([data-slot=sidebar-wrapper])]:p-0",
+				// min-h-0 lets this flex item actually shrink to the max-height
+				// budget instead of growing to fit tall page content; overflow-y-auto
+				// makes THIS pane (not the window) the scroll owner for any page
+				// that doesn't manage its own internal scroll.
+				"relative flex max-h-[calc(100vh-48px)] min-h-0 flex-1 flex-col overflow-y-auto rounded-lg bg-background p-4 [&:has([data-slot=sidebar-wrapper])]:p-0",
 				{
 					"md:max-w-[calc(100vw-240px)]": open,
 				},

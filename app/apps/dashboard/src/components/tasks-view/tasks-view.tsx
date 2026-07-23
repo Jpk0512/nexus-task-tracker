@@ -166,7 +166,10 @@ export const TasksView = ({
 	);
 
 	return (
-		<div className="flex grow-1 flex-col">
+		// h-full anchors to the page wrapper's resolved height; min-h-0 lets the
+		// board/list child (flex-1) actually shrink to fit + scroll internally
+		// instead of growing past the viewport at short window heights.
+		<div className="flex h-full min-h-0 flex-col">
 			<TasksViewProvider value={contextValue}>
 				<TasksFilters showFilters={showFilters} projectId={projectId} />
 				{filters.viewType === "board" && <TasksBoard />}
