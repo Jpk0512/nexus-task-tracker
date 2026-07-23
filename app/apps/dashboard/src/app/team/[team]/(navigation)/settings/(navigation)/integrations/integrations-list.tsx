@@ -18,11 +18,19 @@ import { useScopes } from "@/hooks/use-scopes";
 import { getSlackInstallUrl } from "@/lib/integrations";
 import { trpc } from "@/utils/trpc";
 
+// FEAT-020: Mattermost, SMTP, WhatsApp and Slack are removed from the
+// dashboard UI (server-side registry/routers stay untouched) — GitHub is the
+// only integration surfaced in the hub.
+const VISIBLE_INTEGRATION_TYPES = new Set(["github"]);
+
 export const IntegrationsList = () => {
 	const user = useUser();
 	const { setParams } = useIntegrationParams();
 	const { data } = useQuery(trpc.integrations.get.queryOptions());
 	const canWriteTeam = useScopes(["team:write"]);
+	const visibleIntegrations = data?.filter((integration) =>
+		VISIBLE_INTEGRATION_TYPES.has(integration.type),
+	);
 
 	return (
 		<Card className="border-0">
@@ -34,7 +42,7 @@ export const IntegrationsList = () => {
 			</CardHeader>
 			<CardContent className="border-0 p-0">
 				<ul className="grid grid-cols-3 gap-4">
-					{data?.map((integration) => (
+					{visibleIntegrations?.map((integration) => (
 						<li
 							key={integration.name}
 							className="flex flex-col justify-between gap-4 rounded-md border p-4 text-sm"

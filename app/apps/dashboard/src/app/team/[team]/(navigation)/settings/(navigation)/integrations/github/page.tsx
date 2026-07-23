@@ -1,3 +1,4 @@
+import type { RouterOutputs } from "@nexus-app/trpc";
 import {
 	Card,
 	CardContent,
@@ -5,7 +6,6 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@nexus-app/ui/card";
-import { notFound } from "next/navigation";
 import { IntegrationForm } from "@/components/integrations/components";
 import { UninstallIntegrationCard } from "@/components/integrations/uninstall-card";
 import { queryClient, trpc } from "@/utils/trpc";
@@ -14,17 +14,44 @@ import { RepositoriesList } from "./repositories-list";
 
 export const revalidate = 0;
 
-export default async function Page() {
-	const integrationInfo = await queryClient.fetchQuery(
-		trpc.integrations.getByType.queryOptions({
-			type: "github",
-		}),
-	);
+type GithubIntegrationInfo = RouterOutputs["integrations"]["getByType"];
 
-	const integration = integrationInfo.installedIntegration;
+// getByType 400s when GitHub isn't installed for the team (same failure mode
+// that used to blank the Mattermost page) — degrade to a null "not installed"
+// state instead of letting the throw reach the settings error boundary.
+async function fetchGithubIntegration(): Promise<GithubIntegrationInfo | null> {
+	try {
+		return await queryClient.fetchQuery(
+			trpc.integrations.getByType.queryOptions({
+				type: "github",
+			}),
+		);
+	} catch {
+		return null;
+	}
+}
+
+export default async function Page() {
+	const integrationInfo = await fetchGithubIntegration();
+	const integration = integrationInfo?.installedIntegration;
 
 	if (!integration) {
-		return notFound();
+		return (
+			<div className="space-y-6">
+				<Card>
+					<CardHeader>
+						<CardTitle>Settings</CardTitle>
+						<CardDescription>
+							Connect GitHub to sync repositories and enable pull request
+							automation.
+						</CardDescription>
+					</CardHeader>
+					<CardContent>
+						<IntegrationForm type="github" />
+					</CardContent>
+				</Card>
+			</div>
+		);
 	}
 
 	const id = integration.id;
@@ -36,7 +63,7 @@ export default async function Page() {
 					<CardTitle>Settings</CardTitle>
 				</CardHeader>
 				<CardContent>
-					{integrationInfo.isInstalledForUser ? (
+					{integrationInfo?.isInstalledForUser ? (
 						<p className="mb-4 text-muted-foreground text-sm">
 							GitHub App is installed and configured.
 						</p>

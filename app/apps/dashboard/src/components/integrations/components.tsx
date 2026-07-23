@@ -7,11 +7,6 @@ import { useQuery } from "@tanstack/react-query";
 import { Alert, AlertDescription } from "@ui/components/ui/alert";
 import { trpc } from "@/utils/trpc";
 import { InstallIntegrationGithubForm } from "./github/install";
-import { IntegrationMattermostForm } from "./mattermost/install";
-import { LinkIntegrationMattermostForm } from "./mattermost/link";
-import { ConfigIntegrationSmtpForm } from "./smtp/config";
-import { InstallIntegrationSmtpForm } from "./smtp/install";
-import { InstallIntegrationWhatsappForm } from "./whatsapp/install";
 
 export type IntegrationType = RouterOutputs["integrations"]["getByType"];
 
@@ -24,24 +19,18 @@ export const integrationInstallForms: Partial<
 	Record<IntegrationName, React.ComponentType<IntegrationConfigFormProps>>
 > = {
 	github: InstallIntegrationGithubForm,
-	mattermost: IntegrationMattermostForm,
-	whatsapp: InstallIntegrationWhatsappForm,
-	smtp: InstallIntegrationSmtpForm,
 };
 
 export const integrationLinkUserForms: Partial<
 	Record<IntegrationName, React.ComponentType<IntegrationConfigFormProps>>
 > = {
 	github: InstallIntegrationGithubForm,
-	mattermost: LinkIntegrationMattermostForm,
-	smtp: InstallIntegrationSmtpForm,
 };
 
 export const integrationConfigForms: Partial<
 	Record<IntegrationName, React.ComponentType<IntegrationConfigFormProps>>
 > = {
 	github: InstallIntegrationGithubForm,
-	smtp: ConfigIntegrationSmtpForm,
 };
 
 export const IntegrationForm = ({ type }: { type: IntegrationName }) => {
