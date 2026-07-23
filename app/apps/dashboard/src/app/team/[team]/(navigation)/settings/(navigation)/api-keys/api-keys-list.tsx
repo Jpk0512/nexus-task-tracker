@@ -1,5 +1,6 @@
 "use client";
 
+import type { RouterOutputs } from "@nexus-app/trpc";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -21,6 +22,7 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@ui/components/ui/card";
+import { Checkbox } from "@ui/components/ui/checkbox";
 import {
 	Dialog,
 	DialogContent,
@@ -40,6 +42,8 @@ import {
 	FormMessage,
 } from "@ui/components/ui/form";
 import { Input } from "@ui/components/ui/input";
+import { Label } from "@ui/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@ui/components/ui/radio-group";
 import {
 	Select,
 	SelectContent,
@@ -53,44 +57,82 @@ import {
 	Copy,
 	Key,
 	Loader2,
+	Pencil,
 	Plus,
 	Trash2,
 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { useZodForm } from "@/hooks/use-zod-form";
+import { authClient } from "@/lib/auth-client";
 import { queryClient, trpc } from "@/utils/trpc";
 
-const createApiKeySchema = z.object({
-	name: z.string().min(1, "Name is required").max(100),
-	expiresIn: z.enum(["never", "30d", "90d", "1y"]).default("never"),
-});
+type ApiKeyRow = RouterOutputs["apiKeys"]["list"][number];
+
+/**
+ * Mirrors the gateway leg's contract (app/apps/api/src/rest/routers/mcp.ts,
+ * ApiKeyMetadata / resolveMcpServerScope): a key's metadata.mcpServers is
+ * `"all" | string[]`; missing entirely defaults to `"all"` (same permissive
+ * posture as native tools). Reimplemented here rather than imported since
+ * apps/api and apps/dashboard are separate deployables.
+ */
+function resolveMcpServerScope(metadata: unknown): "all" | string[] {
+	if (!metadata || typeof metadata !== "object") return "all";
+	const value = (metadata as Record<string, unknown>).mcpServers;
+	if (value === undefined || value === "all") return "all";
+	if (Array.isArray(value)) {
+		return value.filter((id): id is string => typeof id === "string");
+	}
+	return "all";
+}
+
+const createApiKeySchema = z
+	.object({
+		name: z.string().min(1, "Name is required").max(100),
+		expiresIn: z.enum(["never", "30d", "90d", "1y"]).default("never"),
+		mcpScope: z.enum(["all", "custom"]).default("all"),
+		mcpServerIds: z.array(z.string()).default([]),
+	})
+	.refine(
+		(data) => data.mcpScope !== "custom" || data.mcpServerIds.length > 0,
+		{
+			message: "Select at least one MCP server",
+			path: ["mcpServerIds"],
+		},
+	);
 
 export function ApiKeysList() {
 	const [isCreateOpen, setIsCreateOpen] = useState(false);
 	const [newApiKey, setNewApiKey] = useState<string | null>(null);
 	const [copiedField, setCopiedField] = useState<string | null>(null);
+	const [editingKey, setEditingKey] = useState<ApiKeyRow | null>(null);
+	const [editScope, setEditScope] = useState<"all" | "custom">("all");
+	const [editServerIds, setEditServerIds] = useState<string[]>([]);
+
+	const { data: session } = authClient.useSession();
 
 	// Fetch user's API keys
 	const { data: apiKeys, isLoading } = useQuery(
 		trpc.apiKeys.list.queryOptions({}),
 	);
 
-	// Create new API key mutation
-	const { mutate: createApiKey, isPending: isCreating } = useMutation(
-		trpc.apiKeys.create.mutationOptions({
-			onSuccess: (data) => {
-				queryClient.invalidateQueries(trpc.apiKeys.list.queryOptions({}));
-				if (data?.key) {
-					setNewApiKey(data.key);
-				}
-				toast.success("API key created");
-			},
-			onError: () => {
-				toast.error("Failed to create API key");
-			},
-		}),
+	// Fetch the team's configured MCP servers, for the exposure selector +
+	// resolving subset ids to names on each key row.
+	const { data: mcpServers } = useQuery(
+		trpc.mcpServers.list.queryOptions({ activeOnly: true }),
+	);
+
+	const serverNameById = useMemo(
+		() => new Map((mcpServers ?? []).map((server) => [server.id, server.name])),
+		[mcpServers],
+	);
+
+	// Create new API key mutation. mcpServers metadata isn't part of Better
+	// Auth's createApiKey input, so it's set via a follow-up apiKey.update
+	// call once the key exists (see handleCreate).
+	const { mutateAsync: createApiKey, isPending: isCreating } = useMutation(
+		trpc.apiKeys.create.mutationOptions(),
 	);
 
 	// Delete API key mutation
@@ -106,14 +148,38 @@ export function ApiKeysList() {
 		}),
 	);
 
+	// Update an existing key's MCP server exposure via Better Auth's
+	// apiKey.update endpoint (metadata is a full replace server-side, so
+	// callers must merge with the key's existing metadata themselves).
+	const { mutate: updateMcpAccess, isPending: isUpdatingAccess } = useMutation({
+		mutationFn: async (vars: {
+			keyId: string;
+			metadata: Record<string, unknown>;
+		}) =>
+			authClient.apiKey.update({
+				keyId: vars.keyId,
+				metadata: vars.metadata,
+			}),
+		onSuccess: () => {
+			queryClient.invalidateQueries(trpc.apiKeys.list.queryOptions({}));
+			toast.success("MCP server access updated");
+			setEditingKey(null);
+		},
+		onError: () => {
+			toast.error("Failed to update MCP server access");
+		},
+	});
+
 	const form = useZodForm(createApiKeySchema, {
 		defaultValues: {
 			name: "",
 			expiresIn: "never",
+			mcpScope: "all",
+			mcpServerIds: [],
 		},
 	});
 
-	const handleCreate = (data: z.infer<typeof createApiKeySchema>) => {
+	const handleCreate = async (data: z.infer<typeof createApiKeySchema>) => {
 		// Calculate expiration in seconds
 		let expiresIn: number | undefined;
 		if (data.expiresIn !== "never") {
@@ -125,10 +191,39 @@ export function ApiKeysList() {
 			expiresIn = durations[data.expiresIn];
 		}
 
-		createApiKey({
-			name: data.name,
-			expiresIn,
-		});
+		let result: { id: string; key: string; name: string };
+		try {
+			result = await createApiKey({ name: data.name, expiresIn });
+		} catch {
+			toast.error("Failed to create API key");
+			return;
+		}
+
+		if (result?.key) {
+			setNewApiKey(result.key);
+		}
+
+		try {
+			await authClient.apiKey.update({
+				keyId: result.id,
+				metadata: {
+					teamId: (session?.user as { teamId?: string } | undefined)?.teamId,
+					mcpServers: data.mcpScope === "all" ? "all" : data.mcpServerIds,
+				},
+			});
+			toast.success("API key created");
+		} catch {
+			toast.error("API key created, but MCP server access could not be set");
+		}
+
+		queryClient.invalidateQueries(trpc.apiKeys.list.queryOptions({}));
+	};
+
+	const openEditAccess = (key: ApiKeyRow) => {
+		const scope = resolveMcpServerScope(key.metadata);
+		setEditScope(scope === "all" ? "all" : "custom");
+		setEditServerIds(scope === "all" ? [] : scope);
+		setEditingKey(key);
 	};
 
 	const handleCopy = async (text: string, field: string) => {
@@ -345,6 +440,102 @@ export function ApiKeysList() {
 												</FormItem>
 											)}
 										/>
+										<FormField
+											control={form.control}
+											name="mcpScope"
+											render={({ field }) => (
+												<FormItem className="space-y-3">
+													<FormLabel>MCP Server Access</FormLabel>
+													<FormControl>
+														<RadioGroup
+															value={field.value}
+															onValueChange={field.onChange}
+															className="gap-2"
+														>
+															<div className="flex items-center gap-2">
+																<RadioGroupItem
+																	value="all"
+																	id="mcp-scope-all"
+																/>
+																<Label
+																	htmlFor="mcp-scope-all"
+																	className="font-normal"
+																>
+																	All MCP servers (default)
+																</Label>
+															</div>
+															<div className="flex items-center gap-2">
+																<RadioGroupItem
+																	value="custom"
+																	id="mcp-scope-custom"
+																/>
+																<Label
+																	htmlFor="mcp-scope-custom"
+																	className="font-normal"
+																>
+																	Specific servers
+																</Label>
+															</div>
+														</RadioGroup>
+													</FormControl>
+													<FormDescription>
+														Which of the team's configured MCP servers this key
+														can proxy tools from.
+													</FormDescription>
+													<FormMessage />
+												</FormItem>
+											)}
+										/>
+										{form.watch("mcpScope") === "custom" && (
+											<FormField
+												control={form.control}
+												name="mcpServerIds"
+												render={({ field }) => (
+													<FormItem>
+														<div className="space-y-2 rounded-md border p-3">
+															{!mcpServers || mcpServers.length === 0 ? (
+																<p className="text-muted-foreground text-xs">
+																	No MCP servers configured for this team yet.
+																</p>
+															) : (
+																mcpServers.map((server) => (
+																	<div
+																		key={server.id}
+																		className="flex items-center gap-2"
+																	>
+																		<Checkbox
+																			id={`mcp-server-${server.id}`}
+																			checked={
+																				field.value?.includes(server.id) ??
+																				false
+																			}
+																			onCheckedChange={(checked) => {
+																				const current = field.value ?? [];
+																				field.onChange(
+																					checked
+																						? [...current, server.id]
+																						: current.filter(
+																								(id: string) =>
+																									id !== server.id,
+																							),
+																				);
+																			}}
+																		/>
+																		<Label
+																			htmlFor={`mcp-server-${server.id}`}
+																			className="font-normal text-sm"
+																		>
+																			{server.name}
+																		</Label>
+																	</div>
+																))
+															)}
+														</div>
+														<FormMessage />
+													</FormItem>
+												)}
+											/>
+										)}
 										<DialogFooter>
 											<Button
 												type="button"
@@ -484,6 +675,46 @@ export function ApiKeysList() {
 										</div>
 									</div>
 								)}
+								<div>
+									<div className="flex items-center justify-between">
+										<span className="font-medium text-muted-foreground text-xs">
+											MCP Server Access
+										</span>
+										<Button
+											variant="ghost"
+											size="icon"
+											className="size-6"
+											aria-label={`Edit MCP server access for ${apiKey.name || "Unnamed Key"}`}
+											onClick={() => openEditAccess(apiKey)}
+										>
+											<Pencil className="size-3" />
+										</Button>
+									</div>
+									<div className="mt-1 flex flex-wrap items-center gap-1">
+										{(() => {
+											const scope = resolveMcpServerScope(apiKey.metadata);
+											if (scope === "all") {
+												return (
+													<Badge variant="outline" className="text-xs">
+														All servers
+													</Badge>
+												);
+											}
+											if (scope.length === 0) {
+												return (
+													<span className="text-muted-foreground text-xs">
+														No servers
+													</span>
+												);
+											}
+											return scope.map((id) => (
+												<Badge key={id} variant="outline" className="text-xs">
+													{serverNameById.get(id) ?? id}
+												</Badge>
+											));
+										})()}
+									</div>
+								</div>
 							</CardContent>
 						</Card>
 					))}
@@ -542,6 +773,105 @@ export function ApiKeysList() {
 					</div>
 				</CardContent>
 			</Card>
+
+			<Dialog
+				open={Boolean(editingKey)}
+				onOpenChange={(open) => !open && setEditingKey(null)}
+			>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>Edit MCP Server Access</DialogTitle>
+						<DialogDescription>
+							Choose which MCP servers "{editingKey?.name || "this key"}" can
+							proxy tools from.
+						</DialogDescription>
+					</DialogHeader>
+					<div className="space-y-4 py-2">
+						<RadioGroup
+							value={editScope}
+							onValueChange={(value) => setEditScope(value as "all" | "custom")}
+							className="gap-2"
+						>
+							<div className="flex items-center gap-2">
+								<RadioGroupItem value="all" id="edit-mcp-scope-all" />
+								<Label htmlFor="edit-mcp-scope-all" className="font-normal">
+									All MCP servers
+								</Label>
+							</div>
+							<div className="flex items-center gap-2">
+								<RadioGroupItem value="custom" id="edit-mcp-scope-custom" />
+								<Label htmlFor="edit-mcp-scope-custom" className="font-normal">
+									Specific servers
+								</Label>
+							</div>
+						</RadioGroup>
+						{editScope === "custom" && (
+							<div className="space-y-2 rounded-md border p-3">
+								{!mcpServers || mcpServers.length === 0 ? (
+									<p className="text-muted-foreground text-xs">
+										No MCP servers configured for this team yet.
+									</p>
+								) : (
+									mcpServers.map((server) => (
+										<div key={server.id} className="flex items-center gap-2">
+											<Checkbox
+												id={`edit-mcp-server-${server.id}`}
+												checked={editServerIds.includes(server.id)}
+												onCheckedChange={(checked) => {
+													setEditServerIds((prev) =>
+														checked
+															? [...prev, server.id]
+															: prev.filter((id) => id !== server.id),
+													);
+												}}
+											/>
+											<Label
+												htmlFor={`edit-mcp-server-${server.id}`}
+												className="font-normal text-sm"
+											>
+												{server.name}
+											</Label>
+										</div>
+									))
+								)}
+							</div>
+						)}
+					</div>
+					<DialogFooter>
+						<Button
+							type="button"
+							variant="outline"
+							onClick={() => setEditingKey(null)}
+						>
+							Cancel
+						</Button>
+						<Button
+							type="button"
+							disabled={
+								isUpdatingAccess ||
+								(editScope === "custom" && editServerIds.length === 0)
+							}
+							onClick={() => {
+								if (!editingKey) return;
+								const existingMetadata =
+									(editingKey.metadata as Record<string, unknown> | null) ?? {};
+								updateMcpAccess({
+									keyId: editingKey.id,
+									metadata: {
+										...existingMetadata,
+										mcpServers: editScope === "all" ? "all" : editServerIds,
+									},
+								});
+							}}
+						>
+							{isUpdatingAccess && (
+								<Loader2 className="mr-2 size-4 animate-spin" />
+							)}
+							Save
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 }
