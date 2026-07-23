@@ -470,6 +470,56 @@ function StarterTemplates({
 // route-level shell) — this one covers the client-side `useInfiniteQuery`
 // refetch that route shell never sees once the segment has already mounted.
 
+// ─── Archived panel ─────────────────────────────────────────────────────────
+// Fed by `includeArchived: true` (the api leg's opt-in), filtered down to
+// archived-only client-side since the endpoint returns active + archived
+// together for that mode. Reuses `ProjectCard` as-is — it already renders
+// "Unarchive project" once `project.archived` is true.
+
+function ArchivedProjectsPanel({
+	projects,
+	isLoading,
+	basePath,
+	pinned,
+	onTogglePin,
+}: {
+	projects: Project[];
+	isLoading: boolean;
+	basePath: string;
+	pinned: Set<string>;
+	onTogglePin: (id: string) => void;
+}) {
+	if (isLoading) return <ProjectsGridSkeleton />;
+
+	if (projects.length === 0) {
+		return (
+			<div className="rounded-lg border border-border border-dashed bg-card/50 p-8 text-center">
+				<h2 className="font-semibold text-foreground text-lg">
+					No archived projects
+				</h2>
+				<p className="mt-1 text-muted-foreground text-sm">
+					Projects you archive show up here — unarchive to bring them back to
+					the board.
+				</p>
+			</div>
+		);
+	}
+
+	return (
+		<div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+			{projects.map((project) => (
+				<ProjectCard
+					key={project.id}
+					project={project}
+					href={`${basePath}/projects/${project.id}`}
+					isPinned={pinned.has(project.id)}
+					onTogglePin={onTogglePin}
+				/>
+			))}
+		</div>
+	);
+}
+
 function ProjectsGridSkeleton() {
 	return (
 		<div
@@ -518,6 +568,10 @@ export function ProjectsGrid({
 	);
 	const [pinnedCollapsed, setPinnedCollapsed] = useState(false);
 	const [pinnedOrder, setPinnedOrder] = useState<string[]>(() => readOrder());
+	// Archived is a separate mode, not a group bucket — the default `get`
+	// query excludes archived projects server-side, so there's nothing to
+	// group in the first place until this is on (FEAT-020 item 2).
+	const [showArchived, setShowArchived] = useState(false);
 
 	const { data, isLoading } = useInfiniteQuery(
 		trpc.projects.get.infiniteQueryOptions(
@@ -529,6 +583,28 @@ export function ProjectsGrid({
 				getNextPageParam: (lastPage) => lastPage.meta.cursor,
 			},
 		),
+	);
+
+	const archivedQuery = useInfiniteQuery(
+		trpc.projects.get.infiniteQueryOptions(
+			{
+				pageSize,
+				search: params.search ?? "",
+				includeArchived: true,
+			},
+			{
+				getNextPageParam: (lastPage) => lastPage.meta.cursor,
+				enabled: showArchived,
+			},
+		),
+	);
+
+	const archivedProjects = useMemo(
+		() =>
+			(archivedQuery.data?.pages.flatMap((page) => page.data) ?? []).filter(
+				(project) => project.archived,
+			),
+		[archivedQuery.data],
 	);
 
 	const allProjects = useMemo(
@@ -607,7 +683,10 @@ export function ProjectsGrid({
 				{
 					loading: `Creating "${template.name}"…`,
 					success: (project) => `Project "${project.name}" created`,
-					error: "Failed to create project from template",
+					error: (err) =>
+						err instanceof Error
+							? err.message
+							: "Failed to create project from template",
 					retry: () => onTemplateCreate(template),
 				},
 			).then((result) => {
@@ -650,6 +729,17 @@ export function ProjectsGrid({
 								))}
 							</SelectContent>
 						</Select>
+						<Button
+							type="button"
+							variant={showArchived ? "secondary" : "outline"}
+							size="sm"
+							className="h-8"
+							aria-pressed={showArchived}
+							onClick={() => setShowArchived((v) => !v)}
+						>
+							<ArchiveIcon className="size-3.5" />
+							{showArchived ? "Back to projects" : "Archived"}
+						</Button>
 						<Button asChild size="sm" className="h-8">
 							<Link href={`${basePath}/create-project`}>New project</Link>
 						</Button>
@@ -657,144 +747,164 @@ export function ProjectsGrid({
 				</div>
 			)}
 
-			{/* Initial-load skeleton — same card geometry as the route-level
-			 *  loading.tsx so an in-place refetch (search, group-by change) never
-			 *  flashes the "Start with a template" sparse-state before the first
-			 *  page has actually resolved. */}
-			{isLoading && <ProjectsGridSkeleton />}
+			{showArchived ? (
+				<ArchivedProjectsPanel
+					projects={archivedProjects}
+					isLoading={archivedQuery.isLoading}
+					basePath={basePath}
+					pinned={pinned}
+					onTogglePin={togglePin}
+				/>
+			) : (
+				<>
+					{/* Initial-load skeleton — same card geometry as the route-level
+					 *  loading.tsx so an in-place refetch (search, group-by change) never
+					 *  flashes the "Start with a template" sparse-state before the first
+					 *  page has actually resolved. */}
+					{isLoading && <ProjectsGridSkeleton />}
 
-			{/* Pinned row */}
-			{!isLoading && pinnedProjects.length > 0 && (
-				<section
-					className={cn(
-						"-mx-6 sticky top-0 z-10 border-border border-b bg-background/95 px-6 py-3 backdrop-blur",
-					)}
-				>
-					<button
-						type="button"
-						onClick={() => setPinnedCollapsed((p) => !p)}
-						className="mb-2 inline-flex items-center gap-1.5 text-muted-foreground text-xs hover:text-foreground"
-						aria-expanded={!pinnedCollapsed}
-					>
-						{pinnedCollapsed ? (
-							<ChevronRightIcon className="size-3.5" />
-						) : (
-							<ChevronDownIcon className="size-3.5" />
-						)}
-						<PinIcon className="size-3 text-brand" />
-						<span className="font-medium uppercase tracking-wide">Pinned</span>
-						<Badge variant="secondary" className="h-4 px-1.5 text-[10px]">
-							{pinnedProjects.length}
-						</Badge>
-					</button>
-					{!pinnedCollapsed && (
-						<div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-							{pinnedProjects.map((project) => (
-								<div
-									key={project.id}
-									draggable
-									onDragStart={(e) => {
-										e.dataTransfer.setData("text/x-project-id", project.id);
-										e.dataTransfer.effectAllowed = "move";
-									}}
-									onDragOver={(e) => {
-										e.preventDefault();
-										e.dataTransfer.dropEffect = "move";
-									}}
-									onDrop={(e) => {
-										e.preventDefault();
-										const fromId = e.dataTransfer.getData("text/x-project-id");
-										if (fromId && fromId !== project.id) {
-											movePinned(fromId, project.id);
-										}
-									}}
-								>
-									<ProjectCard
-										project={project}
-										href={`${basePath}/projects/${project.id}`}
-										isPinned
-										onTogglePin={togglePin}
-									/>
-								</div>
-							))}
-						</div>
-					)}
-				</section>
-			)}
-
-			{/* Empty state */}
-			{isEmpty && (
-				<div className="rounded-lg border border-border border-dashed bg-card/50 p-8 text-center">
-					<h2 className="font-semibold text-foreground text-lg">
-						Start with a template
-					</h2>
-					<p className="mt-1 text-muted-foreground text-sm">
-						Pick a starting point — you can edit everything afterwards.
-					</p>
-					<StarterTemplates onCreate={onTemplateCreate} />
-					<div className="mt-6 flex flex-wrap items-center justify-center gap-2">
-						<Button asChild size="sm">
-							<Link href={`${basePath}/create-project/starter`}>
-								Start from an idea
-							</Link>
-						</Button>
-						<Button asChild variant="outline" size="sm">
-							<Link href={`${basePath}/create-project`}>Browse options</Link>
-						</Button>
-						<Button asChild variant="ghost" size="sm">
-							<Link href={`${basePath}/projects?createProject=true`}>
-								Or create blank
-							</Link>
-						</Button>
-					</div>
-				</div>
-			)}
-
-			{/* Grouped non-pinned projects */}
-			{!isLoading && !isEmpty && (
-				<div className="flex flex-col gap-6">
-					{groups.map((group) => {
-						const collapsed = collapsedGroups.has(group.id);
-						return (
-							<section key={group.id} className="flex flex-col gap-3">
-								<button
-									type="button"
-									onClick={() => toggleGroup(group.id)}
-									className={cn(
-										"-mx-6 sticky top-0 z-[5] flex items-center gap-2 border-border border-b bg-card px-6 py-2 text-left",
-										"text-muted-foreground text-xs hover:text-foreground",
-									)}
-									aria-expanded={!collapsed}
-								>
-									{collapsed ? (
-										<ChevronRightIcon className="size-3.5" />
-									) : (
-										<ChevronDownIcon className="size-3.5" />
-									)}
-									<span className="font-semibold uppercase tracking-wide">
-										{group.label}
-									</span>
-									<Badge variant="secondary" className="h-4 px-1.5 text-[10px]">
-										{group.projects.length}
-									</Badge>
-								</button>
-								{!collapsed && (
-									<div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-										{group.projects.map((project) => (
+					{/* Pinned row */}
+					{!isLoading && pinnedProjects.length > 0 && (
+						<section
+							className={cn(
+								"-mx-6 sticky top-0 z-10 border-border border-b bg-background/95 px-6 py-3 backdrop-blur",
+							)}
+						>
+							<button
+								type="button"
+								onClick={() => setPinnedCollapsed((p) => !p)}
+								className="mb-2 inline-flex items-center gap-1.5 text-muted-foreground text-xs hover:text-foreground"
+								aria-expanded={!pinnedCollapsed}
+							>
+								{pinnedCollapsed ? (
+									<ChevronRightIcon className="size-3.5" />
+								) : (
+									<ChevronDownIcon className="size-3.5" />
+								)}
+								<PinIcon className="size-3 text-brand" />
+								<span className="font-medium uppercase tracking-wide">
+									Pinned
+								</span>
+								<Badge variant="secondary" className="h-4 px-1.5 text-[10px]">
+									{pinnedProjects.length}
+								</Badge>
+							</button>
+							{!pinnedCollapsed && (
+								<div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+									{pinnedProjects.map((project) => (
+										<div
+											key={project.id}
+											draggable
+											onDragStart={(e) => {
+												e.dataTransfer.setData("text/x-project-id", project.id);
+												e.dataTransfer.effectAllowed = "move";
+											}}
+											onDragOver={(e) => {
+												e.preventDefault();
+												e.dataTransfer.dropEffect = "move";
+											}}
+											onDrop={(e) => {
+												e.preventDefault();
+												const fromId =
+													e.dataTransfer.getData("text/x-project-id");
+												if (fromId && fromId !== project.id) {
+													movePinned(fromId, project.id);
+												}
+											}}
+										>
 											<ProjectCard
-												key={project.id}
 												project={project}
 												href={`${basePath}/projects/${project.id}`}
-												isPinned={false}
+												isPinned
 												onTogglePin={togglePin}
 											/>
-										))}
-									</div>
-								)}
-							</section>
-						);
-					})}
-				</div>
+										</div>
+									))}
+								</div>
+							)}
+						</section>
+					)}
+
+					{/* Empty state */}
+					{isEmpty && (
+						<div className="rounded-lg border border-border border-dashed bg-card/50 p-8 text-center">
+							<h2 className="font-semibold text-foreground text-lg">
+								Start with a template
+							</h2>
+							<p className="mt-1 text-muted-foreground text-sm">
+								Pick a starting point — you can edit everything afterwards.
+							</p>
+							<StarterTemplates onCreate={onTemplateCreate} />
+							<div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+								<Button asChild size="sm">
+									<Link href={`${basePath}/create-project/starter`}>
+										Start from an idea
+									</Link>
+								</Button>
+								<Button asChild variant="outline" size="sm">
+									<Link href={`${basePath}/create-project`}>
+										Browse options
+									</Link>
+								</Button>
+								<Button asChild variant="ghost" size="sm">
+									<Link href={`${basePath}/projects?createProject=true`}>
+										Or create blank
+									</Link>
+								</Button>
+							</div>
+						</div>
+					)}
+
+					{/* Grouped non-pinned projects */}
+					{!isLoading && !isEmpty && (
+						<div className="flex flex-col gap-6">
+							{groups.map((group) => {
+								const collapsed = collapsedGroups.has(group.id);
+								return (
+									<section key={group.id} className="flex flex-col gap-3">
+										<button
+											type="button"
+											onClick={() => toggleGroup(group.id)}
+											className={cn(
+												"-mx-6 sticky top-0 z-[5] flex items-center gap-2 border-border border-b bg-card px-6 py-2 text-left",
+												"text-muted-foreground text-xs hover:text-foreground",
+											)}
+											aria-expanded={!collapsed}
+										>
+											{collapsed ? (
+												<ChevronRightIcon className="size-3.5" />
+											) : (
+												<ChevronDownIcon className="size-3.5" />
+											)}
+											<span className="font-semibold uppercase tracking-wide">
+												{group.label}
+											</span>
+											<Badge
+												variant="secondary"
+												className="h-4 px-1.5 text-[10px]"
+											>
+												{group.projects.length}
+											</Badge>
+										</button>
+										{!collapsed && (
+											<div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+												{group.projects.map((project) => (
+													<ProjectCard
+														key={project.id}
+														project={project}
+														href={`${basePath}/projects/${project.id}`}
+														isPinned={false}
+														onTogglePin={togglePin}
+													/>
+												))}
+											</div>
+										)}
+									</section>
+								);
+							})}
+						</div>
+					)}
+				</>
 			)}
 		</div>
 	);

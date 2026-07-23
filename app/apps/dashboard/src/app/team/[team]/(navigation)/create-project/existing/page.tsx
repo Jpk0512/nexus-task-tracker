@@ -5,7 +5,12 @@ import { Button } from "@ui/components/ui/button";
 import { Input } from "@ui/components/ui/input";
 import { Label } from "@ui/components/ui/label";
 import { Textarea } from "@ui/components/ui/textarea";
-import { HardDriveIcon } from "lucide-react";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from "@ui/components/ui/tooltip";
+import { FolderOpenIcon, HardDriveIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -21,10 +26,24 @@ export default function CreateExistingProjectPage() {
 
 	const [rootInput, setRootInput] = useState("");
 	const [docsPath, setDocsPath] = useState("");
+	// Tracks whether the user has directly edited the docs field (typed into
+	// it, or picked a specific candidate) — once true, neither the
+	// location-based default nor a fresh probe's auto-pick may overwrite it
+	// (FEAT-020 item 4c: auto-fill must never clobber a manual edit).
+	const [docsTouched, setDocsTouched] = useState(false);
 	const [name, setName] = useState("");
 	const [description, setDescription] = useState("");
 	const [prefix, setPrefix] = useState("");
 	const [probePath, setProbePath] = useState("");
+
+	// Electron's preload script injects this synchronously before the page's
+	// own scripts run, so a one-time check on mount is safe — plain browser
+	// tabs never have `window.nexusDesktop` at all.
+	const [hasDesktopBridge] = useState(
+		() =>
+			typeof window !== "undefined" &&
+			Boolean(window.nexusDesktop?.selectFolder),
+	);
 
 	const probe = useQuery({
 		...trpc.siteDocs.probePath.queryOptions({ path: probePath }),
@@ -54,17 +73,32 @@ export default function CreateExistingProjectPage() {
 		[name, docsPath],
 	);
 
+	// Default the docs field to `<location>/docs` as the user types/sets the
+	// project location — only while the field is untouched (FEAT-020 item
+	// 4c). A probe candidate resolving afterwards still overrides this, same
+	// as it always has (the effect below).
 	useEffect(() => {
-		if (probe.data?.ok && !docsPath && candidates[0]) {
-			setDocsPath(candidates[0]!);
+		if (docsTouched) return;
+		const trimmed = rootInput.trim();
+		if (!trimmed) {
+			setDocsPath("");
+			return;
 		}
-	}, [probe.data, candidates, docsPath]);
+		setDocsPath(`${trimmed.replace(/\/+$/, "")}/docs`);
+	}, [rootInput, docsTouched]);
 
-	const onProbe = () => {
-		const path = rootInput.trim();
-		if (!path) return;
-		setProbePath(path);
-		const baseName = path.split("/").filter(Boolean).pop() ?? "";
+	useEffect(() => {
+		if (docsTouched) return;
+		if (probe.data?.ok && candidates[0]) {
+			setDocsPath(candidates[0]);
+		}
+	}, [probe.data, candidates, docsTouched]);
+
+	const triggerProbe = (path: string) => {
+		const trimmed = path.trim();
+		if (!trimmed) return;
+		setProbePath(trimmed);
+		const baseName = trimmed.split("/").filter(Boolean).pop() ?? "";
 		if (!name && baseName) setName(baseName.replace(/[-_]/g, " "));
 		if (!prefix && baseName) {
 			const letters = baseName
@@ -72,6 +106,25 @@ export default function CreateExistingProjectPage() {
 				.slice(0, 3)
 				.toUpperCase();
 			setPrefix(letters || "SITE");
+		}
+	};
+
+	const onProbe = () => triggerProbe(rootInput);
+
+	const onBrowse = async () => {
+		if (!window.nexusDesktop?.selectFolder) return;
+		try {
+			const picked = await window.nexusDesktop.selectFolder(
+				rootInput.trim() || undefined,
+			);
+			if (picked) {
+				setRootInput(picked);
+				triggerProbe(picked);
+			}
+		} catch (err) {
+			toast.error(
+				err instanceof Error ? err.message : "Failed to open folder picker",
+			);
 		}
 	};
 
@@ -118,17 +171,55 @@ export default function CreateExistingProjectPage() {
 							placeholder="/Users/you/my-site or /host/sites/my-site"
 							className="font-mono text-[12px]"
 						/>
-						<Button type="button" variant="secondary" onClick={onProbe}>
-							Probe
+						{hasDesktopBridge ? (
+							<Button type="button" variant="outline" onClick={onBrowse}>
+								<FolderOpenIcon className="size-3.5" />
+								Browse…
+							</Button>
+						) : (
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<span>
+										<Button
+											type="button"
+											variant="outline"
+											disabled
+											aria-disabled
+											tabIndex={-1}
+										>
+											<FolderOpenIcon className="size-3.5" />
+											Browse…
+										</Button>
+									</span>
+								</TooltipTrigger>
+								<TooltipContent>
+									Native folder picker — available in the Nexus desktop app
+								</TooltipContent>
+							</Tooltip>
+						)}
+						<Button
+							type="button"
+							variant="secondary"
+							onClick={onProbe}
+							disabled={!rootInput.trim() || probe.isFetching}
+						>
+							{probe.isFetching ? "Probing…" : "Probe"}
 						</Button>
 					</div>
-					{probePath && probe.data && !probe.data.ok ? (
+					{probePath && !probe.isFetching && probe.data && !probe.data.ok ? (
 						<p className="text-[12px] text-destructive">{probe.data.error}</p>
 					) : null}
-					{probe.data?.ok ? (
-						<p className="font-mono text-[11px] text-muted-foreground">
-							Resolved: {probe.data.resolved}
-						</p>
+					{!probe.isFetching && probe.data?.ok ? (
+						<>
+							<p className="font-mono text-[11px] text-muted-foreground">
+								Resolved: {probe.data.resolved}
+							</p>
+							<p className="text-[12px] text-emerald-600">
+								{candidates.length > 0
+									? `Found ${candidates.length} candidate docs folder${candidates.length === 1 ? "" : "s"}.`
+									: "No docs folder detected — enter the path manually below."}
+							</p>
+						</>
 					) : null}
 				</div>
 
@@ -140,7 +231,10 @@ export default function CreateExistingProjectPage() {
 								<button
 									key={c}
 									type="button"
-									onClick={() => setDocsPath(c)}
+									onClick={() => {
+										setDocsPath(c);
+										setDocsTouched(true);
+									}}
 									className={`rounded-md border px-3 py-2 text-left font-mono text-[11.5px] ${
 										docsPath === c
 											? "border-primary/50 bg-primary/10"
@@ -158,7 +252,10 @@ export default function CreateExistingProjectPage() {
 						<Input
 							id="docs"
 							value={docsPath}
-							onChange={(e) => setDocsPath(e.target.value)}
+							onChange={(e) => {
+								setDocsPath(e.target.value);
+								setDocsTouched(true);
+							}}
 							placeholder="/host/sites/my-site/docs"
 							className="font-mono text-[12px]"
 						/>

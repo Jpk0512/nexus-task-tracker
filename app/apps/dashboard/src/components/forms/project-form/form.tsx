@@ -9,6 +9,7 @@ import Loader from "@/components/loader";
 import { updateProjectInCache } from "@/hooks/use-data-cache-helpers";
 import { useProjectParams } from "@/hooks/use-project-params";
 import { useFormAutoSave, useZodForm } from "@/hooks/use-zod-form";
+import { runToastAction } from "@/lib/toast-action";
 import { queryClient, trpc } from "@/utils/trpc";
 import { ProjectColorPicker } from "./color-picker";
 import { Description } from "./description";
@@ -78,22 +79,28 @@ export const ProjectForm = ({
 		}),
 	);
 
-	const { mutate: createProject, isPending: isCreating } = useMutation(
-		trpc.projects.create.mutationOptions({
-			onMutate: () => {
-				toast.loading("Creating project...", { id: "create-project" });
-			},
-			onSuccess: () => {
-				queryClient.invalidateQueries(trpc.projects.get.infiniteQueryOptions());
-				queryClient.invalidateQueries(trpc.projects.get.queryOptions());
-				toast.success("Project created successfully", { id: "create-project" });
-				setParams(null);
-			},
-			onError: (error) => {
-				toast.error("Failed to create project", { id: "create-project" });
-			},
-		}),
-	);
+	const { mutateAsync: createProjectAsync, isPending: isCreating } =
+		useMutation(trpc.projects.create.mutationOptions());
+
+	// Specific server error via toast (FEAT-020 item 3) — `error` reads the
+	// tRPC error's own message (mapped server-side by `toProjectCreateError`,
+	// e.g. a duplicate-name conflict) rather than a generic failure string,
+	// and the grid is invalidated only once creation actually succeeds so a
+	// created project is never silently missing from it.
+	const createProject = (values: ProjectFormValues) => {
+		runToastAction(() => createProjectAsync(values), {
+			id: "create-project",
+			loading: "Creating project…",
+			success: (project) => `Project "${project.name}" created`,
+			error: (err) =>
+				err instanceof Error ? err.message : "Failed to create project",
+		}).then((result) => {
+			if (!result.ok) return;
+			queryClient.invalidateQueries(trpc.projects.get.infiniteQueryOptions());
+			queryClient.invalidateQueries(trpc.projects.get.queryOptions());
+			setParams(null);
+		});
+	};
 
 	const handleSubmit = (values: ProjectFormValues) => {
 		if (defaultValues?.id) {

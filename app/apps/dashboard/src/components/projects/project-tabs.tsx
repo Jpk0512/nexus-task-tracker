@@ -10,6 +10,7 @@ import {
 	LayoutIcon,
 	ListChecksIcon,
 	RadioIcon,
+	SettingsIcon,
 	UsersIcon,
 } from "lucide-react";
 import Link from "next/link";
@@ -24,7 +25,8 @@ export type ProjectTab =
 	| "knowledge"
 	| "updates"
 	| "views"
-	| "members";
+	| "members"
+	| "settings";
 
 /**
  * Derive the active tab from the URL pathname. Falls back to "board" — the
@@ -47,7 +49,8 @@ function deriveActiveTab(pathname: string, projectId: string): ProjectTab {
 		first === "knowledge" ||
 		first === "updates" ||
 		first === "views" ||
-		first === "members"
+		first === "members" ||
+		first === "settings"
 	) {
 		return first;
 	}
@@ -119,6 +122,12 @@ const TABS: TabDef[] = [
 		label: "Views",
 		href: (team, p) => `/team/${team}/projects/${p}/views`,
 		icon: LayoutIcon,
+	},
+	{
+		id: "settings",
+		label: "Settings",
+		href: (team, p) => `/team/${team}/projects/${p}/settings`,
+		icon: SettingsIcon,
 	},
 ];
 

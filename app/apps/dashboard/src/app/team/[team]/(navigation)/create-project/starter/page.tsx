@@ -26,6 +26,7 @@ import {
 } from "@/components/starter/starter-interview";
 import { SoftIcon } from "@/components/ui/soft-icon";
 import { useUser } from "@/components/user-provider";
+import { runToastAction } from "@/lib/toast-action";
 import { queryClient, trpc } from "@/utils/trpc";
 
 const PHASES = [
@@ -98,14 +99,7 @@ export default function StarterWorkshopPage() {
 		setPhaseIdx(1);
 	};
 
-	const createProject = useMutation(
-		trpc.projects.create.mutationOptions({
-			onMutate: () =>
-				toast.loading("Creating project…", { id: "starter-create" }),
-			onError: () =>
-				toast.error("Failed to create project", { id: "starter-create" }),
-		}),
-	);
+	const createProject = useMutation(trpc.projects.create.mutationOptions());
 	const createDoc = useMutation(
 		trpc.documents.create.mutationOptions({
 			onError: () =>
@@ -113,15 +107,32 @@ export default function StarterWorkshopPage() {
 		}),
 	);
 
+	// Specific server error via toast (FEAT-020 item 3) — mirrors the
+	// ProjectForm/projects-grid create call sites: the tRPC error's own
+	// message surfaces (e.g. a duplicate-name conflict) instead of a generic
+	// failure string, and the grid only invalidates once creation actually
+	// succeeds so the new project is never silently missing from it.
 	const onCreate = async () => {
 		if (!prd.trim() || !name.trim()) return;
-		const project = await createProject.mutateAsync({
-			name: name.trim(),
-			// Short summary only — the full PRD lives in the linked document.
-			description: idea.trim().slice(0, 300) || null,
-			color,
-			visibility: "team",
-		});
+		const result = await runToastAction(
+			() =>
+				createProject.mutateAsync({
+					name: name.trim(),
+					// Short summary only — the full PRD lives in the linked document.
+					description: idea.trim().slice(0, 300) || null,
+					color,
+					visibility: "team",
+				}),
+			{
+				id: "starter-create",
+				loading: "Creating project…",
+				success: "Project created",
+				error: (err) =>
+					err instanceof Error ? err.message : "Failed to create project",
+			},
+		);
+		if (!result.ok) return;
+		const project = result.data;
 		try {
 			await createDoc.mutateAsync({
 				name: "PRD",
@@ -131,8 +142,8 @@ export default function StarterWorkshopPage() {
 		} catch {
 			/* project still created; surfaced by createDoc onError toast */
 		}
-		await queryClient.invalidateQueries({ queryKey: [["projects"]] });
-		toast.success("Project created", { id: "starter-create" });
+		queryClient.invalidateQueries(trpc.projects.get.infiniteQueryOptions());
+		queryClient.invalidateQueries(trpc.projects.get.queryOptions());
 		router.push(`${base}/projects/${project.id}/overview`);
 	};
 
