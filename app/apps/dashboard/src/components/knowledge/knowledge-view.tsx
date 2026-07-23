@@ -40,7 +40,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { BacklinksPanel } from "@/components/backlinks/backlinks-panel";
 import { BlockEditor } from "@/components/editor/block-editor";
+import {
+	EditableNoteTags,
+	NoteProjectSelect,
+	NoteTagProjectSuggestions,
+} from "@/components/knowledge/note-tag-suggestions";
 import { WikiLinkInline } from "@/components/knowledge/wiki-link-inline";
+import { useProjects } from "@/hooks/use-data";
 import { useTaskParams } from "@/hooks/use-task-params";
 import { trpc } from "@/utils/trpc";
 
@@ -234,6 +240,17 @@ function buildFrontmatterContent(
 	}
 	lines.push("---", "", body);
 	return lines.join("\n");
+}
+
+/** Inverse of `buildFrontmatterContent`'s body half — mirrors the API
+ *  router's `splitFrontmatter` boundary detection so a frontmatter-only
+ *  patch (tag/project edit) can be rebuilt on top of the current body
+ *  without re-implementing YAML parsing client-side. */
+function stripFrontmatterBody(content: string): string {
+	if (!content.startsWith("---")) return content;
+	const end = content.indexOf("\n---", 3);
+	if (end < 0) return content;
+	return content.slice(end + 4).replace(/^\r?\n/, "");
 }
 
 function parseWikiLinks(
@@ -555,7 +572,72 @@ export function KnowledgeView() {
 	const tags = selectedNote
 		? frontmatterArray(selectedNote.frontmatter, "tags")
 		: [];
+	const project = selectedNote
+		? frontmatterString(selectedNote.frontmatter, "project")
+		: null;
 	const selectedStatus = selectedNote ? statusLabel(selectedNote) : null;
+
+	// FEAT-015 — project options are names, not ids: notes have no project
+	// foreign key (disk-backed vault), and `suggestTagsAndProject` already
+	// validates its suggestion against these same team project names, so the
+	// manual selector and the AI-accept path persist the identical shape.
+	const { data: projectsData } = useProjects();
+	const projectOptions = useMemo(
+		() => (projectsData?.data ?? []).map((p) => p.name),
+		[projectsData],
+	);
+
+	// Frontmatter-only write, independent of the body draft: rebuilds the
+	// file from the CURRENT draft's body (so an in-progress body edit isn't
+	// clobbered) plus the patched frontmatter, then goes through the same
+	// `knowledge.update` mutation autosave/saveNow already use.
+	const applyFrontmatterPatch = useCallback(
+		async (patch: Record<string, unknown | undefined>) => {
+			if (!selectedId || !noteQuery.data) return;
+			const baseContent = draftRef.current || noteQuery.data.content || "";
+			const body = stripFrontmatterBody(baseContent);
+			const nextFrontmatter: Frontmatter = {
+				...((noteQuery.data.frontmatter as Frontmatter | null) ?? {}),
+			};
+			for (const [key, value] of Object.entries(patch)) {
+				if (value === undefined) delete nextFrontmatter[key];
+				else nextFrontmatter[key] = value;
+			}
+			const nextContent = buildFrontmatterContent(nextFrontmatter, body);
+			draftRef.current = nextContent;
+			setDraft(nextContent);
+			try {
+				await updateAsync({
+					id: selectedId,
+					content: nextContent,
+					expectedSha: shaRef.current ?? noteQuery.data.fileSha,
+				});
+			} catch {
+				// onError on updateMut's mutationOptions already toasted.
+			}
+		},
+		[selectedId, noteQuery.data, updateAsync],
+	);
+
+	const addTag = useCallback(
+		(tag: string) => {
+			if (tags.includes(tag)) return;
+			void applyFrontmatterPatch({ tags: [...tags, tag] });
+		},
+		[tags, applyFrontmatterPatch],
+	);
+	const removeTag = useCallback(
+		(tag: string) => {
+			void applyFrontmatterPatch({ tags: tags.filter((t) => t !== tag) });
+		},
+		[tags, applyFrontmatterPatch],
+	);
+	const setProject = useCallback(
+		(next: string | null) => {
+			void applyFrontmatterPatch({ project: next ?? undefined });
+		},
+		[applyFrontmatterPatch],
+	);
 
 	const createToday = () => {
 		const now = new Date();
@@ -876,6 +958,12 @@ export function KnowledgeView() {
 							noteDetail={noteQuery.data ?? null}
 							tags={tags}
 							status={selectedStatus}
+							project={project}
+							projectOptions={projectOptions}
+							isMetaSaving={updateMut.isPending}
+							onAddTag={addTag}
+							onRemoveTag={removeTag}
+							onSetProject={setProject}
 							isPromoting={promoteMut.isPending}
 							onPromote={promoteSelected}
 							onConvertToTask={convertSelectedToTask}
@@ -1126,6 +1214,12 @@ function NoteInspectorRail({
 	noteDetail,
 	tags,
 	status,
+	project,
+	projectOptions,
+	isMetaSaving,
+	onAddTag,
+	onRemoveTag,
+	onSetProject,
 	isPromoting,
 	onPromote,
 	onConvertToTask,
@@ -1137,6 +1231,12 @@ function NoteInspectorRail({
 	noteDetail: any;
 	tags: string[];
 	status: string | null;
+	project: string | null;
+	projectOptions: string[];
+	isMetaSaving: boolean;
+	onAddTag: (tag: string) => void;
+	onRemoveTag: (tag: string) => void;
+	onSetProject: (project: string | null) => void;
 	isPromoting: boolean;
 	onPromote: () => void;
 	onConvertToTask: () => void;
@@ -1202,31 +1302,52 @@ function NoteInspectorRail({
 						{note.relativePath}
 					</div>
 				</div>
-				{(status || tags.length > 0) && (
-					<div>
-						<div className="font-[510] text-[10px] text-muted-foreground uppercase tracking-wider">
-							Tags
-						</div>
-						<div className="mt-1.5 flex flex-wrap gap-1">
-							{status ? (
-								<Badge
-									variant="outline"
-									className="h-[18px] px-1.5 font-normal text-[10px]"
-								>
-									{status}
-								</Badge>
-							) : null}
-							{tags.map((tag) => (
-								<span
-									key={tag}
-									className="rounded-full border border-border/60 px-1.5 py-0.5 text-[10px] text-muted-foreground"
-								>
-									{tag}
-								</span>
-							))}
-						</div>
+				<div>
+					<div className="font-[510] text-[10px] text-muted-foreground uppercase tracking-wider">
+						Project
 					</div>
-				)}
+					<div className="mt-1.5">
+						<NoteProjectSelect
+							value={project}
+							options={projectOptions}
+							onChange={onSetProject}
+							disabled={!noteDetail || isMetaSaving}
+						/>
+					</div>
+				</div>
+				<div>
+					<div className="font-[510] text-[10px] text-muted-foreground uppercase tracking-wider">
+						Tags
+					</div>
+					{status ? (
+						<div className="mt-1.5">
+							<Badge
+								variant="outline"
+								className="h-[18px] px-1.5 font-normal text-[10px]"
+							>
+								{status}
+							</Badge>
+						</div>
+					) : null}
+					<div className="mt-1.5">
+						<EditableNoteTags
+							tags={tags}
+							onAdd={onAddTag}
+							onRemove={onRemoveTag}
+							disabled={!noteDetail || isMetaSaving}
+						/>
+					</div>
+					<div className="mt-1.5">
+						<NoteTagProjectSuggestions
+							content={noteDetail?.content ?? ""}
+							currentTags={tags}
+							currentProject={project}
+							onAcceptTag={onAddTag}
+							onAcceptProject={onSetProject}
+							disabled={!noteDetail || isMetaSaving}
+						/>
+					</div>
+				</div>
 				<div>
 					<div className="mb-1.5 font-[510] text-[10px] text-muted-foreground uppercase tracking-wider">
 						Backlinks
