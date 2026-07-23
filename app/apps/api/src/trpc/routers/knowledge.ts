@@ -14,12 +14,14 @@ import {
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { extractLinks, resolveLinks } from "@api/lib/wiki-link-parser";
 import { protectedProcedure, router } from "@api/trpc/init";
+import { suggestTagsAndProject } from "@api/utils/suggest-tags-and-project";
 import { db } from "@nexus-app/db/client";
 import {
 	knowledgeLinks,
 	knowledgeNotes,
 	knowledgeNotesOnTasks as knowledgeNotesOnTasksRef,
 	knowledgeVaults,
+	projects as projectsRef,
 	tasks as tasksRef,
 } from "@nexus-app/db/schema";
 import { TRPCError } from "@trpc/server";
@@ -391,6 +393,24 @@ export const knowledgeRouter = router({
 				)
 				.limit(1);
 			return row ?? null;
+		}),
+
+	// Suggestion-only: returns thresholded tag suggestions and an
+	// existence-validated project name (or null), never mutates the note.
+	// The UI applies accepted tags via the existing `update` frontmatter-write
+	// path on explicit user acceptance.
+	suggestTagsAndProject: protectedProcedure
+		.input(z.object({ content: z.string().min(1).max(50_000) }))
+		.mutation(async ({ input, ctx }) => {
+			const teamProjects = await db
+				.select({ name: projectsRef.name })
+				.from(projectsRef)
+				.where(eq(projectsRef.teamId, ctx.user.teamId!));
+
+			return suggestTagsAndProject({
+				content: input.content,
+				existingProjectNames: teamProjects.map((p) => p.name),
+			});
 		}),
 
 	create: protectedProcedure
