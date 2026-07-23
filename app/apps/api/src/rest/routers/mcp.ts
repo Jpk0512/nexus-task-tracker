@@ -3,8 +3,8 @@ import { StreamableHTTPTransport } from "@hono/mcp";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { db } from "@nexus-app/db/client";
-import { users } from "@nexus-app/db/schema";
-import { eq } from "drizzle-orm";
+import { users, usersOnTeams } from "@nexus-app/db/schema";
+import { and, eq } from "drizzle-orm";
 import { checkMcpRateLimit } from "../../ai/mcp/rate-limit";
 import { createMcpServer } from "../../ai/mcp/server";
 import {
@@ -76,8 +76,38 @@ async function verifyApiKey(apiKeyHeader: string | undefined): Promise<{
 
 		const metadata = (key.metadata ?? {}) as ApiKeyMetadata;
 
-		// Get the team ID from the API key metadata or user's default team
-		let teamId = metadata.teamId;
+		// `metadata.teamId` is set server-side at key creation (apiKeysRouter.create)
+		// but lives in a client-writable JSON blob — Better Auth's own
+		// apiKey.update endpoint lets the key owner overwrite it wholesale,
+		// bypassing tRPC entirely. Never trust it as a bare value: only honor a
+		// claimed teamId once we've confirmed the key's own user actually
+		// belongs to that team. This still allows the legitimate multi-team
+		// case (a key scoped to a non-active team the user is a real member
+		// of) while a forged/foreign teamId falls through to the safe default.
+		const claimedTeamId = metadata.teamId;
+		let teamId: string | undefined;
+
+		if (claimedTeamId) {
+			const membership = await db
+				.select({ teamId: usersOnTeams.teamId })
+				.from(usersOnTeams)
+				.where(
+					and(
+						eq(usersOnTeams.userId, userId),
+						eq(usersOnTeams.teamId, claimedTeamId),
+					),
+				)
+				.limit(1);
+
+			if (membership.length > 0) {
+				teamId = claimedTeamId;
+			} else {
+				console.log(
+					"API key metadata.teamId is not a real membership for this user; ignoring",
+					{ userId, keyId: key.id },
+				);
+			}
+		}
 
 		if (!teamId) {
 			// Fall back to user's active team

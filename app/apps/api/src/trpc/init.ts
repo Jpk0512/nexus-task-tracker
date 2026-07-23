@@ -1,6 +1,7 @@
 import type { Scope } from "@api/lib/scopes";
 import { initTRPC, TRPCError } from "@trpc/server";
 import type { Context } from "../lib/context";
+import { checkTrpcMutationRateLimit } from "./rate-limit";
 
 type Meta = {
 	/**
@@ -69,3 +70,25 @@ export const protectedProcedure = t.procedure
 		}
 		return result;
 	});
+
+/**
+ * `protectedProcedure` + a per-user rate limit. Opt into this for
+ * mutation-heavy procedures that have no other throttling in their chain
+ * (tRPC bypasses the REST layer's `hono-rate-limiter` entirely — see
+ * `trpc/rate-limit.ts`). Not the default on `protectedProcedure` itself so
+ * unrelated routers/reads are unaffected.
+ */
+export const rateLimitedProcedure = protectedProcedure.use(
+	async ({ ctx, next }) => {
+		const result = await checkTrpcMutationRateLimit(ctx.user.id);
+		if (!result.success) {
+			throw new TRPCError({
+				code: "TOO_MANY_REQUESTS",
+				message: `Rate limit exceeded. Try again in ${Math.ceil(
+					(result.reset - Date.now()) / 1000,
+				)} seconds.`,
+			});
+		}
+		return next();
+	},
+);

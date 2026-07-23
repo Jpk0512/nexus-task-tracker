@@ -5,7 +5,11 @@ import {
 	migrateUserSecretsSchema,
 	updateUserSecretSchema,
 } from "@api/schemas/user-secrets";
-import { protectedProcedure, router } from "@api/trpc/init";
+import {
+	protectedProcedure,
+	rateLimitedProcedure,
+	router,
+} from "@api/trpc/init";
 import {
 	createUserSecret,
 	deleteUserSecret,
@@ -51,7 +55,7 @@ export const userSecretsRouter = router({
 			}
 		}),
 
-	create: protectedProcedure
+	create: rateLimitedProcedure
 		.meta({ team: false })
 		.input(createUserSecretSchema)
 		.mutation(async ({ ctx, input }) => {
@@ -69,7 +73,7 @@ export const userSecretsRouter = router({
 			}
 		}),
 
-	update: protectedProcedure
+	update: rateLimitedProcedure
 		.meta({ team: false })
 		.input(updateUserSecretSchema)
 		.mutation(async ({ ctx, input }) => {
@@ -86,7 +90,7 @@ export const userSecretsRouter = router({
 			}
 		}),
 
-	delete: protectedProcedure
+	delete: rateLimitedProcedure
 		.meta({ team: false })
 		.input(deleteUserSecretSchema)
 		.mutation(async ({ ctx, input }) => {
@@ -97,7 +101,7 @@ export const userSecretsRouter = router({
 			}
 		}),
 
-	migrate: protectedProcedure
+	migrate: rateLimitedProcedure
 		.meta({ team: false })
 		.input(migrateUserSecretsSchema)
 		.mutation(async ({ ctx, input }) => {

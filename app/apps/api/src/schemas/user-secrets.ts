@@ -4,17 +4,22 @@ const userSecretKindSchema = z.enum(["secret", "mcp"]);
 
 export const listUserSecretsSchema = z.object({});
 
+const secretValueSchema = z
+	.string()
+	.min(1, "Value is required")
+	.max(10_000, "Value is too long");
+
 export const createUserSecretSchema = z.object({
 	kind: userSecretKindSchema.default("secret"),
 	name: z.string().min(1, "Name is required").max(200),
-	value: z.string().min(1, "Value is required"),
+	value: secretValueSchema,
 	notes: z.string().max(2000).optional(),
 });
 
 export const updateUserSecretSchema = z.object({
 	id: z.string().min(1),
 	name: z.string().min(1, "Name is required").max(200).optional(),
-	value: z.string().min(1, "Value is required").optional(),
+	value: secretValueSchema.optional(),
 	notes: z.string().max(2000).optional(),
 });
 
@@ -25,7 +30,7 @@ export const deleteUserSecretSchema = z.object({
 const migrateUserSecretEntrySchema = z.object({
 	kind: userSecretKindSchema,
 	name: z.string().min(1).max(200),
-	value: z.string().min(1),
+	value: secretValueSchema,
 	notes: z.string().max(2000).optional(),
 });
 

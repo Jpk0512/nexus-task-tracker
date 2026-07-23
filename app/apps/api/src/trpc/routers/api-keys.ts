@@ -4,7 +4,11 @@ import {
 	deleteApiKeySchema,
 	listApiKeysSchema,
 } from "@api/schemas/api-keys";
-import { protectedProcedure, router } from "@api/trpc/init";
+import {
+	protectedProcedure,
+	rateLimitedProcedure,
+	router,
+} from "@api/trpc/init";
 import { db } from "@nexus-app/db/client";
 import { apikey } from "@nexus-app/db/schema";
 import { TRPCError } from "@trpc/server";
@@ -44,7 +48,7 @@ export const apiKeysRouter = router({
 			}));
 		}),
 
-	create: protectedProcedure
+	create: rateLimitedProcedure
 		.meta({ team: false })
 		.input(createApiKeySchema)
 		.mutation(async ({ ctx, input }) => {
@@ -76,7 +80,7 @@ export const apiKeysRouter = router({
 			};
 		}),
 
-	delete: protectedProcedure
+	delete: rateLimitedProcedure
 		.meta({ team: false })
 		.input(deleteApiKeySchema)
 		.mutation(async ({ ctx, input }) => {

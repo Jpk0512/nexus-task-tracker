@@ -51,7 +51,7 @@ function makeLocalLimiter(maxPerMinute: number): Ratelimit {
 	return stub as unknown as Ratelimit;
 }
 
-function buildLimiter(maxPerMinute: number, prefix: string): Ratelimit {
+export function buildLimiter(maxPerMinute: number, prefix: string): Ratelimit {
 	if (LOCAL_DEV && !UPSTASH_CONFIGURED) {
 		console.warn(
 			"[rate-limit] NEXUS_LOCAL_DEV=1 and Upstash not configured — " +
