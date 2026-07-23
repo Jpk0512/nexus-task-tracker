@@ -671,6 +671,51 @@ export const integrationUserLink = pgTable(
 	],
 );
 
+/**
+ * Server-backed encrypted secret vault (FEAT-018). One row per user secret.
+ *
+ * `encryptedValue` stores the output of encryptToken() — format
+ * `v1:<iv-hex>:<ct-hex>` (AES-GCM-256). Plaintext is NEVER persisted here and
+ * NEVER returned to the client; the server decrypts only for the authenticated
+ * owner. `kind` distinguishes a generic secret from an MCP credential.
+ */
+export const userSecrets = pgTable(
+	"user_secrets",
+	{
+		id: text("id")
+			.$defaultFn(() => randomUUID())
+			.primaryKey()
+			.notNull(),
+		userId: text("user_id").notNull(),
+		teamId: text("team_id"),
+		kind: text("kind").$type<"secret" | "mcp">().notNull(),
+		name: text("name").notNull(),
+		encryptedValue: text("encrypted_value").notNull(),
+		notes: text("notes"),
+		createdAt: timestamp("created_at", {
+			withTimezone: true,
+			mode: "string",
+		}).defaultNow(),
+		updatedAt: timestamp("updated_at", {
+			withTimezone: true,
+			mode: "string",
+		}).defaultNow(),
+	},
+	(table) => [
+		unique("unique_user_secret_name").on(table.userId, table.name),
+		foreignKey({
+			columns: [table.userId],
+			foreignColumns: [users.id],
+			name: "user_secrets_user_id_fkey",
+		}).onDelete("cascade"),
+		foreignKey({
+			columns: [table.teamId],
+			foreignColumns: [teams.id],
+			name: "user_secrets_team_id_fkey",
+		}).onDelete("set null"),
+	],
+);
+
 export const labels = pgTable(
 	"labels",
 	{

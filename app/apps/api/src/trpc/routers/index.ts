@@ -39,6 +39,7 @@ import { tasksRouter } from "./tasks";
 import { tasksSuggestionsRouter } from "./tasks-suggestions";
 import { teamsRouter } from "./teams";
 import { todosRouter } from "./todos";
+import { userSecretsRouter } from "./user-secrets";
 import { usersRouter } from "./users";
 import { widgetsRouter } from "./widgets";
 import { zenRouter } from "./zen";
@@ -95,6 +96,7 @@ export const appRouter = router({
 	globalSearch: globalSearchRouter,
 	onboarding: onboardingRouter,
 	zen: zenRouter,
+	userSecrets: userSecretsRouter,
 });
 export type AppRouter = typeof appRouter;
 export type RouterOutputs = inferRouterOutputs<AppRouter>;
