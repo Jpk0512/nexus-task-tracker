@@ -71,6 +71,34 @@ import { queryClient, trpc } from "@/utils/trpc";
 type ApiKeyRow = RouterOutputs["apiKeys"]["list"][number];
 
 /**
+ * Better Auth's api-key plugin schema declares `metadata` as `type: "string"`
+ * and JSON.stringifies it on write (its own transform, independent of the
+ * column type); the `apikey.metadata` column is `jsonb`, so the driver
+ * JSON-encodes that already-stringified value a second time. Reading it back
+ * through a plain drizzle select (as apiKeysRouter.list does, bypassing
+ * Better Auth's own `transform.output`) yields the metadata as a raw JSON
+ * *string*, not a parsed object -- confirmed live via the tRPC response
+ * (`"metadata":"{\"teamId\":...}"`, a string value) rather than an object.
+ * Any consumer that assumes `metadata` is already an object (a `typeof
+ * === "object"` guard, or spreading it with `...`) silently breaks: the
+ * guard falls through to its "no metadata" default, and spreading a string
+ * enumerates its characters into numeric keys instead of merging fields.
+ * Parse defensively before touching the shape.
+ */
+function parseApiKeyMetadata(metadata: unknown): Record<string, unknown> {
+	let value: unknown = metadata;
+	if (typeof value === "string") {
+		try {
+			value = JSON.parse(value);
+		} catch {
+			return {};
+		}
+	}
+	if (!value || typeof value !== "object") return {};
+	return value as Record<string, unknown>;
+}
+
+/**
  * Mirrors the gateway leg's contract (app/apps/api/src/rest/routers/mcp.ts,
  * ApiKeyMetadata / resolveMcpServerScope): a key's metadata.mcpServers is
  * `"all" | string[]`; missing entirely defaults to `"all"` (same permissive
@@ -78,8 +106,7 @@ type ApiKeyRow = RouterOutputs["apiKeys"]["list"][number];
  * apps/api and apps/dashboard are separate deployables.
  */
 function resolveMcpServerScope(metadata: unknown): "all" | string[] {
-	if (!metadata || typeof metadata !== "object") return "all";
-	const value = (metadata as Record<string, unknown>).mcpServers;
+	const value = parseApiKeyMetadata(metadata).mcpServers;
 	if (value === undefined || value === "all") return "all";
 	if (Array.isArray(value)) {
 		return value.filter((id): id is string => typeof id === "string");
@@ -151,15 +178,23 @@ export function ApiKeysList() {
 	// Update an existing key's MCP server exposure via Better Auth's
 	// apiKey.update endpoint (metadata is a full replace server-side, so
 	// callers must merge with the key's existing metadata themselves).
+	// authClient calls resolve to { data, error } instead of throwing, so the
+	// error branch must be checked explicitly -- otherwise a failed request
+	// (e.g. an invalid/expired session) surfaces as a false "updated" toast.
 	const { mutate: updateMcpAccess, isPending: isUpdatingAccess } = useMutation({
 		mutationFn: async (vars: {
 			keyId: string;
 			metadata: Record<string, unknown>;
-		}) =>
-			authClient.apiKey.update({
+		}) => {
+			const { data, error } = await authClient.apiKey.update({
 				keyId: vars.keyId,
 				metadata: vars.metadata,
-			}),
+			});
+			if (error) {
+				throw new Error(error.message ?? "Failed to update MCP server access");
+			}
+			return data;
+		},
 		onSuccess: () => {
 			queryClient.invalidateQueries(trpc.apiKeys.list.queryOptions({}));
 			toast.success("MCP server access updated");
@@ -204,13 +239,16 @@ export function ApiKeysList() {
 		}
 
 		try {
-			await authClient.apiKey.update({
+			const { error } = await authClient.apiKey.update({
 				keyId: result.id,
 				metadata: {
 					teamId: (session?.user as { teamId?: string } | undefined)?.teamId,
 					mcpServers: data.mcpScope === "all" ? "all" : data.mcpServerIds,
 				},
 			});
+			if (error) {
+				throw new Error(error.message ?? "Failed to set MCP server access");
+			}
 			toast.success("API key created");
 		} catch {
 			toast.error("API key created, but MCP server access could not be set");
@@ -853,8 +891,9 @@ export function ApiKeysList() {
 							}
 							onClick={() => {
 								if (!editingKey) return;
-								const existingMetadata =
-									(editingKey.metadata as Record<string, unknown> | null) ?? {};
+								const existingMetadata = parseApiKeyMetadata(
+									editingKey.metadata,
+								);
 								updateMcpAccess({
 									keyId: editingKey.id,
 									metadata: {
