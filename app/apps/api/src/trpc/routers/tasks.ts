@@ -12,12 +12,14 @@ import {
 	getTasksSchema,
 	smartCompleteSchema,
 	subscribeTaskSchema,
+	suggestDescriptionSchema,
 	unsubscribeTaskSchema,
 	updateTaskCommentSchema,
 	updateTaskSchema,
 } from "@api/schemas/tasks";
 import { protectedProcedure, router } from "@api/trpc/init";
 import { buildSmartCompletePrompt } from "@api/utils/smart-complete";
+import { suggestTaskDescription } from "@api/utils/suggest-description";
 import { db } from "@nexus-app/db/client";
 import {
 	bulkDeleteTask,
@@ -211,6 +213,18 @@ export const tasksRouter = router({
 				...input,
 				userId: ctx.user.id,
 				teamId: ctx.user.teamId!,
+			});
+		}),
+
+	// Suggestion-only: returns a suggested description string, never mutates
+	// the task. The UI applies it via `updateDescription` on user acceptance.
+	suggestDescription: protectedProcedure
+		.input(suggestDescriptionSchema)
+		.mutation(async ({ input }) => {
+			return suggestTaskDescription({
+				title: input.title,
+				description: input.description,
+				projectName: input.projectName,
 			});
 		}),
 

@@ -175,6 +175,12 @@ export const smartCompleteSchema = z.object({
 	prompt: z.string().min(1).max(5000),
 });
 
+export const suggestDescriptionSchema = z.object({
+	title: z.string().min(1).max(255),
+	description: z.string().max(50_000).nullable().optional(),
+	projectName: z.string().max(255).nullable().optional(),
+});
+
 export const getDuplicatedTasksSchema = z.object({
 	title: z.string().min(1).max(255),
 });
