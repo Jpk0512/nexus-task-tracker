@@ -166,6 +166,8 @@ export interface McpProxyHandle {
  * is skipped — logged server-side by `connectTeamMcpServers` — so the whole
  * endpoint degrades to native-tools-only rather than failing outright.
  */
+const NOOP_PROXY_HANDLE: McpProxyHandle = { close: async () => {} };
+
 export async function registerProxiedMcpTools({
 	server,
 	teamId,
@@ -179,11 +181,31 @@ export async function registerProxiedMcpTools({
 	serverScope: "all" | string[];
 	nativeToolNames: ReadonlySet<string>;
 }): Promise<McpProxyHandle> {
-	const { connections, errors } = await connectTeamMcpServers({
-		teamId,
-		userId,
-		serverIds: serverScope === "all" ? undefined : serverScope,
-	});
+	// `connectTeamMcpServers` isolates PER-SERVER connect/tools() failures
+	// internally (they land in its returned `errors` map, never thrown), but
+	// its own prelude — `getMcpServers` + `getMcpServerUserTokens` (which can
+	// throw on a missing `TOKEN_ENCRYPTION_KEY`, a malformed legacy token row,
+	// or an AES-GCM auth-tag failure from key rotation) — runs BEFORE that
+	// per-server isolation and can still throw. Native tools are already
+	// registered on `server` by the caller before this function runs, so a
+	// prelude throw here must degrade to zero proxied tools (never crash the
+	// whole gateway request) — log server-side and hand back a no-op handle.
+	let connectResult: Awaited<ReturnType<typeof connectTeamMcpServers>>;
+	try {
+		connectResult = await connectTeamMcpServers({
+			teamId,
+			userId,
+			serverIds: serverScope === "all" ? undefined : serverScope,
+		});
+	} catch (error) {
+		console.error(
+			`[mcp-gateway] Failed to enumerate/connect team MCP servers for team ${teamId}; degrading to native-tools-only:`,
+			error,
+		);
+		return NOOP_PROXY_HANDLE;
+	}
+
+	const { connections, errors } = connectResult;
 
 	for (const [serverName, error] of Object.entries(errors)) {
 		console.error(
@@ -208,13 +230,24 @@ export async function registerProxiedMcpTools({
 			}
 			registeredNames.add(namespacedName);
 
-			await registerProxiedTool({
-				server,
-				namespacedName,
-				upstreamServerName: upstreamServer.name,
-				toolName,
-				tool,
-			});
+			try {
+				await registerProxiedTool({
+					server,
+					namespacedName,
+					upstreamServerName: upstreamServer.name,
+					toolName,
+					tool,
+				});
+			} catch (error) {
+				// A single malformed upstream tool schema must never take down
+				// the rest of the gateway (native tools + every other proxied
+				// tool already registered) — skip just this tool and continue.
+				registeredNames.delete(namespacedName);
+				console.error(
+					`[mcp-gateway] Skipping proxied tool "${namespacedName}" from server "${upstreamServer.name}" (${upstreamServer.id}): failed to register:`,
+					error,
+				);
+			}
 		}
 	}
 

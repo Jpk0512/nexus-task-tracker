@@ -13,6 +13,11 @@
  *  GWT-3  a proxied tool whose namespaced name collides with a native tool
  *         is silently skipped — never registered, never shadows the native one
  *  GWT-4  `close()` tears down every upstream client connected for the call
+ *  GWT-5  a prelude failure inside `connectTeamMcpServers` (e.g. a thrown
+ *         `TOKEN_ENCRYPTION_KEY`/decrypt error, which sits OUTSIDE that
+ *         function's own per-server try/catch) degrades to zero proxied
+ *         tools and a no-op `close()` — native tools are still fully served,
+ *         never a whole-endpoint failure (REVISE fix for FEAT-019)
  *
  * Run: cd app/apps/api && bun test src/__tests__/feat-019-mcp-gateway.test.ts
  */
@@ -22,6 +27,8 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 
 const closeSpy = mock(() => Promise.resolve());
+
+let connectShouldThrow = false;
 
 function fakeConnections() {
 	return {
@@ -77,7 +84,14 @@ function fakeConnections() {
 }
 
 mock.module("@api/ai/mcp/shared/team-mcp-connections", () => ({
-	connectTeamMcpServers: async () => fakeConnections(),
+	connectTeamMcpServers: async () => {
+		if (connectShouldThrow) {
+			throw new Error(
+				"simulated prelude failure (e.g. TOKEN_ENCRYPTION_KEY unset / decrypt auth-tag failure)",
+			);
+		}
+		return fakeConnections();
+	},
 }));
 
 const { createMcpServer } = await import("@api/ai/mcp/server");
@@ -182,5 +196,46 @@ describe("FEAT-019 MCP gateway", () => {
 		await proxyHandle.close();
 		await client.close();
 		await server.close();
+	});
+
+	test("degrades to native-tools-only when connectTeamMcpServers' prelude throws", async () => {
+		connectShouldThrow = true;
+		try {
+			const server = createMcpServer();
+			registerTaskTools(server, fakeContext);
+
+			const proxyHandle = await registerProxiedMcpTools({
+				server,
+				teamId: "t1",
+				userId: "u1",
+				serverScope: "all",
+				nativeToolNames: NATIVE_MCP_TOOL_NAMES,
+			});
+
+			const [clientTransport, serverTransport] =
+				InMemoryTransport.createLinkedPair();
+			const client = new Client({ name: "test-client-3", version: "1.0.0" });
+			await Promise.all([
+				client.connect(clientTransport),
+				server.connect(serverTransport),
+			]);
+
+			const { tools } = await client.listTools();
+			const names = tools.map((t) => t.name);
+
+			for (const nativeName of NATIVE_MCP_TOOL_NAMES) {
+				expect(names).toContain(nativeName);
+			}
+			expect(names).not.toContain("Docs_Server__search_docs");
+			expect(names).not.toContain("Collider__ping");
+
+			// No connections were ever established, so close() must be a safe no-op.
+			await expect(proxyHandle.close()).resolves.toBeUndefined();
+
+			await client.close();
+			await server.close();
+		} finally {
+			connectShouldThrow = false;
+		}
 	});
 });
