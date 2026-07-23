@@ -18,6 +18,15 @@
  *         function's own per-server try/catch) degrades to zero proxied
  *         tools and a no-op `close()` — native tools are still fully served,
  *         never a whole-endpoint failure (REVISE fix for FEAT-019)
+ *  GWT-6  the SAME prelude failure, hit via the other consumer of
+ *         `connectTeamMcpServers` — `ai/tools/tool-registry.ts`'s
+ *         `getTeamMcpTools` (used by `rest/routers/chat.ts`'s `Promise.all`
+ *         on every chat turn and `trpc/routers/agents.ts`) — also degrades
+ *         gracefully: `getAllTools` still returns every native/integration
+ *         tool + toolbox, with the failure surfaced as
+ *         `errors["team-mcp-servers"]` instead of throwing and taking down
+ *         the whole chat turn (second REVISE fix for FEAT-019, sibling of
+ *         GWT-5's fix in `mcp-proxy-tools.ts`)
  *
  * Run: cd app/apps/api && bun test src/__tests__/feat-019-mcp-gateway.test.ts
  */
@@ -234,6 +243,42 @@ describe("FEAT-019 MCP gateway", () => {
 
 			await client.close();
 			await server.close();
+		} finally {
+			connectShouldThrow = false;
+		}
+	});
+});
+
+describe("FEAT-019 tool-registry getAllTools graceful degradation (REVISE fix)", () => {
+	test("getTeamMcpTools' prelude throw still returns native/integration tools + toolboxes from getAllTools", async () => {
+		connectShouldThrow = true;
+		try {
+			const { getAllTools } = await import("@api/ai/tools/tool-registry");
+
+			const { tools, toolboxes, errors } = await getAllTools(
+				undefined,
+				"t1",
+				"u1",
+			);
+
+			// Native task-management/research/memory tools survive untouched.
+			expect(tools.createTask).toBeDefined();
+			expect(tools.webSearch).toBeDefined();
+			expect(tools.saveAgentMemory).toBeDefined();
+			expect(toolboxes.taskManagement).toBeDefined();
+			expect(toolboxes.research).toBeDefined();
+			expect(toolboxes.memory).toBeDefined();
+
+			// No mcp: tools/toolboxes were registered — zero connections were made.
+			expect(Object.keys(toolboxes).some((k) => k.startsWith("mcp:"))).toBe(
+				false,
+			);
+
+			// The prelude failure is surfaced, not swallowed and not thrown.
+			expect(errors["team-mcp-servers"]).toBeInstanceOf(Error);
+			expect(errors["team-mcp-servers"]?.message).toContain(
+				"simulated prelude failure",
+			);
 		} finally {
 			connectShouldThrow = false;
 		}

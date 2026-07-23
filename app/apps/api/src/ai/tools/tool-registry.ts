@@ -193,6 +193,19 @@ export const getIntegrationTools = async (
  * Get tools from team-configured MCP servers.
  * If userId is provided, per-user OAuth tokens are injected into MCP client headers.
  * Expired tokens are automatically refreshed when a refresh token is available.
+ *
+ * `connectTeamMcpServers` isolates PER-SERVER connect/tools() failures
+ * internally (they land in its returned `errors` map, never thrown), but its
+ * own prelude — `getMcpServers` + `getMcpServerUserTokens` (which can throw
+ * on a missing `TOKEN_ENCRYPTION_KEY`, a malformed legacy token row, or an
+ * AES-GCM auth-tag failure from key rotation) — runs BEFORE that per-server
+ * isolation and can still throw. Every caller of `getTeamMcpTools`
+ * (`getAllTools`, in turn `rest/routers/chat.ts`'s `Promise.all` and
+ * `trpc/routers/agents.ts`) has no try/catch of its own, so a prelude throw
+ * here must degrade to zero team-MCP tools (never crash the whole chat turn
+ * / agent tool call) — log server-side and surface the failure through the
+ * same error-map shape `getAllTools`/`getToolsForAgent` already use for
+ * per-server errors.
  */
 export const getTeamMcpTools = async (
 	teamId: string,
@@ -206,10 +219,28 @@ export const getTeamMcpTools = async (
 	const toolboxes: Record<string, Record<string, Tool>> = {};
 	const errors: Record<string, Error> = {};
 
-	const { connections, errors: connectErrors } = await connectTeamMcpServers({
-		teamId,
-		userId,
-	});
+	let connectResult: Awaited<ReturnType<typeof connectTeamMcpServers>>;
+	try {
+		connectResult = await connectTeamMcpServers({
+			teamId,
+			userId,
+		});
+	} catch (error) {
+		console.error(
+			`[tool-registry] Failed to enumerate/connect team MCP servers for team ${teamId}; degrading to native-tools-only:`,
+			error,
+		);
+		return {
+			tools: {},
+			toolboxes: {},
+			errors: {
+				"team-mcp-servers":
+					error instanceof Error ? error : new Error(String(error)),
+			},
+		};
+	}
+
+	const { connections, errors: connectErrors } = connectResult;
 
 	for (const [serverName, error] of Object.entries(connectErrors)) {
 		errors[`mcp:${serverName}`] = error;
