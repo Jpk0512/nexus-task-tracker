@@ -6,6 +6,7 @@ const {
 	dialog,
 	nativeTheme,
 	screen,
+	ipcMain,
 } = require("electron");
 const path = require("node:path");
 const fs = require("node:fs");
@@ -346,6 +347,24 @@ function buildMenu() {
 
 	Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
+
+// Renderer has no filesystem access (contextIsolation + sandbox); this is the
+// one privileged bridge for picking a local folder path. defaultPath is
+// renderer-controlled input, so it's re-validated here even though preload
+// already checks it — preload's exposed function is the only path a
+// same-origin renderer can reach, but the main process is the real trust
+// boundary.
+ipcMain.handle("select-folder", async (_event, defaultPath) => {
+	const startPath =
+		typeof defaultPath === "string" && defaultPath
+			? defaultPath
+			: app.getPath("home");
+	const result = await dialog.showOpenDialog(mainWindow, {
+		defaultPath: startPath,
+		properties: ["openDirectory", "createDirectory"],
+	});
+	return result.canceled ? null : result.filePaths[0];
+});
 
 app.setName("Nexus");
 

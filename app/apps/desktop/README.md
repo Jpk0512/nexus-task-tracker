@@ -50,6 +50,19 @@ open "out/Nexus-darwin-arm64/Nexus.app"
   underlying (non-maximized) size/position is what gets saved, so un-maximizing
   later doesn't leave you with the maximized dimensions as the "restored" size.
 
+## IPC
+
+`window.nexusDesktop` (exposed via `contextBridge`, safe under
+`contextIsolation`/`sandbox`) additionally offers:
+
+- `selectFolder(defaultPath?: string): Promise<string | null>` — opens the
+  native folder picker (`openDirectory` + `createDirectory`), starting at
+  `defaultPath` if given (falls back to the user's home directory), and
+  resolves to the chosen absolute path or `null` if the dialog is cancelled.
+  `defaultPath` must be a string or `undefined`; anything else rejects. No
+  other IPC channel is exposed — this stays a minimal, single-purpose bridge,
+  not a generic `invoke` passthrough.
+
 ## Notes
 
 - Renamed from the old mimrai desktop skeleton.

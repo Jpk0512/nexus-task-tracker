@@ -1,4 +1,4 @@
-const { contextBridge } = require("electron");
+const { contextBridge, ipcRenderer } = require("electron");
 
 /**
  * Tag the document so the web app can detect the desktop shell and apply
@@ -25,4 +25,20 @@ contextBridge.exposeInMainWorld("nexusDesktop", {
 	isDesktop: true,
 	platform: process.platform,
 	version: "0.1.0",
+	/**
+	 * Opens the native folder picker. Resolves to the chosen absolute path,
+	 * or null if the user cancels.
+	 * @param {string} [defaultPath]
+	 * @returns {Promise<string | null>}
+	 */
+	selectFolder: (defaultPath) => {
+		if (defaultPath !== undefined && typeof defaultPath !== "string") {
+			return Promise.reject(
+				new TypeError(
+					"nexusDesktop.selectFolder(defaultPath): defaultPath must be a string or undefined",
+				),
+			);
+		}
+		return ipcRenderer.invoke("select-folder", defaultPath);
+	},
 });
