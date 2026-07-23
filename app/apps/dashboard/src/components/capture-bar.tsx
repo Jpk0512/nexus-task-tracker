@@ -8,6 +8,11 @@ import { useHotkeys } from "react-hotkeys-hook";
 import { toast } from "sonner";
 import { useDebounceValue } from "usehooks-ts";
 import { parseQuickCapture } from "@/components/home/quick-capture";
+import {
+	type SuggestedProject,
+	SuggestedProjectChip,
+	useSuggestedProjectBySimilarity,
+} from "@/components/suggested-project-chip";
 import { useUser } from "@/components/user-provider";
 import { useProjects } from "@/hooks/use-data";
 import { trpc } from "@/utils/trpc";
@@ -118,6 +123,15 @@ export function CaptureBar({ className }: { className?: string }) {
 	// Will this become a task? Only when the user actually names a project
 	// (and hasn't more specifically named a task via `@task:`).
 	const becomesTask = !becomesTaskComment && !!parsed.projectQuery && !!project;
+
+	// FEAT-016 smart routing — only offered for the case FEAT-007 leaves
+	// unhandled: no explicit `@project` token and no `@task:` mention either.
+	// Debounced + fired in the background; never awaited by `submit()` below.
+	const [acceptedProject, setAcceptedProject] =
+		useState<SuggestedProject | null>(null);
+	const suggestionEnabled = !taskQuery && !parsed.projectQuery;
+	const { suggestion: suggestedProject, dismiss: dismissSuggestedProject } =
+		useSuggestedProjectBySimilarity(parsed.title, suggestionEnabled);
 
 	const { data: todoStatus } = useQuery(
 		trpc.statuses.get.queryOptions(
@@ -232,91 +246,112 @@ export function CaptureBar({ className }: { className?: string }) {
 				todoCreate.mutate({ content: title, projectId: project!.id });
 			}
 		} else {
-			todoCreate.mutate({ content: title });
+			// No explicit `@project` token — if the user accepted the FEAT-016
+			// suggestion chip, file the todo under that project; otherwise
+			// unchanged FEAT-007 behavior (a plain, unfiled todo).
+			todoCreate.mutate({
+				content: title,
+				projectId: acceptedProject?.id,
+			});
 		}
 		setValue("");
+		setAcceptedProject(null);
 	};
 
 	return (
-		<div
-			className={cn(
-				"group flex h-8 items-center gap-2 rounded-lg border border-border bg-white/[0.02] px-2.5 transition-colors focus-within:border-[color:var(--brand,#6e7bff)] focus-within:ring-2 focus-within:ring-[color:var(--brand,#6e7bff)]/30",
-				className,
-			)}
-		>
-			<SparklesIcon
-				className={cn(
-					"size-3.5 shrink-0",
-					becomesTaskComment && "text-violet-400",
-					!becomesTaskComment && becomesTask && "text-sky-400",
-					!becomesTaskComment && !becomesTask && "text-cyan-500",
-				)}
-			/>
-			<input
-				ref={inputRef}
-				type="text"
-				value={value}
-				onChange={(e) => setValue(e.target.value)}
-				onKeyDown={(e) => {
-					if (e.key === "Enter") {
-						e.preventDefault();
-						submit();
+		<div className={cn("relative", className)}>
+			<div className="group flex h-8 items-center gap-2 rounded-lg border border-border bg-white/[0.02] px-2.5 transition-colors focus-within:border-[color:var(--brand,#6e7bff)] focus-within:ring-2 focus-within:ring-[color:var(--brand,#6e7bff)]/30">
+				<SparklesIcon
+					className={cn(
+						"size-3.5 shrink-0",
+						becomesTaskComment && "text-violet-400",
+						!becomesTaskComment && becomesTask && "text-sky-400",
+						!becomesTaskComment && !becomesTask && "text-cyan-500",
+					)}
+				/>
+				<input
+					ref={inputRef}
+					type="text"
+					value={value}
+					onChange={(e) => {
+						setValue(e.target.value);
+						// A fresh edit invalidates a prior accept — the suggestion
+						// hook re-fires off the new text anyway (FEAT-016).
+						setAcceptedProject(null);
+					}}
+					onKeyDown={(e) => {
+						if (e.key === "Enter") {
+							e.preventDefault();
+							submit();
+						}
+						if (e.key === "Escape") {
+							e.preventDefault();
+							setValue("");
+							setAcceptedProject(null);
+							inputRef.current?.blur();
+						}
+					}}
+					placeholder="Capture a todo…  @project for a task, @task:name to attach a note"
+					className="min-w-0 flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground"
+				/>
+				{/* Mode chip — tells you what Enter will do */}
+				<span
+					className={cn(
+						"hidden max-w-[160px] shrink-0 items-center truncate rounded-full border px-1.5 py-0.5 font-[510] text-[10px] uppercase tracking-wide sm:inline-flex",
+						isResolvingTaskMention &&
+							"border-border bg-muted/40 text-muted-foreground",
+						!isResolvingTaskMention &&
+							becomesTaskComment &&
+							"border-violet-500/30 bg-violet-500/10 text-violet-300",
+						!isResolvingTaskMention &&
+							!becomesTaskComment &&
+							becomesTask &&
+							"border-sky-500/30 bg-sky-500/10 text-sky-300",
+						!isResolvingTaskMention &&
+							!becomesTaskComment &&
+							!becomesTask &&
+							"border-cyan-500/30 bg-cyan-500/10 text-cyan-300",
+					)}
+				>
+					{isResolvingTaskMention
+						? "Resolving…"
+						: becomesTaskComment
+							? `Note · ${mentionedTask?.title ?? "…"}`
+							: becomesTask
+								? `Task${project ? ` · ${project.name}` : ""}`
+								: acceptedProject
+									? `Todo · ${acceptedProject.name}`
+									: "Todo"}
+				</span>
+				<span className="hidden items-center gap-0.5 text-[10px] text-muted-foreground md:flex">
+					<CommandIcon className="size-3" />
+					<span>N</span>
+				</span>
+				<button
+					type="button"
+					onClick={submit}
+					disabled={
+						!parsed.title ||
+						isResolvingTaskMention ||
+						todoCreate.isPending ||
+						taskCreate.isPending ||
+						taskComment.isPending
 					}
-					if (e.key === "Escape") {
-						e.preventDefault();
-						setValue("");
-						inputRef.current?.blur();
-					}
-				}}
-				placeholder="Capture a todo…  @project for a task, @task:name to attach a note"
-				className="min-w-0 flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground"
-			/>
-			{/* Mode chip — tells you what Enter will do */}
-			<span
-				className={cn(
-					"hidden max-w-[160px] shrink-0 items-center truncate rounded-full border px-1.5 py-0.5 font-[510] text-[10px] uppercase tracking-wide sm:inline-flex",
-					isResolvingTaskMention &&
-						"border-border bg-muted/40 text-muted-foreground",
-					!isResolvingTaskMention &&
-						becomesTaskComment &&
-						"border-violet-500/30 bg-violet-500/10 text-violet-300",
-					!isResolvingTaskMention &&
-						!becomesTaskComment &&
-						becomesTask &&
-						"border-sky-500/30 bg-sky-500/10 text-sky-300",
-					!isResolvingTaskMention &&
-						!becomesTaskComment &&
-						!becomesTask &&
-						"border-cyan-500/30 bg-cyan-500/10 text-cyan-300",
-				)}
-			>
-				{isResolvingTaskMention
-					? "Resolving…"
-					: becomesTaskComment
-						? `Note · ${mentionedTask?.title ?? "…"}`
-						: becomesTask
-							? `Task${project ? ` · ${project.name}` : ""}`
-							: "Todo"}
-			</span>
-			<span className="hidden items-center gap-0.5 text-[10px] text-muted-foreground md:flex">
-				<CommandIcon className="size-3" />
-				<span>N</span>
-			</span>
-			<button
-				type="button"
-				onClick={submit}
-				disabled={
-					!parsed.title ||
-					isResolvingTaskMention ||
-					todoCreate.isPending ||
-					taskCreate.isPending ||
-					taskComment.isPending
-				}
-				className="inline-flex size-5 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary transition-colors hover:bg-primary/20 disabled:opacity-40"
-				aria-label="Capture"
-			>
-				<PlusIcon className="size-3.5" />
-			</button>
+					className="inline-flex size-5 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary transition-colors hover:bg-primary/20 disabled:opacity-40"
+					aria-label="Capture"
+				>
+					<PlusIcon className="size-3.5" />
+				</button>
+			</div>
+			{/* FEAT-016 — floats below the bar so its appearance/disappearance
+			    never shifts the fixed-height header row above it. */}
+			{suggestedProject && !acceptedProject ? (
+				<SuggestedProjectChip
+					suggestion={suggestedProject}
+					onAccept={(suggestion) => setAcceptedProject(suggestion)}
+					onDismiss={dismissSuggestedProject}
+				/>
+			) : null}
 		</div>
 	);
 }
