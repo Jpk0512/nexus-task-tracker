@@ -75,17 +75,23 @@ export default function CreateExistingProjectPage() {
 
 	// Default the docs field to `<location>/docs` as the user types/sets the
 	// project location — only while the field is untouched (FEAT-020 item
-	// 4c). A probe candidate resolving afterwards still overrides this, same
-	// as it always has (the effect below).
+	// 4c). Prefer the probe's resolved host path (the same value actually
+	// submitted as rootPath, see onCreate below) once a probe has completed;
+	// raw input is only a pre-probe fallback, otherwise an unresolved local
+	// path could pair with a resolved rootPath and write a mismatched pair.
+	// A probe candidate resolving afterwards still overrides this, same as
+	// it always has (the effect below).
 	useEffect(() => {
 		if (docsTouched) return;
-		const trimmed = rootInput.trim();
-		if (!trimmed) {
+		const resolvedRoot = probe.data?.ok
+			? probe.data.resolved
+			: rootInput.trim();
+		if (!resolvedRoot) {
 			setDocsPath("");
 			return;
 		}
-		setDocsPath(`${trimmed.replace(/\/+$/, "")}/docs`);
-	}, [rootInput, docsTouched]);
+		setDocsPath(`${resolvedRoot.replace(/\/+$/, "")}/docs`);
+	}, [rootInput, probe.data, docsTouched]);
 
 	useEffect(() => {
 		if (docsTouched) return;
