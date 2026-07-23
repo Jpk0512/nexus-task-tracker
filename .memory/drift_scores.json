@@ -6,15 +6,15 @@
     "NEXT_PUBLIC_MIMRAI_LOCAL_DEV": 5,
     "NEXUS_LOCAL_DEV": 56,
     "STORAGE": 61,
-    "attachment.ts": 5,
-    "attachments.ts": 5,
+    "attachment.ts": 4,
+    "attachments.ts": 4,
     "compose.local.yaml": 24,
     "createAdminClient": 7,
     "env.example": 47,
     "init.ts": 21,
     "john.keeney": 83,
     "stripeClient": 17,
-    "users.ts": 5
+    "users.ts": 4
   },
   "FEAT-002": {
     "ILIKE": 33,
@@ -35,7 +35,7 @@
     "link_text": 18,
     "list_projects": 6,
     "list_prompts": 7,
-    "list_tasks_due_soon": 5,
+    "list_tasks_due_soon": 4,
     "list_todos": 9,
     "noteId": 87,
     "outside.md": 1,
