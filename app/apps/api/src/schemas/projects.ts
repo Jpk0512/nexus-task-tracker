@@ -7,6 +7,9 @@ export const projectVisibilitySchema = z.enum(["team", "private"]);
 export const getProjectsSchema = z.object({
 	...paginationSchema.shape,
 	search: z.string().optional(),
+	// Default false — archived projects are hidden from the grid/sidebar/pickers.
+	// Pass true for an "Archived" view (returns archived + active together).
+	includeArchived: z.boolean().optional(),
 });
 
 export const createProjectSchema = z.object({

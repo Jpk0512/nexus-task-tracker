@@ -8,6 +8,7 @@ import {
 	updateProjectSchema,
 } from "@api/schemas/projects";
 import { protectedProcedure, router } from "@api/trpc/init";
+import { toProjectCreateError } from "@api/utils/db-errors";
 import { suggestProjectsBySimilarity } from "@api/utils/suggest-projects-by-similarity";
 import { db } from "@nexus-app/db/client";
 import {
@@ -105,11 +106,15 @@ export const projectsRouter = router({
 	create: protectedProcedure
 		.input(createProjectSchema)
 		.mutation(async ({ ctx, input }) => {
-			return createProject({
-				...input,
-				teamId: ctx.user.teamId,
-				userId: ctx.user.id,
-			});
+			try {
+				return await createProject({
+					...input,
+					teamId: ctx.user.teamId,
+					userId: ctx.user.id,
+				});
+			} catch (error) {
+				throw toProjectCreateError(error);
+			}
 		}),
 
 	getById: protectedProcedure

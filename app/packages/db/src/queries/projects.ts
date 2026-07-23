@@ -19,17 +19,22 @@ export const getProjects = async ({
 	userId,
 	pageSize = 20,
 	cursor,
+	includeArchived = false,
 }: {
 	search?: string;
 	teamId?: string;
 	userId?: string;
 	pageSize?: number;
 	cursor?: string;
+	// Default false — archived projects are excluded from the grid, sidebar,
+	// and any picker built on this query. Pass true for an "Archived" view.
+	includeArchived?: boolean;
 }) => {
 	const whereClause: SQL[] = [];
 	if (teamId) whereClause.push(eq(projects.teamId, teamId));
 	if (search)
 		whereClause.push(ilike(projects.name, `%${search.replace(/%/g, "\\%")}%`));
+	if (!includeArchived) whereClause.push(eq(projects.archived, false));
 
 	// Filter by visibility: show if team-wide OR user is lead OR user is member OR user created it
 	if (userId && teamId) {
