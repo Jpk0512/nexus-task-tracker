@@ -53,3 +53,7 @@ export const removeProjectMemberSchema = z.object({
 export const getProjectMembersSchema = z.object({
 	projectId: z.string(),
 });
+
+export const suggestBySimilaritySchema = z.object({
+	text: z.string().min(1).max(20_000),
+});

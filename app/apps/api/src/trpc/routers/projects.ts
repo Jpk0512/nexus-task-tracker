@@ -4,9 +4,11 @@ import {
 	getProjectMembersSchema,
 	getProjectsSchema,
 	removeProjectMemberSchema,
+	suggestBySimilaritySchema,
 	updateProjectSchema,
 } from "@api/schemas/projects";
 import { protectedProcedure, router } from "@api/trpc/init";
+import { suggestProjectsBySimilarity } from "@api/utils/suggest-projects-by-similarity";
 import { db } from "@nexus-app/db/client";
 import {
 	addProjectMember,
@@ -32,6 +34,10 @@ const projectsRef = pgTable("projects", {
 	id: text("id").primaryKey(),
 	teamId: text("team_id").notNull(),
 	pinned: boolean("pinned").notNull().default(false),
+	name: text("name").notNull(),
+	prefix: text("prefix"),
+	description: text("description"),
+	archived: boolean("archived").notNull().default(false),
 });
 
 const promptsRef = pgTable("prompts", {
@@ -315,5 +321,33 @@ export const projectsRouter = router({
 				)
 				.limit(input.limit);
 			return rows;
+		}),
+
+	// Suggestion-only: ranks existing (non-archived) projects against a piece
+	// of free capture text via GEMINI_MODEL_LITE. Never mutates the capture
+	// or any project — the UI applies a project association only on explicit
+	// user acceptance of one of the returned suggestions.
+	suggestBySimilarity: protectedProcedure
+		.input(suggestBySimilaritySchema)
+		.mutation(async ({ ctx, input }) => {
+			const candidates = await db
+				.select({
+					id: projectsRef.id,
+					name: projectsRef.name,
+					prefix: projectsRef.prefix,
+					description: projectsRef.description,
+				})
+				.from(projectsRef)
+				.where(
+					and(
+						eq(projectsRef.teamId, ctx.user.teamId!),
+						eq(projectsRef.archived, false),
+					),
+				);
+
+			return suggestProjectsBySimilarity({
+				captureText: input.text,
+				candidates,
+			});
 		}),
 });
