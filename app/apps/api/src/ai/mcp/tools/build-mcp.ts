@@ -32,3 +32,22 @@ export function registerTaskTools(
 	registerListProjectsTool(server, getContext);
 	registerListMilestonesTool(server, getContext);
 }
+
+/**
+ * The 9 native Nexus tool names registered by `registerTaskTools`, above.
+ * The MCP gateway proxy (`mcp-proxy-tools.ts`) checks every namespaced
+ * proxied tool name against this set before registering it, so a
+ * misconfigured or maliciously-named upstream MCP server can never shadow a
+ * native tool.
+ */
+export const NATIVE_MCP_TOOL_NAMES: ReadonlySet<string> = new Set([
+	"mimrai_list_tasks",
+	"mimrai_get_task",
+	"mimrai_create_task",
+	"mimrai_update_task",
+	"mimrai_delete_task",
+	"mimrai_list_statuses",
+	"mimrai_list_labels",
+	"mimrai_list_projects",
+	"mimrai_list_milestones",
+]);

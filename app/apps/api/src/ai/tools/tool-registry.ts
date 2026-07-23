@@ -1,14 +1,9 @@
 import { createMCPClient, type MCPClientConfig } from "@ai-sdk/mcp";
 import type { UserIntegrationInfo } from "@api/ai/types";
-import {
-	getMcpServers,
-	getMcpServerUserTokens,
-} from "@nexus-app/db/queries/mcp-servers";
-import type { McpServerConfig } from "@nexus-app/db/schema";
 import type { IntegrationName } from "@nexus-app/integration/registry";
 import type { Tool } from "ai";
 import { getUserAvailableIntegrations } from "../agents/agent-factory";
-import { resolveValidMcpToken } from "../utils/mcp-token-refresh";
+import { connectTeamMcpServers } from "../mcp/shared/team-mcp-connections";
 import { addTaskAttachmentTool } from "./add-task-attachment";
 import {
 	bumpAgentMemoryRelevanceTool,
@@ -211,58 +206,18 @@ export const getTeamMcpTools = async (
 	const toolboxes: Record<string, Record<string, Tool>> = {};
 	const errors: Record<string, Error> = {};
 
-	const mcpServerConfigs = await getMcpServers({ teamId, activeOnly: true });
-	console.log(
-		`Found ${mcpServerConfigs.length} MCP servers for team ${teamId}`,
-	);
+	const { connections, errors: connectErrors } = await connectTeamMcpServers({
+		teamId,
+		userId,
+	});
 
-	// Look up per-user auth tokens for MCP servers that may require authentication
-	const serverIds = mcpServerConfigs.map((s) => s.id);
-	const userTokens =
-		userId && serverIds.length > 0
-			? await getMcpServerUserTokens({ userId, mcpServerIds: serverIds })
-			: {};
+	for (const [serverName, error] of Object.entries(connectErrors)) {
+		errors[`mcp:${serverName}`] = error;
+	}
 
-	for (const server of mcpServerConfigs) {
-		try {
-			const config = server.config as McpServerConfig;
-			const tokenInfo = userTokens[server.id];
-
-			// Resolve a valid access token, refreshing if expired
-			let accessToken: string | null = null;
-			if (tokenInfo && userId) {
-				accessToken = await resolveValidMcpToken({
-					userId,
-					mcpServerId: server.id,
-					serverConfig: config,
-					tokenInfo,
-				});
-			}
-
-			// Merge static headers with per-user auth token if available
-			const headers: Record<string, string> = {
-				...config.headers,
-				...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-			};
-
-			const mcpClient = await createMCPClient({
-				transport: {
-					type: server.transport as "http" | "sse",
-					url: config.url,
-					headers: Object.keys(headers).length > 0 ? headers : undefined,
-				},
-				name: `mcp-${server.name}`,
-			});
-			const mcpTools = await mcpClient.tools();
-			Object.assign(tools, mcpTools);
-			toolboxes[`mcp:${server.name}`] = mcpTools;
-		} catch (error) {
-			errors[`mcp:${server.name}`] = error as Error;
-			console.error(
-				`Failed to load MCP server "${server.name}" (${server.id}):`,
-				error,
-			);
-		}
+	for (const { server, tools: mcpTools } of connections) {
+		Object.assign(tools, mcpTools);
+		toolboxes[`mcp:${server.name}`] = mcpTools;
 	}
 
 	return { tools, toolboxes, errors };

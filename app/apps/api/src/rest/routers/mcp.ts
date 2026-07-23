@@ -9,9 +9,35 @@ import { checkMcpRateLimit } from "../../ai/mcp/rate-limit";
 import { createMcpServer } from "../../ai/mcp/server";
 import {
 	type McpContext,
+	NATIVE_MCP_TOOL_NAMES,
 	registerTaskTools,
 } from "../../ai/mcp/tools/build-mcp";
+import { registerProxiedMcpTools } from "../../ai/mcp/tools/mcp-proxy-tools";
 import type { Context } from "../types";
+
+/**
+ * Per-API-key MCP server scoping. A key's `metadata.mcpServers` field is
+ * either `"all"` or an explicit allowlist of `mcp_servers.id`s. A key with
+ * NO `mcpServers` field in its metadata AT ALL defaults to `"all"` of the
+ * team's ENABLED servers — this is a deliberate permissive default (same
+ * posture as native tools, which every key already sees unconditionally)
+ * and is called out here for the security review to rule on explicitly.
+ */
+type ApiKeyMetadata = {
+	teamId?: string;
+	mcpServers?: "all" | string[];
+};
+
+function resolveMcpServerScope(metadata: ApiKeyMetadata): "all" | string[] {
+	if (metadata.mcpServers === undefined) return "all";
+	if (metadata.mcpServers === "all") return "all";
+	if (Array.isArray(metadata.mcpServers)) {
+		return metadata.mcpServers.filter(
+			(id): id is string => typeof id === "string",
+		);
+	}
+	return "all";
+}
 
 const mcpRouter = new OpenAPIHono<Context>();
 
@@ -23,6 +49,7 @@ async function verifyApiKey(apiKeyHeader: string | undefined): Promise<{
 	teamId: string;
 	permissions: Record<string, string[]>;
 	keyId: string;
+	mcpServerScope: "all" | string[];
 } | null> {
 	if (!apiKeyHeader) {
 		return null;
@@ -47,8 +74,10 @@ async function verifyApiKey(apiKeyHeader: string | undefined): Promise<{
 		const { key } = result;
 		const userId = key.userId;
 
+		const metadata = (key.metadata ?? {}) as ApiKeyMetadata;
+
 		// Get the team ID from the API key metadata or user's default team
-		let teamId = (key.metadata as { teamId?: string })?.teamId;
+		let teamId = metadata.teamId;
 
 		if (!teamId) {
 			// Fall back to user's active team
@@ -78,7 +107,13 @@ async function verifyApiKey(apiKeyHeader: string | undefined): Promise<{
 			teamId,
 			keyId: key.id,
 		});
-		return { userId, teamId, permissions, keyId: key.id };
+		return {
+			userId,
+			teamId,
+			permissions,
+			keyId: key.id,
+			mcpServerScope: resolveMcpServerScope(metadata),
+		};
 	} catch (error) {
 		console.error("API key verification failed:", error);
 		return null;
@@ -136,7 +171,7 @@ mcpRouter.all("/", async (c) => {
 		return unauthorizedResponse("Unauthorized: Valid API key required");
 	}
 
-	const { userId, teamId, permissions, keyId } = authResult;
+	const { userId, teamId, permissions, keyId, mcpServerScope } = authResult;
 
 	// Check rate limit
 	const rateLimitResult = await checkMcpRateLimit(keyId);
@@ -168,14 +203,28 @@ mcpRouter.all("/", async (c) => {
 	// Create transport with user-based session ID
 	const transport = new StreamableHTTPTransport();
 
-	// Create and connect MCP server
+	// Create the MCP server with native tools, then mount this key's scoped
+	// slice of the team's configured MCP servers as namespaced proxy tools.
+	// Upstream clients are connected fresh for this request/session — never
+	// cached across requests — and MUST be closed once we're done with them,
+	// success or failure alike.
 	const mcpServer = createMcpServerWithTools(mcpContext);
-	await mcpServer.connect(transport);
+	const proxyHandle = await registerProxiedMcpTools({
+		server: mcpServer,
+		teamId,
+		userId,
+		serverScope: mcpServerScope,
+		nativeToolNames: NATIVE_MCP_TOOL_NAMES,
+	});
 
-	// Let @hono/mcp handle the request
-	const response = await transport.handleRequest(c);
+	try {
+		await mcpServer.connect(transport);
 
-	return response;
+		// Let @hono/mcp handle the request
+		return await transport.handleRequest(c);
+	} finally {
+		await proxyHandle.close();
+	}
 });
 
 // Handle OPTIONS for CORS preflight
